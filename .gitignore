@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# your personal data: CVs, jobs, LinkedIn connections. Backed up to its own private repo, never this one.
+/data/

@@ -1,0 +1,93 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import type { ActionState } from "@/app/actions";
+
+/** A button that runs a server action and shows its progress and result inline. */
+export function ActionButton({
+  run,
+  children,
+  pending,
+  variant = "primary",
+  size,
+}: {
+  run: () => Promise<ActionState>;
+  children: React.ReactNode;
+  pending?: string;
+  variant?: "primary" | "ghost";
+  size?: "sm";
+}) {
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => start(async () => setState(await run()))}
+        className={`btn btn-${variant} ${size === "sm" ? "btn-sm" : ""}`}
+      >
+        {busy && <Spinner />}
+        {busy ? (pending ?? "Working…") : children}
+      </button>
+      <Feedback state={busy ? null : state} />
+    </span>
+  );
+}
+
+export function Feedback({ state }: { state: ActionState }) {
+  if (!state) return null;
+  return (
+    <span className={`text-xs ${state.error ? "text-bad" : "text-good"}`} role="status">
+      {state.error ?? state.message}
+    </span>
+  );
+}
+
+export function Spinner() {
+  return <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />;
+}
+
+/** Copy a message, then open the person's LinkedIn profile so it can be pasted and sent by hand. */
+export function CopyAndOpen({ text, url, label = "Copy note & open LinkedIn" }: { text: string; url: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn btn-primary btn-sm"
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        if (url) window.open(url, "_blank", "noopener");
+        setTimeout(() => setCopied(false), 2500);
+      }}
+    >
+      {copied ? "Copied. Paste it in LinkedIn" : label}
+    </button>
+  );
+}
+
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost btn-sm"
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+    >
+      {copied ? "Copied" : label}
+    </button>
+  );
+}
+
+export function PrintButton() {
+  return (
+    <button type="button" className="btn btn-primary" onClick={() => window.print()}>
+      Save as PDF
+    </button>
+  );
+}

@@ -1,26 +1,160 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #0b0b0f;
+  --card: #131319;
+  --ink: #f4f4f5;
+  --ink-2: #a1a1aa;
+  --ink-3: #71717a;
+  --line: #23232c;
+  --soft: #1a1a22;
+  --accent: #c6ff3d;
+  --on-accent: #0b0b0f;
+  --good: #c6ff3d;
+  --warn: #fb923c;
+  --bad: #f87171;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-soft: var(--soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-display-face);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+.display {
+  font-family: var(--font-display-face), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+::selection { background: var(--accent); color: var(--on-accent); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s, opacity 0.15s, transform 0.05s;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: progress; }
+.btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn-primary:hover { box-shadow: 0 0 0 4px rgb(198 255 61 / 0.18); }
+.btn-ghost { border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+.btn-ghost:hover { background: var(--soft); }
+.btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  outline: none;
+}
+.field:focus { border-color: var(--accent); }
+select.field option { background: var(--card); }
+
+.label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+/* ---------- Resume: a faithful copy of the Canva layout, A4, ATS-readable text order ---------- */
+
+.resume {
+  --r-blue: #2f7be5;
+  --r-orange: #e8590c;
+  --r-side: #f1f2f4;
+  --r-ink: #1f1f1f;
+  --r-muted: #8a8a8a;
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  color: var(--r-ink);
   font-family: Arial, Helvetica, sans-serif;
+  font-size: 9.6pt;
+  line-height: 1.42;
+  display: grid;
+  grid-template-columns: 1fr 64mm;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+.resume .main { padding: 9mm 7mm 9mm 9mm; }
+.resume .side { background: var(--r-side); padding: 9mm 6mm; }
+.resume h1 { font-size: 27pt; font-weight: 400; line-height: 1.1; margin-left: 2mm; }
+.resume .headline { color: var(--r-orange); font-weight: 700; font-size: 11.5pt; margin: 2mm 0 4mm; }
+.resume h2 {
+  color: var(--r-blue);
+  font-size: 15pt;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4mm;
+  margin: 3mm 0 2mm;
+}
+.resume h2::after { content: ""; flex: 1; height: 1.5px; background: #c8c8c8; }
+.resume .side h2 { color: #6b6b6b; font-size: 13.5pt; margin-top: 5mm; }
+.resume .side h2::after { display: none; }
+.resume .role { break-inside: avoid; margin-bottom: 4mm; }
+.resume .role-head { display: flex; justify-content: space-between; gap: 4mm; }
+.resume .company { font-size: 12pt; }
+.resume .title { color: var(--r-blue); font-weight: 700; font-size: 10.5pt; }
+.resume .dates { color: var(--r-muted); text-align: right; font-size: 8.8pt; white-space: nowrap; }
+.resume .blurb { font-style: italic; margin: 1mm 0; }
+.resume ul { list-style: disc; padding-left: 5mm; }
+.resume li { margin: 0.6mm 0; }
+.resume .side li { font-size: 8.8pt; }
+.resume .photo {
+  width: 32mm;
+  height: 32mm;
+  object-fit: cover;
+  object-position: center 15%;
+  border-radius: 4mm;
+  border: 0.8mm solid var(--r-blue);
+  margin: 0 auto 5mm;
+  display: block;
+}
+.resume .contact { font-size: 9pt; font-weight: 700; text-decoration: underline; display: grid; gap: 2.4mm; padding-bottom: 4mm; border-bottom: 1px solid #ccc; }
+.resume .side-item-title { color: var(--r-blue); font-size: 10.5pt; }
+.resume .muted { color: var(--r-muted); }
+
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { background: #fff !important; }
+  .resume { box-shadow: none; }
+  .no-print { display: none !important; }
 }

@@ -1,0 +1,35 @@
+{
+  "name": "Asha Rao",
+  "headline": "SALES DEVELOPMENT LEADER | TEAM BUILDER",
+  "summary": "Sales development leader with 6 years building outbound teams for B2B SaaS. Grew pipeline 3x in one year and ramped 12 SDRs to quota.",
+  "contact": {
+    "phone": "+91 90000 00000",
+    "email": "asha@example.com",
+    "location": "Bangalore",
+    "linkedin": "https://www.linkedin.com/in/example"
+  },
+  "experience": [
+    {
+      "id": "acme",
+      "company": "Acme Cloud",
+      "role": "SDR Manager",
+      "start": "Jan'23",
+      "end": "Present",
+      "location": "Bangalore",
+      "blurb": "Leads a 6-person outbound team for the US mid-market.",
+      "bullets": [
+        "Grew sourced pipeline from $400K to $1.2M per quarter in 12 months.",
+        "Hired and ramped 12 SDRs to quota in 75 days on average."
+      ]
+    }
+  ],
+  "education": [
+    { "school": "Example University", "degree": "MBA", "detail": "Sales & Marketing", "year": "2018", "notes": [] }
+  ],
+  "certifications": [],
+  "skills": {
+    "technical": ["Outbound Prospecting", "Salesforce", "Outreach"],
+    "soft": ["Coaching", "Hiring"]
+  },
+  "extras": []
+}
