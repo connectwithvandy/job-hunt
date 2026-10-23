@@ -4,7 +4,7 @@
 
 A job search app for people playing more than one game at once.
 
-**Try it: [jobpipe.vercel.app](https://jobpipe.vercel.app)**
+**Try it: [job-pipe.vercel.app](https://job-pipe.vercel.app)**
 
 Most job tools assume one person, one CV, one target. Real searches aren't like that: you might go after Sales Development leadership, GTM Strategy and Account Executive roles in the same month, each pitched differently. JobPipe gives every one of those a **track** with its own CV angle and outreach voice, scores every job against all of them, and tells you which game is actually getting replies.
 
