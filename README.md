@@ -2,6 +2,8 @@
 
 A job search app for people playing more than one game at once.
 
+**Try it: [job-hunt-topaz.vercel.app](https://job-hunt-topaz.vercel.app)**
+
 Most job tools assume one person, one CV, one target. Real searches aren't like that: you might go after Sales Development leadership, GTM Strategy and Account Executive roles in the same month, each pitched differently. Job Hunt gives every one of those a **track** with its own CV angle and outreach voice, scores every job against all of them, and tells you which game is actually getting replies.
 
 It runs on your laptop. Your CV, jobs and LinkedIn connections stay in a `data/` folder on your machine.
