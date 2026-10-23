@@ -55,7 +55,7 @@ async function fileText(blob: Blob, fileName: string) {
 
 export const readCv = action({
   args: { storageId: v.id("_storage"), fileName: v.string(), replaceId: v.optional(v.id("resumes")), label: v.optional(v.string()) },
-  handler: async (ctx, { storageId, fileName, replaceId, label }): Promise<{ roles: number }> => {
+  handler: async (ctx, { storageId, fileName, replaceId, label }): Promise<{ roles: number; resumeId: Id<"resumes"> }> => {
     const userId = await requireUserId(ctx);
     try {
       const blob = await ctx.storage.get(storageId);
@@ -67,8 +67,8 @@ export const readCv = action({
       }
       await spend(ctx, userId, "readCv");
       const resume = await parseResume(text);
-      await ctx.runMutation(internal.users.storeParsedResume, { userId, resume, replaceId, label });
-      return { roles: resume.experience.length };
+      const resumeId: Id<"resumes"> = await ctx.runMutation(internal.users.storeParsedResume, { userId, resume, replaceId, label });
+      return { roles: resume.experience.length, resumeId };
     } finally {
       // The CV text now lives in the profile; the uploaded file isn't needed.
       await ctx.storage.delete(storageId);

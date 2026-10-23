@@ -52,7 +52,7 @@ export function ImportConnections() {
   );
 }
 
-export function UploadResume({ replace }: { replace?: { _id: Id<"resumes">; label: string } }) {
+export function UploadResume({ replace, onAdded }: { replace?: { _id: Id<"resumes">; label: string }; onAdded?: (id: Id<"resumes">) => void }) {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const setPhoto = useMutation(api.users.setPhoto);
   const readCv = useAction(api.agent.readCv);
@@ -76,7 +76,8 @@ export function UploadResume({ replace }: { replace?: { _id: Id<"resumes">; labe
             if (!cv?.size) return "Photo updated.";
             setBusy("Reading your CV… about a minute");
             const label = String(form.get("label") ?? "").trim() || undefined;
-            const { roles } = await readCv({ storageId: (await uploadFile(await generateUploadUrl(), cv)) as Id<"_storage">, fileName: cv.name, replaceId: replace?._id, label });
+            const { roles, resumeId } = await readCv({ storageId: (await uploadFile(await generateUploadUrl(), cv)) as Id<"_storage">, fileName: cv.name, replaceId: replace?._id, label });
+            onAdded?.(resumeId);
             return `Read your CV: ${roles} roles. Check it below and fix anything by hand.`;
           }),
         );

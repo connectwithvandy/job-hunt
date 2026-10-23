@@ -46,7 +46,7 @@ export default function Cvs() {
 
       {picked === "new" || !current ? (
         <div className="no-print max-w-3xl">
-          <UploadResume />
+          <UploadResume onAdded={setPicked} />
         </div>
       ) : (
         <>

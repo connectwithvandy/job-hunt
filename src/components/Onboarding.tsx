@@ -51,22 +51,33 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
       onSubmit={async (e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
-        const cv = form.get("cv") as File | null;
+        const cvs = (form.getAll("cv") as File[]).filter((f) => f.size);
         const photo = form.get("photo") as File | null;
-        if (!cv?.size && !me.resume) return setError("Choose your CV file first.");
+        if (!cvs.length && !me.resume) return setError("Choose your CV file first.");
+        if (cvs.length > 5) return setError("Pick up to 5 CVs for now. You can add more later on the CVs page.");
         setError("");
         try {
           if (photo?.size) {
             setBusy("Uploading your photo…");
             await setPhoto({ storageId: (await uploadFile(await generateUploadUrl(), photo)) as Id<"_storage"> });
           }
-          if (cv?.size) {
-            setBusy("Reading your CV… about a minute");
-            await readCv({
+          const read = async (cv: File, replaceId?: Id<"resumes">) =>
+            readCv({
               storageId: (await uploadFile(await generateUploadUrl(), cv)) as Id<"_storage">,
               fileName: cv.name,
-              replaceId: me.defaultResumeId ?? undefined,
+              replaceId,
+              label: cv.name.replace(/\.[^.]+$/, ""),
             });
+          if (cvs.length) {
+            setBusy(cvs.length > 1 ? `Reading your ${cvs.length} CVs… a minute or two` : "Reading your CV… about a minute");
+            // The first file becomes the main CV; the rest are added beside it.
+            await read(cvs[0], me.defaultResumeId ?? undefined);
+            const results = await Promise.allSettled(cvs.slice(1).map((cv) => read(cv)));
+            const failed = cvs.slice(1).filter((_, i) => results[i].status === "rejected");
+            if (failed.length) {
+              const first = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+              throw new Error(`Couldn't read ${failed.map((f) => f.name).join(", ")}: ${errorMessage(first.reason)} The others are saved.`);
+            }
           }
           onDone();
         } catch (err) {
@@ -82,8 +93,9 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
       </p>
       <div className="card mt-8 grid gap-6 p-6 sm:grid-cols-2">
         <label className="block">
-          <span className="label">Your CV</span>
-          <input type="file" name="cv" accept=".pdf,.docx,.txt,.md" className={fileClass} />
+          <span className="label">Your CVs</span>
+          <input type="file" name="cv" multiple accept=".pdf,.docx,.txt,.md" className={fileClass} />
+          <span className="mt-2 block text-xs text-ink-3">Have more than one angle? Pick them all. The first becomes your main CV.</span>
         </label>
         <label className="block">
           <span className="label">Photo (optional)</span>
