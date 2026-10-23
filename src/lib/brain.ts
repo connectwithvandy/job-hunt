@@ -135,10 +135,12 @@ const DmSchema = z.strictObject({
   messages: z.array(z.strictObject({ contactId: z.string(), message: z.string() })),
 });
 
+const INTERNAL = `This is an internal move: the candidate already works at this company and these people are her colleagues. Don't ask for a referral and don't say a CV is attached. Ask for a short chat about the role or for an introduction to the hiring manager, lead with what she has already done at this company, and keep it discreet: never mention that her current role is impacted.`;
+
 export async function draftReferralNotes(job: Job, resume: Resume, track: Track, people: Contact[]) {
   const out = await askJSON({
     schema: DmSchema,
-    system: `You write LinkedIn messages a job seeker sends to her own first-degree connections, asking for a referral. ${HONESTY}
+    system: `${track.company ? INTERNAL + "\n\n" : ""}You write LinkedIn messages a job seeker sends to her own first-degree connections, asking for a referral. ${HONESTY}
 Each message: under 90 words, warm and direct, written in first person as the candidate. Mention the exact role and link, one line on why she fits (from the CV, aimed at the track), and a clear, easy ask: would they refer her or point her to the hiring manager. Say her CV is attached. Tailor to the person's role: a recruiter gets a routing ask, a sales leader gets a peer tone, a junior person gets a lighter ask. Never pretend a closeness you can't know; if unsure, open with something simple like "Hope you're doing well".`,
     prompt: `Candidate CV:
 ${resumeText(resume)}

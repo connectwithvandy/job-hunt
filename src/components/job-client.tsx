@@ -161,7 +161,7 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: string; o: Outreach;
         <span className="text-xs text-ink-3">{o.status === "draft" ? "Not sent yet" : o.status === "referred" ? "Referred you" : o.status === "replied" ? "Replied" : `Sent${o.sentAt ? " " + new Date(o.sentAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}`}</span>
       </div>
       <textarea className="field h-36 text-sm leading-relaxed" value={message} onChange={(e) => setMessage(e.target.value)} />
-      <p className="mt-1 text-xs text-ink-3">Attach {cvName} in LinkedIn before you send.</p>
+      {cvName && <p className="mt-1 text-xs text-ink-3">Attach {cvName} in LinkedIn before you send.</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <CopyAndOpen text={message} url={o.url} />
         {OUTREACH_FLOW.map((s) => (

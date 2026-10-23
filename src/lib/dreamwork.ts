@@ -52,6 +52,12 @@ export async function searchListings(search: string, location: string, limit = 1
   return page.listings;
 }
 
+/** Every open role at one company, anywhere. Title search within a company returns nothing, so scoring does the filtering. */
+export async function companyListings(company: string) {
+  const page = await callTool<{ listings: Listing[] }>("browse_listings", { company, limit: 50 });
+  return page.listings;
+}
+
 export async function getListing(id: string) {
   const body = await callTool<{ listing: ListingDetail }>("get_listing", { id });
   return body.listing;

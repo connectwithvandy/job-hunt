@@ -18,7 +18,8 @@ export default async function JobPage({ params }: PageProps<"/jobs/[id]">) {
   const askedIds = new Set(job.outreach.map((o) => o.contactId));
   const notAsked = people.filter((p) => !askedIds.has(p.id));
   const currentTrack = trackById.get(jobTrackId(job) ?? "");
-  const cvName = `${resume?.name ?? "Your"} CV ${job.company}.pdf`;
+  // No CV attachment for an internal move: colleagues already know you.
+  const cvName = currentTrack?.company ? "" : `${resume?.name ?? "Your"} CV ${job.company}.pdf`;
 
   return (
     <div className="mx-auto max-w-6xl">

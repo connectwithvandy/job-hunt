@@ -9,6 +9,8 @@ export type Track = {
   titles: string[];
   /** One line on how you want to come across for this track. Shapes CV headline and outreach. */
   pitch: string;
+  /** Set for an internal-move track: only this company's roles, and notes go to colleagues. */
+  company?: string;
 };
 
 export type ResumeExperience = {

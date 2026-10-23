@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { buildPack, draftReferralNotes, extractJob, scoreJob } from "@/lib/brain";
 import { parseConnectionsCsv } from "@/lib/contacts";
-import { dreamworkIdFromUrl, getListing, searchListings } from "@/lib/dreamwork";
+import { companyListings, dreamworkIdFromUrl, getListing, searchListings } from "@/lib/dreamwork";
 import {
   getContacts, getJob, getJobs, getResume, getTracks,
   saveContacts, saveJobs, saveResume, saveTracks, updateJob,
@@ -39,8 +39,11 @@ export async function findJobs(trackId: string, location: string): Promise<Actio
     const seen = new Set(jobs.map((j) => j.id));
     const now = new Date().toISOString();
     let added = 0;
-    for (const title of track.titles.slice(0, 4)) {
-      for (const l of await searchListings(title, location || "India", 8)) {
+    const batches = track.company
+      ? [await companyListings(track.company)]
+      : await Promise.all(track.titles.slice(0, 4).map((title) => searchListings(title, location || "India", 8)));
+    for (const batch of batches) {
+      for (const l of batch) {
         if (seen.has(l.id)) continue;
         seen.add(l.id);
         added++;
@@ -295,6 +298,7 @@ export async function saveTrack(_: ActionState, form: FormData): Promise<ActionS
       status: form.get("active") ? "active" : "paused",
       titles: String(form.get("titles")).split(/\n|,/).map((s) => s.trim()).filter(Boolean),
       pitch: String(form.get("pitch")).trim(),
+      company: String(form.get("company") ?? "").trim() || undefined,
     };
     if (!next.name || !next.titles.length) throw new Error("A track needs a name and at least one title.");
     const i = tracks.findIndex((t) => t.id === id);

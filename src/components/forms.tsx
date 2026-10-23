@@ -56,6 +56,10 @@ export function TrackForm({ track }: { track: Track }) {
         <span className="label">Your pitch for this track</span>
         <input name="pitch" defaultValue={track.pitch} className="field mt-1" placeholder="How you want to come across" />
       </label>
+      <label className="block">
+        <span className="label">Only this company (for an internal move)</span>
+        <input name="company" defaultValue={track.company ?? ""} className="field mt-1" placeholder="Leave empty to search everywhere" />
+      </label>
       <div className="flex items-center gap-3">
         <button className="btn btn-primary btn-sm" disabled={busy}>
           {busy ? "Saving…" : "Save"}

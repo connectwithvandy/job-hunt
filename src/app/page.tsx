@@ -57,7 +57,7 @@ export default async function Today() {
           <h2 className="display text-3xl">Your tracks</h2>
           <Link href="/tracks" className="text-sm text-ink-3 hover:text-ink">Edit tracks</Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {stats.map(({ t, inPlay, applied, asks, replies, interviews }) => (
             <Link key={t.id} href={`/jobs?track=${t.id}`} className={`card group relative overflow-hidden p-5 transition-shadow hover:shadow-md ${t.status === "paused" ? "opacity-55" : ""}`}>
               <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.color, boxShadow: `0 0 18px ${t.color}` }} />
