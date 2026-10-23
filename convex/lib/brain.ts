@@ -64,7 +64,7 @@ export async function scoreJob(job: Job, resume: Resume, tracks: Track[]) {
   const active = tracks.filter((t) => t.status === "active");
   return askJSON({
     schema: ScoreSchema,
-    system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role.`,
+    system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role. Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them.`,
     prompt: `Candidate's master CV:
 ${resumeText(resume)}
 

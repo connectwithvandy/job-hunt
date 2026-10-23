@@ -21,10 +21,10 @@ export type Listing = {
 };
 
 export type ListingDetail = {
-  description: string;
-  companyLogoUrl?: string;
-  seniorityLevel?: string;
-  sourceUrl?: string;
+  description: string | null;
+  companyLogoUrl?: string | null;
+  seniorityLevel?: string | null;
+  sourceUrl?: string | null;
 };
 
 async function callTool<T>(name: string, args: Record<string, unknown>): Promise<T> {

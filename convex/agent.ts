@@ -144,9 +144,9 @@ export const addJob = action({
       const l = await getListing(dwId);
       const raw = l as unknown as Record<string, string>;
       job = {
-        externalId: dwId, source: "dreamwork", url: link, sourceUrl: l.sourceUrl,
-        title: raw.title, company: raw.companyName, location: raw.location, workSetting: raw.remoteType,
-        description: l.description, companyLogo: l.companyLogoUrl, seniority: l.seniorityLevel,
+        externalId: dwId, source: "dreamwork", url: link, sourceUrl: l.sourceUrl ?? undefined,
+        title: raw.title, company: raw.companyName, location: raw.location ?? "", workSetting: raw.remoteType ?? undefined,
+        description: l.description ?? undefined, companyLogo: l.companyLogoUrl ?? undefined, seniority: l.seniorityLevel ?? undefined,
         status: "new", outreach: [], updatedAt: now,
       };
     } else {
@@ -177,7 +177,8 @@ export const addJob = action({
 async function withDescription(job: Doc<"jobs">) {
   if (job.description || job.source !== "dreamwork") return job;
   const l = await getListing(job.externalId);
-  return { ...job, description: l.description, companyLogo: l.companyLogoUrl, seniority: l.seniorityLevel };
+  // Dreamwork sends null for missing fields; the database wants them left out.
+  return { ...job, description: l.description ?? undefined, companyLogo: l.companyLogoUrl ?? undefined, seniority: l.seniorityLevel ?? undefined };
 }
 
 export const scoreJobs = action({
