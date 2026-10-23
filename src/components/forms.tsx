@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { importConnections, saveResumeJson, saveTrack } from "@/app/actions";
+import { importConnections, saveResumeJson, saveTrack, uploadResume } from "@/app/actions";
 import type { Track } from "@/lib/types";
 import { Feedback, Spinner } from "./ui";
 
@@ -15,6 +15,37 @@ export function ImportConnections() {
         {busy ? "Loading…" : "Load connections"}
       </button>
       <Feedback state={busy ? null : state} />
+    </form>
+  );
+}
+
+export function UploadResume({ hasResume }: { hasResume: boolean }) {
+  const [state, action, busy] = useActionState(uploadResume, null);
+  const file = "text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line";
+  return (
+    <form action={action} className="card p-6">
+      <h2 className="display mb-1 text-2xl">{hasResume ? "Upload a new CV" : "Upload your CV"}</h2>
+      <p className="mb-5 text-sm text-ink-2">
+        PDF or Word. Claude reads it into your master CV, keeping every role, bullet and number.
+        {hasResume && " This replaces the CV below."}
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block">
+          <span className="label">CV</span>
+          <input type="file" name="cv" accept=".pdf,.docx,.txt,.md" className={`mt-2 block w-full ${file}`} />
+        </label>
+        <label className="block">
+          <span className="label">Photo (optional)</span>
+          <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" className={`mt-2 block w-full ${file}`} />
+        </label>
+      </div>
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button className="btn btn-primary" disabled={busy}>
+          {busy && <Spinner />}
+          {busy ? "Reading your CV… about a minute" : "Upload"}
+        </button>
+        <Feedback state={busy ? null : state} />
+      </div>
     </form>
   );
 }

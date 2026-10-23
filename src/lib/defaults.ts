@@ -23,7 +23,7 @@ export const DEFAULT_TRACKS: Track[] = [
     name: "GTM Strategy",
     color: "#F472B6",
     status: "active",
-    titles: ["GTM Strategy", "Revenue Operations", "GTM Strategy and Operations", "Business Operations"],
+    titles: ["GTM Strategy", "Revenue Operations", "Founder's Office GTM", "Founder's Office", "Business Operations"],
     pitch: "Fixes funnels with data: conversion, territory and handoff design.",
   },
   {

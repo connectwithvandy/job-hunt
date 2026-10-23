@@ -45,7 +45,7 @@ export default async function Today() {
         <section className="card mb-10 p-6">
           <h2 className="display mb-4 text-2xl">Get set up</h2>
           <ol className="grid gap-3 md:grid-cols-3">
-            <Setup done={!!resume} n={1} href="/resume" title="Add your master CV" text="Everything you've done. Each job gets a tailored copy." />
+            <Setup done={!!resume} n={1} href="/resume" title="Upload your CV" text="PDF or Word. Each job gets a tailored copy of it." />
             <Setup done={contacts.length > 0} n={2} href="/network" title="Load your LinkedIn connections" text="So every job shows who you know there." />
             <Setup done={jobs.length > 0} n={3} href="/jobs" title="Find your first jobs" text="Search Dreamwork per track, or paste a link." />
           </ol>

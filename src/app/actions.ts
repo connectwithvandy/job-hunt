@@ -3,11 +3,15 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { buildPack, draftReferralNotes, extractJob, scoreJob } from "@/lib/brain";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import mammoth from "mammoth";
+import { extractText, getDocumentProxy } from "unpdf";
+import { buildPack, draftReferralNotes, extractJob, parseResume, scoreJob } from "@/lib/brain";
 import { parseConnectionsCsv } from "@/lib/contacts";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings } from "@/lib/dreamwork";
 import {
-  getContacts, getJob, getJobs, getResume, getTracks,
+  DATA_DIR, getContacts, getJob, getJobs, getResume, getTracks,
   saveContacts, saveJobs, saveResume, saveTracks, updateJob,
 } from "@/lib/store";
 import type { Job, JobStatus, OutreachStatus, Resume, Track } from "@/lib/types";
@@ -41,7 +45,7 @@ export async function findJobs(trackId: string, location: string): Promise<Actio
     let added = 0;
     const batches = track.company
       ? [await companyListings(track.company)]
-      : await Promise.all(track.titles.slice(0, 4).map((title) => searchListings(title, location || "India", 8)));
+      : await Promise.all(track.titles.slice(0, 8).map((title) => searchListings(title, location || "India", 8)));
     for (const batch of batches) {
       for (const l of batch) {
         if (seen.has(l.id)) continue;
@@ -306,6 +310,65 @@ export async function saveTrack(_: ActionState, form: FormData): Promise<ActionS
     else tracks[i] = next;
     await saveTracks(tracks);
     return done("Saved.");
+  } catch (err) {
+    return failed(err);
+  }
+}
+
+const PHOTO_TYPES: Record<string, string> = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
+
+async function fileText(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) {
+    const pdf = await getDocumentProxy(bytes);
+    const { text } = await extractText(pdf, { mergePages: true });
+    // Links like "LinkedIn Profile" are clickable text, so the URL only lives in the PDF's link annotations.
+    const links = new Set<string>();
+    for (let i = 1; i <= pdf.numPages; i++) {
+      for (const a of await (await pdf.getPage(i)).getAnnotations()) {
+        if (typeof a.url === "string") links.add(a.url);
+      }
+    }
+    return links.size ? `${text}\n\nLinks in the file: ${[...links].join(" ")}` : text;
+  }
+  if (name.endsWith(".docx")) return (await mammoth.extractRawText({ buffer: Buffer.from(bytes) })).value;
+  if (name.endsWith(".txt") || name.endsWith(".md")) return new TextDecoder().decode(bytes);
+  throw new Error("Upload a PDF, a Word file (.docx) or a text file.");
+}
+
+export async function uploadResume(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const file = form.get("cv");
+    const photo = form.get("photo");
+    const hasCv = file instanceof File && file.size > 0;
+    const hasPhoto = photo instanceof File && photo.size > 0;
+    if (!hasCv && !hasPhoto) throw new Error("Choose your CV file first.");
+
+    let photoName: string | undefined;
+    if (hasPhoto) {
+      const ext = PHOTO_TYPES[photo.type];
+      if (!ext) throw new Error("The photo should be a JPG, PNG or WebP image.");
+      if (photo.size > 5_000_000) throw new Error("The photo is over 5 MB. Use a smaller one.");
+      photoName = `photo${ext}`;
+      await fs.mkdir(path.join(DATA_DIR, "assets"), { recursive: true });
+      await fs.writeFile(path.join(DATA_DIR, "assets", photoName), new Uint8Array(await photo.arrayBuffer()));
+    }
+
+    const current = await getResume();
+    if (!hasCv) {
+      if (!current) throw new Error("Upload your CV along with the photo.");
+      await saveResume({ ...current, photo: photoName });
+      return done("Photo updated.");
+    }
+
+    const text = (await fileText(file)).trim();
+    if (text.length < 200) {
+      throw new Error("Couldn't read text from that file. If it's a scanned image, export it from Canva or Word as a text PDF.");
+    }
+    const parsed = await parseResume(text);
+    await saveResume({ ...parsed, photo: photoName ?? current?.photo });
+    return done(`Read your CV: ${parsed.experience.length} roles. Check it below and fix anything by hand.`);
   } catch (err) {
     return failed(err);
   }

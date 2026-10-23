@@ -10,6 +10,7 @@ It runs on your laptop. Your CV, jobs and LinkedIn connections stay in a `data/`
 
 - **Finds jobs** from [Dreamwork](https://www.dreamworkhq.com)'s public index, per track, or from any link or pasted description.
 - **Scores fit per track**, with a reason and the gaps, so a misleading title doesn't waste your evening.
+- **Reads your CV** from a PDF or Word upload, links included, into a master CV.
 - **Tailors your CV and cover letter** for each job in your own CV design, reordering and trimming your master CV. A fact check flags any number that isn't in your master CV.
 - **Finds who you know there** from your LinkedIn connections, picks the one or two best people to ask, and drafts a personal referral note for each. You press Send yourself: nothing is automated on LinkedIn, so your account stays safe.
 - **Tracks everything**: applications on a board, referral asks with nudges after five days, and reply rates per track on the home screen.

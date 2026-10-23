@@ -1,40 +1,35 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { PageHead } from "@/components/bits";
-import { ResumeEditor } from "@/components/forms";
+import { ResumeEditor, UploadResume } from "@/components/forms";
 import { ResumeDoc } from "@/components/ResumeDoc";
 import { PrintButton } from "@/components/ui";
 import { getResume } from "@/lib/store";
 
 export default async function MasterResume() {
   const resume = await getResume();
-  const json = resume
-    ? JSON.stringify(resume, null, 2)
-    : await readFile(path.join(process.cwd(), "examples", "resume.example.json"), "utf8");
 
   return (
     <div>
       <PageHead
         title="Master CV"
-        sub="Everything you've ever done, in one place. Each job gets a tailored copy that only reorders and trims this, so put every real number here."
+        sub="Everything you've ever done, in one place. Each job gets a tailored copy that only reorders and trims this, so every real number belongs here."
       >
         {resume && <PrintButton />}
       </PageHead>
-      <div className="grid gap-8 xl:grid-cols-[auto_1fr]">
-        {resume ? (
-          <div className="overflow-x-auto">
+      <div className="no-print mb-8 max-w-3xl">
+        <UploadResume hasResume={!!resume} />
+      </div>
+      {resume && (
+        <>
+          <div className="overflow-x-auto pb-4">
             <ResumeDoc r={resume} />
           </div>
-        ) : (
-          <div className="card max-w-xl p-6 text-ink-2">
-            No CV yet. The editor has an example to show the shape: replace it with your own and save. Put a photo in data/assets and name it in the &quot;photo&quot; field.
-          </div>
-        )}
-        <div className="no-print min-w-0">
-          <div className="label mb-2">Edit</div>
-          <ResumeEditor json={json} />
-        </div>
-      </div>
+          <details className="no-print card mt-8 max-w-4xl p-6">
+            <summary className="cursor-pointer font-medium">Fix something by hand</summary>
+            <p className="mt-2 mb-4 text-sm text-ink-2">This is your CV as data. Change any text, keep the quotes and commas, then save.</p>
+            <ResumeEditor json={JSON.stringify(resume, null, 2)} />
+          </details>
+        </>
+      )}
     </div>
   );
 }
