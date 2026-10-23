@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
-import { Sidebar } from "@/components/Sidebar";
+import { Shell } from "@/components/Shell";
+import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -14,9 +15,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${inter.variable} ${display.variable} antialiased`}>
-      <body className="min-h-screen md:flex">
-        <Sidebar />
-        <main className="flex-1 min-w-0 px-5 py-8 md:px-12 md:py-12 print:p-0">{children}</main>
+      <body className="min-h-screen">
+        <ConvexClientProvider>
+          <Shell>{children}</Shell>
+        </ConvexClientProvider>
       </body>
     </html>
   );

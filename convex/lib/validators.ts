@@ -1,0 +1,102 @@
+import { v } from "convex/values";
+
+export const resumeV = v.object({
+  name: v.string(),
+  headline: v.string(),
+  summary: v.string(),
+  contact: v.object({ phone: v.string(), email: v.string(), location: v.string(), linkedin: v.string() }),
+  experience: v.array(
+    v.object({
+      id: v.string(),
+      company: v.string(),
+      role: v.string(),
+      start: v.string(),
+      end: v.string(),
+      location: v.string(),
+      blurb: v.string(),
+      bullets: v.array(v.string()),
+    }),
+  ),
+  education: v.array(v.object({ school: v.string(), degree: v.string(), detail: v.string(), year: v.string(), notes: v.array(v.string()) })),
+  certifications: v.array(v.object({ name: v.string(), detail: v.string() })),
+  skills: v.object({ technical: v.array(v.string()), soft: v.array(v.string()) }),
+  extras: v.array(v.object({ title: v.string(), items: v.array(v.object({ heading: v.string(), text: v.string() })) })),
+});
+
+export const trackFields = {
+  key: v.string(),
+  name: v.string(),
+  color: v.string(),
+  status: v.union(v.literal("active"), v.literal("paused")),
+  titles: v.array(v.string()),
+  pitch: v.string(),
+  /** Set for an internal-move track: only this company's roles, and notes go to colleagues. */
+  company: v.optional(v.string()),
+  /** Which of your CVs this track starts from; the default CV when unset. */
+  resumeId: v.optional(v.id("resumes")),
+};
+
+export const jobStatusV = v.union(
+  v.literal("new"),
+  v.literal("applying"),
+  v.literal("applied"),
+  v.literal("screening"),
+  v.literal("interview"),
+  v.literal("offer"),
+  v.literal("rejected"),
+  v.literal("dismissed"),
+);
+
+export const outreachStatusV = v.union(v.literal("draft"), v.literal("sent"), v.literal("replied"), v.literal("referred"));
+
+export const outreachV = v.object({
+  contactId: v.string(),
+  name: v.string(),
+  position: v.string(),
+  url: v.string(),
+  message: v.string(),
+  status: outreachStatusV,
+  sentAt: v.optional(v.number()),
+});
+
+export const packV = v.object({
+  trackKey: v.string(),
+  createdAt: v.number(),
+  resume: resumeV,
+  coverLetter: v.string(),
+  /** A short note to send HR or the hiring manager directly, on LinkedIn or by email. */
+  directNote: v.optional(v.string()),
+  hiringManagerTitles: v.array(v.string()),
+  /** Numbers in the tailored CV that don't appear in the master CV. Should be empty. */
+  unverified: v.array(v.string()),
+});
+
+export const scoreV = v.object({ trackKey: v.string(), score: v.number(), reason: v.string(), gaps: v.array(v.string()) });
+
+export const jobFields = {
+  externalId: v.string(),
+  source: v.union(v.literal("dreamwork"), v.literal("link"), v.literal("pasted")),
+  url: v.string(),
+  sourceUrl: v.optional(v.string()),
+  title: v.string(),
+  company: v.string(),
+  companyLogo: v.optional(v.string()),
+  location: v.string(),
+  workSetting: v.optional(v.string()),
+  salary: v.optional(v.string()),
+  seniority: v.optional(v.string()),
+  postedAt: v.optional(v.string()),
+  description: v.optional(v.string()),
+  /** Track whose search found this job. Scoring may move it. */
+  foundFor: v.optional(v.string()),
+  scores: v.optional(v.array(scoreV)),
+  brief: v.optional(v.object({ whatTheyWant: v.string(), watchOuts: v.string() })),
+  trackKey: v.optional(v.string()),
+  status: jobStatusV,
+  pack: v.optional(packV),
+  outreach: v.array(outreachV),
+  appliedAt: v.optional(v.number()),
+  updatedAt: v.number(),
+};
+
+export const jobV = v.object(jobFields);

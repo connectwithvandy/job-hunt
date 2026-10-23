@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { usePathname } from "next/navigation";
 
 const NAV = [
@@ -8,13 +9,13 @@ const NAV = [
   { href: "/jobs", label: "Jobs" },
   { href: "/tracker", label: "Tracker" },
   { href: "/network", label: "Network" },
-  { href: "/resume", label: "Master CV" },
+  { href: "/resume", label: "CVs" },
   { href: "/tracks", label: "Tracks" },
 ];
 
 export function Sidebar() {
   const path = usePathname();
-  if (path.endsWith("/resume") && path.startsWith("/jobs/")) return null;
+  const { signOut } = useAuthActions();
   return (
     <aside className="no-print md:w-56 md:shrink-0 md:min-h-screen md:border-r border-line px-5 py-5 md:py-10 flex md:flex-col gap-6 items-center md:items-stretch">
       <Link href="/" className="display text-lg uppercase leading-none tracking-wide">
@@ -36,6 +37,9 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <button type="button" onClick={() => void signOut()} className="ml-auto text-left text-xs text-ink-3 hover:text-ink md:mt-auto md:ml-0 md:px-3">
+        Sign out
+      </button>
     </aside>
   );
 }

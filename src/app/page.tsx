@@ -1,17 +1,27 @@
+"use client";
+
+import { useQuery } from "convex/react";
 import Link from "next/link";
-import { CompanyMark, ScorePill, TrackTag, bestScore, jobTrackId, timeAgo } from "@/components/bits";
-import { aiMode } from "@/lib/ai";
-import { getContacts, getJobs, getResume, getTracks } from "@/lib/store";
-import type { Job } from "@/lib/types";
+import { api } from "../../convex/_generated/api";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { CompanyMark, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { Loading } from "@/components/Loading";
 
 const DAY = 86_400_000;
 const LIVE = new Set(["applying", "applied", "screening", "interview", "offer"]);
 
-export default async function Today() {
-  const [jobs, tracks, resume, contacts] = await Promise.all([getJobs(), getTracks(), getResume(), getContacts()]);
-  const firstName = resume?.name.split(" ")[0];
-  const stats = tracks.map((t) => {
-    const mine = jobs.filter((j) => jobTrackId(j) === t.id && j.status !== "dismissed");
+function msSince(when: number) {
+  return Date.now() - when;
+}
+
+export default function Today() {
+  const me = useQuery(api.users.me);
+  const jobs = useQuery(api.jobs.list);
+  if (!me || !jobs) return <Loading />;
+  const firstName = me.resume?.name.split(" ")[0];
+
+  const stats = me.tracks.map((t) => {
+    const mine = jobs.filter((j) => jobTrackKey(j) === t.key && j.status !== "dismissed");
     const applied = mine.filter((j) => LIVE.has(j.status) && j.status !== "applying");
     const asks = mine.flatMap((j) => j.outreach.filter((o) => o.status !== "draft"));
     const replies = asks.filter((o) => o.status === "replied" || o.status === "referred");
@@ -25,9 +35,7 @@ export default async function Today() {
     .sort((a, b) => bestScore(b)!.score - bestScore(a)!.score)
     .slice(0, 5);
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
-  const nudges = jobs.flatMap((j) =>
-    j.outreach.filter((o) => o.status === "sent" && o.sentAt && msSince(o.sentAt) > 5 * DAY).map((o) => ({ j, o })),
-  );
+  const nudges = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "sent" && o.sentAt && msSince(o.sentAt) > 5 * DAY).map((o) => ({ j, o })));
   const quiet = jobs.filter((j) => j.status === "applied" && j.appliedAt && msSince(j.appliedAt) > 10 * DAY);
   const nothingToDo = !unscored.length && !strong.length && !drafts.length && !nudges.length && !quiet.length;
 
@@ -41,13 +49,12 @@ export default async function Today() {
         </h1>
       </header>
 
-      {(!resume || contacts.length === 0 || jobs.length === 0) && (
+      {(me.contactsCount === 0 || jobs.length === 0) && (
         <section className="card mb-10 p-6">
-          <h2 className="display mb-4 text-2xl">Get set up</h2>
-          <ol className="grid gap-3 md:grid-cols-3">
-            <Setup done={!!resume} n={1} href="/resume" title="Upload your CV" text="PDF or Word. Each job gets a tailored copy of it." />
-            <Setup done={contacts.length > 0} n={2} href="/network" title="Load your LinkedIn connections" text="So every job shows who you know there." />
-            <Setup done={jobs.length > 0} n={3} href="/jobs" title="Find your first jobs" text="Search Dreamwork per track, or paste a link." />
+          <h2 className="display mb-4 text-2xl">Next steps</h2>
+          <ol className="grid gap-3 md:grid-cols-2">
+            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text="Your searches are running. Score what comes back." />
+            <Setup done={me.contactsCount > 0} n={2} href="/network" title="Load your LinkedIn connections" text="So every job shows who you know there." />
           </ol>
         </section>
       )}
@@ -55,11 +62,13 @@ export default async function Today() {
       <section className="mb-12">
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="display text-3xl">Your tracks</h2>
-          <Link href="/tracks" className="text-sm text-ink-3 hover:text-ink">Edit tracks</Link>
+          <Link href="/tracks" className="text-sm text-ink-3 hover:text-ink">
+            Edit tracks
+          </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {stats.map(({ t, inPlay, applied, asks, replies, interviews }) => (
-            <Link key={t.id} href={`/jobs?track=${t.id}`} className={`card group relative overflow-hidden p-5 transition-shadow hover:shadow-md ${t.status === "paused" ? "opacity-55" : ""}`}>
+            <Link key={t._id} href={`/jobs?track=${t.key}`} className={`card group relative overflow-hidden p-5 transition-shadow hover:shadow-md ${t.status === "paused" ? "opacity-55" : ""}`}>
               <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.color, boxShadow: `0 0 18px ${t.color}` }} />
               <div className="flex items-start justify-between gap-2">
                 <h3 className="display text-xl leading-tight">{t.name}</h3>
@@ -88,28 +97,28 @@ export default async function Today() {
             {strong.length > 0 && (
               <Panel title="Strong fits to apply to" hint="75 and above, not started yet">
                 {strong.map((j) => (
-                  <JobRow key={j.id} j={j} track={tracks.find((t) => t.id === jobTrackId(j))} />
+                  <JobRow key={j._id} j={j} track={me.tracks.find((t) => t.key === jobTrackKey(j))} />
                 ))}
               </Panel>
             )}
             {drafts.length > 0 && (
               <Panel title="Referral notes to send" hint="Drafted, waiting on you">
                 {drafts.map(({ j, o }) => (
-                  <Row key={j.id + o.contactId} href={`/jobs/${j.id}`} main={o.name} sub={`${j.title} at ${j.company}`} />
+                  <Row key={j._id + o.contactId} href={`/jobs/${j._id}`} main={o.name} sub={`${j.title} at ${j.company}`} />
                 ))}
               </Panel>
             )}
             {nudges.length > 0 && (
               <Panel title="Nudge these people" hint="Asked over 5 days ago, no reply">
                 {nudges.map(({ j, o }) => (
-                  <Row key={j.id + o.contactId} href={`/jobs/${j.id}`} main={o.name} sub={`Asked ${timeAgo(o.sentAt)} about ${j.company}`} />
+                  <Row key={j._id + o.contactId} href={`/jobs/${j._id}`} main={o.name} sub={`Asked ${timeAgo(o.sentAt)} about ${j.company}`} />
                 ))}
               </Panel>
             )}
             {quiet.length > 0 && (
               <Panel title="Gone quiet" hint="Applied over 10 days ago">
                 {quiet.map((j) => (
-                  <Row key={j.id} href={`/jobs/${j.id}`} main={`${j.title} at ${j.company}`} sub={`Applied ${timeAgo(j.appliedAt)}. Follow up, or find someone inside.`} />
+                  <Row key={j._id} href={`/jobs/${j._id}`} main={`${j.title} at ${j.company}`} sub={`Applied ${timeAgo(j.appliedAt)}. Follow up, or find someone inside.`} />
                 ))}
               </Panel>
             )}
@@ -122,17 +131,15 @@ export default async function Today() {
         )}
       </section>
 
-      <p className="mt-16 text-xs text-ink-3">AI: {aiMode()} · {contacts.length.toLocaleString()} connections loaded</p>
+      <p className="mt-16 text-xs text-ink-3">
+        {me.email} · {me.contactsCount.toLocaleString()} connections loaded
+      </p>
     </div>
   );
 }
 
-function msSince(iso: string) {
-  return Date.now() - new Date(iso).getTime();
-}
-
 function greeting() {
-  const h = Number(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }));
+  const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
@@ -180,10 +187,10 @@ function Row({ href, main, sub }: { href: string; main: string; sub: string }) {
   );
 }
 
-function JobRow({ j, track }: { j: Job; track?: Parameters<typeof TrackTag>[0]["track"] }) {
+function JobRow({ j, track }: { j: Pick<Doc<"jobs">, "_id" | "title" | "company" | "companyLogo" | "scores">; track?: Doc<"tracks"> }) {
   return (
     <li>
-      <Link href={`/jobs/${j.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-soft">
+      <Link href={`/jobs/${j._id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-soft">
         <CompanyMark job={j} size={30} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{j.title}</div>

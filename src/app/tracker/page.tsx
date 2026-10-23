@@ -1,12 +1,18 @@
-import Link from "next/link";
-import { CompanyMark, PageHead, jobTrackId, timeAgo } from "@/components/bits";
-import { StatusSelect } from "@/components/job-client";
-import { PIPELINE } from "@/lib/defaults";
-import { getJobs, getTracks } from "@/lib/store";
+"use client";
 
-export default async function Tracker() {
-  const [jobs, tracks] = await Promise.all([getJobs(), getTracks()]);
-  const color = new Map(tracks.map((t) => [t.id, t.color]));
+import { useQuery } from "convex/react";
+import Link from "next/link";
+import { api } from "../../../convex/_generated/api";
+import { PIPELINE } from "../../../convex/lib/defaults";
+import { CompanyMark, PageHead, jobTrackKey, timeAgo } from "@/components/bits";
+import { StatusSelect } from "@/components/job-client";
+import { Loading } from "@/components/Loading";
+
+export default function Tracker() {
+  const me = useQuery(api.users.me);
+  const jobs = useQuery(api.jobs.list);
+  if (!me || !jobs) return <Loading />;
+  const color = new Map(me.tracks.map((t) => [t.key, t.color]));
   const total = jobs.filter((j) => PIPELINE.some((p) => p.status === j.status)).length;
 
   return (
@@ -14,21 +20,21 @@ export default async function Tracker() {
       <PageHead title="Tracker" sub={total ? `${total} applications in motion. Change a card's status to move it.` : "Applications show up here once you start one."} />
       <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-6 md:-mx-12 md:px-12">
         {PIPELINE.map((col) => {
-          const cards = jobs.filter((j) => j.status === col.status).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+          const cards = jobs.filter((j) => j.status === col.status).sort((a, b) => b.updatedAt - a.updatedAt);
           return (
             <section key={col.status} className="w-72 shrink-0">
               <h2 className="mb-3 flex items-baseline justify-between px-1">
                 <span className="font-medium">{col.label}</span>
-                <span className="text-sm text-ink-3 tabular-nums">{cards.length}</span>
+                <span className="text-sm tabular-nums text-ink-3">{cards.length}</span>
               </h2>
               <div className="min-h-32 space-y-3 rounded-2xl bg-soft p-2">
                 {cards.map((j) => {
                   const asked = j.outreach.filter((o) => o.status !== "draft").length;
                   const warm = j.outreach.filter((o) => o.status === "replied" || o.status === "referred").length;
                   return (
-                    <div key={j.id} className="card relative overflow-hidden p-4">
-                      <span className="absolute inset-y-0 left-0 w-1" style={{ background: color.get(jobTrackId(j) ?? "") ?? "transparent" }} />
-                      <Link href={`/jobs/${j.id}`} className="flex gap-3">
+                    <div key={j._id} className="card relative overflow-hidden p-4">
+                      <span className="absolute inset-y-0 left-0 w-1" style={{ background: color.get(jobTrackKey(j) ?? "") ?? "transparent" }} />
+                      <Link href={`/jobs/${j._id}`} className="flex gap-3">
                         <CompanyMark job={j} size={28} />
                         <div className="min-w-0">
                           <div className="text-sm font-medium leading-snug">{j.title}</div>
@@ -40,7 +46,7 @@ export default async function Tracker() {
                           {j.appliedAt ? `Applied ${timeAgo(j.appliedAt)}` : `Updated ${timeAgo(j.updatedAt)}`}
                           {asked ? ` · ${warm}/${asked} warm` : ""}
                         </span>
-                        <StatusSelect jobId={j.id} status={j.status} />
+                        <StatusSelect jobId={j._id} status={j.status} />
                       </div>
                     </div>
                   );

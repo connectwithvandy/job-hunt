@@ -1,7 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ActionState } from "@/app/actions";
+import { errorMessage } from "@/lib/errors";
+
+export type ActionState = { error?: string; message?: string } | null;
+
+/** Run a Convex call and turn the result or error into something to show. */
+export async function attempt(fn: () => Promise<string | void>): Promise<ActionState> {
+  try {
+    const message = await fn();
+    return message ? { message } : null;
+  } catch (err) {
+    return { error: errorMessage(err) };
+  }
+}
 
 /** A button that runs a server action and shows its progress and result inline. */
 export function ActionButton({
@@ -11,7 +23,7 @@ export function ActionButton({
   variant = "primary",
   size,
 }: {
-  run: () => Promise<ActionState>;
+  run: () => Promise<string | void>;
   children: React.ReactNode;
   pending?: string;
   variant?: "primary" | "ghost";
@@ -24,7 +36,7 @@ export function ActionButton({
       <button
         type="button"
         disabled={busy}
-        onClick={() => start(async () => setState(await run()))}
+        onClick={() => start(async () => setState(await attempt(run)))}
         className={`btn btn-${variant} ${size === "sm" ? "btn-sm" : ""}`}
       >
         {busy && <Spinner />}

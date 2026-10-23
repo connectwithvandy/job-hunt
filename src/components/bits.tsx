@@ -1,4 +1,7 @@
-import type { Job, Track } from "@/lib/types";
+import type { Doc } from "../../convex/_generated/dataModel";
+
+type Track = Doc<"tracks">;
+type JobLike = Pick<Doc<"jobs">, "company" | "companyLogo" | "scores" | "trackKey" | "foundFor">;
 
 export function TrackTag({ track }: { track?: Track }) {
   if (!track) return null;
@@ -25,17 +28,17 @@ export function ScorePill({ score }: { score?: number }) {
   );
 }
 
-export function bestScore(job: Job) {
+export function bestScore(job: Pick<JobLike, "scores">) {
   if (!job.scores?.length) return undefined;
   return [...job.scores].sort((a, b) => b.score - a.score)[0];
 }
 
 /** The track a job belongs to: the one you applied with, else the best score, else the search that found it. */
-export function jobTrackId(job: Job) {
-  return job.trackId ?? bestScore(job)?.trackId ?? job.foundFor;
+export function jobTrackKey(job: JobLike) {
+  return job.trackKey ?? bestScore(job)?.trackKey ?? job.foundFor;
 }
 
-export function CompanyMark({ job, size = 36 }: { job: Job; size?: number }) {
+export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" | "companyLogo">; size?: number }) {
   // Clearbit's free logo service shut down; Google's favicon service still works for any domain.
   const domain = job.companyLogo?.match(/logo\.clearbit\.com\/([^/?]+)/)?.[1];
   const logo = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : job.companyLogo;
@@ -53,9 +56,9 @@ export function CompanyMark({ job, size = 36 }: { job: Job; size?: number }) {
   );
 }
 
-export function timeAgo(iso?: string) {
-  if (!iso) return "";
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+export function timeAgo(when?: string | number) {
+  if (!when) return "";
+  const days = Math.floor((Date.now() - new Date(when).getTime()) / 86_400_000);
   if (days <= 0) return "today";
   if (days === 1) return "yesterday";
   if (days < 30) return `${days}d ago`;

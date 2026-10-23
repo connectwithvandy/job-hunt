@@ -1,8 +1,11 @@
-import type { Resume } from "@/lib/types";
+import type { Infer } from "convex/values";
+import type { resumeV } from "../../convex/lib/validators";
+
+export type Resume = Infer<typeof resumeV>;
 
 // Mirrors the two-column Canva CV. The DOM order is name, headline, summary,
 // experience, then sidebar, so hiring software reads it top to bottom correctly.
-export function ResumeDoc({ r }: { r: Resume }) {
+export function ResumeDoc({ r, photoUrl }: { r: Resume; photoUrl?: string | null }) {
   return (
     <article className="resume">
       <div className="main">
@@ -36,9 +39,9 @@ export function ResumeDoc({ r }: { r: Resume }) {
         ))}
       </div>
       <aside className="side">
-        {r.photo && (
+        {photoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img className="photo" src={`/data-asset/${r.photo}`} alt="" />
+          <img className="photo" src={photoUrl} alt="" />
         )}
         <div className="contact">
           {r.contact.phone && <span>{r.contact.phone}</span>}
