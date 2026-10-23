@@ -28,14 +28,15 @@ export function StatusSelect({ jobId, status }: { jobId: Id<"jobs">; status: Job
 export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
   const findJobs = useAction(api.agent.findJobs);
   const active = tracks.filter((t) => t.status === "active");
-  const [trackKey, setTrackKey] = useState(active[0]?.key ?? "");
+  const [trackKey, setTrackKey] = useState(active.length > 1 ? "all" : (active[0]?.key ?? ""));
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
   return (
     <div className="card p-5">
-      <div className="label mb-3">Find jobs on Dreamwork</div>
+      <div className="label mb-3">Find jobs</div>
       <div className="flex flex-wrap gap-2">
         <select className="field !w-auto" value={trackKey} onChange={(e) => setTrackKey(e.target.value)}>
+          {active.length > 1 && <option value="all">All tracks</option>}
           {active.map((t) => (
             <option key={t.key} value={t.key}>
               {t.name}
@@ -49,8 +50,16 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
             start(async () =>
               setState(
                 await attempt(async () => {
-                  const { added, trackName } = await findJobs({ trackKey });
-                  return added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} for ${trackName}. Score them to see which fit.` : "No new jobs since last time.";
+                  if (trackKey !== "all") {
+                    const { added, trackName } = await findJobs({ trackKey });
+                    return added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} for ${trackName}. Score them to see which fit.` : "No new jobs since last time.";
+                  }
+                  const results = await Promise.allSettled(active.map((t) => findJobs({ trackKey: t.key })));
+                  const failed = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+                  if (failed.length === results.length) throw failed[0].reason;
+                  const added = results.reduce((n, r) => n + (r.status === "fulfilled" ? r.value.added : 0), 0);
+                  const note = failed.length ? ` ${failed.length} ${failed.length === 1 ? "track" : "tracks"} didn't finish; try again.` : "";
+                  return (added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} across your tracks. Score them to see which fit.` : "No new jobs since last time.") + note;
                 }),
               ),
             )
@@ -60,7 +69,7 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
           {busy ? "Searching…" : "Search"}
         </button>
       </div>
-      <p className="mt-2 text-xs text-ink-3">Searches every title on the track, posted in the last 30 days, in the place you chose on the Tracks page.</p>
+      <p className="mt-2 text-xs text-ink-3">Searches every job board that is switched on for every title on the track, posted in the last 30 days, in the place you chose on the Tracks page.</p>
       <div className="mt-1">
         <Feedback state={busy ? null : state} />
       </div>

@@ -11,9 +11,9 @@ const DREAMWORK_MCP = "https://mcp.dreamworkhq.com/mcp";
 export type Listing = {
   id: string;
   title: string;
-  company: string;
-  location: string;
-  workSetting?: string;
+  company: string | null;
+  location: string | null;
+  workSetting?: string | null;
   salary?: string | null;
   postedAt?: string | null;
   firstSeenAt?: string;

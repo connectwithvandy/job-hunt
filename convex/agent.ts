@@ -10,6 +10,7 @@ import { action, type ActionCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { buildPack, draftReferralNotes, extractJob, parseResume, scoreJob } from "./lib/brain";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
+import { htmlToText, searchOtherSources, type Found } from "./lib/sources";
 import type { jobV, resumeV } from "./lib/validators";
 
 type NewJob = Infer<typeof jobV>;
@@ -86,8 +87,9 @@ function fromListing(l: Listing, trackKey: string): NewJob {
     url: l.url,
     sourceUrl: l.sourceUrl ?? undefined,
     title: l.title,
-    company: l.company,
-    location: l.location,
+    company: l.company ?? "Unknown company",
+    // Searches without a place can return listings with no location.
+    location: l.location ?? (l.workSetting === "remote" ? "Remote" : "Not listed"),
     workSetting: l.workSetting ?? undefined,
     salary: l.salary ?? undefined,
     postedAt: l.postedAt ?? l.firstSeenAt ?? undefined,
@@ -98,36 +100,52 @@ function fromListing(l: Listing, trackKey: string): NewJob {
   };
 }
 
+function fromFound(f: Found, trackKey: string): NewJob {
+  return {
+    externalId: `${f.source}:${f.id}`,
+    source: f.source,
+    url: f.url,
+    sourceUrl: f.url,
+    title: f.title,
+    company: f.company,
+    companyLogo: f.companyLogo,
+    location: f.location,
+    workSetting: f.workSetting,
+    salary: f.salary,
+    postedAt: f.postedAt,
+    description: f.description,
+    foundFor: trackKey,
+    status: "new",
+    outreach: [],
+    updatedAt: Date.now(),
+  };
+}
+
 export const findJobs = action({
   args: { trackKey: v.string() },
   handler: async (ctx, { trackKey }): Promise<{ added: number; trackName: string }> => {
     const { userId, tracks, location } = await setup(ctx);
     const track = tracks.find((t) => t.key === trackKey);
     if (!track) throw new ConvexError("Unknown track.");
-    const settled = track.company
-      ? await Promise.allSettled([companyListings(track.company)])
-      : await Promise.allSettled(track.titles.slice(0, 8).map((title) => searchListings(title, location, 8)));
+    const [settled, others] = await Promise.all([
+      track.company
+        ? Promise.allSettled([companyListings(track.company)])
+        : Promise.allSettled(track.titles.slice(0, 8).map((title) => searchListings(title, location, 8))),
+      track.company ? Promise.resolve([]) : searchOtherSources(track.titles, location),
+    ]);
     const listings = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-    if (!listings.length && settled.every((r) => r.status === "rejected")) {
+    if (!listings.length && !others.length && settled.every((r) => r.status === "rejected")) {
       const reason = (settled[0] as PromiseRejectedResult).reason;
       throw reason instanceof ConvexError ? reason : new ConvexError("Dreamwork didn't answer. Try again in a minute.");
     }
-    const unique = [...new Map(listings.map((l) => [l.id, l])).values()];
-    const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique.map((l) => fromListing(l, track.key)) });
+    // The same role often shows up on several boards; keep the first copy, Dreamwork's when there is one.
+    const sameRole = (j: NewJob) => `${j.company}|${j.title}`.toLowerCase().replace(/[^a-z0-9|]/g, "");
+    const all = [...listings.map((l) => fromListing(l, track.key)), ...others.map((f) => fromFound(f, track.key))];
+    const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()];
+    const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique });
     return { added, trackName: track.name };
   },
 });
-
-function htmlToText(html: string) {
-  return html
-    .replace(/<(script|style|noscript|svg)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<br\s*\/?>|<\/(p|li|div|h\d)>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"')
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n\s*\n+/g, "\n\n")
-    .trim();
-}
 
 export const addJob = action({
   args: { link: v.optional(v.string()), text: v.optional(v.string()) },
