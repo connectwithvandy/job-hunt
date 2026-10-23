@@ -19,7 +19,7 @@ It runs on your laptop. Your CV, jobs and LinkedIn connections stay in a `data/`
 You need [Node.js](https://nodejs.org) 22 or newer, and either a Claude subscription with [Claude Code](https://claude.com/claude-code) installed, or an Anthropic API key.
 
 ```bash
-git clone <this repo> job-hunt
+git clone https://github.com/connectwithvandy/job-hunt
 cd job-hunt
 npm install
 npm run dev
