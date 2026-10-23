@@ -19,7 +19,7 @@ export function Sidebar() {
   return (
     <aside className="no-print md:w-56 md:shrink-0 md:min-h-screen md:border-r border-line px-5 py-5 md:py-10 flex md:flex-col gap-6 items-center md:items-stretch">
       <Link href="/" className="display text-lg uppercase leading-none tracking-wide">
-        Job Hunt OS<span className="text-accent">.</span>
+        JobPipe<span className="text-accent">.</span>
       </Link>
       <nav className="flex md:flex-col gap-1 overflow-x-auto text-sm">
         {NAV.map((n) => {
