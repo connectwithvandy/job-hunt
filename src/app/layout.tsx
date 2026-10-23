@@ -8,8 +8,8 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display-face", subsets: ["latin"], weight: ["500", "700"] });
 
 export const metadata: Metadata = {
-  title: "Job Hunt",
-  description: "Run several job searches at once, with a tailored CV and warm referrals for every role.",
+  title: "Pipeline",
+  description: "Run your job hunt like a pipeline: several searches at once, a tailored CV and warm intros for every role.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

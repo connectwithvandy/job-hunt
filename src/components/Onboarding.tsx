@@ -24,7 +24,7 @@ export function Onboarding({ me }: { me: Me }) {
   return (
     <div className="mx-auto max-w-3xl px-5 py-12 md:py-20">
       <p className="display text-sm uppercase tracking-wide">
-        Job Hunt<span className="text-accent">.</span>
+        Pipeline<span className="text-accent">.</span>
       </p>
       <ol className="mt-8 flex gap-2" aria-label="Progress">
         {[1, 2, 3].map((n) => (
