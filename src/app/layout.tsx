@@ -8,7 +8,7 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display-face", subsets: ["latin"], weight: ["500", "700"] });
 
 export const metadata: Metadata = {
-  title: "Pipeline",
+  title: "Job Hunt OS",
   description: "Run your job hunt like a pipeline: several searches at once, a tailored CV and warm intros for every role.",
 };
 

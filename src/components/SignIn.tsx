@@ -21,7 +21,7 @@ export function SignIn() {
     <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-12 px-5 py-12 lg:grid-cols-[1.2fr_1fr] lg:px-12">
       <section>
         <p className="display text-sm uppercase tracking-wide">
-          Pipeline<span className="text-accent">.</span>
+          Job Hunt OS<span className="text-accent">.</span>
         </p>
         <h1 className="display mt-6 text-4xl leading-[1.05] md:text-6xl">
           You&apos;re not looking for <span className="text-accent">a</span> job.
