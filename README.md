@@ -29,7 +29,7 @@ Open http://127.0.0.1:3000 and follow the three setup steps on the home screen.
 
 **AI.** With Claude Code installed and signed in, the app uses your subscription. To use an API key instead, create `.env.local` with `ANTHROPIC_API_KEY=...`. The model defaults to Claude Opus 5.5; set `JOBHUNT_MODEL` to change it.
 
-**Your data.** Everything lives in `data/` (ignored by git in this repo). Back it up by making `data/` its own private git repo. To keep it somewhere else, set `JOBHUNT_DATA_DIR`.
+**Your data.** Everything lives in `data/` (ignored by git in this repo). Back it up by making `data/` its own private git repo, then run `npm run backup` whenever you like. To keep it somewhere else, set `JOBHUNT_DATA_DIR`.
 
 **Your CV design.** `src/components/ResumeDoc.tsx` and the `.resume` styles in `src/app/globals.css` draw the CV. Change them to match your own design.
 
