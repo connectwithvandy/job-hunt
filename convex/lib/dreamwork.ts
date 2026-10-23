@@ -2,6 +2,7 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { ConvexError } from "convex/values";
 
 // Dreamwork (dreamworkhq.com) indexes jobs from company career pages. Its public
 // MCP server lets anyone search and read listings without an account.
@@ -35,7 +36,12 @@ async function callTool<T>(name: string, args: Record<string, unknown>): Promise
     const result = await client.callTool({ name, arguments: args }, undefined, { timeout: 25_000 });
     if (result.isError) {
       const text = (result.content as { text?: string }[])?.[0]?.text ?? "unknown error";
-      throw new Error(`Dreamwork ${name} failed: ${text}`);
+      // Dreamwork explains refusals in plain words, like an unknown place; pass that on.
+      let reason = text;
+      try {
+        reason = (JSON.parse(text) as { error?: string }).error ?? text;
+      } catch {}
+      throw new ConvexError(`Dreamwork: ${reason}`);
     }
     return (result.structuredContent ??
       JSON.parse((result.content as { text: string }[])[0].text)) as T;
@@ -45,9 +51,10 @@ async function callTool<T>(name: string, args: Record<string, unknown>): Promise
 }
 
 export async function searchListings(search: string, location: string, limit = 10) {
+  const where = location.trim().toLowerCase();
   const page = await callTool<{ listings: Listing[] }>("browse_listings", {
     search,
-    location,
+    ...(where === "remote" ? { remote: true } : where === "anywhere" || !where ? {} : { location: location.trim() }),
     postedWithinDays: 30,
     limit,
   });

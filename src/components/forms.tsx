@@ -4,6 +4,7 @@ import { useAction, useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { LOCATION_CHOICES } from "../../convex/lib/defaults";
 import { parseConnectionsCsv } from "@/lib/connections";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
@@ -227,24 +228,48 @@ export function TrackForm({ track, resumes }: { track: TrackInput; resumes: { _i
   );
 }
 
+/** Quick picks for where to search, plus a box for any city or country. */
+export function LocationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const picked = LOCATION_CHOICES.find((c) => c.value.toLowerCase() === value.trim().toLowerCase());
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {LOCATION_CHOICES.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            onClick={() => onChange(c.value)}
+            aria-pressed={picked === c}
+            className={`rounded-full border px-4 py-1.5 text-sm ${picked === c ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+          >
+            {c.value}
+          </button>
+        ))}
+      </div>
+      <input className="field mt-3 max-w-sm" value={value} onChange={(e) => onChange(e.target.value)} placeholder="Or type a city or country, like Bengaluru" />
+      <p className="mt-2 text-xs text-ink-3">{picked ? picked.hint : "Jobs there, plus remote jobs open to that place"}</p>
+    </div>
+  );
+}
+
 export function LocationForm({ location }: { location: string }) {
   const save = useMutation(api.users.setLocation);
   const [value, setValue] = useState(location);
   const [state, setState] = useState<ActionState>(null);
   return (
     <form
-      className="card flex flex-wrap items-end gap-3 p-6"
+      className="card p-6"
       onSubmit={async (e) => {
         e.preventDefault();
         setState(await attempt(async () => (await save({ location: value }), "Saved.")));
       }}
     >
-      <label className="block flex-1">
-        <span className="label">Where you want to work</span>
-        <input className="field mt-1" value={value} onChange={(e) => setValue(e.target.value)} placeholder="India" />
-      </label>
-      <button className="btn btn-primary btn-sm">Save</button>
-      <Feedback state={state} />
+      <span className="label mb-3 block">Where you want to work</span>
+      <LocationPicker value={value} onChange={setValue} />
+      <div className="mt-4 flex items-center gap-3">
+        <button className="btn btn-primary btn-sm">Save</button>
+        <Feedback state={state} />
+      </div>
     </form>
   );
 }

@@ -60,3 +60,10 @@ export const DAILY_LIMITS = {
   notes: 10,
   addJob: 20,
 } as const;
+
+/** Quick picks for where to search. "Remote" and "Anywhere" aren't places, so the search maps them to filters. */
+export const LOCATION_CHOICES = [
+  { value: "India", hint: "Jobs in India, plus remote jobs open to India" },
+  { value: "Remote", hint: "Remote jobs in any country" },
+  { value: "Anywhere", hint: "Any job, any country" },
+];

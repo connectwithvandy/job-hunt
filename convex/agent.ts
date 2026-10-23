@@ -109,7 +109,8 @@ export const findJobs = action({
       : await Promise.allSettled(track.titles.slice(0, 8).map((title) => searchListings(title, location, 8)));
     const listings = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
     if (!listings.length && settled.every((r) => r.status === "rejected")) {
-      throw new ConvexError("Dreamwork didn't answer. Try again in a minute.");
+      const reason = (settled[0] as PromiseRejectedResult).reason;
+      throw reason instanceof ConvexError ? reason : new ConvexError("Dreamwork didn't answer. Try again in a minute.");
     }
     const unique = [...new Map(listings.map((l) => [l.id, l])).values()];
     const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique.map((l) => fromListing(l, track.key)) });

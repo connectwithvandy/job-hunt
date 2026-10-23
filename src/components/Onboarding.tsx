@@ -8,6 +8,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { CUSTOM_COLORS, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
+import { LocationPicker } from "./forms";
 import { Spinner } from "./ui";
 
 type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
@@ -207,8 +208,10 @@ function StepWhere({ location, setLocation, chosen, onBack }: { location: string
   return (
     <div className="mt-10">
       <h1 className="display text-4xl md:text-5xl">Where do you want to work?</h1>
-      <p className="mt-3 text-ink-2">A country or city. Remote roles open to that place are included.</p>
-      <input className="field mt-8 max-w-sm !text-lg" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="India" />
+      <p className="mt-3 text-ink-2">Pick one, or type a city or country.</p>
+      <div className="mt-8">
+        <LocationPicker value={location} onChange={setLocation} />
+      </div>
       {error && <p className="mt-4 text-sm text-bad">{error}</p>}
       <div className="mt-8 flex items-center gap-4">
         <button
