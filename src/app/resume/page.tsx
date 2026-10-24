@@ -5,7 +5,7 @@ import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PageHead } from "@/components/bits";
-import { AnswersForm, ResumeEditor, UploadResume } from "@/components/forms";
+import { AnswersForm, AutofillLink, ResumeEditor, UploadResume } from "@/components/forms";
 import { Loading } from "@/components/Loading";
 import { ResumeDoc } from "@/components/ResumeDoc";
 import { downloadDocx } from "@/lib/docx";
@@ -101,6 +101,7 @@ export default function Cvs() {
           <div className="no-print mt-8 grid max-w-4xl gap-6">
             <UploadResume replace={current} />
             <AnswersForm answers={me.answers} />
+            {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
             <details className="card p-6">
               <summary className="cursor-pointer font-medium">Fix something by hand</summary>
               <p className="mt-2 mb-4 text-sm text-ink-2">This is your CV as data. Change any text, keep the quotes and commas, then save.</p>

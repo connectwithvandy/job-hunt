@@ -1,10 +1,11 @@
 "use client";
 
 import { useAction, useMutation } from "convex/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { LOCATION_CHOICES } from "../../convex/lib/defaults";
+import { autofillBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
@@ -484,6 +485,31 @@ export function AnswersForm({ answers }: { answers: { question: string; answer: 
         </button>
         <Feedback state={busy ? null : state} />
       </div>
+    </div>
+  );
+}
+
+/** The draggable autofill bookmark, carrying your saved answers. Re-drag it after changing them. */
+export function AutofillLink({ answers }: { answers: { question: string; answer: string }[] }) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  // React refuses javascript: links in JSX, so the address is set on the element directly.
+  useEffect(() => {
+    ref.current?.setAttribute("href", autofillBookmarklet(answers));
+  }, [answers]);
+  return (
+    <div className="card p-6">
+      <h2 className="display mb-1 text-2xl">Autofill application forms</h2>
+      <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-ink-2">
+        <li>Show your browser&apos;s bookmarks bar (Cmd+Shift+B in Chrome).</li>
+        <li>Drag the button below onto it.</li>
+        <li>On any application form (Greenhouse, Lever, Ashby, Workday and others), click the bookmark. Filled fields turn green; check them and upload your CV yourself.</li>
+      </ol>
+      <a ref={ref} className="btn btn-primary inline-flex cursor-grab" onClick={(e) => e.preventDefault()} draggable>
+        JobPipe autofill
+      </a>
+      <p className="mt-3 text-xs text-ink-3">
+        It carries your {answers.length} saved answers and sends nothing anywhere. After you change an answer, drag it again to replace the old bookmark.
+      </p>
     </div>
   );
 }
