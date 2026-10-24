@@ -7,7 +7,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
-import { CoverLetter, DirectNote, OutreachCard, PeoplePicker, StatusSelect } from "@/components/job-client";
+import { CoverLetter, DirectNote, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
 
@@ -17,7 +17,6 @@ export default function JobPage() {
   const me = useQuery(api.users.me);
   const data = useQuery(api.jobs.get, { jobId });
   const scoreJobs = useAction(api.agent.scoreJobs);
-  const tailor = useAction(api.agent.tailor);
   const setStatus = useMutation(api.jobs.setStatus);
 
   if (!me || data === undefined) return <Loading />;
@@ -36,9 +35,6 @@ export default function JobPage() {
   const currentTrack = trackByKey.get(jobTrackKey(job) ?? "");
   // No CV attachment for an internal move: colleagues already know you.
   const cvName = currentTrack?.company ? "" : `${me.resume?.name ?? "Your"} CV ${job.company}.pdf`;
-  const applyTracks = (scores.length ? scores.map((s) => trackByKey.get(s.trackKey)) : me.tracks.filter((t) => t.status === "active"))
-    .filter((t) => !!t)
-    .slice(0, 4);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -124,20 +120,14 @@ export default function JobPage() {
           <div className="card p-6">
             <Step n={1} title="Tailor your CV and cover letter" />
             <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter and a short note for the hiring manager.</p>
-            <div className="flex flex-wrap gap-2">
-              {applyTracks.map((t, i) => (
-                <ActionButton key={t!.key} run={async () => void (await tailor({ jobId: job._id, trackKey: t!.key }))} pending="Tailoring… about a minute" variant={i === 0 && !job.pack ? "primary" : "ghost"} size="sm">
-                  {job.pack?.trackKey === t!.key ? `Redo as ${t!.name}` : `Apply as ${t!.name}`}
-                </ActionButton>
-              ))}
-            </div>
+            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={me.defaultResumeId} redo={!!job.pack} />
             {job.pack && (
               <div className="mt-5 space-y-4 border-t border-line pt-5">
                 <div className="flex flex-wrap items-center gap-3">
                   <Link href={`/jobs/${job._id}/resume`} className="btn btn-primary">
                     Open tailored CV
                   </Link>
-                  <span className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</span>
+                  {job.pack.trackKey && trackByKey.get(job.pack.trackKey) && <span className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</span>}
                 </div>
                 {job.pack.unverified.length > 0 ? (
                   <p className="rounded-lg bg-warn/10 p-3 text-sm text-warn">Check these numbers before sending, they aren&apos;t in your master CV: {job.pack.unverified.join(", ")}</p>

@@ -15,7 +15,15 @@ import type { jobV, resumeV } from "./lib/validators";
 
 type NewJob = Infer<typeof jobV>;
 type Resume = Infer<typeof resumeV>;
-type Context = { userId: Id<"users">; email: string; resume: Resume | null; resumeFor: Record<string, Resume | null>; location: string; tracks: Doc<"tracks">[] };
+type Context = {
+  userId: Id<"users">;
+  email: string;
+  resume: Resume | null;
+  resumes: { _id: Id<"resumes">; resume: Resume }[];
+  resumeFor: Record<string, Resume | null>;
+  location: string;
+  tracks: Doc<"tracks">[];
+};
 
 async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob", count = 1) {
   await ctx.runMutation(internal.limits.consume, { userId, kind, count });
@@ -240,16 +248,20 @@ export const scoreJobs = action({
 // ---------- Applying ----------
 
 export const tailor = action({
-  args: { jobId: v.id("jobs"), trackKey: v.string() },
-  handler: async (ctx, { jobId, trackKey }): Promise<null> => {
-    const { userId, resumeFor, tracks } = await setup(ctx);
-    const track = tracks.find((t) => t.key === trackKey);
-    if (!track) throw new ConvexError("Unknown track.");
-    const cv = requireResume(resumeFor[track.key]);
-    await spend(ctx, userId, "tailor");
+  args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")) },
+  handler: async (ctx, { jobId, trackKey, resumeId }): Promise<null> => {
+    const { userId, resume, resumes, resumeFor, tracks } = await setup(ctx);
     const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+    // No track picked: use the best-scoring one if the job was scored, otherwise pitch straight at the job.
+    const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
+    const track = tracks.find((t) => t.key === (trackKey ?? best)) ?? null;
+    if (trackKey && !track) throw new ConvexError("Unknown track.");
+    const chosen = resumeId ? resumes.find((r) => r._id === resumeId)?.resume : undefined;
+    if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
+    const cv = requireResume(chosen ?? (track ? resumeFor[track.key] : resume));
+    await spend(ctx, userId, "tailor");
     const pack = await buildPack(job, cv, track);
-    await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey });
+    await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key });
     return null;
   },
 });
@@ -257,13 +269,12 @@ export const tailor = action({
 export const draftNotes = action({
   args: { jobId: v.id("jobs"), contactIds: v.array(v.id("contacts")) },
   handler: async (ctx, { jobId, contactIds }): Promise<{ drafted: number }> => {
-    const { userId, resumeFor, tracks } = await setup(ctx);
+    const { userId, resume, resumeFor, tracks } = await setup(ctx);
     if (!contactIds.length) throw new ConvexError("Pick at least one person.");
     const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
-    const track = tracks.find((t) => t.key === (job.trackKey ?? best ?? job.foundFor));
-    if (!track) throw new ConvexError("Score the job or tailor your CV first, so the note knows which angle to take.");
-    const cv = requireResume(resumeFor[track.key]);
+    const track = tracks.find((t) => t.key === (job.trackKey ?? best ?? job.foundFor)) ?? null;
+    const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
     const people: Doc<"contacts">[] = await ctx.runQuery(internal.jobs.contactsForAction, { userId, ids: contactIds });
     await spend(ctx, userId, "notes");
     const notes = await draftReferralNotes(job, cv, track, people);

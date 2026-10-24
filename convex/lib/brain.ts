@@ -97,11 +97,18 @@ const PackSchema = z.strictObject({
   hiringManagerTitles: z.array(z.string()).describe("Two or three likely job titles of the person this role reports to."),
 });
 
-export async function buildPack(job: Job, resume: Resume, track: Track): Promise<Pack> {
+/** The angle to pitch from: a track's, or with no track, whatever this job asks for. */
+function angle(track: Track | null) {
+  return track
+    ? `Track: ${track.name}. Pitch: ${track.pitch}`
+    : "Positioning: pitch the candidate for exactly what this job asks for, leading with their most relevant experience.";
+}
+
+export async function buildPack(job: Job, resume: Resume, track: Track | null): Promise<Pack> {
   const out = await askJSON({
     schema: PackSchema,
-    system: `You tailor a sales leader's CV and cover letter to one specific job, using one positioning ("track"). ${HONESTY}`,
-    prompt: `Track: ${track.name}. Pitch: ${track.pitch}
+    system: `You tailor a sales leader's CV and cover letter to one specific job${track ? ', using one positioning ("track")' : ""}. ${HONESTY}`,
+    prompt: `${angle(track)}
 
 Master CV:
 ${resumeText(resume)}
@@ -120,7 +127,7 @@ ${jobText(job)}`,
   };
 
   return {
-    trackKey: track.key,
+    trackKey: track?.key,
     createdAt: Date.now(),
     resume: tailored,
     coverLetter: out.coverLetter,
@@ -152,15 +159,15 @@ const DmSchema = z.strictObject({
 
 const INTERNAL = `This is an internal move: the candidate already works at this company and these people are their colleagues. Don't ask for a referral and don't say a CV is attached. Ask for a short chat about the role or for an introduction to the hiring manager, lead with what they have already done at this company, and keep it discreet: never mention any change to their current role.`;
 
-export async function draftReferralNotes(job: Job, resume: Resume, track: Track, people: Contact[]) {
+export async function draftReferralNotes(job: Job, resume: Resume, track: Track | null, people: Contact[]) {
   const out = await askJSON({
     schema: DmSchema,
-    system: `${track.company ? INTERNAL + "\n\n" : ""}You write LinkedIn messages a job seeker sends to their own first-degree connections, asking for a referral. ${HONESTY}
+    system: `${track?.company ? INTERNAL + "\n\n" : ""}You write LinkedIn messages a job seeker sends to their own first-degree connections, asking for a referral. ${HONESTY}
 Each message: under 90 words, warm and direct, written in first person as the candidate. Mention the exact role and link, one line on why the candidate fits (from the CV, aimed at the track), and a clear, easy ask: would they refer the candidate or point them to the hiring manager. Say the CV is attached. Tailor to the person's role: a recruiter gets a routing ask, a sales leader gets a peer tone, a junior person gets a lighter ask. Never pretend a closeness you can't know; if unsure, open with something simple like "Hope you're doing well".`,
     prompt: `Candidate CV:
 ${resumeText(resume)}
 
-Track: ${track.name}. Pitch: ${track.pitch}
+${angle(track)}
 
 Job: ${job.title} at ${job.company}
 Link: ${job.sourceUrl || job.url}

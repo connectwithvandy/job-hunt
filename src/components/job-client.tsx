@@ -77,11 +77,45 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
   );
 }
 
+/** Writes the tailored CV, cover letter and hiring-manager note from the CV you pick. */
+export function TailorButton({ jobId, resumes, defaultResumeId, redo }: { jobId: Id<"jobs">; resumes: { _id: Id<"resumes">; label: string }[]; defaultResumeId: Id<"resumes"> | null; redo: boolean }) {
+  const tailor = useAction(api.agent.tailor);
+  const [resumeId, setResumeId] = useState(defaultResumeId ?? resumes[0]?._id);
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {resumes.length > 1 && (
+        <label className="flex items-center gap-2 text-sm text-ink-2">
+          From
+          <select className="field !w-auto !py-1.5 text-sm" value={resumeId} onChange={(e) => setResumeId(e.target.value as Id<"resumes">)}>
+            {resumes.map((r) => (
+              <option key={r._id} value={r._id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <button
+        className={`btn btn-sm ${redo ? "btn-ghost" : "btn-primary"}`}
+        disabled={busy || !resumeId}
+        onClick={() => start(async () => setState(await attempt(async () => void (await tailor({ jobId, resumeId })))))}
+      >
+        {busy && <Spinner />}
+        {busy ? "Writing… about a minute" : redo ? "Write them again" : "Write my CV and cover letter"}
+      </button>
+      <Feedback state={busy ? null : state} />
+    </div>
+  );
+}
+
 export function AddJob() {
   const addJob = useAction(api.agent.addJob);
+  const tailor = useAction(api.agent.tailor);
   const router = useRouter();
-  const [mode, setMode] = useState<"link" | "text">("link");
-  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"link" | "text">("text");
+  const [busy, setBusy] = useState("");
   const [state, setState] = useState<ActionState>(null);
   return (
     <form
@@ -89,18 +123,26 @@ export function AddJob() {
       onSubmit={async (e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
-        setBusy(true);
+        setBusy("Reading the job…");
         setState(
           await attempt(async () => {
             const id = await addJob({ link: String(form.get("link") ?? "") || undefined, text: String(form.get("text") ?? "") || undefined });
+            if (form.get("write")) {
+              setBusy("Writing your CV and cover letter… about a minute");
+              try {
+                await tailor({ jobId: id });
+              } catch {
+                // The job is saved; its page has the button to try the writing again.
+              }
+            }
             router.push(`/jobs/${id}`);
           }),
         );
-        setBusy(false);
+        setBusy("");
       }}
     >
       <div className="mb-3 flex items-center justify-between">
-        <span className="label">Add a job you found</span>
+        <span className="label">Paste a job description</span>
         <button type="button" className="text-xs text-ink-3 underline" onClick={() => setMode(mode === "link" ? "text" : "link")}>
           {mode === "link" ? "Paste the description instead" : "Use a link instead"}
         </button>
@@ -110,10 +152,14 @@ export function AddJob() {
       ) : (
         <textarea name="text" className="field h-28" placeholder="Paste the whole job post here" />
       )}
+      <label className="mt-3 flex items-center gap-2 text-sm text-ink-2">
+        <input type="checkbox" name="write" defaultChecked />
+        Also write my tailored CV, cover letter and a note to the hiring manager
+      </label>
       <div className="mt-3 flex items-center gap-3">
-        <button className="btn btn-primary" disabled={busy}>
+        <button className="btn btn-primary" disabled={!!busy}>
           {busy && <Spinner />}
-          {busy ? "Reading the job…" : "Add job"}
+          {busy || "Add job"}
         </button>
         <Feedback state={busy ? null : state} />
       </div>

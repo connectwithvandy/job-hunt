@@ -188,6 +188,7 @@ export const context = internalQuery({
       location: profile?.location ?? "India",
       tracks,
       resume: fallback?.resume ?? null,
+      resumes: resumes.map((r) => ({ _id: r._id, resume: r.resume })),
       /** The CV each track should be pitched from. */
       resumeFor: Object.fromEntries(tracks.map((t) => [t.key, (resumes.find((r) => r._id === t.resumeId) ?? fallback)?.resume ?? null])),
     };
