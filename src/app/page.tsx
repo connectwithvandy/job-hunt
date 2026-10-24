@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
+import { linkedInPeopleSearch } from "../../convex/lib/company";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { CompanyMark, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
@@ -262,9 +263,12 @@ function JustRaised({ prospects }: { prospects: Doc<"prospects">[] }) {
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               <ScorePill score={p.fit?.score} />
-              <Link href="/companies" className="text-xs text-ink-3 underline hover:text-ink">
-                Reach out
+              <Link href={`/companies?open=${p._id}`} className="text-xs font-medium text-accent hover:underline">
+                Reach out →
               </Link>
+              <a className="text-xs text-ink-3 underline hover:text-ink" href={linkedInPeopleSearch(p.name, "Founder")} target="_blank" rel="noreferrer">
+                Find founders ↗
+              </a>
             </div>
           </li>
         ))}

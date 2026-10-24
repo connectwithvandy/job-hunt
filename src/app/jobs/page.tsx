@@ -4,6 +4,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
@@ -12,8 +13,24 @@ import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
 import { applyFilters, FILTERS, fitFor } from "@/lib/jobFilters";
-import { inInr, useInrRates } from "@/lib/money";
+import { inInr, payPerYearInr, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
+
+type ListJob = FunctionReturnType<typeof api.jobs.list>[number];
+const byTime = (j: ListJob) => (j.postedAt ? Date.parse(j.postedAt) : j._creationTime);
+
+/** Ways to order the list. Jobs without the thing being sorted on go last. */
+const SORTS = {
+  fit: { label: "Best fit", compare: (role: string | null) => (a: ListJob, b: ListJob) => fitFor(b, role) - fitFor(a, role) || b._creationTime - a._creationTime },
+  pay: {
+    label: "Highest pay",
+    compare: (role: string | null, rates: Record<string, number>) => (a: ListJob, b: ListJob) =>
+      (payPerYearInr(b.salary, rates) ?? -1) - (payPerYearInr(a.salary, rates) ?? -1) || fitFor(b, role) - fitFor(a, role),
+  },
+  posted: { label: "Newest posted", compare: () => (a: ListJob, b: ListJob) => byTime(b) - byTime(a) },
+  added: { label: "Recently added", compare: () => (a: ListJob, b: ListJob) => b._creationTime - a._creationTime },
+  company: { label: "Company A–Z", compare: () => (a: ListJob, b: ListJob) => a.company.localeCompare(b.company) },
+} satisfies Record<string, { label: string; compare: (role: string | null, rates: Record<string, number>) => (a: ListJob, b: ListJob) => number }>;
 
 export default function JobsPage() {
   return (
@@ -41,6 +58,7 @@ function Jobs() {
   if (!me || !jobs) return <Loading />;
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
   const homeIsBlr = /bengaluru|bangalore/i.test(me.location);
+  const sort = (params.get("sort") ?? "fit") as keyof typeof SORTS;
   const region = regionParam === "all" ? null : (regionParam ?? (homeIsBlr ? "blr" : null));
 
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
@@ -56,7 +74,7 @@ function Jobs() {
   for (const j of filtered) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
   const visible = filtered
     .filter((j) => !region || regionsOf(j).includes(region as never))
-    .sort((a, b) => fitFor(b, track) - fitFor(a, track) || b._creationTime - a._creationTime);
+    .sort(SORTS[sort].compare(track, rates));
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
   const batch = unscored.slice(0, 12);
 
@@ -157,6 +175,18 @@ function Jobs() {
               ))}
             </select>
           ))}
+          <select
+            aria-label="Sort"
+            className="field !w-auto !py-1.5 text-sm"
+            value={sort}
+            onChange={(e) => router.replace(hrefWith({ sort: e.target.value === "fit" ? null : e.target.value }), { scroll: false })}
+          >
+            {Object.entries(SORTS).map(([k, v]) => (
+              <option key={k} value={k}>
+                Sort: {v.label}
+              </option>
+            ))}
+          </select>
           {filtersOn && (
             <button className="text-sm text-ink-3 underline hover:text-ink" onClick={clearFilters}>
               Clear filters

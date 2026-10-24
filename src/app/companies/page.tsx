@@ -2,7 +2,8 @@
 
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../convex/lib/company";
@@ -20,8 +21,18 @@ const STATUSES: { value: Status; label: string }[] = [
 ];
 const PEOPLE = ["Founder", "CEO", "Head of Sales", "VP Sales"];
 
-export default function Companies() {
+export default function CompaniesPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Companies />
+    </Suspense>
+  );
+}
+
+function Companies() {
   const rows = useQuery(api.prospects.list);
+  // ?open=<id> comes from Reach out on the Today page: show that company with its outreach open.
+  const openId = useSearchParams().get("open");
   const findYc = useAction(api.agent.findYcCompanies);
   const findFunded = useAction(api.agent.findFunded);
   const findVcs = useAction(api.agent.findFromVcs);
@@ -31,12 +42,19 @@ export default function Companies() {
   const addDream = useMutation(api.prospects.addDream);
   const suggest = useAction(api.agent.suggestDreams);
   const checkRoles = useAction(api.agent.checkOpenRoles);
-  const [tab, setTab] = useState<"dream" | "startups">("dream");
+  const [pickedTab, setTab] = useState<"dream" | "startups" | null>(null);
   const [scope, setScope] = useState<"india_remote" | "profile">("india_remote");
-  const [show, setShow] = useState<Status>("new");
+  const [pickedShow, setShow] = useState<Status | null>(null);
   const [minFit, setMinFit] = useState(0);
   const [picks, setPicks] = useState("OpenAI, ElevenLabs, Anthropic, Rubrik, Emergent");
   const [newName, setNewName] = useState("");
+  const target = rows?.find((r) => r._id === openId);
+  // Until you pick a tab or filter yourself, follow the company the link points at.
+  const tab = pickedTab ?? (target && !target.dream ? "startups" : "dream");
+  const show = pickedShow ?? target?.status ?? "new";
+  useEffect(() => {
+    if (target) document.getElementById(`company-${target._id}`)?.scrollIntoView({ block: "center" });
+  }, [target]);
   if (!rows) return <Loading />;
 
   const inTab = rows.filter((r) => (tab === "dream" ? r.dream : !r.dream));
@@ -183,7 +201,7 @@ export default function Companies() {
       ) : (
         <ul className="space-y-4">
           {visible.map((p) => (
-            <li key={p._id} className="card p-5">
+            <li key={p._id} id={`company-${p._id}`} className={`card p-5 ${p._id === openId ? "ring-2 ring-accent" : ""}`}>
               <div className="flex items-start gap-4">
                 {p.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -248,7 +266,7 @@ export default function Companies() {
                   </select>
                 </div>
               </div>
-              <details className="mt-3" open={p.contacts.length > 0}>
+              <details className="mt-3" open={p.contacts.length > 0 || p._id === openId}>
                 <summary className="cursor-pointer text-sm font-medium">Reach out {p.contacts.length ? `· ${p.contacts.length} saved` : ""}</summary>
                 <div className="mt-3 space-y-3">
                   <div className="flex flex-wrap gap-2">

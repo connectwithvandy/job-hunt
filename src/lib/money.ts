@@ -42,3 +42,17 @@ export function inInr(salary: string | null | undefined, rates: Record<string, n
   const [lo, hi] = [lakhs(Math.min(...nums)), lakhs(Math.max(...nums))];
   return lo === hi ? `≈ ₹${lo} L/yr` : `≈ ₹${lo}–${hi} L/yr`;
 }
+
+/** The top of a job's pay band in rupees a year, for sorting by pay. Null when no pay is listed or readable. */
+export function payPerYearInr(salary: string | null | undefined, rates: Record<string, number>) {
+  if (!salary) return null;
+  const s = salary.toLowerCase();
+  // Indian posts often say "25-35 LPA" or "₹30 L": lakhs per year.
+  const lakhs = s.match(/(\d+(?:\.\d+)?)\s*(?:-|–|to)?\s*(\d+(?:\.\d+)?)?\s*(lpa|lakhs?|l\b)/);
+  if (lakhs) return Number(lakhs[2] ?? lakhs[1]) * 100_000;
+  const code = CODES.find((c) => salary.toUpperCase().includes(c)) ?? Object.entries(SYMBOLS).find(([sym]) => salary.includes(sym))?.[1];
+  if (!code || !rates[code]) return null;
+  const perYear = /hour|hr\b/.test(s) ? 2080 : /month|mo\b/.test(s) ? 12 : /week/.test(s) ? 52 : 1;
+  const nums = [...salary.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)\s*([kK])?/g)].map((m) => Number(m[1]) * (m[2] ? 1000 : 1)).filter((n) => n >= (perYear === 2080 ? 5 : 100));
+  return nums.length ? Math.max(...nums) * perYear * rates[code] : null;
+}
