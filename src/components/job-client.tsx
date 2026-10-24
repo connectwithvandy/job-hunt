@@ -302,11 +302,11 @@ export function HiringContacts({ jobId, contacts, note, emailSubject, email }: {
                     LinkedIn profile ↗
                   </a>
                 )}
-                {c.linkedinUrl && note && <CopyAndOpen text={personalise(note, c.name)} url={c.linkedinUrl} />}
+                {c.linkedinUrl && (c.note || note) && <CopyAndOpen text={c.note ?? personalise(note!, c.name)} url={c.linkedinUrl} />}
                 {c.email && (
                   <a
                     className="btn btn-ghost btn-sm"
-                    href={`mailto:${c.email}?${new URLSearchParams({ subject: emailSubject ?? "", body: personalise(email ?? note ?? "", c.name) }).toString().replace(/\+/g, "%20")}`}
+                    href={`mailto:${c.email}?${new URLSearchParams({ subject: c.emailSubject ?? emailSubject ?? "", body: c.email2 ?? personalise(email ?? note ?? "", c.name) }).toString().replace(/\+/g, "%20")}`}
                   >
                     Email {c.email} ↗
                   </a>
@@ -329,6 +329,7 @@ export function HiringContacts({ jobId, contacts, note, emailSubject, email }: {
                   </button>
                 )}
               </div>
+              <CommonGround jobId={jobId} contact={c} />
             </li>
           ))}
         </ul>
@@ -340,6 +341,7 @@ export function HiringContacts({ jobId, contacts, note, emailSubject, email }: {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
             const person: HiringContact = {
+              ...editing,
               id: editing.id,
               name: String(f.get("name")).trim(),
               title: String(f.get("title")).trim(),
@@ -597,6 +599,90 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
               ))}
             </ul>
           </details>
+        </div>
+      )}
+      <Feedback state={busy ? null : state} />
+    </div>
+  );
+}
+
+/** Paste their profile (and optionally search the web) to find shared ground and get messages written for this one person. */
+function CommonGround({ jobId, contact }: { jobId: Id<"jobs">; contact: HiringContact }) {
+  const run = useAction(api.agent.personalise);
+  const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState("");
+  const [web, setWeb] = useState(false);
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  const first = contact.name.split(/\s+/)[0];
+  const go = () =>
+    start(async () =>
+      setState(
+        await attempt(async () => {
+          await run({ jobId, contactId: contact.id, profileText: profile.trim() || undefined, searchWeb: web });
+          setProfile("");
+          setOpen(false);
+        }),
+      ),
+    );
+
+  return (
+    <div className="mt-3 border-t border-line pt-3 text-sm">
+      {contact.commonGround && (
+        <div className="mb-3">
+          <div className="label mb-1">What you have in common</div>
+          {contact.commonGround.length ? (
+            <ul className="list-disc space-y-1 pl-5">
+              {contact.commonGround.map((g) => (
+                <li key={g.point}>
+                  {g.point} <span className="text-ink-3">· {g.use}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-ink-2">Nothing clear in common, so the messages lead with your strongest proof point instead.</p>
+          )}
+          {contact.note && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-ink-2">Note and email written for {first}</summary>
+              <p className="mt-2 whitespace-pre-wrap rounded-lg bg-soft p-3">{contact.note}</p>
+              {contact.email2 && (
+                <p className="mt-2 whitespace-pre-wrap rounded-lg bg-soft p-3">
+                  <span className="font-medium">{contact.emailSubject}</span>
+                  {"\n\n"}
+                  {contact.email2}
+                </p>
+              )}
+              <p className="mt-1 text-xs text-ink-3">The LinkedIn and email buttons above now use these.</p>
+            </details>
+          )}
+        </div>
+      )}
+      {!open ? (
+        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)}>
+          {contact.commonGround ? "Personalise again" : `Personalise for ${first}`}
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <textarea
+            className="field h-28 text-sm"
+            value={profile}
+            onChange={(e) => setProfile(e.target.value)}
+            placeholder={`Open ${first}'s LinkedIn profile, copy the About and Experience sections, and paste them here`}
+          />
+          <label className="flex items-center gap-2 text-ink-2">
+            <input type="checkbox" checked={web} onChange={(e) => setWeb(e.target.checked)} />
+            Also search the web for {first}&apos;s talks, posts and articles
+          </label>
+          <div className="flex items-center gap-2">
+            <button className="btn btn-primary btn-sm" disabled={busy || (!profile.trim() && !web && !contact.profileText)} onClick={go}>
+              {busy && <Spinner />}
+              {busy ? "Finding common ground…" : "Find common ground"}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
       <Feedback state={busy ? null : state} />

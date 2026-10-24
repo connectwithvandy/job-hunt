@@ -85,6 +85,13 @@ export const hiringContactV = v.object({
   linkedinUrl: v.string(),
   email: v.string(),
   phone: v.string(),
+  /** Their LinkedIn About and Experience, pasted by you, for finding common ground. */
+  profileText: v.optional(v.string()),
+  /** What you share with them, and the messages rewritten for them. */
+  commonGround: v.optional(v.array(v.object({ point: v.string(), use: v.string() }))),
+  note: v.optional(v.string()),
+  emailSubject: v.optional(v.string()),
+  email2: v.optional(v.string()),
 });
 
 /** What the web says about the company, gathered when you ask. */

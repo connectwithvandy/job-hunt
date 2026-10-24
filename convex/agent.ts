@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
-import { buildPack, draftReferralNotes, extractJob, interviewPrep, parseResume, researchCompany, scoreJob } from "./lib/brain";
+import { buildPack, draftReferralNotes, extractJob, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob } from "./lib/brain";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
 import { htmlToText, searchOtherSources, titleMatches, type Found } from "./lib/sources";
 import type { jobV, resumeV } from "./lib/validators";
@@ -414,5 +414,26 @@ export const findEmail = action({
     );
     await ctx.runMutation(internal.jobs.saveContactsForAction, { userId, jobId, contacts });
     return { email: body.data.email, confidence: body.data.score ?? 0 };
+  },
+});
+
+/** Finds common ground with one contact and rewrites the note and email for them. */
+export const personalise = action({
+  args: { jobId: v.id("jobs"), contactId: v.string(), profileText: v.optional(v.string()), searchWeb: v.boolean() },
+  handler: async (ctx, { jobId, contactId, profileText, searchWeb }): Promise<null> => {
+    const { userId, resumes } = await setup(ctx);
+    const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
+    const person = job.hiringContacts?.find((c) => c.id === contactId);
+    if (!person) throw new ConvexError("That person isn't on this job any more.");
+    const pasted = profileText?.trim() || person.profileText;
+    if (!pasted && !searchWeb) throw new ConvexError("Paste their LinkedIn profile, or tick the web search box.");
+    if (!resumes.length) throw new ConvexError("Upload your CV first.");
+    await spend(ctx, userId, "notes");
+    const out = await personaliseOutreach(job, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb);
+    const contacts = (job.hiringContacts ?? []).map((c) =>
+      c.id === contactId ? { ...c, profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email } : c,
+    );
+    await ctx.runMutation(internal.jobs.saveContactsForAction, { userId, jobId, contacts });
+    return null;
   },
 });
