@@ -94,3 +94,14 @@ export const patchForAction = internalMutation({
     return null;
   },
 });
+
+export const topForChat = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const rows = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(300);
+    return rows
+      .filter((r) => r.status !== "skip")
+      .sort((a, b) => (b.fit?.score ?? 0) - (a.fit?.score ?? 0))
+      .slice(0, 20);
+  },
+});

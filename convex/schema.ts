@@ -31,6 +31,18 @@ export default defineSchema({
     .index("by_userId_and_externalId", ["userId", "externalId"])
     .index("by_userId_and_roleKey", ["userId", "roleKey"]),
 
+  /** Conversations with the in-app assistant. */
+  chats: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    /** Set when the chat was opened from a job, so the assistant has that job's details. */
+    jobId: v.optional(v.id("jobs")),
+    messages: v.array(v.object({ role: v.union(v.literal("user"), v.literal("assistant")), text: v.string(), at: v.number() })),
+    /** True while the assistant is still writing its latest reply. */
+    pending: v.boolean(),
+    updatedAt: v.number(),
+  }).index("by_userId_and_updatedAt", ["userId", "updatedAt"]),
+
   prospects: defineTable({ userId: v.id("users"), ...prospectFields })
     .index("by_userId", ["userId"])
     .index("by_userId_and_key", ["userId", "key"]),

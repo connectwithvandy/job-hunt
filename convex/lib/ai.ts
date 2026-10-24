@@ -42,3 +42,48 @@ export async function askJSON<T extends z.ZodType>(opts: { system: string; promp
     .join("");
   return opts.schema.parse(JSON.parse(text));
 }
+
+/**
+ * A chat reply, streamed: `onText` gets the full text so far as Claude writes. Claude may search the web.
+ * Returns the finished text.
+ */
+export async function streamChat(opts: {
+  system: string;
+  messages: { role: "user" | "assistant"; text: string }[];
+  onText: (soFar: string) => void;
+}): Promise<string> {
+  if (!env.ANTHROPIC_API_KEY) throw new ConvexError("The AI isn't set up yet: the app owner needs to add an Anthropic API key.");
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const messages: Anthropic.Beta.BetaMessageParam[] = opts.messages.map((m) => ({ role: m.role, content: m.text }));
+  let text = "";
+  for (let turn = 0; turn < 4; turn++) {
+    const stream = client.beta.messages.stream({
+      model: env.JOBHUNT_MODEL ?? "claude-opus-5-5",
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      // The system prompt (CV, roles, jobs) is the same across a conversation, so cache it.
+      system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
+      output_config: { effort: "medium" },
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
+      messages,
+    });
+    let lastIndex = -1;
+    for await (const event of stream) {
+      if (event.type === "content_block_start" && event.content_block.type === "text") {
+        // Separate the text before and after a web search with a paragraph break.
+        if (text && lastIndex !== event.index) text += "\n\n";
+        lastIndex = event.index;
+      }
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        text += event.delta.text;
+        opts.onText(text);
+      }
+    }
+    const final = await stream.finalMessage();
+    if (final.stop_reason === "refusal") return text || "I can't help with that one. Try asking it another way.";
+    if (final.stop_reason !== "pause_turn") break;
+    messages.push({ role: "assistant", content: final.content });
+  }
+  return text.trim();
+}

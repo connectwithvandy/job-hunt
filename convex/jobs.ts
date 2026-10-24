@@ -301,3 +301,17 @@ export const messages = query({
       .sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });
+
+/** The jobs the assistant should know about: everything in play, strongest first. */
+export const recentForChat = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
+    const best = (j: (typeof jobs)[number]) => Math.max(-1, ...(j.scores ?? []).map((s) => s.score));
+    return jobs
+      .filter((j) => j.status !== "dismissed")
+      .sort((a, b) => Number(b.status !== "new") - Number(a.status !== "new") || best(b) - best(a))
+      .slice(0, 40)
+      .map((j) => ({ ...j, description: undefined, pack: undefined, research: undefined, prep: undefined }));
+  },
+});

@@ -40,6 +40,9 @@ export default function JobPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
+      <Link href={`/chat?job=${job._id}`} className="btn btn-ghost btn-sm float-right">
+        Ask about this job
+      </Link>
       <Link href="/jobs" className="text-sm text-ink-3 hover:text-ink">
         ← All jobs
       </Link>

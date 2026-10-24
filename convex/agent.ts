@@ -7,8 +7,9 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
+import { streamChat } from "./lib/ai";
 import { requireUserId } from "./lib/auth";
-import { buildPack, draftReferralNotes, extractJob, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { readPlace } from "./lib/sources";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -31,7 +32,7 @@ type Context = {
   tracks: Doc<"tracks">[];
 };
 
-async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep", count = 1) {
+async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep" | "chat", count = 1) {
   await ctx.runMutation(internal.limits.consume, { userId, kind, count });
 }
 
@@ -573,6 +574,47 @@ export const personaliseProspect = action({
       c.id === contactId ? { ...c, profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email } : c,
     );
     await ctx.runMutation(internal.prospects.patchForAction, { userId, prospectId, contacts });
+    return null;
+  },
+});
+
+// ---------- Chat ----------
+
+/** Writes the assistant's reply to the latest message, streaming it into the chat as it goes. */
+export const chatReply = internalAction({
+  args: { userId: v.id("users"), chatId: v.id("chats") },
+  handler: async (ctx, { userId, chatId }) => {
+    let text = "";
+    // Writes go one after another, so a slow early write can't land after the final one.
+    let writes = Promise.resolve<null>(null);
+    try {
+      await spend(ctx, userId, "chat");
+      const me = await contextFor(ctx, userId);
+      const chat: Doc<"chats"> = await ctx.runQuery(internal.chats.forAction, { userId, chatId });
+      const jobs: Doc<"jobs">[] = await ctx.runQuery(internal.jobs.recentForChat, { userId });
+      const prospects: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.topForChat, { userId });
+      const focus = chat.jobId ? await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId: chat.jobId })) as Doc<"jobs">) : null;
+      const history = chat.messages.slice(0, -1).slice(-30);
+      let lastWrite = 0;
+      text = await streamChat({
+        system: chatSystemPrompt({ ...me, jobs, prospects, focus }),
+        messages: history,
+        onText: (soFar) => {
+          text = soFar;
+          // Write about three times a second; the page shows each write as it lands.
+          if (Date.now() - lastWrite > 350) {
+            lastWrite = Date.now();
+            writes = writes.then(() => ctx.runMutation(internal.chats.writeReply, { chatId, text: soFar, done: false }));
+          }
+        },
+      });
+      await writes;
+      await ctx.runMutation(internal.chats.writeReply, { chatId, text: text || "(No reply. Try again.)", done: true });
+    } catch (err) {
+      await writes.catch(() => null);
+      const reason = err instanceof ConvexError ? String(err.data) : "Something went wrong. Try again.";
+      await ctx.runMutation(internal.chats.writeReply, { chatId, text: text ? `${text}\n\n(${reason})` : reason, done: true });
+    }
     return null;
   },
 });
