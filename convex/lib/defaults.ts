@@ -62,6 +62,7 @@ export const DAILY_LIMITS = {
   research: 10,
   prep: 5,
   chat: 60,
+  search: 20,
 } as const;
 
 /** Quick picks for where to search. "Remote" and "Anywhere" aren't places, so the search maps them to filters. */

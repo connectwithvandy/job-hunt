@@ -55,7 +55,14 @@ export const setApproved = mutation({
   args: { accessId: v.id("access"), approved: v.boolean() },
   handler: async (ctx, { accessId, approved }) => {
     await requireOwner(ctx);
+    const row = await ctx.db.get("access", accessId);
+    if (!row) throw new ConvexError("That person isn't on the waitlist any more.");
     await ctx.db.patch("access", accessId, { approved, decidedAt: Date.now() });
+    // Taken off the app: stop their morning searches too.
+    if (!approved) {
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+      if (profile?.autopilot) await ctx.db.patch("profiles", profile._id, { autopilot: false });
+    }
     return null;
   },
 });

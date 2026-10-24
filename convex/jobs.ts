@@ -276,6 +276,33 @@ export const saveContactsForAction = internalMutation({
   },
 });
 
+/** Changes one saved contact, read fresh here, so edits made while the AI was working aren't overwritten. */
+export const updateContactForAction = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), contactId: v.string(), patch: hiringContactV.omit("id").partial() },
+  handler: async (ctx, { userId, jobId, contactId, patch }) => {
+    const job = await ownJob(ctx, userId, jobId);
+    const hiringContacts = (job.hiringContacts ?? []).map((c) => (c.id === contactId ? { ...c, ...patch } : c));
+    await ctx.db.patch("jobs", jobId, { hiringContacts, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+/** Adds or rewrites referral notes by contact, keeping statuses and edits made meanwhile. */
+export const mergeOutreachForAction = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), entries: v.array(outreachV) },
+  handler: async (ctx, { userId, jobId, entries }) => {
+    const job = await ownJob(ctx, userId, jobId);
+    const outreach = [...job.outreach];
+    for (const entry of entries) {
+      const i = outreach.findIndex((o) => o.contactId === entry.contactId);
+      if (i === -1) outreach.push(entry);
+      else outreach[i] = { ...outreach[i], message: entry.message };
+    }
+    await ctx.db.patch("jobs", jobId, { outreach, updatedAt: Date.now() });
+    return null;
+  },
+});
+
 /** Every written message across your jobs, for the Messages page. Newest jobs first. */
 export const messages = query({
   args: {},

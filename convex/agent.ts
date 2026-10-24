@@ -36,7 +36,7 @@ type Context = {
   tracks: Doc<"tracks">[];
 };
 
-async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep" | "chat", count = 1) {
+async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep" | "chat" | "search", count = 1) {
   await ctx.runMutation(internal.limits.consume, { userId, kind, count });
 }
 
@@ -149,6 +149,7 @@ export const findJobs = action({
     const { userId, tracks, location } = await setup(ctx);
     const track = tracks.find((t) => t.key === trackKey);
     if (!track) throw new ConvexError("Unknown track.");
+    await spend(ctx, userId, "search");
     return { added: await searchTrack(ctx, userId, track, location), trackName: track.name };
   },
 });
@@ -185,6 +186,7 @@ async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: str
     const pasted = args.text?.trim() ?? "";
     if (!link && !pasted) throw new ConvexError("Paste a job link, or the job description.");
     if (link && !/^https?:\/\//i.test(link)) throw new ConvexError("That link should start with https://");
+    if (link && !publicUrl(link)) throw new ConvexError("That link doesn't point to a public website.");
     const now = Date.now();
 
     let job: NewJob;
@@ -202,8 +204,8 @@ async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: str
       await spend(ctx, userId, "addJob");
       let text = pasted;
       if (!text) {
-        const res = await fetch(link, { headers: { "user-agent": "Mozilla/5.0 (Macintosh) job-hunt" }, redirect: "follow" }).catch(() => null);
-        text = res?.ok ? htmlToText(await res.text()) : "";
+        const res = await fetch(link, { headers: { "user-agent": "Mozilla/5.0 (Macintosh) job-hunt" }, redirect: "follow", signal: AbortSignal.timeout(20_000) }).catch(() => null);
+        text = res?.ok && publicUrl(res.url || link) ? htmlToText((await res.text()).slice(0, 2_000_000)) : "";
         if (text.length < 400) {
           throw new ConvexError("That site didn't let us read the job. Open it, copy the description, and paste it in instead.");
         }
@@ -218,6 +220,19 @@ async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: str
     }
     const { lastId }: { lastId: Id<"jobs"> | null } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [job] });
     return lastId!;
+}
+
+/** Only fetch public sites, never the server's own network. */
+function publicUrl(link: string) {
+  let host: string;
+  try {
+    host = new URL(link).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal") || !host.includes(".")) return false;
+  // Bare IP addresses (v4 or v6) are never job boards.
+  return !/^[\d.]+$/.test(host) && !host.startsWith("[");
 }
 
 // ---------- Scoring ----------
@@ -280,51 +295,66 @@ export const dailyRun = internalAction({
   args: {},
   handler: async (ctx) => {
     const userIds: Id<"users">[] = await ctx.runQuery(internal.users.autopilotUsers, {});
-    for (const userId of userIds) {
-      try {
-        const me = await contextFor(ctx, userId);
-        let added = 0;
-        // One Google Jobs title per track keeps a month of mornings inside JSearch's free 200 searches.
-        for (const track of me.tracks.filter((t) => t.status === "active")) {
-          try {
-            added += await searchTrack(ctx, userId, track, me.location, 1);
-          } catch (err) {
-            console.warn("Autopilot search failed", track.key, String(err));
-          }
+    // One run per person, a little apart, so one slow person can't stop the rest.
+    for (const [i, userId] of userIds.entries()) await ctx.scheduler.runAfter(i * 30_000, internal.agent.autopilotFor, { userId });
+    return null;
+  },
+});
+
+export const autopilotFor = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    try {
+      // Someone taken off the app doesn't keep spending in the background.
+      const allowed: boolean = await ctx.runQuery(internal.access.allowed, { userId });
+      if (!allowed) return null;
+      const me = await contextFor(ctx, userId);
+      let added = 0;
+      // One Google Jobs title per track keeps a month of mornings inside JSearch's free 200 searches.
+      for (const track of me.tracks.filter((t) => t.status === "active")) {
+        try {
+          added += await searchTrack(ctx, userId, track, me.location, 1);
+        } catch (err) {
+          console.warn("Autopilot search failed", track.key, String(err));
         }
-        let scored = 0;
-        const unscored: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit: AUTOPILOT_SCORES });
-        if (unscored.length && me.resume) {
+      }
+      let scored = 0;
+      const unscored: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit: AUTOPILOT_SCORES });
+      if (unscored.length && me.resume) {
+        // Twelve at a time, so a nearly used-up allowance still scores what it can.
+        for (let i = 0; i < unscored.length; i += 12) {
+          const batch = unscored.slice(i, i + 12);
           try {
-            await spend(ctx, userId, "score", unscored.length);
-            for (let i = 0; i < unscored.length; i += 12) scored += (await scoreIds(ctx, me, unscored.slice(i, i + 12))).scored;
+            await spend(ctx, userId, "score", batch.length);
           } catch (err) {
             // Out of today's allowance: the rest wait for tomorrow.
             console.warn("Autopilot scoring stopped", String(err));
+            break;
           }
+          scored += (await scoreIds(ctx, me, batch)).scored;
         }
-        // Companies that just raised money, every morning; new YC companies on Mondays.
-        let funded = 0;
-        try {
-          funded = await addFunded(ctx, me, "india_remote");
-          if (new Date().getUTCDay() === 1) await addYc(ctx, me, "india_remote");
-        } catch (err) {
-          console.warn("Autopilot company search failed", String(err));
-        }
-        // Watch the Dream 20 for new sales and GTM openings too.
-        const dreams: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.dreamsForAction, { userId });
-        for (const p of dreams) {
-          try {
-            await ctx.runMutation(internal.prospects.recordRoles, { userId, prospectId: p._id, openRoles: await checkCompanyRoles(ctx, me, p) });
-          } catch (err) {
-            console.warn("Autopilot role check failed", p.name, String(err));
-          }
-        }
-        const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
-        await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded });
-      } catch (err) {
-        console.error("Autopilot failed for a user", String(err));
       }
+      // Companies that just raised money, every morning; new YC companies on Mondays.
+      let funded = 0;
+      try {
+        funded = await addFunded(ctx, me, "india_remote");
+        if (new Date().getUTCDay() === 1) await addYc(ctx, me, "india_remote");
+      } catch (err) {
+        console.warn("Autopilot company search failed", String(err));
+      }
+      // Watch the Dream 20 for new sales and GTM openings too.
+      const dreams: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.dreamsForAction, { userId });
+      for (const p of dreams) {
+        try {
+          await ctx.runMutation(internal.prospects.recordRoles, { userId, prospectId: p._id, openRoles: await checkCompanyRoles(ctx, me, p) });
+        } catch (err) {
+          console.warn("Autopilot role check failed", p.name, String(err));
+        }
+      }
+      const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
+      await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded });
+    } catch (err) {
+      console.error("Autopilot failed for a user", String(err));
     }
     return null;
   },
@@ -369,19 +399,11 @@ export const draftNotes = action({
     const people: Doc<"contacts">[] = await ctx.runQuery(internal.jobs.contactsForAction, { userId, ids: contactIds });
     await spend(ctx, userId, "notes");
     const notes = await draftReferralNotes(job, cv, track, people);
-    const outreach = [...job.outreach];
-    for (const n of notes) {
+    const entries = notes.flatMap((n) => {
       const p = people.find((c) => c._id === n.contactId);
-      if (!p) continue;
-      const entry = {
-        contactId: p._id, name: `${p.firstName} ${p.lastName}`, position: p.position,
-        url: p.linkedinUrl, message: n.message, status: "draft" as const,
-      };
-      const i = outreach.findIndex((o) => o.contactId === p._id);
-      if (i === -1) outreach.push(entry);
-      else outreach[i] = { ...outreach[i], message: n.message };
-    }
-    await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, outreach });
+      return p ? [{ contactId: p._id, name: `${p.firstName} ${p.lastName}`, position: p.position, url: p.linkedinUrl, message: n.message, status: "draft" as const }] : [];
+    });
+    await ctx.runMutation(internal.jobs.mergeOutreachForAction, { userId, jobId, entries });
     return { drafted: notes.length };
   },
 });
@@ -442,10 +464,10 @@ export const findEmail = action({
     const body = (await res.json()) as { data?: { email: string | null; score: number | null; phone_number?: string | null }; errors?: { details: string }[] };
     if (!res.ok) throw new ConvexError(`Hunter.io: ${body.errors?.[0]?.details ?? `answered ${res.status}`}`);
     if (!body.data?.email) throw new ConvexError(`No email found for ${person.name} at ${job.company}.`);
-    const contacts = (job.hiringContacts ?? []).map((c) =>
-      c.id === contactId ? { ...c, email: body.data!.email!, phone: c.phone || body.data!.phone_number || "" } : c,
-    );
-    await ctx.runMutation(internal.jobs.saveContactsForAction, { userId, jobId, contacts });
+    await ctx.runMutation(internal.jobs.updateContactForAction, {
+      userId, jobId, contactId,
+      patch: { email: body.data.email, ...(person.phone || !body.data.phone_number ? {} : { phone: body.data.phone_number }) },
+    });
     return { email: body.data.email, confidence: body.data.score ?? 0 };
   },
 });
@@ -463,10 +485,10 @@ export const personalise = action({
     if (!resumes.length) throw new ConvexError("Upload your CV first.");
     await spend(ctx, userId, "notes");
     const out = await personaliseOutreach(job, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb);
-    const contacts = (job.hiringContacts ?? []).map((c) =>
-      c.id === contactId ? { ...c, profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email } : c,
-    );
-    await ctx.runMutation(internal.jobs.saveContactsForAction, { userId, jobId, contacts });
+    await ctx.runMutation(internal.jobs.updateContactForAction, {
+      userId, jobId, contactId,
+      patch: { profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email },
+    });
     return null;
   },
 });
@@ -637,10 +659,10 @@ export const personaliseProspect = action({
     await spend(ctx, userId, "notes");
     const asJob = { title: "(no role posted)", company: p.name, location: p.location, description: `${p.oneLiner}. ${p.funding ?? (p.batch ? `YC ${p.batch}` : "")}`, url: p.website };
     const out = await personaliseOutreach(asJob, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb, true);
-    const contacts = p.contacts.map((c) =>
-      c.id === contactId ? { ...c, profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email } : c,
-    );
-    await ctx.runMutation(internal.prospects.patchForAction, { userId, prospectId, contacts });
+    await ctx.runMutation(internal.prospects.updateContactForAction, {
+      userId, prospectId, contactId,
+      patch: { profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email },
+    });
     return null;
   },
 });
@@ -672,8 +694,7 @@ export const reachOutTo = action({
       emailSubject: out.emailSubject,
       email2: out.email,
     };
-    const contacts = existing ? p.contacts.map((c) => (c.id === existing.id ? person : c)) : [...p.contacts, person];
-    await ctx.runMutation(internal.prospects.patchForAction, { userId, prospectId, contacts });
+    await ctx.runMutation(internal.prospects.upsertContactForAction, { userId, prospectId, contact: person });
     return `Found ${person.name}, ${person.title}. Note and email are below.`;
   },
 });
@@ -695,12 +716,15 @@ export const chatReply = internalAction({
       const prospects: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.topForChat, { userId });
       const focus = chat.jobId ? await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId: chat.jobId })) as Doc<"jobs">) : null;
       const history = chat.messages.slice(0, -1).slice(-30);
+      // The conversation sent to Claude has to start with the user.
+      while (history.length && history[0].role !== "user") history.shift();
+      const userText = chat.messages.filter((m) => m.role === "user").map((m) => m.text).join("\n");
       let lastWrite = 0;
       text = await streamChat({
         system: chatSystemPrompt({ ...me, jobs, prospects, focus }),
         messages: history,
         tools: CHAT_TOOLS,
-        runTool: (name, input) => runChatTool(ctx, me, name, input),
+        runTool: (name, input) => runChatTool(ctx, me, name, input, userText),
         onText: (soFar) => {
           text = soFar;
           // Write about three times a second; the page shows each write as it lands.
@@ -801,6 +825,7 @@ export const findLogos = action({
     const { userId, resumes } = await setup(ctx);
     const names = [...new Set(resumes.flatMap((r) => [...r.resume.experience.map((e) => e.company), ...r.resume.education.map((e) => e.school)]))].filter(Boolean);
     if (!names.length) return { found: 0 };
+    await spend(ctx, userId, "research");
     const domains = await findDomains(names.slice(0, 60));
     for (const r of resumes) {
       const resume = {
@@ -851,7 +876,7 @@ const CHAT_TOOLS: Anthropic.Beta.BetaTool[] = [
 ];
 
 /** Runs one chat tool for the signed-in person and returns a one-line result. */
-async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Record<string, unknown>): Promise<string> {
+async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Record<string, unknown>, userText: string): Promise<string> {
   const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string) : undefined);
   const jobId = str("job_id") as Id<"jobs"> | undefined;
   const titleOf = async (id: Id<"jobs">) => {
@@ -860,11 +885,15 @@ async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Rec
   };
   switch (name) {
     case "add_job": {
+      // A link has to come from the candidate, not from a job post or web page the assistant read.
+      const link = str("link");
+      if (link && !userText.includes(link)) return "Not added: I can only add links you pasted in this chat. Paste the link and ask again.";
       const id = await addJobFor(ctx, me.userId, { link: str("link"), text: str("text") });
       return `Added ${await titleOf(id)} to your jobs [id ${id}].`;
     }
     case "find_jobs": {
       const active = me.tracks.filter((t) => t.status === "active" && (!str("role_key") || t.key === str("role_key")));
+      await spend(ctx, me.userId, "search", Math.max(1, active.length));
       let added = 0;
       for (const t of active) added += await searchTrack(ctx, me.userId, t, me.location);
       // Name the new unscored jobs, so the assistant can score them next.

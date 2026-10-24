@@ -5,6 +5,7 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { requireUserId } from "./lib/auth";
 
 const MAX_MESSAGES = 120;
+const STUCK_AFTER = 10 * 60_000;
 
 export const list = query({
   args: {},
@@ -43,7 +44,8 @@ export const send = mutation({
     if (id) {
       const chat = await ctx.db.get("chats", id);
       if (!chat || chat.userId !== userId) throw new ConvexError("Chat not found.");
-      if (chat.pending) throw new ConvexError("Wait for the reply to finish first.");
+      // A reply that hasn't written anything for 10 minutes died; let the next message through.
+      if (chat.pending && now - chat.updatedAt < STUCK_AFTER) throw new ConvexError("Wait for the reply to finish first.");
       if (chat.messages.length + 2 > MAX_MESSAGES) throw new ConvexError("This chat is full. Start a new one.");
       await ctx.db.patch("chats", id, { messages: [...chat.messages, ...turn], pending: true, updatedAt: now });
     } else {

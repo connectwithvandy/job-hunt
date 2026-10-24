@@ -96,6 +96,31 @@ export const patchForAction = internalMutation({
   },
 });
 
+/** Changes one person on a company, read fresh here, so edits made while the AI was working aren't overwritten. */
+export const updateContactForAction = internalMutation({
+  args: { userId: v.id("users"), prospectId: v.id("prospects"), contactId: v.string(), patch: hiringContactV.omit("id").partial() },
+  handler: async (ctx, { userId, prospectId, contactId, patch }) => {
+    const p = await ownProspect(ctx, userId, prospectId);
+    const contacts = p.contacts.map((c) => (c.id === contactId ? { ...c, ...patch } : c));
+    await ctx.db.patch("prospects", prospectId, { contacts, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+/** Saves a person found by name: updates them if already saved, otherwise adds them. */
+export const upsertContactForAction = internalMutation({
+  args: { userId: v.id("users"), prospectId: v.id("prospects"), contact: hiringContactV },
+  handler: async (ctx, { userId, prospectId, contact }) => {
+    const p = await ownProspect(ctx, userId, prospectId);
+    const same = p.contacts.find((c) => c.name.toLowerCase() === contact.name.toLowerCase());
+    const contacts = same
+      ? p.contacts.map((c) => (c.id === same.id ? { ...c, ...contact, id: c.id, email: c.email || contact.email, phone: c.phone || contact.phone, linkedinUrl: contact.linkedinUrl || c.linkedinUrl, profileText: c.profileText } : c))
+      : [...p.contacts, contact];
+    await ctx.db.patch("prospects", prospectId, { contacts, updatedAt: Date.now() });
+    return null;
+  },
+});
+
 export const topForChat = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
