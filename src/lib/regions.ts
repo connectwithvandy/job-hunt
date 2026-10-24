@@ -1,7 +1,10 @@
+import { inBengaluru, remoteForIndia } from "../../convex/lib/places";
+
 // Sorts a job's free-text location into broad regions for the Jobs page filter.
 // A job can sit in more than one, like a remote role open to India.
 
 export const REGIONS = [
+  { key: "blr", label: "Bengaluru or remote" },
   { key: "india", label: "India" },
   { key: "remote", label: "Remote" },
   { key: "us", label: "US & Canada" },
@@ -13,7 +16,7 @@ export const REGIONS = [
 
 export type RegionKey = (typeof REGIONS)[number]["key"];
 
-const PLACES: Record<Exclude<RegionKey, "remote" | "other">, string[]> = {
+const PLACES: Record<Exclude<RegionKey, "remote" | "other" | "blr">, string[]> = {
   india: ["india", "bengaluru", "bangalore", "mumbai", "delhi", "gurugram", "gurgaon", "noida", "pune", "hyderabad", "chennai", "kolkata", "ahmedabad", "jaipur", "kochi", "chandigarh", "indore", "maharashtra", "karnataka", "telangana", "tamil nadu", "haryana"],
   us: ["united states", "usa", "us", "canada", "new york", "san francisco", "seattle", "austin", "boston", "chicago", "los angeles", "denver", "atlanta", "miami", "washington", "toronto", "vancouver", "montreal"],
   europe: ["united kingdom", "uk", "england", "scotland", "london", "manchester", "ireland", "dublin", "germany", "berlin", "munich", "france", "paris", "netherlands", "amsterdam", "spain", "madrid", "barcelona", "portugal", "lisbon", "italy", "milan", "poland", "warsaw", "sweden", "stockholm", "denmark", "copenhagen", "switzerland", "zurich", "belgium", "austria", "vienna", "europe", "emea"],
@@ -30,11 +33,12 @@ const US_STATE = /,\s*(A[LKZR]|C[AOT]|D[EC]|FL|GA|HI|I[DLNA]|K[SY]|LA|M[EDAINSOT
 
 export function regionsOf(job: { location: string; workSetting?: string | null }): RegionKey[] {
   const found: RegionKey[] = [];
+  if (inBengaluru(job.location) || remoteForIndia(job.location, job.workSetting)) found.push("blr");
   if (job.workSetting === "remote" || /\bremote\b/i.test(job.location)) found.push("remote");
   for (const key of Object.keys(PATTERNS) as (keyof typeof PLACES)[]) {
     if (PATTERNS[key].test(job.location)) found.push(key);
   }
-  if (!found.some((r) => r !== "remote") && US_STATE.test(job.location)) found.push("us");
-  if (!found.length) found.push("other");
+  if (!found.some((r) => r !== "remote" && r !== "blr") && US_STATE.test(job.location)) found.push("us");
+  if (!found.some((r) => r !== "blr")) found.push("other");
   return found;
 }

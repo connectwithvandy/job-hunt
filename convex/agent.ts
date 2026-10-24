@@ -11,6 +11,7 @@ import { streamChat } from "./lib/ai";
 import { requireUserId } from "./lib/auth";
 import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
 import { companyKey } from "./lib/company";
+import { inBengaluru, remoteForIndia } from "./lib/places";
 import { readPlace } from "./lib/sources";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
 import { htmlToText, searchOtherSources, titleMatches, type Found } from "./lib/sources";
@@ -237,7 +238,7 @@ export const scoreJobs = action({
 });
 
 /** Scores jobs four at a time, each track against its own CV. Doesn't spend allowance; callers do. */
-async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Context, ids: Id<"jobs">[]) {
+async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, location }: Context, ids: Id<"jobs">[]) {
     const cv = requireResume(resume);
     const cvFor = (t: { key: string }) => resumeFor[t.key] ?? cv;
     let failed = 0;
@@ -248,7 +249,7 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: C
         ids.slice(i, i + 4).map(async (jobId) => {
           try {
             const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
-            const s = await scoreJob(job, cvFor, tracks);
+            const s = await scoreJob(job, cvFor, tracks, location);
             await ctx.runMutation(internal.jobs.patchForAction, {
               userId,
               jobId,
@@ -547,7 +548,7 @@ export const findFunded = action({
     if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
     await spend(ctx, me.userId, "research");
     const skip: string[] = await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId });
-    const found = await findFundedCompanies(scope === "india_remote" ? "India, or hiring remotely in India" : me.location, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
+    const found = await findFundedCompanies(scope === "india_remote" ? `${readPlace(me.location).kind === "place" ? me.location : "India"}, or hiring remotely in India` : me.location, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
     const prospects: NewProspect[] = found.map((c) => ({
       key: companyKey(c.name),
       name: c.name,
@@ -635,12 +636,12 @@ export const chatReply = internalAction({
 // ---------- Dream 20 and open roles ----------
 
 const GTM_TITLE = /\b(sales|gtm|go[- ]to[- ]market|business development|bdr|sdr|account (executive|manager|director)|revenue|partnerships?|growth|customer success|solutions? (engineer|consultant)|commercial)\b/i;
-const INDIA = /india|bengaluru|bangalore|mumbai|delhi|gurgaon|gurugram|noida|pune|hyderabad|chennai/i;
 
 /** Looks up a company's open sales and GTM roles in India or remote, saves them as jobs, and returns how many there are. */
 async function checkCompanyRoles(ctx: ActionCtx, me: Context, p: Doc<"prospects">): Promise<number> {
   const listings = await companyListings(p.name);
-  const fits = listings.filter((l) => GTM_TITLE.test(l.title) && (INDIA.test(l.location ?? "") || l.workSetting === "remote" || /remote/i.test(l.location ?? "")));
+  // Bengaluru, or remote and open to India.
+  const fits = listings.filter((l) => GTM_TITLE.test(l.title) && (inBengaluru(l.location ?? "") || remoteForIndia(l.location ?? "", l.workSetting)));
   if (!fits.length) return 0;
   const active = me.tracks.filter((t) => t.status === "active");
   const trackFor = (title: string) => (active.find((t) => t.titles.some((x) => titleMatches(x, title))) ?? active[0])?.key ?? "";

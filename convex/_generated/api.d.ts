@@ -22,6 +22,7 @@ import type * as lib_company from "../lib/company.js";
 import type * as lib_defaults from "../lib/defaults.js";
 import type * as lib_dreamwork from "../lib/dreamwork.js";
 import type * as lib_facts from "../lib/facts.js";
+import type * as lib_places from "../lib/places.js";
 import type * as lib_sources from "../lib/sources.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/defaults": typeof lib_defaults;
   "lib/dreamwork": typeof lib_dreamwork;
   "lib/facts": typeof lib_facts;
+  "lib/places": typeof lib_places;
   "lib/sources": typeof lib_sources;
   "lib/validators": typeof lib_validators;
   limits: typeof limits;

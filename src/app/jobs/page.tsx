@@ -31,7 +31,8 @@ function Jobs() {
   const [now] = useState(() => Date.now());
   const track = params.get("track");
   const show = params.get("show");
-  const region = params.get("region");
+  // With a home city set, the list opens on that city plus remote; "all" shows everywhere.
+  const regionParam = params.get("region");
   const me = useQuery(api.users.me);
   const jobs = useQuery(api.jobs.list);
   const scoreJobs = useAction(api.agent.scoreJobs);
@@ -39,6 +40,8 @@ function Jobs() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   if (!me || !jobs) return <Loading />;
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
+  const homeIsBlr = /bengaluru|bangalore/i.test(me.location);
+  const region = regionParam === "all" ? null : (regionParam ?? (homeIsBlr ? "blr" : null));
 
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
   const isOld = (j: (typeof jobs)[number]) => j.status === "new" && now - (j.postedAt ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000;
@@ -119,9 +122,9 @@ function Jobs() {
       {inView.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="label mr-1">Region</span>
-          {chip(hrefWith({ region: null }), `Everywhere · ${filtered.length}`, !region)}
+          {chip(hrefWith({ region: homeIsBlr ? "all" : null }), `Everywhere · ${filtered.length}`, !region)}
           {REGIONS.filter((r) => regionCounts.get(r.key) || region === r.key).map((r) =>
-            chip(hrefWith({ region: r.key }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, region === r.key),
+            chip(hrefWith({ region: homeIsBlr && r.key === "blr" ? null : r.key }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, region === r.key),
           )}
         </div>
       )}

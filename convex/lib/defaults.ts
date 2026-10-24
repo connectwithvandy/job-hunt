@@ -66,6 +66,7 @@ export const DAILY_LIMITS = {
 
 /** Quick picks for where to search. "Remote" and "Anywhere" aren't places, so the search maps them to filters. */
 export const LOCATION_CHOICES = [
+  { value: "Bengaluru", hint: "Jobs in Bengaluru, plus remote jobs open to India" },
   { value: "India", hint: "Jobs in India, plus remote jobs open to India" },
   { value: "Remote", hint: "Remote jobs in any country" },
   { value: "Anywhere", hint: "Any job, any country" },
