@@ -237,14 +237,22 @@ function Companies() {
                     {p.rolesCheckedAt !== undefined &&
                       (p.openRoles ? (
                         <Link href={`/jobs?q=${encodeURIComponent(p.name)}`} className="rounded-full bg-accent px-2.5 py-0.5 font-medium text-on-accent">
-                          {p.openRoles} open {p.openRoles === 1 ? "role" : "roles"} in India or remote →
+                          {p.openRoles} open {p.openRoles === 1 ? "role" : "roles"} in Bengaluru or remote →
                         </Link>
                       ) : (
-                        <span className="text-ink-3">No sales or GTM openings in India or remote at the last check</span>
+                        <span className="text-ink-3">No sales or GTM openings in Bengaluru or remote at the last check</span>
                       ))}
-                    <button className="text-ink-3 underline hover:text-ink" onClick={() => void checkRoles({ prospectId: p._id })}>
+                    <ActionButton
+                      size="sm"
+                      variant="ghost"
+                      pending="Checking…"
+                      run={async () => {
+                        const { roles } = await checkRoles({ prospectId: p._id });
+                        return roles ? `Found ${roles} sales or GTM ${roles === 1 ? "role" : "roles"} in Bengaluru or remote. They're on the Jobs page.` : "No sales or GTM roles in Bengaluru or remote right now.";
+                      }}
+                    >
                       Check open roles
-                    </button>
+                    </ActionButton>
                     <button className="text-ink-3 underline hover:text-ink" onClick={() => void setDream({ prospectId: p._id, dream: !p.dream })}>
                       {p.dream ? "Take off dream list" : "Add to dream list"}
                     </button>

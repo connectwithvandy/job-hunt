@@ -61,10 +61,20 @@ export async function searchListings(search: string, location: string, limit = 1
   return page.listings;
 }
 
-/** Every open role at one company, anywhere. Title search within a company returns nothing, so scoring does the filtering. */
+/**
+ * Open roles at one company: those in India, remote ones, and the newest anywhere. A search returns at most 25,
+ * so a big company's Indian roles only show up when asked for directly. Title search within a company returns
+ * nothing, so callers do the filtering.
+ */
 export async function companyListings(company: string) {
-  const page = await callTool<{ listings: Listing[] }>("browse_listings", { company, limit: 50 });
-  return page.listings;
+  const pages = await Promise.allSettled([
+    callTool<{ listings: Listing[] }>("browse_listings", { company, location: "India", limit: 25 }),
+    callTool<{ listings: Listing[] }>("browse_listings", { company, remote: true, limit: 25 }),
+    callTool<{ listings: Listing[] }>("browse_listings", { company, limit: 25 }),
+  ]);
+  if (pages.every((p) => p.status === "rejected")) throw (pages[0] as PromiseRejectedResult).reason;
+  const all = pages.flatMap((p) => (p.status === "fulfilled" ? p.value.listings : []));
+  return [...new Map(all.map((l) => [l.id, l])).values()];
 }
 
 export async function getListing(id: string) {

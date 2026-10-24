@@ -778,6 +778,8 @@ export const checkOpenRoles = action({
         await ctx.runMutation(internal.prospects.recordRoles, { userId: me.userId, prospectId: p._id, openRoles: n });
       } catch (err) {
         console.warn("Role check failed", p.name, String(err));
+        // Checking one company: say it failed rather than "no roles".
+        if (prospectId) throw err instanceof ConvexError ? err : new ConvexError(`Couldn't check ${p.name} just now. Try again in a minute.`);
       }
     }
     return { companies: list.length, roles };
