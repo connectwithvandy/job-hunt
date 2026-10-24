@@ -51,7 +51,7 @@ export default function Cvs() {
       ) : (
         <>
           <div className="no-print card mb-6 flex max-w-4xl flex-wrap items-center gap-3 p-4 text-sm">
-            <span className="text-ink-2">{usedBy.length ? `Used by: ${usedBy.join(", ")}` : "No track uses this CV yet. Pick it on the Tracks page."}</span>
+            <span className="text-ink-2">{usedBy.length ? `Used by: ${usedBy.join(", ")}` : "No role uses this CV yet. Pick it on the Roles page."}</span>
             <span className="flex-1" />
             {current._id !== me.defaultResumeId && (
               <button className="btn btn-ghost btn-sm" onClick={async () => setState(await attempt(async () => (await setDefault({ resumeId: current._id }), "Now your default CV.")))}>

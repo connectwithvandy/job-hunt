@@ -63,9 +63,9 @@ export default function Today() {
 
       <section className="mb-12">
         <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="display text-3xl">Your tracks</h2>
+          <h2 className="display text-3xl">Your roles</h2>
           <Link href="/tracks" className="text-sm text-ink-3 hover:text-ink">
-            Edit tracks
+            Edit roles
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
@@ -214,7 +214,7 @@ function Autopilot({ on, last }: { on: boolean; last: { at: number; added: numbe
         <div className="font-medium">Morning autopilot {on ? "is on" : "is off"}</div>
         <p className="mt-0.5 text-sm text-ink-2">
           {!on
-            ? "Turn it on and every morning at 8 the app searches all your active tracks and scores what's new, so you start with a ranked list."
+            ? "Turn it on and every morning at 8 the app searches all your roles and scores what's new, so you start with a ranked list."
             : last
               ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"}.`
               : "First run is tomorrow at 8 in the morning, India time."}

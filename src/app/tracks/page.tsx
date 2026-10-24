@@ -22,7 +22,7 @@ export default function Tracks() {
   };
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHead title="Tracks" sub="Each track is a different game: the same you, pitched for a different kind of role. Pause one to stop searching and scoring it." />
+      <PageHead title="Roles" sub="The kinds of roles you want. Each one searches its job titles and is pitched from its own CV. Switch one off to stop searching for it." />
       <div className="mb-5 max-w-xl">
         <LocationForm location={me.location} />
       </div>
@@ -30,7 +30,7 @@ export default function Tracks() {
         {me.tracks.map((t) => (
           <TrackForm key={t._id} track={t} resumes={me.resumes} />
         ))}
-        <TrackForm key={blank.key} track={blank} resumes={me.resumes} />
+        <TrackForm key={blank.key} track={blank} resumes={me.resumes} isNew />
       </div>
     </div>
   );

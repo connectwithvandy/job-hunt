@@ -133,7 +133,7 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
     <div className="mt-10">
       <h1 className="display text-4xl md:text-5xl">What are you going for?</h1>
       <p className="mt-3 text-ink-2">
-        Pick every kind of role you&apos;d take. Each becomes a <span className="text-ink">track</span>, with its own CV angle and its own search. You can change them anytime.
+        Pick every kind of role you&apos;d take. Each becomes a <span className="text-ink">role</span> with its own search and its own CV. You can change them anytime.
       </p>
       <div className="mt-8 grid gap-3 sm:grid-cols-2">
         {PRESET_TRACKS.map((t) => {
@@ -189,7 +189,7 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
 
       <div className="mt-8 flex items-center gap-4">
         <button className="btn btn-primary" disabled={!chosen.length} onClick={onDone}>
-          Continue with {chosen.length || "no"} {chosen.length === 1 ? "track" : "tracks"}
+          Continue with {chosen.length || "no"} {chosen.length === 1 ? "role" : "roles"}
         </button>
         <button type="button" className="text-sm text-ink-3 hover:text-ink" onClick={onBack}>
           Back

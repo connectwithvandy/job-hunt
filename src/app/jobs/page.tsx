@@ -76,7 +76,7 @@ function Jobs() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHead title="Jobs" sub="Every role you're considering, sorted by how well it fits your best track." />
+      <PageHead title="Jobs" sub="Every role you're considering, sorted by how well it fits your best role." />
 
       <div className="mb-8 grid gap-4 md:grid-cols-2">
         <FindJobs tracks={me.tracks} />
@@ -84,7 +84,7 @@ function Jobs() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {chip(hrefWith({ track: null, show: null }), "All tracks", !track && show !== "hidden")}
+        {chip(hrefWith({ track: null, show: null }), "All roles", !track && show !== "hidden")}
         {me.tracks.map((t) =>
           chip(
             hrefWith({ track: t.key, show: null }),

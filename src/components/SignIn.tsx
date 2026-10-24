@@ -5,8 +5,8 @@ import { useState } from "react";
 import { Spinner } from "./ui";
 
 const POINTS = [
-  ["Tracks, not one search", "SDR leader on Monday, GTM strategist on Tuesday. Each game gets its own CV angle, pitch and pipeline."],
-  ["A score with a reason", "Every job is read against every track, so a misleading title costs you ten seconds, not an evening."],
+  ["Several roles, not one search", "SDR leader on Monday, GTM strategist on Tuesday. Each role gets its own search, CV and pipeline."],
+  ["A score with a reason", "Every job is read against every role you want, so a misleading title costs you ten seconds, not an evening."],
   ["Tailored, never invented", "Your CV is reordered and trimmed for each role. A fact check flags any number that isn't yours."],
   ["Warm intros first", "See who you know at each company, and get a personal referral note for the one or two best people to ask."],
 ];

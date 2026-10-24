@@ -88,7 +88,7 @@ export function UploadResume({ replace, onAdded }: { replace?: { _id: Id<"resume
       <h2 className="display mb-1 text-2xl">{replace ? `Replace "${replace.label}"` : "Add another CV"}</h2>
       <p className="mb-5 text-sm text-ink-2">
         PDF or Word. Claude reads it in, keeping every role, bullet and number.
-        {replace ? " This replaces the CV below." : " Keep one per angle, like an SDR Leader CV and a GTM CV, and pick which track uses which."}
+        {replace ? " This replaces the CV below." : " Keep one per angle, like an SDR Leader CV and a GTM CV, and pick which role uses which."}
       </p>
       {!replace && (
         <label className="mb-4 block">
@@ -155,29 +155,49 @@ export function ResumeEditor({ resumeId, resume }: { resumeId: Id<"resumes">; re
 
 type TrackInput = Pick<Doc<"tracks">, "key" | "name" | "color" | "status" | "titles" | "pitch" | "company" | "resumeId">;
 
-export function TrackForm({ track, resumes }: { track: TrackInput; resumes: { _id: Id<"resumes">; label: string }[] }) {
+/** One role you want: its job titles to search, the CV it's pitched from, and whether it's searching. */
+export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput; resumes: { _id: Id<"resumes">; label: string }[]; isNew?: boolean }) {
   const save = useMutation(api.users.saveTrack);
+  const [open, setOpen] = useState(!isNew);
+  const [titles, setTitles] = useState(track.titles);
+  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
+  const addTitle = () => {
+    const t = draft.trim();
+    if (t && !titles.some((x) => x.toLowerCase() === t.toLowerCase())) setTitles([...titles, t]);
+    setDraft("");
+  };
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="card flex min-h-40 items-center justify-center border-dashed p-6 text-ink-2 hover:text-ink">
+        + Add a role
+      </button>
+    );
+  }
   return (
     <form
       className="card relative space-y-4 overflow-hidden p-6"
       onSubmit={async (e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
+        const all = draft.trim() ? [...titles, draft.trim()] : titles;
         setBusy(true);
         setState(
           await attempt(async () => {
             await save({
               key: track.key,
-              name: String(f.get("name")).trim(),
-              color: String(f.get("color")),
+              name: String(f.get("name")).trim() || all[0] || "",
+              color: track.color,
               status: f.get("active") ? "active" : "paused",
-              titles: String(f.get("titles")).split(/\n|,/).map((s) => s.trim()).filter(Boolean),
-              pitch: String(f.get("pitch")).trim(),
+              titles: all,
+              pitch: String(f.get("pitch") ?? "").trim(),
               company: String(f.get("company") ?? "").trim() || undefined,
               resumeId: (String(f.get("resumeId") ?? "") || undefined) as Id<"resumes"> | undefined,
             });
+            setTitles(all);
+            setDraft("");
             return "Saved.";
           }),
         );
@@ -186,26 +206,43 @@ export function TrackForm({ track, resumes }: { track: TrackInput; resumes: { _i
     >
       <span className="absolute inset-x-0 top-0 h-1" style={{ background: track.color }} />
       <div className="flex items-center gap-3">
-        <input type="color" name="color" defaultValue={track.color} className="h-9 w-9 cursor-pointer rounded-lg border border-line bg-card" aria-label="Track colour" />
-        <input name="name" defaultValue={track.name} className="field display !text-xl" placeholder="Track name" />
+        <input name="name" defaultValue={track.name} className="field display !text-xl" placeholder="Role, like Head of Sales Development" />
         <label className="flex items-center gap-2 whitespace-nowrap text-sm">
           <input type="checkbox" name="active" defaultChecked={track.status === "active"} className="h-4 w-4" />
-          Active
+          Searching
         </label>
       </div>
-      <label className="block">
-        <span className="label">Titles to search, one per line</span>
-        <textarea name="titles" defaultValue={track.titles.join("\n")} className="field mt-1 h-28" />
-      </label>
-      <label className="block">
-        <span className="label">Your pitch for this track</span>
-        <input name="pitch" defaultValue={track.pitch} className="field mt-1" placeholder="How you want to come across" />
-      </label>
-      {resumes.length > 1 && (
+      <div>
+        <span className="label">Job titles to search</span>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {titles.map((t) => (
+            <span key={t} className="inline-flex items-center gap-1 rounded-full border border-line bg-soft px-3 py-1 text-sm">
+              {t}
+              <button type="button" aria-label={`Remove ${t}`} className="text-ink-3 hover:text-ink" onClick={() => setTitles(titles.filter((x) => x !== t))}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <input
+          className="field mt-2"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              addTitle();
+            }
+          }}
+          onBlur={addTitle}
+          placeholder="Type a title and press Enter, like BDR Manager"
+        />
+      </div>
+      {resumes.length > 0 && (
         <label className="block">
-          <span className="label">Start from this CV</span>
+          <span className="label">Pitch from this CV</span>
           <select name="resumeId" defaultValue={track.resumeId ?? ""} className="field mt-1">
-            <option value="">Default CV</option>
+            <option value="">Your default CV</option>
             {resumes.map((r) => (
               <option key={r._id} value={r._id}>
                 {r.label}
@@ -214,14 +251,28 @@ export function TrackForm({ track, resumes }: { track: TrackInput; resumes: { _i
           </select>
         </label>
       )}
-      <label className="block">
-        <span className="label">Only this company (for an internal move)</span>
-        <input name="company" defaultValue={track.company ?? ""} className="field mt-1" placeholder="Leave empty to search everywhere" />
-      </label>
+      <details>
+        <summary className="cursor-pointer text-sm text-ink-2">More options</summary>
+        <div className="mt-3 space-y-3">
+          <label className="block">
+            <span className="label">How you want to come across</span>
+            <input name="pitch" defaultValue={track.pitch} className="field mt-1" placeholder="e.g. Builds SDR teams that hit pipeline targets" />
+          </label>
+          <label className="block">
+            <span className="label">Only this company (for an internal move)</span>
+            <input name="company" defaultValue={track.company ?? ""} className="field mt-1" placeholder="Leave empty to search everywhere" />
+          </label>
+        </div>
+      </details>
       <div className="flex items-center gap-3">
         <button className="btn btn-primary btn-sm" disabled={busy}>
-          {busy ? "Saving…" : "Save"}
+          {busy ? "Saving…" : isNew ? "Add role" : "Save"}
         </button>
+        {isNew && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        )}
         <Feedback state={busy ? null : state} />
       </div>
     </form>

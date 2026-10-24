@@ -10,7 +10,7 @@ const NAV = [
   { href: "/tracker", label: "Tracker" },
   { href: "/network", label: "Network" },
   { href: "/resume", label: "CVs" },
-  { href: "/tracks", label: "Tracks" },
+  { href: "/tracks", label: "Roles" },
 ];
 
 export function Sidebar() {

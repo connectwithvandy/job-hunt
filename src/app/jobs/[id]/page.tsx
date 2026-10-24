@@ -82,7 +82,7 @@ export default function JobPage() {
               </ActionButton>
             </div>
             {scores.length === 0 ? (
-              <p className="text-sm text-ink-2">Score it to see how it reads for each of your tracks, and why.</p>
+              <p className="text-sm text-ink-2">Score it to see how it reads for each of your roles, and why.</p>
             ) : (
               <ul className="space-y-4">
                 {scores.map((s) => (

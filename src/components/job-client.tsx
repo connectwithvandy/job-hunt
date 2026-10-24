@@ -36,7 +36,7 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
       <div className="label mb-3">Find jobs</div>
       <div className="flex flex-wrap gap-2">
         <select className="field !w-auto" value={trackKey} onChange={(e) => setTrackKey(e.target.value)}>
-          {active.length > 1 && <option value="all">All tracks</option>}
+          {active.length > 1 && <option value="all">All roles</option>}
           {active.map((t) => (
             <option key={t.key} value={t.key}>
               {t.name}
@@ -58,8 +58,8 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
                   const failed = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
                   if (failed.length === results.length) throw failed[0].reason;
                   const added = results.reduce((n, r) => n + (r.status === "fulfilled" ? r.value.added : 0), 0);
-                  const note = failed.length ? ` ${failed.length} ${failed.length === 1 ? "track" : "tracks"} didn't finish; try again.` : "";
-                  return (added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} across your tracks. Score them to see which fit.` : "No new jobs since last time.") + note;
+                  const note = failed.length ? ` ${failed.length} ${failed.length === 1 ? "role" : "roles"} didn't finish; try again.` : "";
+                  return (added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} across your roles. Score them to see which fit.` : "No new jobs since last time.") + note;
                 }),
               ),
             )
@@ -69,7 +69,7 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
           {busy ? "Searching…" : "Search"}
         </button>
       </div>
-      <p className="mt-2 text-xs text-ink-3">Searches Dreamwork, Himalayas and any other job board you switch on, for every title on the track, posted in the last 30 days, in the place you chose on the Tracks page.</p>
+      <p className="mt-2 text-xs text-ink-3">Searches Dreamwork, Himalayas and any other job board you switch on, for every title on the role, posted in the last 30 days, in the place you chose on the Roles page.</p>
       <div className="mt-1">
         <Feedback state={busy ? null : state} />
       </div>
