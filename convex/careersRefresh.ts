@@ -3,7 +3,7 @@
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
-import { readBoard } from "./lib/careers";
+import { readBoard, type CareerJob } from "./lib/careers";
 import { openTo, readPlace, titleMatches } from "./lib/sources";
 
 const INDIA = readPlace("India");
@@ -18,13 +18,17 @@ export const refresh = internalAction({
     let added = 0;
     let removed = 0;
     const one = async (board: CareerBoard) => {
+      const have = new Set<string>(await ctx.runQuery(internal.careers.idsFor, { company: board.name }));
+      const read = await readBoard(board, titles, have);
+      // Workday roles already saved come back as ids only; they're still open.
+      const stillOpen = read.filter((j) => "known" in j).map((j) => j.externalId);
       // Only roles in India or remote, with a title someone's tracks ask for; the rest drop out on the next run.
-      const jobs = (await readBoard(board))
+      const jobs = read
+        .filter((j): j is CareerJob => !("known" in j))
         .map((j) => ({ ...j, india: openTo(INDIA, j.location, j.workSetting, j.title) }))
         .filter((j) => j.india || j.workSetting === "remote" || /remote|distributed/i.test(j.location))
         .filter((j) => titles.some((t) => titleMatches(t, j.title)));
-      const have = new Set<string>(await ctx.runQuery(internal.careers.idsFor, { company: board.name }));
-      const live = new Set(jobs.map((j) => j.externalId));
+      const live = new Set([...jobs.map((j) => j.externalId), ...stillOpen]);
       const fresh = jobs.filter((j) => !have.has(j.externalId));
       const gone = [...have].filter((id) => !live.has(id));
       for (let i = 0; i < fresh.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: fresh.slice(i, i + 50) });

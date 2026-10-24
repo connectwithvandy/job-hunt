@@ -3,7 +3,7 @@
 // Reads one company's careers board. All three systems publish open roles as free public JSON, no key.
 
 import type { CareerBoard } from "./careerBoards";
-import { htmlToText } from "./sources";
+import { htmlToText, titleMatches } from "./sources";
 
 export type CareerJob = {
   externalId: string;
@@ -43,7 +43,61 @@ type LeverJob = {
   salaryRange?: { min?: number; max?: number; currency?: string; interval?: string };
 };
 
-export async function readBoard(board: CareerBoard): Promise<CareerJob[]> {
+type WorkdayHit = { title: string; externalPath: string };
+type WorkdayJob = {
+  title: string; jobDescription?: string; location?: string; additionalLocations?: string[]; remoteType?: string;
+  startDate?: string; externalUrl: string; country?: { descriptor?: string };
+};
+
+/**
+ * Workday has no full list: it searches. So it's searched for each title, and only title matches are
+ * opened for their places and description. Roles already saved (`known`) come back as ids only.
+ */
+async function readWorkday(board: CareerBoard, titles: string[], known: Set<string>): Promise<(CareerJob | { externalId: string; known: true })[]> {
+  const [host, tenant, site] = board.slug.split("/");
+  const base = `https://${host}.myworkdayjobs.com/wday/cxs/${tenant}/${site}`;
+  const hits = new Map<string, WorkdayHit>();
+  const searchTitle = async (title: string) => {
+    // Two pages of 20 (Workday's most): its matching is loose, so the close ones come first.
+    for (let offset = 0; offset < 40; offset += 20) {
+      const res = await fetch(`${base}/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appliedFacets: {}, limit: 20, offset, searchText: title }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) throw new Error(`${host} answered ${res.status}`);
+      const page = (await res.json()) as { total?: number; jobPostings?: WorkdayHit[] };
+      for (const h of page.jobPostings ?? []) if (titleMatches(title, h.title)) hits.set(h.externalPath, h);
+      if ((page.jobPostings ?? []).length < 20) break;
+    }
+  };
+  await Promise.all(titles.map(searchTitle));
+  const open = async (h: WorkdayHit): Promise<CareerJob | { externalId: string; known: true }> => {
+    const externalId = `workday:${board.slug}:${h.externalPath}`;
+    if (known.has(externalId)) return { externalId, known: true };
+    const j = (await getJson<{ jobPostingInfo: WorkdayJob }>(`${base}${h.externalPath}`)).jobPostingInfo;
+    const places = [j.location, ...(j.additionalLocations ?? []), j.country?.descriptor].filter(Boolean).join("; ");
+    const remote = /remote/i.test(`${j.remoteType ?? ""} ${places}`);
+    return {
+      externalId,
+      company: board.name,
+      title: j.title.trim(),
+      location: places || "Not listed",
+      workSetting: remote ? "remote" : undefined,
+      postedAt: j.startDate,
+      url: j.externalUrl,
+      description: cut(j.jobDescription && htmlToText(j.jobDescription)),
+    };
+  };
+  const list = [...hits.values()].slice(0, 80);
+  const out: (CareerJob | { externalId: string; known: true })[] = [];
+  for (let i = 0; i < list.length; i += 8) out.push(...(await Promise.all(list.slice(i, i + 8).map(open))));
+  return out;
+}
+
+export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
+  if (board.ats === "workday") return await readWorkday(board, titles, known);
   const id = (jobId: string | number) => `${board.ats}:${board.slug}:${jobId}`;
   if (board.ats === "ashby") {
     const body = await getJson<{ jobs: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`);

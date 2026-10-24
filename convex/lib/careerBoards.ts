@@ -1,9 +1,10 @@
 // Companies whose own careers boards we read every morning. Most fast-growing startups post
 // only there (Ashby, Greenhouse or Lever), never on the job boards, so searches would miss them.
 // Picked for AI and SaaS companies hiring in India or remote. Each board was checked by hand:
-// the slug is the name in the board's address, e.g. jobs.ashbyhq.com/elevenlabs.
+// the slug is the name in the board's address, e.g. jobs.ashbyhq.com/elevenlabs. A Workday slug is
+// host/tenant/site from the careers address, e.g. adobe.wd5.myworkdayjobs.com/external_experienced.
 
-export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever"; slug: string };
+export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday"; slug: string };
 
 export const CAREER_BOARDS: CareerBoard[] = [
   // Voice and AI apps
@@ -64,4 +65,22 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Paytm", website: "paytm.com", ats: "lever", slug: "paytm" },
   { name: "Meesho", website: "meesho.com", ats: "lever", slug: "meesho" },
   { name: "Pocket FM", website: "pocketfm.com", ats: "lever", slug: "pocketfm" },
+  // Big software companies on Workday
+  { name: "Adobe", website: "adobe.com", ats: "workday", slug: "adobe.wd5/adobe/external_experienced" },
+  { name: "Zendesk", website: "zendesk.com", ats: "workday", slug: "zendesk.wd1/zendesk/zendesk" },
+  { name: "Salesforce", website: "salesforce.com", ats: "workday", slug: "salesforce.wd12/salesforce/External_Career_Site" },
+  { name: "Workday", website: "workday.com", ats: "workday", slug: "workday.wd5/workday/Workday" },
+  { name: "CrowdStrike", website: "crowdstrike.com", ats: "workday", slug: "crowdstrike.wd5/crowdstrike/crowdstrikecareers" },
+  { name: "Sprinklr", website: "sprinklr.com", ats: "workday", slug: "sprinklr.wd1/sprinklr/careers" },
+  { name: "Autodesk", website: "autodesk.com", ats: "workday", slug: "autodesk.wd1/autodesk/Ext" },
+  { name: "Cisco", website: "cisco.com", ats: "workday", slug: "cisco.wd5/cisco/Cisco_Careers" },
+  { name: "HPE", website: "hpe.com", ats: "workday", slug: "hpe.wd5/hpe/Jobsathpe" },
+  { name: "NVIDIA", website: "nvidia.com", ats: "workday", slug: "nvidia.wd5/nvidia/NVIDIAExternalCareerSite" },
+  { name: "Zoom", website: "zoom.com", ats: "workday", slug: "zoom.wd5/zoom/Zoom" },
+  { name: "PayPal", website: "paypal.com", ats: "workday", slug: "paypal.wd1/paypal/jobs" },
+  { name: "Mastercard", website: "mastercard.com", ats: "workday", slug: "mastercard.wd1/mastercard/CorporateCareers" },
+  { name: "Visa", website: "visa.com", ats: "workday", slug: "visa.wd5/visa/Visa" },
+  { name: "PTC", website: "ptc.com", ats: "workday", slug: "ptc.wd1/ptc/PTC" },
+  { name: "Thomson Reuters", website: "thomsonreuters.com", ats: "workday", slug: "thomsonreuters.wd5/thomsonreuters/External_Career_Site" },
+  { name: "Broadcom", website: "broadcom.com", ats: "workday", slug: "broadcom.wd1/broadcom/External_Career" },
 ];
