@@ -487,3 +487,19 @@ ${cvs[0] ? resumeText(cvs[0]) : "(none)"}`,
   });
   return out.companies;
 }
+
+// ---------- Logos ----------
+
+const DomainSchema = z.strictObject({
+  domains: z.array(z.strictObject({ name: z.string(), domain: z.string().describe("Bare website domain like 'rubrik.com', or '' if not sure.") })),
+});
+
+/** The website of each employer and school, so the CV can show their logos. */
+export async function findDomains(names: string[]) {
+  const out = await askJSON({
+    schema: DomainSchema,
+    system: "You give the official website domain for companies and universities. Answer with the bare domain only, like 'jumpcloud.com'. If you're not sure which organisation is meant, answer ''.",
+    prompt: `Give the domain for each of these, keeping the names exactly as written:\n${names.map((n) => `- ${n}`).join("\n")}`,
+  });
+  return new Map(out.domains.filter((d) => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d.domain)).map((d) => [d.name, d.domain.toLowerCase()]));
+}

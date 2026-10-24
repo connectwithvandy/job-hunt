@@ -15,9 +15,13 @@ export const resumeV = v.object({
       location: v.string(),
       blurb: v.string(),
       bullets: v.array(v.string()),
+      /** The company's website, like "jumpcloud.com", for its logo. */
+      domain: v.optional(v.string()),
     }),
   ),
-  education: v.array(v.object({ school: v.string(), degree: v.string(), detail: v.string(), year: v.string(), notes: v.array(v.string()) })),
+  education: v.array(
+    v.object({ school: v.string(), degree: v.string(), detail: v.string(), year: v.string(), notes: v.array(v.string()), domain: v.optional(v.string()) }),
+  ),
   certifications: v.array(v.object({ name: v.string(), detail: v.string() })),
   skills: v.object({ technical: v.array(v.string()), soft: v.array(v.string()) }),
   extras: v.array(v.object({ title: v.string(), items: v.array(v.object({ heading: v.string(), text: v.string() })) })),

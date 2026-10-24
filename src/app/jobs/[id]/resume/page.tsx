@@ -11,6 +11,7 @@ import { ResumeDoc } from "@/components/ResumeDoc";
 import { TailoredEditor } from "@/components/ResumeFields";
 import { PrintButton } from "@/components/ui";
 import { downloadDocx } from "@/lib/docx";
+import { logoMap } from "@/lib/logos";
 
 export default function TailoredResume() {
   const { id } = useParams<{ id: string }>();
@@ -52,7 +53,7 @@ export default function TailoredResume() {
         </p>
       )}
       <div className="max-w-full overflow-x-auto">
-        <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} />
+        <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap(me.resumes.map((m) => m.resume))} />
       </div>
       <details className="no-print card w-full max-w-[210mm] p-6">
         <summary className="cursor-pointer font-medium">Edit this CV</summary>

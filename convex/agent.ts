@@ -9,7 +9,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { readPlace } from "./lib/sources";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -700,5 +700,27 @@ export const suggestDreams = action({
       }
     }
     return { added };
+  },
+});
+
+// ---------- Logos on CVs ----------
+
+/** Fills in each employer's and school's website on all your CVs, so they show logos. */
+export const findLogos = action({
+  args: {},
+  handler: async (ctx): Promise<{ found: number }> => {
+    const { userId, resumes } = await setup(ctx);
+    const names = [...new Set(resumes.flatMap((r) => [...r.resume.experience.map((e) => e.company), ...r.resume.education.map((e) => e.school)]))].filter(Boolean);
+    if (!names.length) return { found: 0 };
+    const domains = await findDomains(names.slice(0, 60));
+    for (const r of resumes) {
+      const resume = {
+        ...r.resume,
+        experience: r.resume.experience.map((e) => ({ ...e, domain: e.domain || domains.get(e.company) })),
+        education: r.resume.education.map((e) => ({ ...e, domain: e.domain || domains.get(e.school) })),
+      };
+      await ctx.runMutation(internal.users.saveResumeForAction, { userId, resumeId: r._id, resume });
+    }
+    return { found: domains.size };
   },
 });

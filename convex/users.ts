@@ -243,3 +243,12 @@ export const recordAutopilot = internalMutation({
     return null;
   },
 });
+
+export const saveResumeForAction = internalMutation({
+  args: { userId: v.id("users"), resumeId: v.id("resumes"), resume: resumeV },
+  handler: async (ctx, { userId, resumeId, resume }) => {
+    await ownResume(ctx, userId, resumeId);
+    await ctx.db.patch("resumes", resumeId, { resume });
+    return null;
+  },
+});

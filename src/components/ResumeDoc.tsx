@@ -5,7 +5,15 @@ export type Resume = Infer<typeof resumeV>;
 
 // Mirrors the two-column Canva CV. The DOM order is name, headline, summary,
 // experience, then sidebar, so hiring software reads it top to bottom correctly.
-export function ResumeDoc({ r, photoUrl }: { r: Resume; photoUrl?: string | null }) {
+/** A company's logo from its website, via Google's public site-icon service. */
+function Logo({ domain }: { domain?: string }) {
+  if (!domain) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="logo" src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`} alt="" />;
+}
+
+/** `logos` maps company or school names to websites, for CVs (like tailored ones) saved before logos existed. */
+export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: string | null; logos?: Record<string, string> }) {
   return (
     <article className="resume">
       <div className="main">
@@ -17,9 +25,12 @@ export function ResumeDoc({ r, photoUrl }: { r: Resume; photoUrl?: string | null
         {r.experience.map((e) => (
           <section key={e.id} className="role">
             <div className="role-head">
-              <div>
-                <div className="company">{e.company}</div>
-                <div className="title">{e.role}</div>
+              <div className="flex items-center gap-[2.5mm]">
+                <Logo domain={e.domain ?? logos[e.company]} />
+                <div>
+                  <div className="company">{e.company}</div>
+                  <div className="title">{e.role}</div>
+                </div>
               </div>
               <div className="dates">
                 {e.start} - {e.end}
@@ -52,7 +63,10 @@ export function ResumeDoc({ r, photoUrl }: { r: Resume; photoUrl?: string | null
         <h2>Education</h2>
         {r.education.map((ed, i) => (
           <div key={i} className="mb-3">
-            <div className="side-item-title">{ed.school}</div>
+            <div className="side-item-title flex items-center gap-[2mm]">
+              <Logo domain={ed.domain ?? logos[ed.school]} />
+              {ed.school}
+            </div>
             <div>{ed.degree}</div>
             <div className="muted flex justify-between">
               <span>{ed.detail}</span>
