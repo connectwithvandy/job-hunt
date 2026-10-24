@@ -19,6 +19,7 @@ import type * as lib_brain from "../lib/brain.js";
 import type * as lib_company from "../lib/company.js";
 import type * as lib_defaults from "../lib/defaults.js";
 import type * as lib_dreamwork from "../lib/dreamwork.js";
+import type * as lib_sources from "../lib/sources.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
 import type * as users from "../users.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "lib/company": typeof lib_company;
   "lib/defaults": typeof lib_defaults;
   "lib/dreamwork": typeof lib_dreamwork;
+  "lib/sources": typeof lib_sources;
   "lib/validators": typeof lib_validators;
   limits: typeof limits;
   users: typeof users;
