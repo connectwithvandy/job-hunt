@@ -212,8 +212,9 @@ async function withDescription(job: Doc<"jobs">) {
 export const scoreJobs = action({
   args: { jobIds: v.array(v.id("jobs")) },
   handler: async (ctx, { jobIds }): Promise<{ scored: number; failed: number }> => {
-    const { userId, resume, tracks } = await setup(ctx);
+    const { userId, resume, resumeFor, tracks } = await setup(ctx);
     const cv = requireResume(resume);
+    const cvFor = (t: { key: string }) => resumeFor[t.key] ?? cv;
     const ids = jobIds.slice(0, 12);
     await spend(ctx, userId, "score", ids.length);
     let failed = 0;
@@ -224,7 +225,7 @@ export const scoreJobs = action({
         ids.slice(i, i + 4).map(async (jobId) => {
           try {
             const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
-            const s = await scoreJob(job, cv, tracks);
+            const s = await scoreJob(job, cvFor, tracks);
             await ctx.runMutation(internal.jobs.patchForAction, {
               userId,
               jobId,

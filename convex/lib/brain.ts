@@ -60,16 +60,34 @@ const ScoreSchema = z.strictObject({
   watchOuts: z.string().describe("Red flags or unknowns: seniority mismatch, location, pay, vague role. 'None' if none."),
 });
 
-export async function scoreJob(job: Job, resume: Resume, tracks: Track[]) {
+/** Scores the job for every active track, each read against the CV that track pitches from. */
+export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => Resume, tracks: Track[]) {
   const active = tracks.filter((t) => t.status === "active");
+  // Tracks often share a CV; send each distinct one once and point tracks at it.
+  const cvs: Resume[] = [];
+  const seen: string[] = [];
+  const cvOf = new Map(
+    active.map((t) => {
+      const r = resumeFor(t);
+      const id = JSON.stringify(r);
+      if (!seen.includes(id)) {
+        seen.push(id);
+        cvs.push(r);
+      }
+      return [t.key, seen.indexOf(id) + 1];
+    }),
+  );
+  const cvBlock =
+    cvs.length === 1
+      ? `Candidate's master CV:\n${resumeText(cvs[0])}`
+      : cvs.map((r, i) => `Candidate's CV ${i + 1} (same person, a different angle):\n${resumeText(r)}`).join("\n\n");
   return askJSON({
     schema: ScoreSchema,
     system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role. Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them.`,
-    prompt: `Candidate's master CV:
-${resumeText(resume)}
+    prompt: `${cvBlock}
 
-Tracks (score every one of these trackIds):
-${active.map((t) => `- ${t.key}: ${t.name}. Target titles: ${t.titles.join(", ")}. Pitch: ${t.pitch}`).join("\n")}
+Tracks (score every one of these trackIds${cvs.length > 1 ? ", each against the CV it names" : ""}):
+${active.map((t) => `- ${t.key}: ${t.name}.${cvs.length > 1 ? ` Uses CV ${cvOf.get(t.key)}.` : ""} Target titles: ${t.titles.join(", ")}. Pitch: ${t.pitch}`).join("\n")}
 
 Job:
 ${jobText(job)}`,

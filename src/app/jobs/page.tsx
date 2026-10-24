@@ -37,9 +37,11 @@ function Jobs() {
   const inView = jobs
     .filter((j) => (show === "hidden" ? j.status === "dismissed" : j.status !== "dismissed"))
     .filter((j) => !track || jobTrackKey(j) === track);
+  // Region counts follow the other filters, so each chip shows what clicking it would leave.
+  const filtered = applyFilters(inView, params);
   const regionCounts = new Map<string, number>();
-  for (const j of inView) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
-  const visible = applyFilters(inView, params)
+  for (const j of filtered) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
+  const visible = filtered
     .filter((j) => !region || regionsOf(j).includes(region as never))
     .sort((a, b) => (bestScore(b)?.score ?? -1) - (bestScore(a)?.score ?? -1) || b._creationTime - a._creationTime);
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
@@ -107,7 +109,7 @@ function Jobs() {
       {inView.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="label mr-1">Region</span>
-          {chip(hrefWith({ region: null }), `Everywhere · ${inView.length}`, !region)}
+          {chip(hrefWith({ region: null }), `Everywhere · ${filtered.length}`, !region)}
           {REGIONS.filter((r) => regionCounts.get(r.key) || region === r.key).map((r) =>
             chip(hrefWith({ region: r.key }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, region === r.key),
           )}

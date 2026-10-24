@@ -246,7 +246,7 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
           </button>
         ))}
       </div>
-      <input className="field mt-3 max-w-sm" value={value} onChange={(e) => onChange(e.target.value)} placeholder="Or type a city or country, like Bengaluru" />
+      <input className="field mt-3 max-w-sm" value={picked ? "" : value} onChange={(e) => onChange(e.target.value)} placeholder="Or type a city or country, like Bengaluru" />
       <p className="mt-2 text-xs text-ink-3">{picked ? picked.hint : "Jobs there, plus remote jobs open to that place"}</p>
     </div>
   );
