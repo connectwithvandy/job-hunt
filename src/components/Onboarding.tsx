@@ -177,7 +177,7 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
             disabled={!name.trim() || !titles.trim()}
             onClick={() => {
               const t = titles.split(",").map((s) => s.trim()).filter(Boolean);
-              setChosen([...chosen, { key: `${slug(name)}-${chosen.length}`, name: name.trim(), color: CUSTOM_COLORS[custom.length % CUSTOM_COLORS.length], titles: t, pitch: "" }]);
+              setChosen([...chosen, { key: `${slug(name)}-${Math.random().toString(36).slice(2, 8)}`, name: name.trim(), color: CUSTOM_COLORS[custom.length % CUSTOM_COLORS.length], titles: t, pitch: "" }]);
               setName("");
               setTitles("");
             }}

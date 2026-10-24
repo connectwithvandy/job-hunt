@@ -105,7 +105,15 @@ function Jobs() {
     <div className="mx-auto max-w-6xl">
       <PageHead title="Jobs" sub="Every role you're considering, sorted by how well it fits your best role." />
 
-      <div className="mb-8 grid gap-4 md:grid-cols-2">
+      {/* On a phone the two forms fold away, so the jobs come first. */}
+      <details className="mb-6 md:hidden">
+        <summary className="btn btn-ghost btn-sm cursor-pointer list-none">+ Find or add jobs</summary>
+        <div className="mt-3 grid gap-4">
+          <FindJobs tracks={me.tracks} />
+          <AddJob />
+        </div>
+      </details>
+      <div className="mb-8 hidden gap-4 md:grid md:grid-cols-2">
         <FindJobs tracks={me.tracks} />
         <AddJob />
       </div>

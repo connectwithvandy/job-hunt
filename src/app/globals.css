@@ -5,7 +5,7 @@
   --card: #131319;
   --ink: #f4f4f5;
   --ink-2: #a1a1aa;
-  --ink-3: #71717a;
+  --ink-3: #8b8b94;
   --line: #23232c;
   --soft: #1a1a22;
   --accent: #c6ff3d;
@@ -73,6 +73,8 @@ body {
 .btn-ghost { border: 1px solid var(--line); background: var(--card); color: var(--ink); }
 .btn-ghost:hover { background: var(--soft); }
 .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
+/* Fingers need bigger targets than mice. */
+@media (pointer: coarse) { .btn-sm { min-height: 2.5rem; } }
 
 .field {
   width: 100%;

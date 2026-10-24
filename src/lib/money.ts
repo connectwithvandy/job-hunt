@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 // Shows foreign pay in Indian rupees, in lakhs a year, so offers compare at a glance.
 
-const SYMBOLS: Record<string, string> = { $: "USD", "£": "GBP", "€": "EUR", "₹": "INR" };
+// Longer symbols first, so "S$120,000" reads as Singapore dollars, not US.
+const SYMBOLS: Record<string, string> = { US$: "USD", CA$: "CAD", NZ$: "NZD", S$: "SGD", A$: "AUD", C$: "CAD", $: "USD", "£": "GBP", "€": "EUR", "₹": "INR" };
 const CODES = ["USD", "GBP", "EUR", "INR", "SGD", "AED", "CAD", "AUD", "CHF", "JPY", "NZD", "SEK", "DKK", "PLN"];
 
 /** Rough rupees per unit, used until (or if) live rates load. */

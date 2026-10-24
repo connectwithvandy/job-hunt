@@ -199,7 +199,7 @@ export default function JobPage() {
                 Load your LinkedIn connections on the <Link className="underline" href="/network">Network</Link> page to see who you know at {job.company}.
               </p>
             ) : people.length === 0 ? (
-              <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager below, or a second-degree intro.</p>
+              <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager in step 2, or a second-degree intro.</p>
             ) : (
               <>
                 <p className="mb-3 text-sm text-ink-2">

@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
+import { STATUS_LABELS } from "../../../convex/lib/defaults";
 import { PageHead } from "@/components/bits";
 import { DirectNote, EmailDraft, HiringContacts, OutreachCard } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
@@ -59,7 +60,7 @@ export default function Messages() {
                 <Link href={`/jobs/${r._id}`} className="font-medium hover:underline">
                   {r.title} <span className="text-ink-2">at {r.company}</span>
                 </Link>
-                <span className="text-xs text-ink-3">{r.status === "new" ? "Not applied yet" : r.status}</span>
+                <span className="text-xs text-ink-3">{r.status === "new" ? "Not applied yet" : (STATUS_LABELS[r.status] ?? r.status)}</span>
               </div>
               {r.directNote && (
                 <>

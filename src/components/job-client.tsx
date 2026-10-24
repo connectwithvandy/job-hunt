@@ -446,6 +446,7 @@ const OUTREACH_FLOW: { status: OutreachStatus; label: string }[] = [
 export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outreach; cvName: string }) {
   const setOutreach = useMutation(api.jobs.setOutreach);
   const [message, setMessage] = useState(o.message);
+  const [saved, setSaved] = useState("");
   const sentLabel = o.sentAt ? ` ${new Date(o.sentAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : "";
   return (
     <div className="rounded-xl border border-line p-4">
@@ -458,19 +459,41 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
           {o.status === "draft" ? "Not sent yet" : o.status === "referred" ? "Referred you" : o.status === "replied" ? "Replied" : `Sent${sentLabel}`}
         </span>
       </div>
-      <textarea className="field h-36 text-sm leading-relaxed" value={message} onChange={(e) => setMessage(e.target.value)} />
+      <textarea
+        className="field h-36 text-sm leading-relaxed"
+        value={message}
+        onChange={(e) => {
+          setMessage(e.target.value);
+          setSaved("");
+        }}
+      />
       {cvName && <p className="mt-1 text-xs text-ink-3">Attach {cvName} in LinkedIn before you send.</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <CopyAndOpen text={message} url={o.url} />
+        {message !== o.message && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={async () => {
+              await setOutreach({ jobId, contactId: o.contactId, status: o.status, message });
+              setSaved("Edits saved.");
+            }}
+          >
+            Save edits
+          </button>
+        )}
         {OUTREACH_FLOW.map((s) => (
           <button
             key={s.status}
             className={`btn btn-sm ${o.status === s.status ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => void setOutreach({ jobId, contactId: o.contactId, status: s.status, message })}
+            onClick={async () => {
+              await setOutreach({ jobId, contactId: o.contactId, status: s.status, message });
+              setSaved(`Marked ${s.label.toLowerCase()}.`);
+            }}
           >
             {s.label}
           </button>
         ))}
+        {saved && <span className="text-xs text-good">{saved}</span>}
       </div>
     </div>
   );
@@ -527,7 +550,7 @@ export function CompanyResearch({ jobId, company, research }: { jobId: Id<"jobs"
               {research.sources.slice(0, 5).map((u, i) => (
                 <a key={u} className="underline hover:text-ink" href={u} target="_blank" rel="noreferrer">
                   {i ? ", " : ""}
-                  {new URL(u).hostname.replace(/^www\./, "")}
+                  {hostOf(u)}
                 </a>
               ))}
               {` · checked ${new Date(research.createdAt).toLocaleDateString("en-IN")}`}
@@ -700,4 +723,13 @@ function CommonGround({ owner, contact }: { owner: ContactOwner; contact: Hiring
       <Feedback state={busy ? null : state} />
     </div>
   );
+}
+
+/** A source link's site name; the AI sometimes returns text that isn't a link, which shouldn't break the page. */
+function hostOf(u: string) {
+  try {
+    return new URL(u).hostname.replace(/^www\./, "");
+  } catch {
+    return u.slice(0, 40);
+  }
 }

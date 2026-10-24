@@ -36,7 +36,12 @@ export function ImportConnections() {
             }
             for (let i = 0; i < rows.length; i += 400) {
               setBusy(`Loading ${Math.min(i + 400, rows.length).toLocaleString()} of ${rows.length.toLocaleString()}…`);
-              await importBatch({ rows: rows.slice(i, i + 400) });
+              try {
+                await importBatch({ rows: rows.slice(i, i + 400) });
+              } catch (err) {
+                // The old list is already gone, so say how far it got rather than leave a silent half list.
+                throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} connections loaded: ${errorMessage(err)} Load the file again to finish.`);
+              }
             }
             return `Loaded ${rows.length.toLocaleString()} connections.`;
           }),
@@ -270,7 +275,16 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
                       + {i.title}
                     </button>
                   ))}
-                <span className="w-full text-xs text-ink-3">Tap to add, then Save. Hover for why it fits.</span>
+                <span className="w-full text-xs text-ink-3">Tap to add, then Save.</span>
+                <ul className="w-full space-y-1 text-xs text-ink-3">
+                  {ideas
+                    .filter((i) => !titles.includes(i.title))
+                    .map((i) => (
+                      <li key={i.title}>
+                        <span className="text-ink-2">{i.title}:</span> {i.why}
+                      </li>
+                    ))}
+                </ul>
               </div>
             )}
           </div>
@@ -319,7 +333,10 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
 
 /** Quick picks for where to search, plus a box for any city or country. */
 export function LocationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const picked = LOCATION_CHOICES.find((c) => c.value.toLowerCase() === value.trim().toLowerCase());
+  const isChoice = (v: string) => LOCATION_CHOICES.some((c) => c.value.toLowerCase() === v.trim().toLowerCase());
+  // What you typed stays in the box, even when it starts like a quick pick ("India, Pune").
+  const [typed, setTyped] = useState(() => (isChoice(value) ? "" : value));
+  const picked = typed ? undefined : LOCATION_CHOICES.find((c) => c.value.toLowerCase() === value.trim().toLowerCase());
   return (
     <div>
       <div className="flex flex-wrap gap-2">
@@ -327,7 +344,10 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
           <button
             key={c.value}
             type="button"
-            onClick={() => onChange(c.value)}
+            onClick={() => {
+              setTyped("");
+              onChange(c.value);
+            }}
             aria-pressed={picked === c}
             className={`rounded-full border px-4 py-1.5 text-sm ${picked === c ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
           >
@@ -335,7 +355,15 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
           </button>
         ))}
       </div>
-      <input className="field mt-3 max-w-sm" value={picked ? "" : value} onChange={(e) => onChange(e.target.value)} placeholder="Or type a city or country, like Bengaluru" />
+      <input
+        className="field mt-3 max-w-sm"
+        value={typed}
+        onChange={(e) => {
+          setTyped(e.target.value);
+          onChange(e.target.value);
+        }}
+        placeholder="Or type a city or country, like Bengaluru"
+      />
       <p className="mt-2 text-xs text-ink-3">{picked ? picked.hint : "Jobs there, plus remote jobs open to that place"}</p>
     </div>
   );
@@ -500,6 +528,7 @@ export function AutofillLink({ answers }: { answers: { question: string; answer:
   return (
     <div className="card p-6">
       <h2 className="display mb-1 text-2xl">Autofill application forms</h2>
+      <p className="mb-2 text-sm text-warn md:hidden">Set this up on your computer: phone browsers can&apos;t drag bookmarks.</p>
       <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-ink-2">
         <li>Show your browser&apos;s bookmarks bar (Cmd+Shift+B in Chrome).</li>
         <li>Drag the button below onto it.</li>

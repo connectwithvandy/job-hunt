@@ -197,7 +197,7 @@ function Companies() {
       </div>
 
       {visible.length === 0 ? (
-        <div className="card p-10 text-center text-ink-2">{rows.length ? "Nothing here." : "Press Find YC companies or Find recently funded to start your list."}</div>
+        <div className="card p-10 text-center text-ink-2">{rows.length ? "Nothing here." : tab === "dream" ? "Type a few companies you'd love to work at and press Build my Dream 20." : "Press Find YC companies or Find recently funded to start your list."}</div>
       ) : (
         <ul className="space-y-4">
           {visible.map((p) => (
