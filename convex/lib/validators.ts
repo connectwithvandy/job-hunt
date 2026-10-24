@@ -76,7 +76,7 @@ export const scoreV = v.object({ trackKey: v.string(), score: v.number(), reason
 
 export const jobFields = {
   externalId: v.string(),
-  source: v.union(v.literal("dreamwork"), v.literal("jsearch"), v.literal("adzuna"), v.literal("link"), v.literal("pasted")),
+  source: v.union(v.literal("dreamwork"), v.literal("jsearch"), v.literal("adzuna"), v.literal("himalayas"), v.literal("link"), v.literal("pasted")),
   url: v.string(),
   sourceUrl: v.optional(v.string()),
   title: v.string(),

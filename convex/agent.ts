@@ -10,7 +10,7 @@ import { action, type ActionCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { buildPack, draftReferralNotes, extractJob, parseResume, scoreJob } from "./lib/brain";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
-import { htmlToText, searchOtherSources, type Found } from "./lib/sources";
+import { htmlToText, searchOtherSources, titleMatches, type Found } from "./lib/sources";
 import type { jobV, resumeV } from "./lib/validators";
 
 type NewJob = Infer<typeof jobV>;
@@ -141,7 +141,8 @@ export const findJobs = action({
         : Promise.allSettled(track.titles.slice(0, 8).map((title) => searchListings(title, location, 8))),
       track.company ? Promise.resolve([]) : searchOtherSources(track.titles, location),
     ]);
-    const listings = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    // Dreamwork also matches company names, so keep only titles holding the searched words.
+    const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
     if (!listings.length && !others.length && settled.every((r) => r.status === "rejected")) {
       const reason = (settled[0] as PromiseRejectedResult).reason;
       throw reason instanceof ConvexError ? reason : new ConvexError("Dreamwork didn't answer. Try again in a minute.");

@@ -1,10 +1,10 @@
 "use node";
 
 // Job boards searched beside Dreamwork. Each one switches on when its key is set
-// on the deployment (npx convex env set NAME value).
+// on the deployment (npx convex env set NAME value). Himalayas needs no key.
 
 export type Found = {
-  source: "jsearch" | "adzuna";
+  source: "jsearch" | "adzuna" | "himalayas";
   id: string;
   title: string;
   company: string;
@@ -117,6 +117,45 @@ async function adzuna(title: string, place: Place): Promise<Found[]> {
   }));
 }
 
+// ---------- Himalayas (remote jobs, no key) ----------
+
+type HimalayasJob = {
+  title: string; companyName: string; companyLogo?: string; guid: string; applicationLink?: string;
+  locationRestrictions?: string[]; minSalary?: number | null; maxSalary?: number | null; currency?: string | null;
+  pubDate?: number; description?: string; excerpt?: string;
+};
+
+const COUNTRY_NAMES: Record<string, string> = { in: "india", us: "united states", gb: "united kingdom", de: "germany", fr: "france", nl: "netherlands", ca: "canada", au: "australia", sg: "singapore", nz: "new zealand", ae: "united arab emirates" };
+
+/** True when the job title holds every word searched for. Loose boards also match descriptions. */
+export function titleMatches(searched: string, title: string) {
+  const t = title.toLowerCase();
+  return searched.toLowerCase().split(/[^a-z0-9']+/).filter(Boolean).every((w) => t.includes(w));
+}
+
+async function himalayas(title: string, place: Place): Promise<Found[]> {
+  const body = await getJson<{ jobs: HimalayasJob[] }>(`https://himalayas.app/jobs/api/search?${new URLSearchParams({ q: title })}`);
+  const monthAgo = Date.now() / 1000 - 30 * 86_400;
+  const wanted = place.kind === "place" ? [place.name.toLowerCase(), place.country && COUNTRY_NAMES[place.country]].filter(Boolean) : [];
+  return (body.jobs ?? [])
+    .filter((j) => titleMatches(title, j.title) && (!j.pubDate || j.pubDate >= monthAgo))
+    // Every Himalayas job is remote; for a place, keep the ones open to it (no restriction means worldwide).
+    .filter((j) => !wanted.length || !j.locationRestrictions?.length || j.locationRestrictions.some((r) => wanted.includes(r.toLowerCase())))
+    .map((j) => ({
+      source: "himalayas",
+      id: j.guid,
+      title: j.title,
+      company: j.companyName,
+      companyLogo: j.companyLogo || undefined,
+      location: j.locationRestrictions?.length ? `Remote (${j.locationRestrictions.join(", ")})` : "Remote (Worldwide)",
+      workSetting: "remote",
+      salary: j.minSalary && j.maxSalary ? `${j.currency ?? ""} ${j.minSalary.toLocaleString()} – ${j.maxSalary.toLocaleString()}/year`.trim() : undefined,
+      postedAt: j.pubDate ? new Date(j.pubDate * 1000).toISOString() : undefined,
+      url: j.guid,
+      description: cut(j.description ? htmlToText(j.description) : j.excerpt),
+    }));
+}
+
 /** Searches every extra source for these titles. A source that fails is skipped, not fatal. */
 export async function searchOtherSources(titles: string[], location: string) {
   const place = readPlace(location);
@@ -124,6 +163,7 @@ export async function searchOtherSources(titles: string[], location: string) {
     // JSearch's free plan is about 200 searches a month, so it gets the two main titles only.
     ...titles.slice(0, 2).map((t) => jsearch(t, place)),
     ...titles.slice(0, 4).map((t) => adzuna(t, place)),
+    ...titles.slice(0, 4).map((t) => himalayas(t, place)),
   ];
   const settled = await Promise.allSettled(calls);
   for (const r of settled) if (r.status === "rejected") console.warn("Job source failed:", String(r.reason));

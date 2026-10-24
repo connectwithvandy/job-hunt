@@ -69,7 +69,7 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
           {busy ? "Searching…" : "Search"}
         </button>
       </div>
-      <p className="mt-2 text-xs text-ink-3">Searches every job board that is switched on for every title on the track, posted in the last 30 days, in the place you chose on the Tracks page.</p>
+      <p className="mt-2 text-xs text-ink-3">Searches Dreamwork, Himalayas and any other job board you switch on, for every title on the track, posted in the last 30 days, in the place you chose on the Tracks page.</p>
       <div className="mt-1">
         <Feedback state={busy ? null : state} />
       </div>
