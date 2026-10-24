@@ -81,6 +81,7 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
 export function TailorButton({ jobId, resumes, defaultResumeId, redo }: { jobId: Id<"jobs">; resumes: { _id: Id<"resumes">; label: string }[]; defaultResumeId: Id<"resumes"> | null; redo: boolean }) {
   const tailor = useAction(api.agent.tailor);
   const [resumeId, setResumeId] = useState(defaultResumeId ?? resumes[0]?._id);
+  const [feedback, setFeedback] = useState("");
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
   return (
@@ -97,13 +98,33 @@ export function TailorButton({ jobId, resumes, defaultResumeId, redo }: { jobId:
           </select>
         </label>
       )}
+      {redo && (
+        <label className="block w-full">
+          <span className="label">What should change? (optional)</span>
+          <textarea
+            className="field mt-1 h-20 text-sm"
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder="e.g. Lead with my enterprise deals, make the summary shorter, sound less formal in the cover letter"
+          />
+        </label>
+      )}
       <button
-        className={`btn btn-sm ${redo ? "btn-ghost" : "btn-primary"}`}
+        className={`btn btn-sm ${redo && feedback.trim() ? "btn-primary" : redo ? "btn-ghost" : "btn-primary"}`}
         disabled={busy || !resumeId}
-        onClick={() => start(async () => setState(await attempt(async () => void (await tailor({ jobId, resumeId })))))}
+        onClick={() =>
+          start(async () =>
+            setState(
+              await attempt(async () => {
+                await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined });
+                setFeedback("");
+              }),
+            ),
+          )
+        }
       >
         {busy && <Spinner />}
-        {busy ? "Writing… about a minute" : redo ? "Write them again" : "Write my CV and cover letter"}
+        {busy ? "Writing… about a minute" : redo ? (feedback.trim() ? "Rewrite with my changes" : "Write them again") : "Write my CV and cover letter"}
       </button>
       <Feedback state={busy ? null : state} />
     </div>

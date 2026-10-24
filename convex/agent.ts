@@ -307,8 +307,8 @@ export const dailyRun = internalAction({
 // ---------- Applying ----------
 
 export const tailor = action({
-  args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")) },
-  handler: async (ctx, { jobId, trackKey, resumeId }): Promise<null> => {
+  args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")), feedback: v.optional(v.string()) },
+  handler: async (ctx, { jobId, trackKey, resumeId, feedback }): Promise<null> => {
     const { userId, resume, resumes, resumeFor, tracks } = await setup(ctx);
     const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
     // No track picked: use the best-scoring one if the job was scored, otherwise pitch straight at the job.
@@ -319,7 +319,8 @@ export const tailor = action({
     if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
     const cv = requireResume(chosen ?? (track ? resumeFor[track.key] : resume));
     await spend(ctx, userId, "tailor");
-    const pack = await buildPack(job, cv, track);
+    const notes = feedback?.trim().slice(0, 2000);
+    const pack = await buildPack(job, cv, track, notes ? { notes, previous: job.pack } : undefined);
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key });
     return null;
   },

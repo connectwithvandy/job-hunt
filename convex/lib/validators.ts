@@ -62,6 +62,8 @@ export const outreachV = v.object({
 export const packV = v.object({
   /** Missing when the CV was pitched straight at the job, not from a track. */
   trackKey: v.optional(v.string()),
+  /** What you asked to change when this version was written. */
+  feedback: v.optional(v.string()),
   createdAt: v.number(),
   resume: resumeV,
   coverLetter: v.string(),

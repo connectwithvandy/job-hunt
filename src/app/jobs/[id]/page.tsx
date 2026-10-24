@@ -135,6 +135,7 @@ export default function JobPage() {
                   </Link>
                   {job.pack.trackKey && trackByKey.get(job.pack.trackKey) && <span className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</span>}
                 </div>
+                {job.pack.feedback && <p className="text-xs text-ink-3">Written with your changes: &quot;{job.pack.feedback}&quot;</p>}
                 {job.pack.unverified.length > 0 ? (
                   <p className="rounded-lg bg-warn/10 p-3 text-sm text-warn">Check these numbers before sending, they aren&apos;t in your master CV: {job.pack.unverified.join(", ")}</p>
                 ) : (

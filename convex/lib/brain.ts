@@ -129,17 +129,33 @@ function angle(track: Track | null) {
     : "Positioning: pitch the candidate for exactly what this job asks for, leading with their most relevant experience.";
 }
 
-export async function buildPack(job: Job, resume: Resume, track: Track | null): Promise<Pack> {
+/** `feedback` is what the candidate wants changed from the last version, with that version for reference. */
+export async function buildPack(job: Job, resume: Resume, track: Track | null, feedback?: { notes: string; previous?: Pack }): Promise<Pack> {
+  const previous = feedback?.previous;
   const out = await askJSON({
     schema: PackSchema,
-    system: `You tailor a sales leader's CV and cover letter to one specific job${track ? ', using one positioning ("track")' : ""}. ${HONESTY}`,
+    system: `You tailor a sales leader's CV and cover letter to one specific job${track ? ', using one positioning ("track")' : ""}. ${HONESTY}${
+      feedback ? " The candidate has reviewed your last version and asked for changes: make them, unless a change would break the rules above, in which case keep to the rules." : ""
+    }`,
     prompt: `${angle(track)}
 
 Master CV:
 ${resumeText(resume)}
 
 Job:
-${jobText(job)}`,
+${jobText(job)}${
+      feedback
+        ? `
+
+Last version's headline: ${previous?.resume.headline ?? "(none)"}
+Last version's summary: ${previous?.resume.summary ?? "(none)"}
+Last version's cover letter:
+${previous?.coverLetter ?? "(none)"}
+
+What the candidate wants changed:
+${feedback.notes}`
+        : ""
+    }`,
   });
 
   const byId = new Map(out.experience.map((e) => [e.id, e.bullets]));
@@ -154,6 +170,7 @@ ${jobText(job)}`,
   return {
     trackKey: track?.key,
     createdAt: Date.now(),
+    feedback: feedback?.notes,
     resume: tailored,
     coverLetter: out.coverLetter,
     directNote: out.directNote,
