@@ -5,8 +5,23 @@ import { ConvexError } from "convex/values";
 import { z } from "zod";
 import { env } from "../_generated/server";
 
-/** Ask Claude for JSON matching `schema`. With `webSearch`, Claude may search the web that many times first. */
-export async function askJSON<T extends z.ZodType>(opts: { system: string; prompt: string; schema: T; webSearch?: number }): Promise<z.infer<T>> {
+/**
+ * Which model a task gets, cheapest that does it well. "cheap" (Haiku) copies and tidies text and can't search the web;
+ * "standard" (Sonnet) judges and writes; "best" (Opus) is kept for the tailored CV and cover letter.
+ */
+export type Tier = "cheap" | "standard" | "best";
+
+function modelFor(tier: Tier) {
+  if (tier === "cheap") return { model: "claude-haiku-5-5", effort: "low" as const, fallback: false };
+  if (tier === "standard") return { model: "claude-sonnet-5-5", effort: "medium" as const, fallback: true };
+  return { model: env.JOBHUNT_MODEL ?? "claude-opus-5-5", effort: "medium" as const, fallback: true };
+}
+
+/**
+ * Ask Claude for JSON matching `schema`. With `webSearch`, Claude may search the web that many times first.
+ * `shared` is text that repeats across calls (like the CV); it goes first and is cached, so repeats cost a tenth.
+ */
+export async function askJSON<T extends z.ZodType>(opts: { system: string; prompt: string; schema: T; webSearch?: number; tier?: Tier; shared?: string }): Promise<z.infer<T>> {
   if (!env.ANTHROPIC_API_KEY) {
     throw new ConvexError("The AI isn't set up yet: the app owner needs to add an Anthropic API key.");
   }
@@ -14,23 +29,36 @@ export async function askJSON<T extends z.ZodType>(opts: { system: string; promp
   delete schema.$schema;
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: opts.prompt }];
+  // Haiku can't search the web, so a search always runs on Sonnet or better.
+  const { model, effort, fallback } = modelFor(opts.webSearch && opts.tier === "cheap" ? "standard" : (opts.tier ?? "standard"));
+  const messages: Anthropic.Beta.BetaMessageParam[] = [
+    {
+      role: "user",
+      content: opts.shared
+        ? [{ type: "text", text: opts.shared, cache_control: { type: "ephemeral" } }, { type: "text", text: opts.prompt }]
+        : opts.prompt,
+    },
+  ];
   let response: Anthropic.Beta.BetaMessage;
   // A long web search can pause mid-turn; send the paused turn back and the server resumes it.
   for (let turn = 0; ; turn++) {
     response = await client.beta.messages.create({
-      model: env.JOBHUNT_MODEL ?? "claude-opus-5-5",
+      model,
       max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      system: opts.system,
-      output_config: { effort: "medium", format: { type: "json_schema", schema } },
+      // Haiku has no fallback model to hand a declined request to.
+      ...(fallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
+      // System text is the same on every call of a kind, so cache it too.
+      system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
+      output_config: { effort, format: { type: "json_schema", schema } },
       ...(opts.webSearch ? { tools: [{ type: "web_search_20260209", name: "web_search", max_uses: opts.webSearch }] } : {}),
       messages,
     });
     if (response.stop_reason !== "pause_turn" || turn >= 3) break;
     messages.push({ role: "assistant", content: response.content });
   }
+  // One line per call in the Convex logs, to see what each task costs.
+  const u = response.usage;
+  console.log(`AI ${model}: ${u.input_tokens} in, ${u.cache_read_input_tokens ?? 0} cached, ${u.output_tokens} out`);
   if (response.stop_reason === "refusal") throw new ConvexError("Claude declined this request. Try rewording the job text.");
   if (response.stop_reason === "max_tokens") throw new ConvexError("Claude's answer was cut off. Try again.");
   if (response.stop_reason === "pause_turn") throw new ConvexError("The web search took too long. Try again.");
@@ -61,7 +89,8 @@ export async function streamChat(opts: {
   let text = "";
   for (let turn = 0; turn < 10; turn++) {
     const stream = client.beta.messages.stream({
-      model: env.JOBHUNT_MODEL ?? "claude-opus-5-5",
+      // Sonnet chats well at half Opus's price.
+      model: "claude-sonnet-5-5",
       max_tokens: 16000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",

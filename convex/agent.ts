@@ -334,11 +334,13 @@ export const autopilotFor = internalAction({
           scored += (await scoreIds(ctx, me, batch)).scored;
         }
       }
-      // Companies that just raised money, every morning; new YC companies on Mondays.
+      // Companies that just raised money and new YC companies, once a week on Mondays: funding news moves slowly.
       let funded = 0;
       try {
-        funded = await addFunded(ctx, me, "india_remote");
-        if (new Date().getUTCDay() === 1) await addYc(ctx, me, "india_remote");
+        if (new Date().getUTCDay() === 1) {
+          funded = await addFunded(ctx, me, "india_remote");
+          await addYc(ctx, me, "india_remote");
+        }
       } catch (err) {
         console.warn("Autopilot company search failed", String(err));
       }
