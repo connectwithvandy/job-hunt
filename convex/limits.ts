@@ -1,7 +1,9 @@
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter";
 import { ConvexError, v } from "convex/values";
 import { components } from "./_generated/api";
-import { internalMutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import type { DataModel } from "./_generated/dataModel";
+import { internalMutation, type QueryCtx } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import { DAILY_LIMITS } from "./lib/defaults";
 
@@ -49,3 +51,16 @@ export const consume = internalMutation({
     return null;
   },
 });
+
+// ---------- What's left today, for the page ----------
+
+async function myKey(ctx: QueryCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new ConvexError("Please sign in again.");
+  return userId;
+}
+
+/** How many scores, tailored CVs and notes you have left today; the page shows them next to the buttons. */
+export const { getRateLimit: scoresLeft, getServerTime } = rateLimiter.hookAPI<DataModel>("score", { key: myKey });
+export const { getRateLimit: cvsLeft } = rateLimiter.hookAPI<DataModel>("tailor", { key: myKey });
+export const { getRateLimit: notesLeft } = rateLimiter.hookAPI<DataModel>("notes", { key: myKey });

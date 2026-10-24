@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
 import { errorMessage } from "@/lib/errors";
-import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, Spinner } from "./ui";
+import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
 type Outreach = Doc<"jobs">["outreach"][number];
@@ -127,6 +127,7 @@ export function TailorButton({ jobId, resumes, defaultResumeId, redo }: { jobId:
         {busy && <Spinner />}
         {busy ? "Writing… about a minute" : redo ? (feedback.trim() ? "Rewrite with my changes" : "Write them again") : "Write my CV and cover letter"}
       </button>
+      <LeftToday kind="cvsLeft" label="tailored CVs" />
       <Feedback state={busy ? null : state} />
     </div>
   );

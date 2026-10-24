@@ -10,7 +10,7 @@ import { linkedInPeopleSearch } from "../../../convex/lib/company";
 import { PageHead, ScorePill } from "@/components/bits";
 import { HiringContacts } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
-import { ActionButton } from "@/components/ui";
+import { ActionButton, LeftToday } from "@/components/ui";
 
 type Status = Doc<"prospects">["status"];
 const STATUSES: { value: Status; label: string }[] = [
@@ -325,6 +325,7 @@ function QuickReach({ prospectId, company }: { prospectId: Doc<"prospects">["_id
       <ActionButton size="sm" pending="Finding them and writing…" run={() => reachOut({ prospectId, role })}>
         Find &amp; write note
       </ActionButton>
+      <LeftToday kind="notesLeft" label="notes" />
     </div>
   );
 }

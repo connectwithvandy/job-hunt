@@ -11,7 +11,7 @@ import { STATUS_LABELS } from "../../../convex/lib/defaults";
 import { CompanyMark, PageHead, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
-import { ActionButton } from "@/components/ui";
+import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
 import { applyFilters, FILTERS, fitFor, inRole } from "@/lib/jobFilters";
 import { inInr, payPerYearInr, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
@@ -53,6 +53,7 @@ function Jobs() {
   const me = useQuery(api.users.me);
   const jobs = useQuery(api.jobs.list);
   const scoreJobs = useAction(api.agent.scoreJobs);
+  const scoresLeft = useLeftToday("scoresLeft");
   const setStatusMany = useMutation(api.jobs.setStatusMany);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   if (!me || !jobs) return <Loading />;
@@ -76,7 +77,8 @@ function Jobs() {
     .filter((j) => !region || regionsOf(j).includes(region as never))
     .sort(SORTS[sort].compare(track, rates));
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
-  const batch = unscored.slice(0, 12);
+  // Never ask for more scores than today's allowance has left; the owner has no limit.
+  const batch = unscored.slice(0, me.isOwner ? 12 : Math.min(12, scoresLeft ?? 12));
 
   // Keep the other filters when one changes.
   const hrefWith = (changes: Record<string, string | null>) => {
@@ -136,6 +138,7 @@ function Jobs() {
             Score {batch.length} unscored {unscored.length > batch.length ? `of ${unscored.length}` : ""}
           </ActionButton>
         )}
+        <LeftToday kind="scoresLeft" label="scores" />
       </div>
 
       {inView.length > 0 && (

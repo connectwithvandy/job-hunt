@@ -1,6 +1,9 @@
 "use client";
 
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
+import { useQuery } from "convex/react";
 import { useState, useTransition } from "react";
+import { api } from "../../convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 
 export type ActionState = { error?: string; message?: string } | null;
@@ -102,4 +105,23 @@ export function PrintButton() {
       Save as PDF
     </button>
   );
+}
+
+/** "12 left today" for one daily allowance. Hidden for the owner, who has no limit. */
+export function LeftToday({ kind, label }: { kind: "scoresLeft" | "cvsLeft" | "notesLeft"; label: string }) {
+  const me = useQuery(api.users.me);
+  const left = useLeftToday(kind);
+  if (!me || me.isOwner || left === undefined) return null;
+  return (
+    <span className={`text-xs ${left === 0 ? "text-warn" : "text-ink-3"}`}>
+      {left === 0 ? `No ${label} left today` : `${left} ${label} left today`}
+    </span>
+  );
+}
+
+/** How many of one daily allowance are left, or undefined while loading. */
+export function useLeftToday(kind: "scoresLeft" | "cvsLeft" | "notesLeft") {
+  const { check } = useRateLimit(api.limits[kind], { getServerTimeMutation: api.limits.getServerTime });
+  const value = check?.()?.value;
+  return value === undefined ? undefined : Math.max(0, Math.floor(value));
 }
