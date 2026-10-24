@@ -6,12 +6,52 @@ import { useEffect, useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
+import { downloadDocx } from "@/lib/docx";
 import { errorMessage } from "@/lib/errors";
 import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
 type Outreach = Doc<"jobs">["outreach"][number];
 type OutreachStatus = Outreach["status"];
+
+/**
+ * Gets everything ready in one click: opens the form, downloads the tailored CV and copies the
+ * cover letter, so applying is the autofill bookmark, attach, paste, Submit.
+ */
+export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Parameters<typeof downloadDocx>[0]; coverLetter: string } } }) {
+  const setStatus = useMutation(api.jobs.setStatus);
+  const [done, setDone] = useState("");
+  const link = job.sourceUrl || job.url;
+  if (!link) return null;
+  return (
+    <div className="space-y-2">
+      <button
+        className="btn btn-primary"
+        onClick={async () => {
+          // Open first, inside the click, or the browser blocks the new tab.
+          window.open(link, "_blank", "noreferrer");
+          const ready: string[] = [];
+          if (job.pack) {
+            await downloadDocx(job.pack.resume, `${job.pack.resume.name} CV ${job.company}`);
+            ready.push("CV downloaded");
+            if (job.pack.coverLetter) {
+              await navigator.clipboard.writeText(job.pack.coverLetter).then(() => ready.push("cover letter copied"), () => {});
+            }
+          }
+          if (job.status === "new") await setStatus({ jobId: job._id, status: "applying" });
+          setDone(
+            ready.length
+              ? `${ready.join(", ")}. On the form: click your Autofill bookmark, attach the CV, paste the letter, Submit.`
+              : "Form opened. Write your tailored CV in step 1 first to have it downloaded here too.",
+          );
+        }}
+      >
+        Apply ↗
+      </button>
+      {done && <p className="text-sm text-ink-2">{done}</p>}
+    </div>
+  );
+}
 
 export function StatusSelect({ jobId, status }: { jobId: Id<"jobs">; status: JobStatus }) {
   const setStatus = useMutation(api.jobs.setStatus);

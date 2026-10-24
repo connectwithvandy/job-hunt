@@ -7,7 +7,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
-import { CompanyResearch, CoverLetter, DirectNote, EmailDraft, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
 import { inInr, useInrRates } from "@/lib/money";
@@ -233,12 +233,12 @@ export default function JobPage() {
                 Save your standard form answers (notice period, pay, why you&apos;re moving) on the <Link className="underline" href="/resume">CVs page</Link> to copy them here in one click.
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-3">
-              {job.sourceUrl && (
-                <a className="btn btn-ghost" href={job.sourceUrl} target="_blank" rel="noreferrer">
-                  Open the application ↗
-                </a>
-              )}
+            <p className="mb-3 text-sm text-ink-2">
+              Apply opens the form, downloads your tailored CV and copies your cover letter. Then click your Autofill bookmark (set it up on the{" "}
+              <Link className="underline" href="/resume">CVs page</Link>), attach the CV, paste and submit.
+            </p>
+            <div className="flex flex-wrap items-start gap-3">
+              <ApplyButton job={job} />
               {job.status === "new" || job.status === "applying" ? (
                 <ActionButton run={async () => void (await setStatus({ jobId: job._id, status: "applied" }))}>I&apos;ve applied</ActionButton>
               ) : (
