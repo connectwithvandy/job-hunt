@@ -18,11 +18,11 @@ export function Sidebar() {
   const path = usePathname();
   const { signOut } = useAuthActions();
   return (
-    <aside className="no-print md:w-56 md:shrink-0 md:min-h-screen md:border-r border-line px-5 py-5 md:py-10 flex md:flex-col gap-6 items-center md:items-stretch">
+    <aside className="no-print md:w-56 md:shrink-0 md:min-h-screen border-b md:border-b-0 md:border-r border-line px-5 py-4 md:py-10 flex md:flex-col gap-4 md:gap-6 items-center md:items-stretch">
       <Link href="/" className="display text-lg uppercase leading-none tracking-wide">
         JobPipe<span className="text-accent">.</span>
       </Link>
-      <nav className="flex md:flex-col gap-1 overflow-x-auto text-sm">
+      <nav className="flex min-w-0 md:flex-col gap-1 overflow-x-auto text-sm">
         {NAV.map((n) => {
           const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
           return (
