@@ -120,7 +120,7 @@ export default function JobPage() {
           <div className="card p-6">
             <Step n={1} title="Tailor your CV and cover letter" />
             <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter, and a LinkedIn note and email for the hiring manager.</p>
-            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={me.defaultResumeId} redo={!!job.pack} />
+            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} />
             {job.pack && (
               <div className="mt-5 space-y-4 border-t border-line pt-5">
                 <div className="flex flex-wrap items-center gap-3">
