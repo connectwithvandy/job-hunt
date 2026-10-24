@@ -1,5 +1,54 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { boardFromUrl } from "./lib/boardFromUrl";
+import { CAREER_BOARDS } from "./lib/careerBoards";
+import { companyKey } from "./lib/company";
+
+// Discovered boards are capped so the morning download stays a few minutes long.
+const MAX_DISCOVERED = 400;
+
+/** Remembers the careers board behind a job's links, so tomorrow's download reads that company too. */
+export async function noteBoard(ctx: MutationCtx, company: string, links: (string | undefined)[]) {
+  for (const link of links) {
+    const board = boardFromUrl(link);
+    if (!board || !company.trim()) continue;
+    // Roles are filed by company name, so one board per name.
+    const key = companyKey(company);
+    if (CAREER_BOARDS.some((b) => (b.ats === board.ats && b.slug === board.slug) || companyKey(b.name) === key)) return;
+    const seen =
+      (await ctx.db.query("discoveredBoards").withIndex("by_ats_and_slug", (q) => q.eq("ats", board.ats).eq("slug", board.slug)).first()) ??
+      (await ctx.db.query("discoveredBoards").withIndex("by_key", (q) => q.eq("key", key)).first());
+    if (seen) return;
+    if ((await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED)).length >= MAX_DISCOVERED) return;
+    await ctx.db.insert("discoveredBoards", { key, name: company.trim(), ...board });
+    return;
+  }
+}
+
+export const discovered = internalQuery({
+  args: {},
+  handler: async (ctx) => (await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED)).map(({ name, ats, slug }) => ({ name, website: "", ats, slug })),
+});
+
+/** The board for a company in someone's dream list, if we read one. */
+export const boardByKey = internalQuery({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const b = CAREER_BOARDS.find((x) => companyKey(x.name) === key);
+    if (b) return b.name;
+    return (await ctx.db.query("discoveredBoards").withIndex("by_key", (q) => q.eq("key", key)).first())?.name ?? null;
+  },
+});
+
+/** Finds boards in jobs already saved. Run once: npx convex run careers:discoverFromJobs */
+export const discoverFromJobs = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ numItems: 200, cursor: cursor ?? null });
+    for (const j of page.page) await noteBoard(ctx, j.company, [j.sourceUrl, j.url]);
+    return page.isDone ? null : page.continueCursor;
+  },
+});
 
 const careerJobV = v.object({
   externalId: v.string(),

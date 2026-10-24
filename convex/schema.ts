@@ -67,6 +67,16 @@ export default defineSchema({
     .index("by_company", ["company"])
     .searchIndex("search_title", { searchField: "title", filterFields: ["india"] }),
 
+  /** Careers boards found in job links (lib/boardFromUrl.ts), read each morning beside the hand-picked ones. */
+  discoveredBoards: defineTable({
+    key: v.string(),
+    name: v.string(),
+    ats: v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday")),
+    slug: v.string(),
+  })
+    .index("by_ats_and_slug", ["ats", "slug"])
+    .index("by_key", ["key"]),
+
   /** A careers-board role's description, kept apart so searching the titles stays light. */
   careerJobTexts: defineTable({ externalId: v.string(), description: v.string() }).index("by_externalId", ["externalId"]),
 

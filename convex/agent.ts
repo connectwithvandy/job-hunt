@@ -15,7 +15,6 @@ import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
 import { htmlToText, openTo, readPlace, searchOtherSources, titleMatches, type Found } from "./lib/sources";
-import { CAREER_BOARDS } from "./lib/careerBoards";
 import type { jobV, resumeV } from "./lib/validators";
 import { prospectV } from "./lib/validators";
 
@@ -776,9 +775,9 @@ async function checkCompanyRoles(ctx: ActionCtx, me: Context, p: Doc<"prospects"
   const active = me.tracks.filter((t) => t.status === "active");
   const trackFor = (title: string) => (active.find((t) => t.titles.some((x) => titleMatches(x, title))) ?? active[0])?.key ?? "";
   // Companies whose careers board we read come from there; the rest from Dreamwork.
-  const board = CAREER_BOARDS.find((b) => companyKey(b.name) === p.key);
+  const board: string | null = await ctx.runQuery(internal.careers.boardByKey, { key: p.key });
   if (board) {
-    const rows: CareerRow[] = await ctx.runQuery(internal.careers.forCompany, { company: board.name });
+    const rows: CareerRow[] = await ctx.runQuery(internal.careers.forCompany, { company: board });
     const found = await withCareerTexts(ctx, rows.filter(fitsPlace).slice(0, 100));
     if (found.length) await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: found.map((f) => fromFound(f, trackFor(f.title))) });
     return found.length;

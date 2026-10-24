@@ -6,6 +6,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
+import { noteBoard } from "./careers";
 import { hiringContactV, jobFields, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
@@ -226,6 +227,7 @@ export const insertMany = internalMutation({
       }
       const { description, pack, research, prep, ...light } = job;
       lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack });
+      if (job.source !== "careers") await noteBoard(ctx, job.company, [job.sourceUrl, job.url]);
       if (description || pack || research || prep) await ctx.db.insert("jobDetails", { jobId: lastId, userId, ...defined({ description, pack, research, prep }) });
       added++;
     }
