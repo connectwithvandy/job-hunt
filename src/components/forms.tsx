@@ -161,6 +161,9 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
   const [open, setOpen] = useState(!isNew);
   const [titles, setTitles] = useState(track.titles);
   const [draft, setDraft] = useState("");
+  const similar = useAction(api.agent.similarTitles);
+  const [ideas, setIdeas] = useState<{ title: string; why: string }[] | null>(null);
+  const [thinking, setThinking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
   const addTitle = () => {
@@ -237,6 +240,40 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
           onBlur={addTitle}
           placeholder="Type a title and press Enter, like BDR Manager"
         />
+        {!isNew && (
+          <div className="mt-2">
+            <button
+              type="button"
+              className="text-sm text-ink-3 underline hover:text-ink"
+              disabled={thinking}
+              onClick={async () => {
+                setThinking(true);
+                setState(await attempt(async () => void setIdeas(await similar({ trackKey: track.key }))));
+                setThinking(false);
+              }}
+            >
+              {thinking ? "Finding similar titles…" : "Suggest similar titles"}
+            </button>
+            {ideas && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ideas
+                  .filter((i) => !titles.includes(i.title))
+                  .map((i) => (
+                    <button
+                      key={i.title}
+                      type="button"
+                      title={i.why}
+                      className="rounded-full border border-dashed border-line px-3 py-1 text-sm text-ink-2 hover:border-accent hover:text-ink"
+                      onClick={() => setTitles([...titles, i.title])}
+                    >
+                      + {i.title}
+                    </button>
+                  ))}
+                <span className="w-full text-xs text-ink-3">Tap to add, then Save. Hover for why it fits.</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {resumes.length > 0 && (
         <label className="block">

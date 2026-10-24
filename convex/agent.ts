@@ -10,7 +10,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { readPlace } from "./lib/sources";
@@ -869,3 +869,15 @@ async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Rec
   }
   throw new ConvexError(`I don't have a tool called ${name}.`);
 }
+
+export const similarTitles = action({
+  args: { trackKey: v.string() },
+  handler: async (ctx, { trackKey }): Promise<{ title: string; why: string }[]> => {
+    const me = await setup(ctx);
+    const track = me.tracks.find((t) => t.key === trackKey);
+    if (!track) throw new ConvexError("Save this role first.");
+    const cv = requireResume(me.resumeFor[track.key] ?? me.resume);
+    await spend(ctx, me.userId, "research");
+    return await suggestTitles(track, cv, me.location);
+  },
+});

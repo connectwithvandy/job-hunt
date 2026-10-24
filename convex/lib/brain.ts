@@ -526,3 +526,25 @@ Already in their list, so skip: ${skip.slice(0, 200).join(", ") || "(none)"}`,
   });
   return out.companies;
 }
+
+// ---------- Similar titles ----------
+
+const TitlesSchema = z.strictObject({
+  titles: z.array(z.strictObject({ title: z.string(), why: z.string().describe("One short line on why it fits this candidate.") })).describe("Eight to twelve titles."),
+});
+
+/** Job titles close to a role that this candidate could credibly land, for wider searches. */
+export async function suggestTitles(role: { name: string; titles: string[]; pitch: string }, cv: Resume, location: string) {
+  const out = await askJSON({
+    schema: TitlesSchema,
+    system: `You suggest job titles for a job search. Given one kind of role the candidate wants and their CV, list other real titles that companies use for the same or very similar work, at a level the candidate could credibly land, in the market where they work. Include common variants (Inside Sales Manager, Sales Manager, Head of Inside Sales and so on), regional names, and adjacent roles their experience clearly supports. Don't repeat titles they already search. Address the candidate as "you".`,
+    prompt: `Role: ${role.name}. ${role.pitch}
+Titles already searched: ${role.titles.join(", ")}
+Where they work: ${location}
+
+CV:
+${resumeText(cv)}`,
+  });
+  const have = new Set(role.titles.map((t) => t.toLowerCase()));
+  return out.titles.filter((t) => !have.has(t.title.toLowerCase()));
+}
