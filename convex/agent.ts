@@ -32,6 +32,7 @@ type Context = {
   answers: { question: string; answer: string }[];
   resumeFor: Record<string, Resume | null>;
   location: string;
+  markets: string;
   tracks: Doc<"tracks">[];
 };
 
@@ -241,7 +242,7 @@ export const scoreJobs = action({
 });
 
 /** Scores jobs four at a time, each track against its own CV. Doesn't spend allowance; callers do. */
-async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, location }: Context, ids: Id<"jobs">[]) {
+async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, location, markets }: Context, ids: Id<"jobs">[]) {
     const cv = requireResume(resume);
     const cvFor = (t: { key: string }) => resumeFor[t.key] ?? cv;
     let failed = 0;
@@ -252,7 +253,7 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, loc
         ids.slice(i, i + 4).map(async (jobId) => {
           try {
             const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
-            const s = await scoreJob(job, cvFor, tracks, location);
+            const s = await scoreJob(job, cvFor, tracks, location, markets);
             await ctx.runMutation(internal.jobs.patchForAction, {
               userId,
               jobId,

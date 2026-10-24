@@ -41,6 +41,7 @@ export const me = query({
       email: user?.email ?? "",
       onboarded: profile?.onboarded ?? false,
       location: profile?.location ?? "India",
+      markets: profile?.markets ?? "",
       contactsCount: profile?.contactsCount ?? 0,
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
@@ -189,6 +190,7 @@ export const context = internalQuery({
     return {
       email: user?.email ?? "",
       location: profile?.location ?? "India",
+      markets: profile?.markets ?? "",
       tracks,
       resume: fallback?.resume ?? null,
       resumes: resumes.map((r) => ({ _id: r._id, resume: r.resume })),
@@ -275,6 +277,16 @@ export const saveAnswerForAction = internalMutation({
     const profile = await profileFor(ctx, userId);
     const rest = (profile.answers ?? []).filter((a) => a.question.toLowerCase() !== question.trim().toLowerCase());
     await ctx.db.patch("profiles", profile._id, { answers: [...rest, { question: question.trim(), answer: answer.trim() }].slice(-40) });
+    return null;
+  },
+});
+
+export const setMarkets = mutation({
+  args: { markets: v.string() },
+  handler: async (ctx, { markets }) => {
+    const userId = await requireUserId(ctx);
+    const profile = await profileFor(ctx, userId);
+    await ctx.db.patch("profiles", profile._id, { markets: markets.trim().slice(0, 300) });
     return null;
   },
 });

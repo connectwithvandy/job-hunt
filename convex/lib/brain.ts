@@ -63,14 +63,17 @@ const ScoreSchema = z.strictObject({
 
 /** Scores the job for every active track, each read against the CV that track pitches from. */
 /** What a job's location has to be for this candidate: a city plus remote, or anything when they'll go anywhere. */
-export function whereRule(location: string) {
+export function whereRule(location: string, markets = "") {
   const l = location.trim();
-  if (!l || /^anywhere$/i.test(l)) return "";
-  if (/^remote$/i.test(l)) return "The candidate only takes remote roles open to someone in India; an office-based or country-locked remote role is a poor fit (score it under 30 and say why).";
-  return `The candidate can't relocate: only roles in ${l}, or remote roles open to someone living there, work. Score any other location under 30 and say it would need relocating.`;
+  const pref = markets.trim()
+    ? ` Within that, their preference for the markets and time zones they'd cover is: "${markets.trim()}". Rank by it: a role covering a preferred market scores higher than an otherwise equal one covering a less preferred market, and say so in the reason.`
+    : "";
+  if (!l || /^anywhere$/i.test(l)) return pref.trim();
+  if (/^remote$/i.test(l)) return `The candidate only takes remote roles open to someone in India; an office-based or country-locked remote role is a poor fit (score it under 30 and say why).${pref}`;
+  return `The candidate can't relocate: only roles in ${l}, or remote roles open to someone living there, work. Score any other location under 30 and say it would need relocating.${pref}`;
 }
 
-export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => Resume, tracks: Track[], location = "") {
+export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => Resume, tracks: Track[], location = "", markets = "") {
   const active = tracks.filter((t) => t.status === "active");
   // Tracks often share a CV; send each distinct one once and point tracks at it.
   const cvs: Resume[] = [];
@@ -92,7 +95,7 @@ export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => 
       : cvs.map((r, i) => `Candidate's CV ${i + 1} (same person, a different angle):\n${resumeText(r)}`).join("\n\n");
   return askJSON({
     schema: ScoreSchema,
-    system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role. Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them. ${whereRule(location)}`,
+    system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role. Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them. ${whereRule(location, markets)}`,
     prompt: `${cvBlock}
 
 Tracks (score every one of these trackIds${cvs.length > 1 ? ", each against the CV it names" : ""}):
@@ -442,6 +445,7 @@ export function chatSystemPrompt(me: {
   answers: { question: string; answer: string }[];
   tracks: Track[];
   location: string;
+  markets: string;
   jobs: (Pick<Doc<"jobs">, "_id" | "title" | "company" | "location" | "status" | "scores" | "salary"> & { outreach: unknown[] })[];
   prospects: Pick<Doc<"prospects">, "name" | "oneLiner" | "status" | "fit" | "funding" | "batch">[];
   focus: Job | null;
@@ -450,7 +454,7 @@ export function chatSystemPrompt(me: {
   return `You are the candidate's job-search partner inside JobPipe, their job-hunting app. They are a sales and go-to-market leader. Help with anything: strategy, which roles to chase, rewriting messages, salary negotiation, interview practice, thinking through offers, or just talking it through. Be direct, warm and practical; push back when they're wrong. Keep answers short unless they ask for depth, and use plain words. Address them as "you". ${HONESTY}
 You can search the web for current facts (companies, news, salaries); say where a fact came from. You can also act in the app with your tools: add or find jobs, score them, write applications, move a job's status, research a company, prepare interviews, add Dream 20 companies and save form answers. Act when they ask you to or clearly want it; for anything that changes a lot (like moving many jobs), say what you'll do first. After acting, point them to the right page: Jobs, Companies, Messages, Tracker, CVs, Roles.
 
-Where they want to work: ${me.location}. ${whereRule(me.location)}
+Where they want to work: ${me.location}. ${whereRule(me.location, me.markets)}
 Roles they want: ${me.tracks.map((t) => `${t.name} [key ${t.key}]${t.status === "paused" ? " (paused)" : ""}: ${t.titles.join(", ")}`).join("; ")}
 
 Their main CV:

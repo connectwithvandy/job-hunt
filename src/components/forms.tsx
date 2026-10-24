@@ -340,20 +340,27 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
   );
 }
 
-export function LocationForm({ location }: { location: string }) {
+export function LocationForm({ location, markets }: { location: string; markets: string }) {
   const save = useMutation(api.users.setLocation);
+  const saveMarkets = useMutation(api.users.setMarkets);
   const [value, setValue] = useState(location);
+  const [pref, setPref] = useState(markets);
   const [state, setState] = useState<ActionState>(null);
   return (
     <form
       className="card p-6"
       onSubmit={async (e) => {
         e.preventDefault();
-        setState(await attempt(async () => (await save({ location: value }), "Saved.")));
+        setState(await attempt(async () => (await Promise.all([save({ location: value }), saveMarkets({ markets: pref })]), "Saved.")));
       }}
     >
       <span className="label mb-3 block">Where you want to work</span>
       <LocationPicker value={value} onChange={setValue} />
+      <label className="mt-4 block">
+        <span className="label">Markets and time zones you prefer</span>
+        <input className="field mt-1" value={pref} onChange={(e) => setPref(e.target.value)} placeholder="e.g. APAC and EMEA first, North America second" />
+        <span className="mt-1 block text-xs text-ink-3">Fit scores rank jobs covering your preferred markets higher.</span>
+      </label>
       <div className="mt-4 flex items-center gap-3">
         <button className="btn btn-primary btn-sm">Save</button>
         <Feedback state={state} />

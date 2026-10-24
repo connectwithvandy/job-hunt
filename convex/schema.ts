@@ -12,6 +12,8 @@ export default defineSchema({
     defaultResumeId: v.optional(v.id("resumes")),
     photo: v.optional(v.id("_storage")),
     location: v.string(),
+    /** Which markets and time zones you'd rather cover, like "APAC and EMEA first, North America second". */
+    markets: v.optional(v.string()),
     onboarded: v.boolean(),
     contactsCount: v.optional(v.number()),
     /** Your standard answers for application forms: notice period, pay, why you're moving. */
