@@ -43,6 +43,7 @@ export const me = query({
       location: profile?.location ?? "India",
       contactsCount: profile?.contactsCount ?? 0,
       autopilot: profile?.autopilot ?? false,
+      answers: profile?.answers ?? [],
       lastAutopilot: profile?.lastAutopilot ?? null,
       resumes: resumes.map((r) => ({ _id: r._id, label: r.label, resume: r.resume })),
       defaultResumeId: defaultResume?._id ?? null,
@@ -191,6 +192,7 @@ export const context = internalQuery({
       tracks,
       resume: fallback?.resume ?? null,
       resumes: resumes.map((r) => ({ _id: r._id, resume: r.resume })),
+      answers: profile?.answers ?? [],
       /** The CV each track should be pitched from. */
       resumeFor: Object.fromEntries(tracks.map((t) => [t.key, (resumes.find((r) => r._id === t.resumeId) ?? fallback)?.resume ?? null])),
     };
@@ -249,6 +251,19 @@ export const saveResumeForAction = internalMutation({
   handler: async (ctx, { userId, resumeId, resume }) => {
     await ownResume(ctx, userId, resumeId);
     await ctx.db.patch("resumes", resumeId, { resume });
+    return null;
+  },
+});
+
+export const saveAnswers = mutation({
+  args: { answers: v.array(v.object({ question: v.string(), answer: v.string() })) },
+  handler: async (ctx, { answers }) => {
+    const userId = await requireUserId(ctx);
+    if (answers.length > 40) throw new ConvexError("Keep up to 40 answers.");
+    const profile = await profileFor(ctx, userId);
+    await ctx.db.patch("profiles", profile._id, {
+      answers: answers.map((a) => ({ question: a.question.trim(), answer: a.answer.trim() })).filter((a) => a.question),
+    });
     return null;
   },
 });

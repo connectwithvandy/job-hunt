@@ -324,3 +324,62 @@ export function LocationForm({ location }: { location: string }) {
     </form>
   );
 }
+
+const STARTER_QUESTIONS = [
+  "Notice period",
+  "Current CTC",
+  "Expected CTC",
+  "Total years of experience",
+  "Why are you looking to move?",
+  "Willing to relocate?",
+  "Work authorization",
+  "Earliest start date",
+  "LinkedIn profile",
+];
+
+/** Your standard answers for application forms, written once and copied in one click. */
+export function AnswersForm({ answers }: { answers: { question: string; answer: string }[] }) {
+  const save = useMutation(api.users.saveAnswers);
+  const [rows, setRows] = useState(() => {
+    const have = new Set(answers.map((a) => a.question));
+    return [...answers, ...STARTER_QUESTIONS.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: q === "Willing to relocate?" ? "No. Bengaluru or remote only." : "" }))];
+  });
+  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<ActionState>(null);
+  const set = (i: number, k: "question" | "answer", val: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)));
+  return (
+    <div className="card p-6">
+      <h2 className="display mb-1 text-2xl">Application answers</h2>
+      <p className="mb-4 text-sm text-ink-2">The questions every form asks. Write them once; each job&apos;s Apply step and the chat use them.</p>
+      <div className="space-y-3">
+        {rows.map((r, i) => (
+          <div key={i} className="grid gap-2 sm:grid-cols-[14rem_1fr_auto]">
+            <input className="field text-sm" value={r.question} onChange={(e) => set(i, "question", e.target.value)} placeholder="Question" />
+            <textarea className="field min-h-[42px] text-sm" rows={r.answer.length > 80 ? 3 : 1} value={r.answer} onChange={(e) => set(i, "answer", e.target.value)} placeholder="Your answer" />
+            <button type="button" aria-label="Remove" className="text-ink-3 hover:text-ink" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRows([...rows, { question: "", answer: "" }])}>
+          + Add a question
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setState(await attempt(async () => (await save({ answers: rows.filter((r) => r.question.trim() && r.answer.trim()) }), "Saved.")));
+            setBusy(false);
+          }}
+        >
+          {busy ? "Saving…" : "Save answers"}
+        </button>
+        <Feedback state={busy ? null : state} />
+      </div>
+    </div>
+  );
+}

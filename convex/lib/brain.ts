@@ -439,6 +439,7 @@ Already in their list, so skip: ${skip.slice(0, 200).join(", ") || "(none)"}`,
 export function chatSystemPrompt(me: {
   resume: Resume | null;
   resumes: { resume: Resume }[];
+  answers: { question: string; answer: string }[];
   tracks: Track[];
   location: string;
   jobs: (Pick<Doc<"jobs">, "_id" | "title" | "company" | "location" | "status" | "scores" | "salary"> & { outreach: unknown[] })[];
@@ -456,7 +457,7 @@ Their main CV:
 ${me.resume ? resumeText(me.resume) : "(no CV uploaded)"}
 ${me.resumes.length > 1 ? `\nThey also have ${me.resumes.length - 1} other CVs pitched for different roles, built from the same facts.` : ""}
 
-Jobs in their list (strongest and most active first):
+${me.answers.length ? `Their standard answers for application forms:\n${me.answers.map((a) => `- ${a.question}: ${a.answer}`).join("\n")}\n\n` : ""}Jobs in their list (strongest and most active first):
 ${me.jobs.map((j) => `- ${j.title} at ${j.company} (${j.location}), status ${j.status}, fit ${best(j) < 0 ? "not scored" : best(j)}${j.salary ? `, pay ${j.salary}` : ""}${j.outreach.length ? `, ${j.outreach.length} referral asks` : ""}`).join("\n") || "(none yet)"}
 
 Companies they're approaching without a posted role:

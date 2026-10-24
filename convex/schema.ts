@@ -14,6 +14,8 @@ export default defineSchema({
     location: v.string(),
     onboarded: v.boolean(),
     contactsCount: v.optional(v.number()),
+    /** Your standard answers for application forms: notice period, pay, why you're moving. */
+    answers: v.optional(v.array(v.object({ question: v.string(), answer: v.string() }))),
     /** Search and score every morning without being asked. */
     autopilot: v.optional(v.boolean()),
     lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()) })),

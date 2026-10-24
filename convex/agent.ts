@@ -28,6 +28,7 @@ type Context = {
   email: string;
   resume: Resume | null;
   resumes: { _id: Id<"resumes">; resume: Resume }[];
+  answers: { question: string; answer: string }[];
   resumeFor: Record<string, Resume | null>;
   location: string;
   tracks: Doc<"tracks">[];

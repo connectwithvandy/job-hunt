@@ -9,7 +9,7 @@ import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { CompanyResearch, CoverLetter, DirectNote, EmailDraft, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
-import { ActionButton } from "@/components/ui";
+import { ActionButton, CopyButton } from "@/components/ui";
 import { inInr, useInrRates } from "@/lib/money";
 
 export default function JobPage() {
@@ -211,6 +211,20 @@ export default function JobPage() {
 
           <div className="card p-6">
             <Step n={4} title="Apply" />
+            {me.answers.length > 0 ? (
+              <div className="mb-4">
+                <div className="label mb-2">Your answers, for the form</div>
+                <div className="flex flex-wrap gap-2">
+                  {me.answers.map((a) => (
+                    <CopyButton key={a.question} text={a.answer} label={a.question} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mb-4 text-sm text-ink-2">
+                Save your standard form answers (notice period, pay, why you&apos;re moving) on the <Link className="underline" href="/resume">CVs page</Link> to copy them here in one click.
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-3">
               {job.sourceUrl && (
                 <a className="btn btn-ghost" href={job.sourceUrl} target="_blank" rel="noreferrer">
