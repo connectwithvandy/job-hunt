@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
@@ -11,6 +12,34 @@ async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   const job = await ctx.db.get("jobs", jobId);
   if (!job || job.userId !== userId) throw new ConvexError("Job not found.");
   return job;
+}
+
+type Details = Partial<Pick<Doc<"jobDetails">, "description" | "pack" | "research" | "prep">>;
+
+async function detailsOf(ctx: QueryCtx, jobId: Id<"jobs">) {
+  return await ctx.db.query("jobDetails").withIndex("by_jobId", (q) => q.eq("jobId", jobId)).unique();
+}
+
+/** A job with its heavy parts filled in, whether they're still on the job or already in jobDetails. */
+async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs">> {
+  const d = await detailsOf(ctx, job._id);
+  if (!d) return job;
+  return { ...job, description: d.description ?? job.description, pack: d.pack ?? job.pack, research: d.research ?? job.research, prep: d.prep ?? job.prep };
+}
+
+const defined = (o: Details) => Object.fromEntries(Object.entries(o).filter(([, val]) => val !== undefined)) as Details;
+
+/** Saves heavy parts to jobDetails, moving any still on the job there too, so the job itself stays light. */
+async function saveDetails(ctx: MutationCtx, job: Doc<"jobs">, fields: Details) {
+  const d = await detailsOf(ctx, job._id);
+  const onJob = defined({ description: job.description, pack: job.pack, research: job.research, prep: job.prep });
+  const next = { ...onJob, ...defined(fields) };
+  if (d) await ctx.db.patch("jobDetails", d._id, next);
+  else if (Object.keys(next).length) await ctx.db.insert("jobDetails", { jobId: job._id, userId: job.userId, ...next });
+  const hasPack = !!(next.pack ?? d?.pack);
+  if (Object.keys(onJob).length || hasPack !== !!job.hasPack) {
+    await ctx.db.patch("jobs", job._id, { description: undefined, pack: undefined, research: undefined, prep: undefined, hasPack });
+  }
 }
 
 /** Connections whose company matches: same name, or one name is the other plus a suffix like "Scientific". */
@@ -43,8 +72,8 @@ export const list = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500);
-    // The list doesn't need long descriptions or the tailored CV; keep the payload small.
-    return jobs.map((j) => ({ ...j, description: undefined, pack: undefined, research: undefined, prep: undefined, hasPack: !!j.pack }));
+    // Jobs not moved to jobDetails yet still carry their heavy parts; leave them out of the list.
+    return jobs.map((j) => ({ ...j, description: undefined, pack: undefined, research: undefined, prep: undefined, hasPack: !!j.hasPack || !!j.pack }));
   },
 });
 
@@ -56,7 +85,7 @@ export const get = query({
     const job = await ctx.db.get("jobs", jobId);
     if (!job || job.userId !== userId) return null;
     const people = await contactsAt(ctx, userId, job.company);
-    return { job, people };
+    return { job: await withDetails(ctx, job), people };
   },
 });
 
@@ -92,9 +121,10 @@ export const saveCoverLetter = mutation({
   args: { jobId: v.id("jobs"), text: v.string() },
   handler: async (ctx, { jobId, text }) => {
     const userId = await requireUserId(ctx);
-    const job = await ownJob(ctx, userId, jobId);
+    const job = await withDetails(ctx, await ownJob(ctx, userId, jobId));
     if (!job.pack) throw new ConvexError("Tailor the CV first.");
-    await ctx.db.patch("jobs", jobId, { pack: { ...job.pack, coverLetter: text }, updatedAt: Date.now() });
+    await saveDetails(ctx, job, { pack: { ...job.pack, coverLetter: text } });
+    await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -104,13 +134,14 @@ export const saveTailoredResume = mutation({
   args: { jobId: v.id("jobs"), resume: resumeV },
   handler: async (ctx, { jobId, resume }) => {
     const userId = await requireUserId(ctx);
-    const job = await ownJob(ctx, userId, jobId);
+    const job = await withDetails(ctx, await ownJob(ctx, userId, jobId));
     if (!job.pack) throw new ConvexError("Write the CV first.");
     const masters = await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", userId)).take(20);
     const p = job.pack;
     const texts = [resume.headline, resume.summary, ...resume.experience.flatMap((e) => e.bullets), p.coverLetter, p.directNote ?? "", p.email ?? ""];
     const unverified = unverifiedNumbers(masters.map((m) => m.resume), texts);
-    await ctx.db.patch("jobs", jobId, { pack: { ...p, resume, unverified }, updatedAt: Date.now() });
+    await saveDetails(ctx, job, { pack: { ...p, resume, unverified } });
+    await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
     return unverified;
   },
 });
@@ -120,9 +151,10 @@ export const savePackText = mutation({
   args: { jobId: v.id("jobs"), field: v.union(v.literal("directNote"), v.literal("emailSubject"), v.literal("email")), text: v.string() },
   handler: async (ctx, { jobId, field, text }) => {
     const userId = await requireUserId(ctx);
-    const job = await ownJob(ctx, userId, jobId);
+    const job = await withDetails(ctx, await ownJob(ctx, userId, jobId));
     if (!job.pack) throw new ConvexError("Write the CV and messages first.");
-    await ctx.db.patch("jobs", jobId, { pack: { ...job.pack, [field]: text }, updatedAt: Date.now() });
+    await saveDetails(ctx, job, { pack: { ...job.pack, [field]: text } });
+    await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -160,7 +192,7 @@ export const setOutreach = mutation({
 
 export const forAction = internalQuery({
   args: { userId: v.id("users"), jobId: v.id("jobs") },
-  handler: async (ctx, { userId, jobId }) => ownJob(ctx, userId, jobId),
+  handler: async (ctx, { userId, jobId }) => await withDetails(ctx, await ownJob(ctx, userId, jobId)),
 });
 
 export const contactsForAction = internalQuery({
@@ -192,7 +224,9 @@ export const insertMany = internalMutation({
         lastId = existing._id;
         continue;
       }
-      lastId = await ctx.db.insert("jobs", { userId, ...job, roleKey: key });
+      const { description, pack, research, prep, ...light } = job;
+      lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack });
+      if (description || pack || research || prep) await ctx.db.insert("jobDetails", { jobId: lastId, userId, ...defined({ description, pack, research, prep }) });
       added++;
     }
     return { added, lastId };
@@ -212,12 +246,13 @@ export const patchForAction = internalMutation({
     trackKey: v.optional(v.string()),
     outreach: v.optional(v.array(outreachV)),
   },
-  handler: async (ctx, { userId, jobId, ...fields }) => {
+  handler: async (ctx, { userId, jobId, description, pack, ...fields }) => {
     const job = await ownJob(ctx, userId, jobId);
+    if (description !== undefined || pack !== undefined) await saveDetails(ctx, job, { description, pack });
     const change = Object.fromEntries(Object.entries(fields).filter(([, val]) => val !== undefined));
     await ctx.db.patch("jobs", jobId, {
       ...change,
-      ...(fields.pack && job.status === "new" ? { status: "applying" as const } : {}),
+      ...(pack && job.status === "new" ? { status: "applying" as const } : {}),
       updatedAt: Date.now(),
     });
     return null;
@@ -261,8 +296,7 @@ export const strongSince = internalQuery({
 export const saveExtras = internalMutation({
   args: { userId: v.id("users"), jobId: v.id("jobs"), research: v.optional(researchV), prep: v.optional(prepV) },
   handler: async (ctx, { userId, jobId, ...extras }) => {
-    await ownJob(ctx, userId, jobId);
-    await ctx.db.patch("jobs", jobId, extras);
+    await saveDetails(ctx, await ownJob(ctx, userId, jobId), extras);
     return null;
   },
 });
@@ -310,8 +344,11 @@ export const messages = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(400);
-    return jobs
-      .filter((j) => j.status !== "dismissed" && (j.pack?.directNote || j.outreach.length))
+    // Only jobs with something written need their details loaded.
+    const written = jobs.filter((j) => j.status !== "dismissed" && (j.hasPack || j.pack || j.outreach.length)).slice(0, 150);
+    const full = await Promise.all(written.map((j) => withDetails(ctx, j)));
+    return full
+      .filter((j) => j.pack?.directNote || j.outreach.length)
       .map((j) => ({
         _id: j._id,
         title: j.title,
@@ -349,5 +386,22 @@ export const setStatusForAction = internalMutation({
     const job = await ownJob(ctx, userId, jobId);
     await ctx.db.patch("jobs", jobId, { status, appliedAt: status === "applied" && !job.appliedAt ? Date.now() : job.appliedAt, updatedAt: Date.now() });
     return { title: job.title, company: job.company };
+  },
+});
+
+/** One-off: move every job's heavy parts into jobDetails, 50 jobs at a time. Run with `npx convex run --prod jobs:moveDetails`. */
+export const moveDetails = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 50 });
+    let moved = 0;
+    for (const job of page.page) {
+      if (job.description !== undefined || job.pack !== undefined || job.research !== undefined || job.prep !== undefined) {
+        await saveDetails(ctx, job, {});
+        moved++;
+      }
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.moveDetails, { cursor: page.continueCursor });
+    return { moved, done: page.isDone };
   },
 });

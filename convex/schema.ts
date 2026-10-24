@@ -1,7 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { jobFields, prospectFields, resumeV, trackFields } from "./lib/validators";
+import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -34,6 +34,16 @@ export default defineSchema({
   resumes: defineTable({ userId: v.id("users"), label: v.string(), resume: resumeV }).index("by_userId", ["userId"]),
 
   tracks: defineTable({ userId: v.id("users"), ...trackFields }).index("by_userId_and_key", ["userId", "key"]),
+
+  /** The heavy parts of a job (full description, tailored CV, research, interview prep), read only when the job is opened. */
+  jobDetails: defineTable({
+    jobId: v.id("jobs"),
+    userId: v.id("users"),
+    description: v.optional(v.string()),
+    pack: v.optional(packV),
+    research: v.optional(researchV),
+    prep: v.optional(prepV),
+  }).index("by_jobId", ["jobId"]),
 
   jobs: defineTable({ userId: v.id("users"), ...jobFields })
     .index("by_userId", ["userId"])

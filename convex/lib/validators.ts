@@ -143,7 +143,10 @@ export const jobFields = {
   brief: v.optional(v.object({ whatTheyWant: v.string(), watchOuts: v.string() })),
   trackKey: v.optional(v.string()),
   status: jobStatusV,
+  /** Older jobs keep these four on the job; newer ones keep them in jobDetails, so job lists stay light. */
   pack: v.optional(packV),
+  /** Whether a tailored CV has been written, so lists can show it without loading it. */
+  hasPack: v.optional(v.boolean()),
   outreach: v.array(outreachV),
   hiringContacts: v.optional(v.array(hiringContactV)),
   research: v.optional(researchV),
