@@ -381,3 +381,37 @@ export const prep = action({
     return null;
   },
 });
+
+// ---------- Contact lookup ----------
+
+/** Whether the email finder is switched on, so the page only shows the button when it works. */
+export const canFindEmails = action({
+  args: {},
+  handler: async (): Promise<boolean> => !!process.env.HUNTER_API_KEY,
+});
+
+/** Looks up a contact's work email with Hunter.io from their name and company. */
+export const findEmail = action({
+  args: { jobId: v.id("jobs"), contactId: v.string() },
+  handler: async (ctx, { jobId, contactId }): Promise<{ email: string; confidence: number }> => {
+    const key = process.env.HUNTER_API_KEY;
+    if (!key) throw new ConvexError("Email lookup isn't switched on: add a Hunter.io key first.");
+    const userId = await requireUserId(ctx);
+    const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
+    const person = job.hiringContacts?.find((c) => c.id === contactId);
+    if (!person) throw new ConvexError("That person isn't on this job any more.");
+    const [first, ...rest] = person.name.trim().split(/\s+/);
+    if (!rest.length) throw new ConvexError("Add their full name first, so the lookup can match them.");
+    await spend(ctx, userId, "research");
+    const params = new URLSearchParams({ company: job.company, first_name: first, last_name: rest.join(" "), api_key: key });
+    const res = await fetch(`https://api.hunter.io/v2/email-finder?${params}`, { signal: AbortSignal.timeout(20_000) });
+    const body = (await res.json()) as { data?: { email: string | null; score: number | null; phone_number?: string | null }; errors?: { details: string }[] };
+    if (!res.ok) throw new ConvexError(`Hunter.io: ${body.errors?.[0]?.details ?? `answered ${res.status}`}`);
+    if (!body.data?.email) throw new ConvexError(`No email found for ${person.name} at ${job.company}.`);
+    const contacts = (job.hiringContacts ?? []).map((c) =>
+      c.id === contactId ? { ...c, email: body.data!.email!, phone: c.phone || body.data!.phone_number || "" } : c,
+    );
+    await ctx.runMutation(internal.jobs.saveContactsForAction, { userId, jobId, contacts });
+    return { email: body.data.email, confidence: body.data.score ?? 0 };
+  },
+});

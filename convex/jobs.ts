@@ -235,3 +235,12 @@ export const saveExtras = internalMutation({
     return null;
   },
 });
+
+export const saveContactsForAction = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), contacts: v.array(hiringContactV) },
+  handler: async (ctx, { userId, jobId, contacts }) => {
+    await ownJob(ctx, userId, jobId);
+    await ctx.db.patch("jobs", jobId, { hiringContacts: contacts, updatedAt: Date.now() });
+    return null;
+  },
+});

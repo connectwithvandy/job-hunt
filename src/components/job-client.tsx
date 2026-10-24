@@ -2,7 +2,7 @@
 
 import { useAction, useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
@@ -244,6 +244,13 @@ const blankContact = (): HiringContact => ({ id: crypto.randomUUID(), name: "", 
 /** The people you plan to contact at this company, with one-click LinkedIn, email and phone. */
 export function HiringContacts({ jobId, contacts, note, emailSubject, email }: { jobId: Id<"jobs">; contacts: HiringContact[]; note?: string; emailSubject?: string; email?: string }) {
   const save = useMutation(api.jobs.saveHiringContacts);
+  const findEmail = useAction(api.agent.findEmail);
+  const canFind = useAction(api.agent.canFindEmails);
+  const [finderOn, setFinderOn] = useState(false);
+  const [finding, setFinding] = useState("");
+  useEffect(() => {
+    canFind({}).then(setFinderOn, () => {});
+  }, [canFind]);
   const [editing, setEditing] = useState<HiringContact | null>(null);
   const [state, setState] = useState<ActionState>(null);
   const store = async (next: HiringContact[]) => setState(await attempt(async () => void (await save({ jobId, contacts: next }))));
@@ -284,6 +291,22 @@ export function HiringContacts({ jobId, contacts, note, emailSubject, email }: {
                   </a>
                 )}
                 {c.phone && <CopyButton text={c.phone} label={`Copy ${c.phone}`} />}
+                {!c.email && finderOn && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={!!finding}
+                    onClick={async () => {
+                      setFinding(c.id);
+                      setState(await attempt(async () => {
+                        const { email: found, confidence } = await findEmail({ jobId, contactId: c.id });
+                        return `Found ${found} (${confidence}% sure).`;
+                      }));
+                      setFinding("");
+                    }}
+                  >
+                    {finding === c.id ? "Looking up…" : "Find email"}
+                  </button>
+                )}
               </div>
             </li>
           ))}
