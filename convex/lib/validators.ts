@@ -67,9 +67,22 @@ export const packV = v.object({
   coverLetter: v.string(),
   /** A short note to send HR or the hiring manager directly, on LinkedIn or by email. */
   directNote: v.optional(v.string()),
+  /** The same pitch as a fuller email. Missing on packs written before emails existed. */
+  emailSubject: v.optional(v.string()),
+  email: v.optional(v.string()),
   hiringManagerTitles: v.array(v.string()),
   /** Numbers in the tailored CV that don't appear in the master CV. Should be empty. */
   unverified: v.array(v.string()),
+});
+
+/** Someone at the company you plan to contact directly: the hiring manager, HR or a recruiter. */
+export const hiringContactV = v.object({
+  id: v.string(),
+  name: v.string(),
+  title: v.string(),
+  linkedinUrl: v.string(),
+  email: v.string(),
+  phone: v.string(),
 });
 
 export const scoreV = v.object({ trackKey: v.string(), score: v.number(), reason: v.string(), gaps: v.array(v.string()) });
@@ -96,6 +109,7 @@ export const jobFields = {
   status: jobStatusV,
   pack: v.optional(packV),
   outreach: v.array(outreachV),
+  hiringContacts: v.optional(v.array(hiringContactV)),
   appliedAt: v.optional(v.number()),
   updatedAt: v.number(),
 };

@@ -188,14 +188,144 @@ export function CoverLetter({ jobId, text }: { jobId: Id<"jobs">; text: string }
   );
 }
 
-export function DirectNote({ text }: { text: string }) {
+type HiringContact = NonNullable<Doc<"jobs">["hiringContacts"]>[number];
+
+/** Swaps the "<first name>" placeholder for a real first name when there is one. */
+export function personalise(text: string, name?: string) {
+  const first = name?.trim().split(/\s+/)[0];
+  return first ? text.replace(/<first name>|<name>/gi, first) : text;
+}
+
+/** A written message you can edit, save and copy. */
+function SavedText({ jobId, field, text, rows, copyLabel }: { jobId: Id<"jobs">; field: "directNote" | "email"; text: string; rows: string; copyLabel: string }) {
+  const save = useMutation(api.jobs.savePackText);
   const [value, setValue] = useState(text);
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
   return (
     <div>
-      <textarea className="field h-32 text-sm leading-relaxed" value={value} onChange={(e) => setValue(e.target.value)} />
-      <div className="mt-2">
-        <CopyButton text={value} label="Copy note" />
+      <textarea className={`field ${rows} text-sm leading-relaxed`} value={value} onChange={(e) => setValue(e.target.value)} />
+      <div className="mt-2 flex items-center gap-2">
+        <CopyButton text={value} label={copyLabel} />
+        {value !== text && (
+          <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => start(async () => setState(await attempt(async () => (await save({ jobId, field, text: value }), "Saved."))))}>
+            {busy ? "Saving…" : "Save edits"}
+          </button>
+        )}
+        <Feedback state={busy ? null : state} />
       </div>
+    </div>
+  );
+}
+
+export function DirectNote({ jobId, text }: { jobId: Id<"jobs">; text: string }) {
+  return <SavedText jobId={jobId} field="directNote" text={text} rows="h-32" copyLabel="Copy note" />;
+}
+
+export function EmailDraft({ jobId, subject, body }: { jobId: Id<"jobs">; subject: string; body: string }) {
+  const save = useMutation(api.jobs.savePackText);
+  const [value, setValue] = useState(subject);
+  return (
+    <div className="space-y-2">
+      <input
+        className="field text-sm"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => value !== subject && void save({ jobId, field: "emailSubject", text: value })}
+        aria-label="Email subject"
+      />
+      <SavedText jobId={jobId} field="email" text={body} rows="h-56" copyLabel="Copy email" />
+    </div>
+  );
+}
+
+const blankContact = (): HiringContact => ({ id: crypto.randomUUID(), name: "", title: "", linkedinUrl: "", email: "", phone: "" });
+
+/** The people you plan to contact at this company, with one-click LinkedIn, email and phone. */
+export function HiringContacts({ jobId, contacts, note, emailSubject, email }: { jobId: Id<"jobs">; contacts: HiringContact[]; note?: string; emailSubject?: string; email?: string }) {
+  const save = useMutation(api.jobs.saveHiringContacts);
+  const [editing, setEditing] = useState<HiringContact | null>(null);
+  const [state, setState] = useState<ActionState>(null);
+  const store = async (next: HiringContact[]) => setState(await attempt(async () => void (await save({ jobId, contacts: next }))));
+
+  return (
+    <div>
+      {contacts.length > 0 && (
+        <ul className="mb-3 space-y-2">
+          {contacts.map((c) => (
+            <li key={c.id} className="rounded-lg border border-line p-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <span className="font-medium">{c.name}</span>
+                  {c.title && <span className="text-sm text-ink-2"> · {c.title}</span>}
+                </div>
+                <div className="flex gap-3 text-xs text-ink-3">
+                  <button className="hover:text-ink" onClick={() => setEditing(c)}>
+                    Edit
+                  </button>
+                  <button className="hover:text-ink" onClick={() => void store(contacts.filter((x) => x.id !== c.id))}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {c.linkedinUrl && (
+                  <a className="btn btn-ghost btn-sm" href={c.linkedinUrl} target="_blank" rel="noreferrer">
+                    LinkedIn profile ↗
+                  </a>
+                )}
+                {c.linkedinUrl && note && <CopyAndOpen text={personalise(note, c.name)} url={c.linkedinUrl} />}
+                {c.email && (
+                  <a
+                    className="btn btn-ghost btn-sm"
+                    href={`mailto:${c.email}?${new URLSearchParams({ subject: emailSubject ?? "", body: personalise(email ?? note ?? "", c.name) }).toString().replace(/\+/g, "%20")}`}
+                  >
+                    Email {c.email} ↗
+                  </a>
+                )}
+                {c.phone && <CopyButton text={c.phone} label={`Copy ${c.phone}`} />}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {editing ? (
+        <form
+          className="grid gap-2 rounded-lg border border-line p-3 sm:grid-cols-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            const person: HiringContact = {
+              id: editing.id,
+              name: String(f.get("name")).trim(),
+              title: String(f.get("title")).trim(),
+              linkedinUrl: String(f.get("linkedinUrl")).trim(),
+              email: String(f.get("email")).trim(),
+              phone: String(f.get("phone")).trim(),
+            };
+            const exists = contacts.some((c) => c.id === person.id);
+            await store(exists ? contacts.map((c) => (c.id === person.id ? person : c)) : [...contacts, person]);
+            setEditing(null);
+          }}
+        >
+          <input name="name" className="field text-sm" placeholder="Name" defaultValue={editing.name} required />
+          <input name="title" className="field text-sm" placeholder="Title, like Head of Sales" defaultValue={editing.title} />
+          <input name="linkedinUrl" type="url" className="field text-sm" placeholder="LinkedIn profile link" defaultValue={editing.linkedinUrl} />
+          <input name="email" type="email" className="field text-sm" placeholder="Email" defaultValue={editing.email} />
+          <input name="phone" className="field text-sm" placeholder="Phone" defaultValue={editing.phone} />
+          <div className="flex items-center gap-2">
+            <button className="btn btn-primary btn-sm">Save person</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button className="btn btn-ghost btn-sm" onClick={() => setEditing(blankContact())}>
+          + Add a person
+        </button>
+      )}
+      <Feedback state={state} />
     </div>
   );
 }

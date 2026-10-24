@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { companyKey, referralRank } from "./lib/company";
-import { jobFields, jobStatusV, outreachStatusV, outreachV, packV, scoreV } from "./lib/validators";
+import { hiringContactV, jobFields, jobStatusV, outreachStatusV, outreachV, packV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   const job = await ctx.db.get("jobs", jobId);
@@ -80,6 +80,30 @@ export const saveCoverLetter = mutation({
     const job = await ownJob(ctx, userId, jobId);
     if (!job.pack) throw new ConvexError("Tailor the CV first.");
     await ctx.db.patch("jobs", jobId, { pack: { ...job.pack, coverLetter: text }, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+/** Saves your edits to one of the written messages. */
+export const savePackText = mutation({
+  args: { jobId: v.id("jobs"), field: v.union(v.literal("directNote"), v.literal("emailSubject"), v.literal("email")), text: v.string() },
+  handler: async (ctx, { jobId, field, text }) => {
+    const userId = await requireUserId(ctx);
+    const job = await ownJob(ctx, userId, jobId);
+    if (!job.pack) throw new ConvexError("Write the CV and messages first.");
+    await ctx.db.patch("jobs", jobId, { pack: { ...job.pack, [field]: text }, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+export const saveHiringContacts = mutation({
+  args: { jobId: v.id("jobs"), contacts: v.array(hiringContactV) },
+  handler: async (ctx, { jobId, contacts }) => {
+    const userId = await requireUserId(ctx);
+    await ownJob(ctx, userId, jobId);
+    if (contacts.length > 10) throw new ConvexError("Keep up to 10 people per job.");
+    if (contacts.some((c) => !c.name.trim())) throw new ConvexError("Each person needs a name.");
+    await ctx.db.patch("jobs", jobId, { hiringContacts: contacts, updatedAt: Date.now() });
     return null;
   },
 });

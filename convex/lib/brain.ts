@@ -112,6 +112,12 @@ const PackSchema = z.strictObject({
     .describe(
       "A LinkedIn message or short email to the hiring manager or HR, under 80 words: the role, the one strongest proof point for this job, and an easy ask for a short call. Start with 'Hi <first name>,' as a placeholder. No CV attachment mention, no flattery.",
     ),
+  emailSubject: z.string().describe("Subject line for an email to the hiring manager, under 9 words, naming the role. No clickbait."),
+  email: z
+    .string()
+    .describe(
+      "An email to the hiring manager or HR, 100 to 150 words: why this role, two proof points from the CV that match what they need, and an easy ask for a 15-minute call. Start with 'Hi <first name>,'. Mention the CV is attached. Sign off with the candidate's first name.",
+    ),
   hiringManagerTitles: z.array(z.string()).describe("Two or three likely job titles of the person this role reports to."),
 });
 
@@ -150,8 +156,10 @@ ${jobText(job)}`,
     resume: tailored,
     coverLetter: out.coverLetter,
     directNote: out.directNote,
+    emailSubject: out.emailSubject,
+    email: out.email,
     hiringManagerTitles: out.hiringManagerTitles,
-    unverified: unverifiedNumbers(resume, [out.headline, out.summary, ...out.experience.flatMap((e) => e.bullets), out.coverLetter, out.directNote]),
+    unverified: unverifiedNumbers(resume, [out.headline, out.summary, ...out.experience.flatMap((e) => e.bullets), out.coverLetter, out.directNote, out.email]),
   };
 }
 

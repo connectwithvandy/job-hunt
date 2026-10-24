@@ -7,7 +7,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
-import { CoverLetter, DirectNote, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { CoverLetter, DirectNote, EmailDraft, HiringContacts, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
 
@@ -119,7 +119,7 @@ export default function JobPage() {
         <section className="space-y-6">
           <div className="card p-6">
             <Step n={1} title="Tailor your CV and cover letter" />
-            <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter and a short note for the hiring manager.</p>
+            <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter, and a LinkedIn note and email for the hiring manager.</p>
             <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={me.defaultResumeId} redo={!!job.pack} />
             {job.pack && (
               <div className="mt-5 space-y-4 border-t border-line pt-5">
@@ -142,23 +142,40 @@ export default function JobPage() {
             )}
           </div>
 
-          {job.pack?.directNote && (
-            <div className="card p-6">
-              <Step n={2} title="Message the hiring manager or HR" />
-              <p className="mb-3 text-sm text-ink-2">Find them with a search below, swap in their first name, and send it on LinkedIn or by email.</p>
-              <DirectNote key={job.pack.createdAt} text={job.pack.directNote} />
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[...job.pack.hiringManagerTitles, "Talent Acquisition"].map((t) => (
-                  <a key={t} className="btn btn-ghost btn-sm" href={linkedInPeopleSearch(job.company, t)} target="_blank" rel="noreferrer">
-                    {t} ↗
-                  </a>
-                ))}
-              </div>
+          <div className="card p-6">
+            <Step n={2} title="Contact the hiring manager or HR" />
+            <p className="-mt-2 mb-3 text-sm text-ink-2">Find them on LinkedIn, save their details here, then message them in one click.</p>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {[...(job.pack?.hiringManagerTitles ?? []), "Talent Acquisition"].map((t) => (
+                <a key={t} className="btn btn-ghost btn-sm" href={linkedInPeopleSearch(job.company, t)} target="_blank" rel="noreferrer">
+                  Find {t} ↗
+                </a>
+              ))}
             </div>
-          )}
+            <HiringContacts jobId={job._id} contacts={job.hiringContacts ?? []} note={job.pack?.directNote} emailSubject={job.pack?.emailSubject} email={job.pack?.email} />
+            {job.pack?.directNote ? (
+              <div className="mt-5 space-y-5 border-t border-line pt-5">
+                <div>
+                  <div className="label mb-2">LinkedIn note</div>
+                  <DirectNote key={job.pack.createdAt} jobId={job._id} text={job.pack.directNote} />
+                </div>
+                <div>
+                  <div className="label mb-2">Email</div>
+                  {job.pack.email ? (
+                    <EmailDraft key={job.pack.createdAt} jobId={job._id} subject={job.pack.emailSubject ?? ""} body={job.pack.email} />
+                  ) : (
+                    <p className="text-sm text-ink-2">Press &quot;Write them again&quot; in step 1 to get an email version too.</p>
+                  )}
+                </div>
+                <p className="text-xs text-ink-3">&quot;Hi &lt;first name&gt;&quot; is filled in with the person&apos;s name when you message them from their card above.</p>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-ink-2">Write your CV in step 1 to get a LinkedIn note and an email for them.</p>
+            )}
+          </div>
 
           <div className="card p-6">
-            <Step n={job.pack?.directNote ? 3 : 2} title="Ask your connections for a referral" />
+            <Step n={3} title="Ask your connections for a referral" />
             {me.contactsCount === 0 ? (
               <p className="text-sm text-ink-2">
                 Load your LinkedIn connections on the <Link className="underline" href="/network">Network</Link> page to see who you know at {job.company}.
@@ -183,7 +200,7 @@ export default function JobPage() {
           </div>
 
           <div className="card p-6">
-            <Step n={job.pack?.directNote ? 4 : 3} title="Apply" />
+            <Step n={4} title="Apply" />
             <div className="flex flex-wrap items-center gap-3">
               {job.sourceUrl && (
                 <a className="btn btn-ghost" href={job.sourceUrl} target="_blank" rel="noreferrer">
