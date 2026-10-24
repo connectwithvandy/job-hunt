@@ -175,7 +175,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const [settled, others] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : Promise.allSettled(track.titles.slice(0, 16).map((title, i) => searchListings(title, location, 25, i < 3 ? 3 : 1))),
+        : Promise.allSettled(track.titles.slice(0, 16).map((title, i) => searchListings(title, location, 25, i < 3 ? 3 : 2))),
       track.company ? Promise.resolve([]) : Promise.all([searchOtherSources(track.titles, location, googleTitles), careerMatches(ctx, track.titles, location)]).then((r) => r.flat()),
     ]);
     // Dreamwork also matches company names, so keep only titles holding the searched words.
