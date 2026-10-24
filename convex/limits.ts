@@ -1,7 +1,8 @@
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter";
 import { ConvexError, v } from "convex/values";
 import { components } from "./_generated/api";
-import { env, internalMutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
+import { isOwnerEmail } from "./lib/auth";
 import { DAILY_LIMITS } from "./lib/defaults";
 
 const DAY = 24 * HOUR;
@@ -37,8 +38,7 @@ export const consume = internalMutation({
   },
   handler: async (ctx, { userId, kind, count }) => {
     const user = await ctx.db.get("users", userId);
-    const owners = (env.OWNER_EMAILS ?? "").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
-    if (user?.email && owners.includes(user.email.toLowerCase())) return null;
+    if (isOwnerEmail(user?.email)) return null;
     const { ok, retryAfter } = await rateLimiter.limit(ctx, kind, { key: userId, count: count ?? 1 });
     if (!ok) {
       const hours = Math.max(1, Math.ceil(retryAfter / HOUR));

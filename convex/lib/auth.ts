@@ -6,8 +6,9 @@ import type { Id } from "../_generated/dataModel";
 
 /** The app's owner, from OWNER_EMAILS. Always let in, and the only one who can approve the waitlist. */
 export function isOwnerEmail(email: string | undefined) {
-  const owners = (env.OWNER_EMAILS ?? "").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
-  return !!email && owners.includes(email.toLowerCase());
+  // Exact match: sign-in is case-sensitive, so "Owner@x.com" would be a separate, unverified account.
+  const owners = (env.OWNER_EMAILS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return !!email && owners.includes(email.trim());
 }
 
 /** The owner, or someone the owner let in from the waitlist. */
