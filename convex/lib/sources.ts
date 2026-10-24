@@ -167,7 +167,8 @@ export async function searchOtherSources(titles: string[], location: string, goo
     // JSearch's free plan is about 200 searches a month, so it gets the two main titles only.
     ...titles.slice(0, googleTitles).map((t) => jsearch(t, place)),
     ...titles.slice(0, 4).map((t) => adzuna(t, place)),
-    ...titles.slice(0, 4).map((t) => himalayas(t, place)),
+    // Dreamwork and Himalayas are free, so they search every title; Google and Adzuna have quotas.
+    ...titles.slice(0, 16).map((t) => himalayas(t, place)),
   ];
   const settled = await Promise.allSettled(calls);
   for (const r of settled) if (r.status === "rejected") console.warn("Job source failed:", String(r.reason));
