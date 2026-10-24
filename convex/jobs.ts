@@ -4,7 +4,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { companyKey, referralRank, roleKey } from "./lib/company";
-import { hiringContactV, jobFields, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
+import { unverifiedNumbers } from "./lib/facts";
+import { hiringContactV, jobFields, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   const job = await ctx.db.get("jobs", jobId);
@@ -81,6 +82,22 @@ export const saveCoverLetter = mutation({
     if (!job.pack) throw new ConvexError("Tailor the CV first.");
     await ctx.db.patch("jobs", jobId, { pack: { ...job.pack, coverLetter: text }, updatedAt: Date.now() });
     return null;
+  },
+});
+
+/** Saves your edits to the tailored CV, and re-checks its numbers against all your master CVs. */
+export const saveTailoredResume = mutation({
+  args: { jobId: v.id("jobs"), resume: resumeV },
+  handler: async (ctx, { jobId, resume }) => {
+    const userId = await requireUserId(ctx);
+    const job = await ownJob(ctx, userId, jobId);
+    if (!job.pack) throw new ConvexError("Write the CV first.");
+    const masters = await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", userId)).take(20);
+    const p = job.pack;
+    const texts = [resume.headline, resume.summary, ...resume.experience.flatMap((e) => e.bullets), p.coverLetter, p.directNote ?? "", p.email ?? ""];
+    const unverified = unverifiedNumbers(masters.map((m) => m.resume), texts);
+    await ctx.db.patch("jobs", jobId, { pack: { ...p, resume, unverified }, updatedAt: Date.now() });
+    return unverified;
   },
 });
 

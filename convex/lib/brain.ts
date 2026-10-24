@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { askJSON } from "./ai";
+import { unverifiedNumbers } from "./facts";
 import type { Infer } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { packV, resumeV, trackFields } from "./validators";
@@ -161,20 +162,6 @@ ${jobText(job)}`,
     hiringManagerTitles: out.hiringManagerTitles,
     unverified: unverifiedNumbers(resume, [out.headline, out.summary, ...out.experience.flatMap((e) => e.bullets), out.coverLetter, out.directNote, out.email]),
   };
-}
-
-/** The fact gate: every number in tailored text must exist somewhere in the master CV. */
-export function unverifiedNumbers(master: Resume, texts: string[]) {
-  const haystack = JSON.stringify(master).replace(/[\s,]/g, "");
-  const found = new Set<string>();
-  for (const text of texts) {
-    for (const m of text.matchAll(/[$₹]?\d[\d,.]*\s?(?:%|x|X|M|K|Cr)?/g)) {
-      const token = m[0].replace(/[\s,]/g, "").replace(/\.$/, "");
-      if (token.length < 2 && !/%/.test(token)) continue;
-      if (!haystack.includes(token)) found.add(m[0].trim());
-    }
-  }
-  return [...found];
 }
 
 // ---------- Referral notes ----------

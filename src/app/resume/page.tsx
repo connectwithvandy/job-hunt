@@ -8,6 +8,7 @@ import { PageHead } from "@/components/bits";
 import { ResumeEditor, UploadResume } from "@/components/forms";
 import { Loading } from "@/components/Loading";
 import { ResumeDoc } from "@/components/ResumeDoc";
+import { downloadDocx } from "@/lib/docx";
 import { attempt, PrintButton, type ActionState, Feedback } from "@/components/ui";
 
 export default function Cvs() {
@@ -26,6 +27,11 @@ export default function Cvs() {
     <div>
       <PageHead title="CVs" sub="Your master CVs. Each job gets a tailored copy that only reorders and trims one of these, so every real number belongs here.">
         {current && <PrintButton />}
+        {current && (
+          <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(current.resume, current.label)}>
+            Download Word
+          </button>
+        )}
       </PageHead>
 
       <div className="no-print mb-6 flex flex-wrap items-center gap-2">

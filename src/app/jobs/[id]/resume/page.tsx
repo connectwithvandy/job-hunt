@@ -8,7 +8,9 @@ import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
 import { ResumeDoc } from "@/components/ResumeDoc";
+import { TailoredEditor } from "@/components/ResumeFields";
 import { PrintButton } from "@/components/ui";
+import { downloadDocx } from "@/lib/docx";
 
 export default function TailoredResume() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +41,9 @@ export default function TailoredResume() {
         <div className="flex items-center gap-3">
           <span className="text-xs text-ink-3">In the print window, pick &quot;Save as PDF&quot; and turn off headers and footers.</span>
           <PrintButton />
+          <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(pack.resume, `${pack.resume.name} CV ${job.company}`)}>
+            Download Word
+          </button>
         </div>
       </div>
       {pack.unverified.length > 0 && (
@@ -49,6 +54,11 @@ export default function TailoredResume() {
       <div className="max-w-full overflow-x-auto">
         <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} />
       </div>
+      <details className="no-print card w-full max-w-[210mm] p-6">
+        <summary className="cursor-pointer font-medium">Edit this CV</summary>
+        <p className="mb-4 mt-2 text-sm text-ink-2">Changes show in the CV above, the PDF and the Word file. Numbers are re-checked against your CVs when you save.</p>
+        <TailoredEditor key={pack.createdAt} jobId={job._id} resume={pack.resume} />
+      </details>
     </div>
   );
 }
