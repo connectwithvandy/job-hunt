@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { companyKey } from "./lib/company";
@@ -121,24 +121,30 @@ export const setDream = mutation({
 /** Adds a company to your Dream 20 by name, or marks it if it's already in your list. */
 export const addDream = mutation({
   args: { name: v.string(), website: v.optional(v.string()) },
-  handler: async (ctx, { name, website }) => {
-    const userId = await requireUserId(ctx);
-    const clean = name.trim();
-    if (!clean) throw new ConvexError("Type a company name.");
-    const key = companyKey(clean);
-    const existing = await ctx.db.query("prospects").withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", key)).first();
-    if (existing) {
-      await ctx.db.patch("prospects", existing._id, { dream: true, status: existing.status === "skip" ? "new" : existing.status, updatedAt: Date.now() });
-      return existing._id;
-    }
-    const dreams = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(1000);
-    if (dreams.filter((d) => d.dream).length >= 30) throw new ConvexError("Your dream list is full at 30. Take one off first.");
-    return await ctx.db.insert("prospects", {
-      userId, key, name: clean, website: website?.trim() ?? "", source: "manual", oneLiner: "", industry: "", location: "",
-      dream: true, status: "new", contacts: [], updatedAt: Date.now(),
-    });
-  },
+  handler: async (ctx, { name, website }) => await addDreamFor(ctx, await requireUserId(ctx), name, website),
 });
+
+export const addDreamForAction = internalMutation({
+  args: { userId: v.id("users"), name: v.string() },
+  handler: async (ctx, { userId, name }) => await addDreamFor(ctx, userId, name),
+});
+
+async function addDreamFor(ctx: MutationCtx, userId: Id<"users">, name: string, website?: string) {
+  const clean = name.trim();
+  if (!clean) throw new ConvexError("Type a company name.");
+  const key = companyKey(clean);
+  const existing = await ctx.db.query("prospects").withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", key)).first();
+  if (existing) {
+    await ctx.db.patch("prospects", existing._id, { dream: true, status: existing.status === "skip" ? "new" : existing.status, updatedAt: Date.now() });
+    return existing._id;
+  }
+  const all = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(1000);
+  if (all.filter((d) => d.dream).length >= 30) throw new ConvexError("Your dream list is full at 30. Take one off first.");
+  return await ctx.db.insert("prospects", {
+    userId, key, name: clean, website: website?.trim() ?? "", source: "manual", oneLiner: "", industry: "", location: "",
+    dream: true, status: "new", contacts: [], updatedAt: Date.now(),
+  });
+}
 
 export const dreamsForAction = internalQuery({
   args: { userId: v.id("users") },

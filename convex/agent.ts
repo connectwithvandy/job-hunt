@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto";
 import { ConvexError, v, type Infer } from "convex/values";
 import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
+import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
 import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
 import { companyKey } from "./lib/company";
@@ -175,8 +176,10 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
 
 export const addJob = action({
   args: { link: v.optional(v.string()), text: v.optional(v.string()) },
-  handler: async (ctx, args): Promise<Id<"jobs">> => {
-    const { userId } = await setup(ctx);
+  handler: async (ctx, args): Promise<Id<"jobs">> => await addJobFor(ctx, (await setup(ctx)).userId, args),
+});
+
+async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: string; text?: string }): Promise<Id<"jobs">> {
     const link = args.link?.trim() ?? "";
     const pasted = args.text?.trim() ?? "";
     if (!link && !pasted) throw new ConvexError("Paste a job link, or the job description.");
@@ -214,8 +217,7 @@ export const addJob = action({
     }
     const { lastId }: { lastId: Id<"jobs"> | null } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [job] });
     return lastId!;
-  },
-});
+}
 
 // ---------- Scoring ----------
 
@@ -331,8 +333,14 @@ export const dailyRun = internalAction({
 
 export const tailor = action({
   args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")), feedback: v.optional(v.string()) },
-  handler: async (ctx, { jobId, trackKey, resumeId, feedback }): Promise<null> => {
-    const { userId, resume, resumes, resumeFor, tracks } = await setup(ctx);
+  handler: async (ctx, args): Promise<null> => await tailorFor(ctx, await setup(ctx), args),
+});
+
+async function tailorFor(
+  ctx: ActionCtx,
+  { userId, resume, resumes, resumeFor, tracks }: Context,
+  { jobId, trackKey, resumeId, feedback }: { jobId: Id<"jobs">; trackKey?: string; resumeId?: Id<"resumes">; feedback?: string },
+): Promise<null> {
     const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
     // No track picked: use the best-scoring one if the job was scored, otherwise pitch straight at the job.
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
@@ -346,8 +354,7 @@ export const tailor = action({
     const pack = await buildPack(job, cv, track, notes ? { notes, previous: job.pack } : undefined);
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key });
     return null;
-  },
-});
+}
 
 export const draftNotes = action({
   args: { jobId: v.id("jobs"), contactIds: v.array(v.id("contacts")) },
@@ -382,20 +389,23 @@ export const draftNotes = action({
 
 export const research = action({
   args: { jobId: v.id("jobs") },
-  handler: async (ctx, { jobId }): Promise<null> => {
-    const userId = await requireUserId(ctx);
+  handler: async (ctx, { jobId }): Promise<null> => await researchFor(ctx, await requireUserId(ctx), jobId),
+});
+
+async function researchFor(ctx: ActionCtx, userId: Id<"users">, jobId: Id<"jobs">): Promise<null> {
     const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
     await spend(ctx, userId, "research");
     const found = await researchCompany(job);
     await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, research: { createdAt: Date.now(), ...found } });
     return null;
-  },
-});
+}
 
 export const prep = action({
   args: { jobId: v.id("jobs") },
-  handler: async (ctx, { jobId }): Promise<null> => {
-    const { userId, resume, resumeFor, tracks } = await setup(ctx);
+  handler: async (ctx, { jobId }): Promise<null> => await prepFor(ctx, await setup(ctx), jobId),
+});
+
+async function prepFor(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Context, jobId: Id<"jobs">): Promise<null> {
     const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
     const track = tracks.find((t) => t.key === (job.trackKey ?? job.pack?.trackKey ?? job.foundFor)) ?? null;
     const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
@@ -403,8 +413,7 @@ export const prep = action({
     const out = await interviewPrep(job, cv, track, job.research);
     await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, prep: { createdAt: Date.now(), ...out } });
     return null;
-  },
-});
+}
 
 // ---------- Contact lookup ----------
 
@@ -656,6 +665,8 @@ export const chatReply = internalAction({
       text = await streamChat({
         system: chatSystemPrompt({ ...me, jobs, prospects, focus }),
         messages: history,
+        tools: CHAT_TOOLS,
+        runTool: (name, input) => runChatTool(ctx, me, name, input),
         onText: (soFar) => {
           text = soFar;
           // Write about three times a second; the page shows each write as it lands.
@@ -725,7 +736,7 @@ export const suggestDreams = action({
     const found = await suggestDreamCompanies(me.resumes.map((r) => r.resume), me.tracks.map((t) => t.name), picks, have.map((h) => h.name), want);
     let added = 0;
     for (const c of found) {
-      const id: Id<"prospects"> = await ctx.runMutation(api.prospects.addDream, { name: c.name, website: c.website });
+      const id: Id<"prospects"> = await ctx.runMutation(internal.prospects.addDreamForAction, { userId: me.userId, name: c.name });
       await ctx.runMutation(internal.prospects.recordRoles, {
         userId: me.userId,
         prospectId: id,
@@ -768,3 +779,93 @@ export const findLogos = action({
     return { found: domains.size };
   },
 });
+
+// ---------- Chat tools: what the assistant can do in the app ----------
+
+const tool = (name: string, description: string, properties: Record<string, unknown>): Anthropic.Beta.BetaTool => ({
+  name,
+  description,
+  strict: true,
+  input_schema: { type: "object", properties, required: Object.keys(properties), additionalProperties: false },
+});
+const jobIdProp = { type: "string", description: "The job's id, from the [id ...] in the job list." };
+
+const CHAT_TOOLS: Anthropic.Beta.BetaTool[] = [
+  tool("add_job", "Save a job to the candidate's list from a link or pasted job description.", {
+    link: { type: ["string", "null"], description: "Job post URL, or null." },
+    text: { type: ["string", "null"], description: "Pasted job description, or null." },
+  }),
+  tool("find_jobs", "Search the job boards for new jobs for one role, or every active role.", {
+    role_key: { type: ["string", "null"], description: "A role's key from the roles list, or null for all roles." },
+  }),
+  tool("score_jobs", "Score up to 12 saved jobs for fit against the candidate's roles and CVs.", { job_ids: { type: "array", items: { type: "string" } } }),
+  tool("write_application", "Write the tailored CV, cover letter, LinkedIn note and email for a saved job. Takes about a minute.", {
+    job_id: jobIdProp,
+    notes: { type: ["string", "null"], description: "What the candidate wants changed from the last version, or null." },
+  }),
+  tool("set_job_status", "Move a job along: new, applying, applied, screening, interview, offer, rejected, or dismissed (not for me).", {
+    job_id: jobIdProp,
+    status: { type: "string", enum: ["new", "applying", "applied", "screening", "interview", "offer", "rejected", "dismissed"] },
+  }),
+  tool("research_company", "Research the company behind a saved job on the web: size, funding, news, India presence.", { job_id: jobIdProp }),
+  tool("prepare_interview", "Write interview prep for a saved job: likely questions, stories, questions to ask, 90-day plan.", { job_id: jobIdProp }),
+  tool("add_dream_company", "Add a company to the candidate's Dream 20 list, which is watched for openings.", { name: { type: "string" } }),
+  tool("save_answer", "Save or update one of the candidate's standard application-form answers.", {
+    question: { type: "string" },
+    answer: { type: "string" },
+  }),
+];
+
+/** Runs one chat tool for the signed-in person and returns a one-line result. */
+async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Record<string, unknown>): Promise<string> {
+  const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string) : undefined);
+  const jobId = str("job_id") as Id<"jobs"> | undefined;
+  const titleOf = async (id: Id<"jobs">) => {
+    const j: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId: me.userId, jobId: id });
+    return `${j.title} at ${j.company}`;
+  };
+  switch (name) {
+    case "add_job": {
+      const id = await addJobFor(ctx, me.userId, { link: str("link"), text: str("text") });
+      return `Added ${await titleOf(id)} to your jobs [id ${id}].`;
+    }
+    case "find_jobs": {
+      const active = me.tracks.filter((t) => t.status === "active" && (!str("role_key") || t.key === str("role_key")));
+      let added = 0;
+      for (const t of active) added += await searchTrack(ctx, me.userId, t, me.location);
+      return `Searched ${active.map((t) => t.name).join(", ")}: ${added} new ${added === 1 ? "job" : "jobs"}.`;
+    }
+    case "score_jobs": {
+      const ids = ((input.job_ids as string[]) ?? []).slice(0, 12) as Id<"jobs">[];
+      await spend(ctx, me.userId, "score", ids.length);
+      const { scored, failed } = await scoreIds(ctx, me, ids);
+      return `Scored ${scored} ${scored === 1 ? "job" : "jobs"}${failed ? `, ${failed} failed` : ""}.`;
+    }
+    case "write_application": {
+      await tailorFor(ctx, me, { jobId: jobId!, feedback: str("notes") });
+      return `Wrote the CV, cover letter, LinkedIn note and email for ${await titleOf(jobId!)}. Open it from the job's page.`;
+    }
+    case "set_job_status": {
+      const status = str("status") as Doc<"jobs">["status"];
+      const j: { title: string; company: string } = await ctx.runMutation(internal.jobs.setStatusForAction, { userId: me.userId, jobId: jobId!, status });
+      return `Moved ${j.title} at ${j.company} to ${status === "dismissed" ? "Not for me" : status}.`;
+    }
+    case "research_company": {
+      await researchFor(ctx, me.userId, jobId!);
+      return `Researched the company for ${await titleOf(jobId!)}; it's on the job's page.`;
+    }
+    case "prepare_interview": {
+      await prepFor(ctx, me, jobId!);
+      return `Interview prep for ${await titleOf(jobId!)} is on the job's page.`;
+    }
+    case "add_dream_company": {
+      await ctx.runMutation(internal.prospects.addDreamForAction, { userId: me.userId, name: str("name") ?? "" });
+      return `Added ${str("name")} to your Dream 20.`;
+    }
+    case "save_answer": {
+      await ctx.runMutation(internal.users.saveAnswerForAction, { userId: me.userId, question: str("question") ?? "", answer: str("answer") ?? "" });
+      return `Saved your answer to "${str("question")}".`;
+    }
+  }
+  throw new ConvexError(`I don't have a tool called ${name}.`);
+}

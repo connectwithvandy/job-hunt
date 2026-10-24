@@ -315,3 +315,12 @@ export const recentForChat = internalQuery({
       .map((j) => ({ ...j, description: undefined, pack: undefined, research: undefined, prep: undefined }));
   },
 });
+
+export const setStatusForAction = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), status: jobStatusV },
+  handler: async (ctx, { userId, jobId, status }) => {
+    const job = await ownJob(ctx, userId, jobId);
+    await ctx.db.patch("jobs", jobId, { status, appliedAt: status === "applied" && !job.appliedAt ? Date.now() : job.appliedAt, updatedAt: Date.now() });
+    return { title: job.title, company: job.company };
+  },
+});

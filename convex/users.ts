@@ -267,3 +267,14 @@ export const saveAnswers = mutation({
     return null;
   },
 });
+
+/** Adds or updates one saved answer, matched by question. */
+export const saveAnswerForAction = internalMutation({
+  args: { userId: v.id("users"), question: v.string(), answer: v.string() },
+  handler: async (ctx, { userId, question, answer }) => {
+    const profile = await profileFor(ctx, userId);
+    const rest = (profile.answers ?? []).filter((a) => a.question.toLowerCase() !== question.trim().toLowerCase());
+    await ctx.db.patch("profiles", profile._id, { answers: [...rest, { question: question.trim(), answer: answer.trim() }].slice(-40) });
+    return null;
+  },
+});

@@ -51,12 +51,15 @@ export async function streamChat(opts: {
   system: string;
   messages: { role: "user" | "assistant"; text: string }[];
   onText: (soFar: string) => void;
+  /** App actions Claude may take; `runTool` does one and returns a short result for Claude and the reader. */
+  tools?: Anthropic.Beta.BetaTool[];
+  runTool?: (name: string, input: Record<string, unknown>) => Promise<string>;
 }): Promise<string> {
   if (!env.ANTHROPIC_API_KEY) throw new ConvexError("The AI isn't set up yet: the app owner needs to add an Anthropic API key.");
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const messages: Anthropic.Beta.BetaMessageParam[] = opts.messages.map((m) => ({ role: m.role, content: m.text }));
   let text = "";
-  for (let turn = 0; turn < 4; turn++) {
+  for (let turn = 0; turn < 10; turn++) {
     const stream = client.beta.messages.stream({
       model: env.JOBHUNT_MODEL ?? "claude-opus-5-5",
       max_tokens: 16000,
@@ -65,7 +68,7 @@ export async function streamChat(opts: {
       // The system prompt (CV, roles, jobs) is the same across a conversation, so cache it.
       system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
       output_config: { effort: "medium" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }, ...(opts.tools ?? [])],
       messages,
     });
     let lastIndex = -1;
@@ -82,6 +85,26 @@ export async function streamChat(opts: {
     }
     const final = await stream.finalMessage();
     if (final.stop_reason === "refusal") return text || "I can't help with that one. Try asking it another way.";
+    if (final.stop_reason === "tool_use" && opts.runTool) {
+      const calls = final.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
+      const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
+      for (const call of calls) {
+        let content: string;
+        let isError = false;
+        try {
+          content = await opts.runTool(call.name, call.input as Record<string, unknown>);
+        } catch (err) {
+          content = err instanceof ConvexError ? String(err.data) : "That didn't work.";
+          isError = true;
+        }
+        // Show each action in the reply, so the reader sees what changed in the app.
+        text += `${text ? "\n\n" : ""}${isError ? "✗" : "✓"} ${content}`;
+        opts.onText(text);
+        results.push({ type: "tool_result", tool_use_id: call.id, content, is_error: isError });
+      }
+      messages.push({ role: "assistant", content: final.content }, { role: "user", content: results });
+      continue;
+    }
     if (final.stop_reason !== "pause_turn") break;
     messages.push({ role: "assistant", content: final.content });
   }
