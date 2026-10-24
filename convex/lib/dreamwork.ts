@@ -50,15 +50,24 @@ async function callTool<T>(name: string, args: Record<string, unknown>): Promise
   }
 }
 
-export async function searchListings(search: string, location: string, limit = 10) {
+/** Without a key Dreamwork sends 25 at a time, so a busy title like "Account Executive" needs a few pages. */
+export async function searchListings(search: string, location: string, limit = 10, pages = 1) {
   const where = location.trim().toLowerCase();
-  const page = await callTool<{ listings: Listing[] }>("browse_listings", {
+  const filters = {
     search,
     ...(where === "remote" ? { remote: true } : where === "anywhere" || !where ? {} : { location: location.trim() }),
     postedWithinDays: 30,
     limit,
-  });
-  return page.listings;
+  };
+  const all: Listing[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < pages; i++) {
+    const page = await callTool<{ listings: Listing[]; nextCursor?: string | null }>("browse_listings", cursor ? { ...filters, cursor } : filters);
+    all.push(...page.listings);
+    cursor = page.nextCursor ?? undefined;
+    if (!cursor) break;
+  }
+  return all;
 }
 
 /**

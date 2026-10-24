@@ -13,9 +13,9 @@ import { requireUserId } from "./lib/auth";
 import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
-import { readPlace } from "./lib/sources";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
-import { htmlToText, searchOtherSources, titleMatches, type Found } from "./lib/sources";
+import { htmlToText, openTo, readPlace, searchOtherSources, titleMatches, type Found } from "./lib/sources";
+import { CAREER_BOARDS } from "./lib/careerBoards";
 import type { jobV, resumeV } from "./lib/validators";
 import { prospectV } from "./lib/validators";
 
@@ -154,13 +154,29 @@ export const findJobs = action({
   },
 });
 
+type CareerRow = { externalId: string; company: string; title: string; location: string; workSetting?: string; salary?: string; postedAt?: string; url: string; india: boolean };
+
+/** Turns careers-board roles into found jobs, with their descriptions. */
+async function withCareerTexts(ctx: ActionCtx, rows: CareerRow[]): Promise<Found[]> {
+  const texts: { externalId: string; description: string }[] = rows.length ? await ctx.runQuery(internal.careers.texts, { externalIds: rows.map((r) => r.externalId) }) : [];
+  const text = new Map(texts.map((t) => [t.externalId, t.description]));
+  return rows.map((r) => ({ source: "careers", id: r.externalId, title: r.title, company: r.company, location: r.location, workSetting: r.workSetting, salary: r.salary, postedAt: r.postedAt, url: r.url, description: text.get(r.externalId) }));
+}
+
+/** Roles from the companies' own careers boards (read each morning) that match a title and the place. */
+async function careerMatches(ctx: ActionCtx, titles: string[], location: string): Promise<Found[]> {
+  const place = readPlace(location);
+  const rows: CareerRow[] = await ctx.runQuery(internal.careers.search, { titles, india: place.kind === "place" && place.country === "in" });
+  return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 100));
+}
+
 /** Searches every board for one track and saves the new roles. Returns how many were new. */
 async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2): Promise<number> {
     const [settled, others] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : Promise.allSettled(track.titles.slice(0, 16).map((title) => searchListings(title, location, 25))),
-      track.company ? Promise.resolve([]) : searchOtherSources(track.titles, location, googleTitles),
+        : Promise.allSettled(track.titles.slice(0, 16).map((title, i) => searchListings(title, location, 25, i < 3 ? 3 : 1))),
+      track.company ? Promise.resolve([]) : Promise.all([searchOtherSources(track.titles, location, googleTitles), careerMatches(ctx, track.titles, location)]).then((r) => r.flat()),
     ]);
     // Dreamwork also matches company names, so keep only titles holding the searched words.
     const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
@@ -754,12 +770,21 @@ const GTM_TITLE = /\b(sales|gtm|go[- ]to[- ]market|business development|bdr|sdr|
 
 /** Looks up a company's open sales and GTM roles in India or remote, saves them as jobs, and returns how many there are. */
 async function checkCompanyRoles(ctx: ActionCtx, me: Context, p: Doc<"prospects">): Promise<number> {
-  const listings = await companyListings(p.name);
   // Bengaluru, or remote and open to India.
-  const fits = listings.filter((l) => GTM_TITLE.test(l.title) && (inBengaluru(l.location ?? "") || remoteForIndia(l.location ?? "", l.workSetting)));
-  if (!fits.length) return 0;
+  const fitsPlace = (l: { title: string; location?: string | null; workSetting?: string | null }) =>
+    GTM_TITLE.test(l.title) && (inBengaluru(l.location ?? "") || remoteForIndia(l.location ?? "", l.workSetting) || /\b(india|bengaluru|bangalore|saarc)\b/i.test(l.title));
   const active = me.tracks.filter((t) => t.status === "active");
   const trackFor = (title: string) => (active.find((t) => t.titles.some((x) => titleMatches(x, title))) ?? active[0])?.key ?? "";
+  // Companies whose careers board we read come from there; the rest from Dreamwork.
+  const board = CAREER_BOARDS.find((b) => companyKey(b.name) === p.key);
+  if (board) {
+    const rows: CareerRow[] = await ctx.runQuery(internal.careers.forCompany, { company: board.name });
+    const found = await withCareerTexts(ctx, rows.filter(fitsPlace).slice(0, 100));
+    if (found.length) await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: found.map((f) => fromFound(f, trackFor(f.title))) });
+    return found.length;
+  }
+  const fits = (await companyListings(p.name)).filter(fitsPlace);
+  if (!fits.length) return 0;
   await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: fits.map((l) => fromListing(l, trackFor(l.title))) });
   return fits.length;
 }

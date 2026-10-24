@@ -4,7 +4,7 @@
 // on the deployment (npx convex env set NAME value). Himalayas needs no key.
 
 export type Found = {
-  source: "jsearch" | "adzuna" | "himalayas";
+  source: "jsearch" | "adzuna" | "himalayas" | "careers";
   id: string;
   title: string;
   company: string;
@@ -46,7 +46,8 @@ export function readPlace(location: string) {
 }
 type Place = ReturnType<typeof readPlace>;
 
-const cut = (text?: string | null) => (text ? text.slice(0, 8000) : undefined);
+// Drops half an emoji left at the cut, which the database refuses.
+const cut = (text?: string | null) => (text ? text.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") : undefined);
 
 async function getJson<T>(url: string, headers: Record<string, string> = {}): Promise<T> {
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
@@ -158,6 +159,24 @@ async function himalayas(title: string, place: Place): Promise<Found[]> {
       url: j.guid,
       description: cut(j.description ? htmlToText(j.description) : j.excerpt),
     }));
+}
+
+/** True when a role in this free-text location (or its title) is open to someone searching this place. */
+export function openTo(place: Place, location: string, workSetting?: string, title = "") {
+  if (place.kind === "anywhere") return true;
+  const where = location.toLowerCase();
+  // Some companies (Cloudflare) say "Distributed" for remote.
+  const remote = workSetting === "remote" || /remote|distributed/.test(where);
+  if (place.kind === "remote") return remote;
+  const country = place.country && COUNTRY_NAMES[place.country];
+  const names = [...place.name.toLowerCase().split(",").map((p) => p.trim()), country, ...(place.country === "in" ? INDIA_CITIES : [])].filter((n): n is string => !!n);
+  // Whole words, so "Indianapolis" isn't India. The place is often in the title: "Account Executive - India", "BDR - SAARC".
+  const text = `${where} ${title.toLowerCase()}`;
+  if (names.some((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text))) return true;
+  if (place.country === "in" && /\bsaarc\b/.test(text)) return true;
+  // A remote role counts only when it says it's open worldwide or to the region. Big companies
+  // write plain "Remote" for roles that are really tied to one US state.
+  return remote && /\b(worldwide|global|apac|apj|asia)\b/.test(where);
 }
 
 /** Searches every extra source for these titles. A source that fails is skipped, not fatal. */

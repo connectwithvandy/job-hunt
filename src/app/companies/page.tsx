@@ -40,6 +40,7 @@ function Companies() {
   const setStatus = useMutation(api.prospects.setStatus);
   const setDream = useMutation(api.prospects.setDream);
   const addDream = useMutation(api.prospects.addDream);
+  const addCareerDreams = useMutation(api.prospects.addCareerDreams);
   const suggest = useAction(api.agent.suggestDreams);
   const checkRoles = useAction(api.agent.checkOpenRoles);
   const [pickedTab, setTab] = useState<"dream" | "startups" | null>(null);
@@ -90,7 +91,7 @@ function Companies() {
       {tab === "dream" ? (
         <div className="card mb-6 space-y-3 p-5">
           <p className="text-sm text-ink-2">
-            Up to 20 companies you&apos;d love to work for. They&apos;re checked for sales and GTM openings in India or remote, which land in your Jobs list, and re-checked every morning when autopilot is on.
+            Up to 50 companies you&apos;d love to work for. They&apos;re checked for sales and GTM openings in India or remote, which land in your Jobs list, and re-checked every morning when autopilot is on.
           </p>
           <label className="block">
             <span className="label">Your must-haves</span>
@@ -105,6 +106,17 @@ function Companies() {
               pending="Researching companies… 2 to 3 minutes"
             >
               {dreamCount ? "Fill my list to 20" : "Build my Dream 20"}
+            </ActionButton>
+            <ActionButton
+              run={async () => {
+                const { added } = await addCareerDreams({});
+                const { roles } = await checkRoles({});
+                return `Added ${added} AI and software companies we read the careers pages of. ${roles} sales and GTM ${roles === 1 ? "opening" : "openings"} in India or remote, added to Jobs.`;
+              }}
+              pending="Adding companies and checking their roles…"
+              variant="ghost"
+            >
+              Add top AI companies (ElevenLabs, Emergent, Cursor…)
             </ActionButton>
             {dreamCount > 0 && (
               <ActionButton

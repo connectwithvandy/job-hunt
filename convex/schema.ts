@@ -50,6 +50,26 @@ export default defineSchema({
     .index("by_userId_and_externalId", ["userId", "externalId"])
     .index("by_userId_and_roleKey", ["userId", "roleKey"]),
 
+  /** Open roles from the companies' own careers boards (lib/careerBoards.ts), shared by everyone and refreshed each morning. */
+  careerJobs: defineTable({
+    externalId: v.string(),
+    company: v.string(),
+    title: v.string(),
+    location: v.string(),
+    workSetting: v.optional(v.string()),
+    salary: v.optional(v.string()),
+    postedAt: v.optional(v.string()),
+    url: v.string(),
+    /** Based in India or open to it, so India searches skip the thousands of US roles. */
+    india: v.boolean(),
+  })
+    .index("by_externalId", ["externalId"])
+    .index("by_company", ["company"])
+    .searchIndex("search_title", { searchField: "title", filterFields: ["india"] }),
+
+  /** A careers-board role's description, kept apart so searching the titles stays light. */
+  careerJobTexts: defineTable({ externalId: v.string(), description: v.string() }).index("by_externalId", ["externalId"]),
+
   /** A reply while it's being written, kept apart so streaming doesn't rewrite the whole chat several times a second. */
   chatDrafts: defineTable({ chatId: v.id("chats"), userId: v.id("users"), text: v.string(), at: v.number() }).index("by_chatId", ["chatId"]),
 

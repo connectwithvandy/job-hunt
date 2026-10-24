@@ -11,6 +11,8 @@
 import type * as access from "../access.js";
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as careers from "../careers.js";
+import type * as careersRefresh from "../careersRefresh.js";
 import type * as chats from "../chats.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
@@ -19,6 +21,8 @@ import type * as jobs from "../jobs.js";
 import type * as lib_ai from "../lib/ai.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_brain from "../lib/brain.js";
+import type * as lib_careerBoards from "../lib/careerBoards.js";
+import type * as lib_careers from "../lib/careers.js";
 import type * as lib_company from "../lib/company.js";
 import type * as lib_defaults from "../lib/defaults.js";
 import type * as lib_dreamwork from "../lib/dreamwork.js";
@@ -40,6 +44,8 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   agent: typeof agent;
   auth: typeof auth;
+  careers: typeof careers;
+  careersRefresh: typeof careersRefresh;
   chats: typeof chats;
   contacts: typeof contacts;
   crons: typeof crons;
@@ -48,6 +54,8 @@ declare const fullApi: ApiFromModules<{
   "lib/ai": typeof lib_ai;
   "lib/auth": typeof lib_auth;
   "lib/brain": typeof lib_brain;
+  "lib/careerBoards": typeof lib_careerBoards;
+  "lib/careers": typeof lib_careers;
   "lib/company": typeof lib_company;
   "lib/defaults": typeof lib_defaults;
   "lib/dreamwork": typeof lib_dreamwork;

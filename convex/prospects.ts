@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
+import { CAREER_BOARDS } from "./lib/careerBoards";
 import { companyKey } from "./lib/company";
 import { hiringContactV, prospectFields } from "./lib/validators";
 
@@ -151,6 +152,23 @@ export const addDream = mutation({
   handler: async (ctx, { name, website }) => await addDreamFor(ctx, await requireUserId(ctx), name, website),
 });
 
+/** Adds every company whose careers board we read (lib/careerBoards.ts) to your dream list, until it's full. */
+export const addCareerDreams = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    let added = 0;
+    for (const b of CAREER_BOARDS) {
+      const dreams = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(50);
+      const already = dreams.some((d) => d.key === companyKey(b.name));
+      if (!already && dreams.length >= 50) break;
+      await addDreamFor(ctx, userId, b.name, b.website);
+      if (!already) added++;
+    }
+    return { added };
+  },
+});
+
 export const addDreamForAction = internalMutation({
   args: { userId: v.id("users"), name: v.string() },
   handler: async (ctx, { userId, name }) => await addDreamFor(ctx, userId, name),
@@ -165,8 +183,8 @@ async function addDreamFor(ctx: MutationCtx, userId: Id<"users">, name: string, 
     await ctx.db.patch("prospects", existing._id, { dream: true, status: existing.status === "skip" ? "new" : existing.status, updatedAt: Date.now() });
     return existing._id;
   }
-  const dreams = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(30);
-  if (dreams.length >= 30) throw new ConvexError("Your dream list is full at 30. Take one off first.");
+  const dreams = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(50);
+  if (dreams.length >= 50) throw new ConvexError("Your dream list is full at 50. Take one off first.");
   return await ctx.db.insert("prospects", {
     userId, key, name: clean, website: website?.trim() ?? "", source: "manual", oneLiner: "", industry: "", location: "",
     dream: true, status: "new", contacts: [], updatedAt: Date.now(),
@@ -176,8 +194,8 @@ async function addDreamFor(ctx: MutationCtx, userId: Id<"users">, name: string, 
 export const dreamsForAction = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
-    const rows = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(60);
-    return rows.filter((r) => r.status !== "skip").slice(0, 30);
+    const rows = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(80);
+    return rows.filter((r) => r.status !== "skip").slice(0, 50);
   },
 });
 
