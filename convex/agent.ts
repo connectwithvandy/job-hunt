@@ -10,7 +10,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { readPlace } from "./lib/sources";
@@ -642,6 +642,39 @@ export const personaliseProspect = action({
     );
     await ctx.runMutation(internal.prospects.patchForAction, { userId, prospectId, contacts });
     return null;
+  },
+});
+
+/** One tap: find who holds a role at a company, save them, and write them a note and email. */
+export const reachOutTo = action({
+  args: { prospectId: v.id("prospects"), role: v.string() },
+  handler: async (ctx, { prospectId, role }): Promise<string> => {
+    const { userId, resumes } = await setup(ctx);
+    const wanted = role.trim().slice(0, 80);
+    if (!wanted) throw new ConvexError("Pick or type a title, like Founder or Head of Sales.");
+    const [p]: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.forAction, { userId, ids: [prospectId] });
+    if (!p) throw new ConvexError("Company not found.");
+    await spend(ctx, userId, "notes");
+    const about = `${p.oneLiner}. ${p.funding ?? (p.batch ? `YC ${p.batch}` : "")}`;
+    const out = await findAndWriteTo({ name: p.name, website: p.website, about }, wanted, resumes.map((r) => r.resume));
+    if (!out.found || !out.name.trim()) throw new ConvexError(`Couldn't find a ${wanted} at ${p.name}. Try another title, or add someone by hand below.`);
+    const existing = p.contacts.find((c) => c.name.toLowerCase() === out.name.trim().toLowerCase());
+    const person = {
+      id: existing?.id ?? randomUUID(),
+      name: out.name.trim(),
+      title: out.title || wanted,
+      linkedinUrl: out.linkedinUrl || existing?.linkedinUrl || "",
+      email: existing?.email ?? "",
+      phone: existing?.phone ?? "",
+      profileText: existing?.profileText,
+      commonGround: out.commonGround,
+      note: out.note,
+      emailSubject: out.emailSubject,
+      email2: out.email,
+    };
+    const contacts = existing ? p.contacts.map((c) => (c.id === existing.id ? person : c)) : [...p.contacts, person];
+    await ctx.runMutation(internal.prospects.patchForAction, { userId, prospectId, contacts });
+    return `Found ${person.name}, ${person.title}. Note and email are below.`;
   },
 });
 

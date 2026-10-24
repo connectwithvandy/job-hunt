@@ -19,7 +19,7 @@ const STATUSES: { value: Status; label: string }[] = [
   { value: "talking", label: "Talking" },
   { value: "skip", label: "Not for me" },
 ];
-const PEOPLE = ["Founder", "CEO", "Head of Sales", "VP Sales"];
+const PEOPLE = ["Founder", "CEO", "Head of Sales", "VP Sales", "CRO", "Head of Growth"];
 
 export default function CompaniesPage() {
   return (
@@ -281,14 +281,42 @@ function Companies() {
                       </a>
                     ))}
                   </div>
+                  <QuickReach prospectId={p._id} company={p.name} />
                   <HiringContacts owner={{ prospectId: p._id }} contacts={p.contacts} />
-                  <p className="text-xs text-ink-3">Save a person, then press Personalise to get a short note asking whether they&apos;re building a sales team, written around what you have in common.</p>
+                  <p className="text-xs text-ink-3">Or save a person yourself, then press Personalise to get a short note asking whether they&apos;re building a sales team, written around what you have in common.</p>
                 </div>
               </details>
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Pick a title, and one tap finds that person at the company and writes them a note. */
+function QuickReach({ prospectId, company }: { prospectId: Doc<"prospects">["_id"]; company: string }) {
+  const reachOut = useAction(api.agent.reachOutTo);
+  const [role, setRole] = useState(PEOPLE[0]);
+  const listId = `titles-${prospectId}`;
+  return (
+    <div className="flex flex-wrap items-start gap-2">
+      <input
+        className="field !w-48 !py-1 text-sm"
+        list={listId}
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+        aria-label={`Who to write to at ${company}`}
+        placeholder="Founder, Head of Sales…"
+      />
+      <datalist id={listId}>
+        {PEOPLE.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+      <ActionButton size="sm" pending="Finding them and writing…" run={() => reachOut({ prospectId, role })}>
+        Find &amp; write note
+      </ActionButton>
     </div>
   );
 }
