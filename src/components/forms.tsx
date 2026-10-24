@@ -414,20 +414,21 @@ const STARTER_QUESTIONS = [
   "Graduation year",
 ];
 
-/** Answers that only depend on your stated preferences, filled in for you. */
-const PRESET_ANSWERS: Record<string, string> = {
-  "Willing to relocate?": "No. Bengaluru or remote only.",
-  "Preferred work mode": "Remote, or hybrid in Bengaluru",
-};
+/** Answers that only depend on where you'll work, filled in from your Roles page. */
+function presetAnswers(location: string): Record<string, string> {
+  const city = location.trim();
+  if (!city || /^(remote|anywhere|india)$/i.test(city)) return {};
+  return { "Willing to relocate?": `No. ${city} or remote only.`, "Preferred work mode": `Remote, or hybrid in ${city}` };
+}
 
 /** Your standard answers for application forms, written once and copied in one click. */
-export function AnswersForm({ answers }: { answers: { question: string; answer: string }[] }) {
+export function AnswersForm({ answers, location }: { answers: { question: string; answer: string }[]; location: string }) {
   const save = useMutation(api.users.saveAnswers);
   const draft = useAction(api.agent.draftAnswers);
   const [drafting, setDrafting] = useState(false);
   const [rows, setRows] = useState(() => {
     const have = new Set(answers.map((a) => a.question));
-    return [...answers, ...STARTER_QUESTIONS.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: PRESET_ANSWERS[q] ?? "" }))];
+    return [...answers, ...STARTER_QUESTIONS.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: presetAnswers(location)[q] ?? "" }))];
   });
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);

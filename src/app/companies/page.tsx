@@ -46,7 +46,7 @@ function Companies() {
   const [scope, setScope] = useState<"india_remote" | "profile">("india_remote");
   const [pickedShow, setShow] = useState<Status | null>(null);
   const [minFit, setMinFit] = useState(0);
-  const [picks, setPicks] = useState("OpenAI, ElevenLabs, Anthropic, Rubrik, Emergent");
+  const [picks, setPicks] = useState("");
   const [newName, setNewName] = useState("");
   const target = rows?.find((r) => r._id === openId);
   // Until you pick a tab or filter yourself, follow the company the link points at.

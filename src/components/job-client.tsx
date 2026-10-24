@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
+import { errorMessage } from "@/lib/errors";
 import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
@@ -148,15 +149,17 @@ export function AddJob() {
         setState(
           await attempt(async () => {
             const id = await addJob({ link: String(form.get("link") ?? "") || undefined, text: String(form.get("text") ?? "") || undefined });
+            let cvError = "";
             if (form.get("write")) {
               setBusy("Writing your CV and cover letter… about a minute");
               try {
                 await tailor({ jobId: id });
-              } catch {
-                // The job is saved; its page has the button to try the writing again.
+              } catch (err) {
+                // The job is saved; its page says why and has the button to try the writing again.
+                cvError = errorMessage(err);
               }
             }
-            router.push(`/jobs/${id}`);
+            router.push(`/jobs/${id}${cvError ? `?cvError=${encodeURIComponent(cvError)}` : ""}`);
           }),
         );
         setBusy("");
@@ -297,7 +300,7 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
                   <button className="hover:text-ink" onClick={() => setEditing(c)}>
                     Edit
                   </button>
-                  <button className="hover:text-ink" onClick={() => void store(contacts.filter((x) => x.id !== c.id))}>
+                  <button className="hover:text-ink" onClick={() => window.confirm(`Remove ${c.name}?`) && void store(contacts.filter((x) => x.id !== c.id))}>
                     Remove
                   </button>
                 </div>

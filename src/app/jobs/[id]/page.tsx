@@ -2,7 +2,7 @@
 
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
@@ -20,6 +20,8 @@ export default function JobPage() {
   const scoreJobs = useAction(api.agent.scoreJobs);
   const setStatus = useMutation(api.jobs.setStatus);
   const rates = useInrRates();
+  // Set by "Add job" when the job saved but writing its CV didn't work.
+  const cvError = useSearchParams().get("cvError");
 
   if (!me || data === undefined) return <Loading />;
   if (data === null) {
@@ -47,6 +49,11 @@ export default function JobPage() {
         ← All jobs
       </Link>
 
+      {cvError && (
+        <p className="card mt-4 border-warn p-4 text-sm" role="status">
+          The job is saved, but your CV wasn&apos;t written: {cvError} You can try again in step 1.
+        </p>
+      )}
       <header className="mt-4 mb-8 flex flex-wrap items-start gap-4">
         <CompanyMark job={job} size={52} />
         <div className="min-w-0 flex-1">
@@ -125,7 +132,8 @@ export default function JobPage() {
           )}
         </section>
 
-        <section className="space-y-6">
+        {/* On a phone the steps come first; the fit, research and description follow. */}
+        <section className="order-first space-y-6 lg:order-none">
           <div className="card p-6">
             <Step n={1} title="Tailor your CV and cover letter" />
             <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter, and a LinkedIn note and email for the hiring manager.</p>

@@ -10,9 +10,9 @@ import { errorMessage } from "@/lib/errors";
 
 const STARTERS = [
   "Which of my jobs should I go after first, and why?",
-  "Help me negotiate pay for an SDR Manager role in Bangalore",
+  "Help me negotiate pay for my strongest job",
   "Run a mock interview with me for my strongest job",
-  "Rewrite my LinkedIn headline for Sales Development leadership roles",
+  "Rewrite my LinkedIn headline for the roles I want",
 ];
 const JOB_STARTERS = ["Is this job worth my time?", "What would they ask me in the interview?", "Help me write to the hiring manager", "What should I ask for in pay?"];
 
@@ -77,8 +77,9 @@ function Chat() {
               </button>
               <button
                 aria-label="Delete chat"
-                className="hidden px-2 text-ink-3 hover:text-ink group-hover:block"
+                className="px-2 text-ink-3 hover:text-ink"
                 onClick={async () => {
+                  if (!window.confirm(`Delete the chat "${c.title}"?`)) return;
                   await remove({ chatId: c._id });
                   if (c._id === chatId) router.push("/chat");
                 }}
@@ -93,9 +94,26 @@ function Chat() {
       <section className="flex min-h-[calc(100vh-6rem)] min-w-0 flex-1 flex-col">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h1 className="display text-3xl">{chat ? chat.title : job ? `About ${job.job.title} at ${job.job.company}` : "Ask anything"}</h1>
-          <button className="btn btn-ghost btn-sm md:hidden" onClick={() => router.push("/chat")}>
-            New chat
-          </button>
+          <div className="flex shrink-0 gap-2 md:hidden">
+            {chats.length > 0 && (
+              <select
+                className="field !w-32 !py-1 text-sm"
+                aria-label="Past chats"
+                value={chatId ?? ""}
+                onChange={(e) => router.push(e.target.value ? `/chat?id=${e.target.value}` : "/chat")}
+              >
+                <option value="">Past chats</option>
+                {chats.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={() => router.push("/chat")}>
+              New chat
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 space-y-4">

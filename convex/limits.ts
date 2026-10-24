@@ -23,7 +23,7 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
   readCv: "CV uploads",
   score: "job scores",
   tailor: "tailored CVs",
-  notes: "referral note drafts",
+  notes: "notes and messages (referral notes, Find & write note, Personalise)",
   addJob: "added jobs",
   research: "company lookups",
   prep: "interview preps",

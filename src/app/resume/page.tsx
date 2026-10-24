@@ -86,6 +86,7 @@ export default function Cvs() {
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={async () => {
+                  if (!window.confirm(`Delete the CV "${current.label}"? Roles using it will switch to your default CV.`)) return;
                   setState(await attempt(async () => (await remove({ resumeId: current._id }), "Deleted.")));
                   setPicked(null);
                 }}
@@ -100,7 +101,7 @@ export default function Cvs() {
           </div>
           <div className="no-print mt-8 grid max-w-4xl gap-6">
             <UploadResume replace={current} />
-            <AnswersForm answers={me.answers} />
+            <AnswersForm answers={me.answers} location={me.location} />
             {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
             <details className="card p-6">
               <summary className="cursor-pointer font-medium">Fix something by hand</summary>

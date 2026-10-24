@@ -22,6 +22,7 @@ export default function WaitlistAdmin() {
         <div className="text-xs text-ink-3">Signed up {new Date(a._creationTime).toLocaleDateString()}</div>
       </div>
       <ActionButton size="sm" variant={approve ? "primary" : "ghost"} run={async () => {
+          if (!approve && !window.confirm(`Remove ${a.email}'s access? Their saved jobs stay, but they can't use JobPipe.`)) return;
           await setApproved({ accessId: a._id, approved: approve });
         }}>
         {approve ? "Let in" : "Remove access"}
