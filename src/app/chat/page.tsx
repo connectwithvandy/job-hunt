@@ -31,13 +31,15 @@ function Chat() {
   const jobId = params.get("job") as Id<"jobs"> | null;
   const chats = useQuery(api.chats.list);
   const chat = useQuery(api.chats.get, chatId ? { chatId } : "skip");
+  // The reply being written streams in on its own, so the whole chat isn't resent as it grows.
+  const draftReply = useQuery(api.chats.draft, chatId && chat?.pending ? { chatId } : "skip");
   const job = useQuery(api.jobs.get, !chatId && jobId ? { jobId } : "skip");
   const send = useMutation(api.chats.send);
   const remove = useMutation(api.chats.remove);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
-  const lastText = chat?.messages.at(-1)?.text;
+  const lastText = draftReply ?? chat?.messages.at(-1)?.text;
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
@@ -131,13 +133,16 @@ function Chat() {
               </div>
             </div>
           ) : (
-            chat.messages.map((m, i) => (
-              <div key={i} className={m.role === "user" ? "flex justify-end" : ""}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role === "user" ? "bg-accent text-on-accent" : "card"}`}>
-                  {m.role === "assistant" && !m.text && busy ? <span className="text-ink-3">Thinking…</span> : <Rendered text={m.text} />}
+            chat.messages.map((m, i) => {
+              const text = busy && i === chat.messages.length - 1 ? (draftReply ?? m.text) : m.text;
+              return (
+                <div key={i} className={m.role === "user" ? "flex justify-end" : ""}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role === "user" ? "bg-accent text-on-accent" : "card"}`}>
+                    {m.role === "assistant" && !text && busy ? <span className="text-ink-3">Thinking…</span> : <Rendered text={text} />}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={bottom} />
         </div>

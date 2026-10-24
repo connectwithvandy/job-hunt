@@ -50,6 +50,9 @@ export default defineSchema({
     .index("by_userId_and_externalId", ["userId", "externalId"])
     .index("by_userId_and_roleKey", ["userId", "roleKey"]),
 
+  /** A reply while it's being written, kept apart so streaming doesn't rewrite the whole chat several times a second. */
+  chatDrafts: defineTable({ chatId: v.id("chats"), userId: v.id("users"), text: v.string(), at: v.number() }).index("by_chatId", ["chatId"]),
+
   /** Conversations with the in-app assistant. */
   chats: defineTable({
     userId: v.id("users"),

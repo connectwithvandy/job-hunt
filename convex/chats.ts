@@ -27,6 +27,16 @@ export const get = query({
   },
 });
 
+/** The reply being written right now, if any. Changes several times a second while the assistant writes. */
+export const draft = query({
+  args: { chatId: v.id("chats") },
+  handler: async (ctx, { chatId }) => {
+    const userId = await getAuthUserId(ctx);
+    const row = await ctx.db.query("chatDrafts").withIndex("by_chatId", (q) => q.eq("chatId", chatId)).unique();
+    return row && row.userId === userId ? row.text : null;
+  },
+});
+
 /** Adds your message and starts the assistant's reply. Creates the chat on the first message. */
 export const send = mutation({
   args: { chatId: v.optional(v.id("chats")), text: v.string(), jobId: v.optional(v.id("jobs")) },
@@ -45,7 +55,9 @@ export const send = mutation({
       const chat = await ctx.db.get("chats", id);
       if (!chat || chat.userId !== userId) throw new ConvexError("Chat not found.");
       // A reply that hasn't written anything for 10 minutes died; let the next message through.
-      if (chat.pending && now - chat.updatedAt < STUCK_AFTER) throw new ConvexError("Wait for the reply to finish first.");
+      const draft = await ctx.db.query("chatDrafts").withIndex("by_chatId", (q) => q.eq("chatId", chat._id)).unique();
+      if (chat.pending && now - (draft?.at ?? chat.updatedAt) < STUCK_AFTER) throw new ConvexError("Wait for the reply to finish first.");
+      if (draft) await ctx.db.delete("chatDrafts", draft._id);
       if (chat.messages.length + 2 > MAX_MESSAGES) throw new ConvexError("This chat is full. Start a new one.");
       await ctx.db.patch("chats", id, { messages: [...chat.messages, ...turn], pending: true, updatedAt: now });
     } else {
@@ -66,6 +78,7 @@ export const remove = mutation({
     const userId = await requireUserId(ctx);
     const chat = await ctx.db.get("chats", chatId);
     if (!chat || chat.userId !== userId) throw new ConvexError("Chat not found.");
+    for (const d of await ctx.db.query("chatDrafts").withIndex("by_chatId", (q) => q.eq("chatId", chatId)).take(5)) await ctx.db.delete("chatDrafts", d._id);
     await ctx.db.delete("chats", chatId);
     return null;
   },
@@ -80,15 +93,22 @@ export const forAction = internalQuery({
   },
 });
 
-/** Writes the reply so far into the last message; `done` ends the turn. */
+/** Writes the reply so far to the draft; `done` moves it into the chat and ends the turn. */
 export const writeReply = internalMutation({
   args: { chatId: v.id("chats"), text: v.string(), done: v.boolean() },
   handler: async (ctx, { chatId, text, done }) => {
     const chat = await ctx.db.get("chats", chatId);
     if (!chat) return null;
+    const draft = await ctx.db.query("chatDrafts").withIndex("by_chatId", (q) => q.eq("chatId", chatId)).unique();
+    if (!done) {
+      if (draft) await ctx.db.patch("chatDrafts", draft._id, { text, at: Date.now() });
+      else await ctx.db.insert("chatDrafts", { chatId, userId: chat.userId, text, at: Date.now() });
+      return null;
+    }
     const messages = [...chat.messages];
     messages[messages.length - 1] = { ...messages[messages.length - 1], text };
-    await ctx.db.patch("chats", chatId, { messages, pending: !done, updatedAt: Date.now() });
+    await ctx.db.patch("chats", chatId, { messages, pending: false, updatedAt: Date.now() });
+    if (draft) await ctx.db.delete("chatDrafts", draft._id);
     return null;
   },
 });
