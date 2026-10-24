@@ -236,7 +236,7 @@ export const autopilotUsers = internalQuery({
 });
 
 export const recordAutopilot = internalMutation({
-  args: { userId: v.id("users"), added: v.number(), scored: v.number(), strong: v.number() },
+  args: { userId: v.id("users"), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()) },
   handler: async (ctx, { userId, ...run }) => {
     const profile = await profileFor(ctx, userId);
     await ctx.db.patch("profiles", profile._id, { lastAutopilot: { at: Date.now(), ...run } });

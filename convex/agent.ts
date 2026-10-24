@@ -9,7 +9,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { readPlace } from "./lib/sources";
@@ -299,6 +299,14 @@ export const dailyRun = internalAction({
             console.warn("Autopilot scoring stopped", String(err));
           }
         }
+        // Companies that just raised money, every morning; new YC companies on Mondays.
+        let funded = 0;
+        try {
+          funded = await addFunded(ctx, me, "india_remote");
+          if (new Date().getUTCDay() === 1) await addYc(ctx, me, "india_remote");
+        } catch (err) {
+          console.warn("Autopilot company search failed", String(err));
+        }
         // Watch the Dream 20 for new sales and GTM openings too.
         const dreams: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.dreamsForAction, { userId });
         for (const p of dreams) {
@@ -309,7 +317,7 @@ export const dailyRun = internalAction({
           }
         }
         const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
-        await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong });
+        await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded });
       } catch (err) {
         console.error("Autopilot failed for a user", String(err));
       }
@@ -530,45 +538,79 @@ export const findYcCompanies = action({
   handler: async (ctx, { scope = "india_remote" }): Promise<{ added: number }> => {
     const me = await setup(ctx);
     if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
-    const skip = new Set<string>(await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId }));
-    const found = await ycCandidates(me.location, skip, 30, scope === "india_remote");
-    const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, { userId: me.userId, prospects: found });
-    if (ids.length) {
-      await spend(ctx, me.userId, "score", Math.ceil(ids.length / 15));
-      await fitProspects(ctx, me, ids);
-    }
-    return { added: ids.length };
+    return { added: await addYc(ctx, me, scope) };
   },
 });
+
+async function addYc(ctx: ActionCtx, me: Context, scope: "india_remote" | "profile"): Promise<number> {
+  const skip = new Set<string>(await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId }));
+  const found = await ycCandidates(me.location, skip, 30, scope === "india_remote");
+  const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, { userId: me.userId, prospects: found });
+  if (ids.length) {
+    await spend(ctx, me.userId, "score", Math.ceil(ids.length / 15));
+    await fitProspects(ctx, me, ids);
+  }
+  return ids.length;
+}
 
 export const findFunded = action({
   args: { scope: v.optional(scopeV) },
   handler: async (ctx, { scope = "india_remote" }): Promise<{ added: number }> => {
     const me = await setup(ctx);
     if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
+    return { added: await addFunded(ctx, me, scope) };
+  },
+});
+
+const DEFAULT_VCS = ["Accel", "Peak XV", "Lightspeed", "Elevation Capital", "Z47", "Blume Ventures", "Nexus Venture Partners", "Bessemer", "a16z", "Sequoia"];
+
+export const findFromVcs = action({
+  args: { vcs: v.optional(v.array(v.string())) },
+  handler: async (ctx, { vcs }): Promise<{ added: number }> => {
+    const me = await setup(ctx);
+    if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
     await spend(ctx, me.userId, "research");
+    const firms = (vcs ?? DEFAULT_VCS).map((s) => s.trim()).filter(Boolean).slice(0, 15);
     const skip: string[] = await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId });
-    const found = await findFundedCompanies(scope === "india_remote" ? `${readPlace(me.location).kind === "place" ? me.location : "India"}, or hiring remotely in India` : me.location, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
-    const prospects: NewProspect[] = found.map((c) => ({
-      key: companyKey(c.name),
-      name: c.name,
-      website: c.website,
-      source: "funded",
-      oneLiner: c.oneLiner,
-      industry: c.industry,
-      location: c.location,
-      teamSize: c.teamSize || undefined,
-      funding: c.funding,
-      fundingSource: c.sourceUrl,
-      status: "new",
-      contacts: [],
-      updatedAt: Date.now(),
-    }));
-    const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, { userId: me.userId, prospects });
+    const where = `${readPlace(me.location).kind === "place" ? me.location : "India"}, or hiring remotely in India`;
+    const found = await findVcPortfolio(firms, where, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
+    const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, {
+      userId: me.userId,
+      prospects: found.map((c) => ({
+        key: companyKey(c.name), name: c.name, website: c.website, source: "vc" as const, oneLiner: c.oneLiner, industry: c.industry,
+        location: c.location, teamSize: c.teamSize || undefined, funding: c.funding, fundingSource: c.sourceUrl, status: "new" as const, contacts: [], updatedAt: Date.now(),
+      })),
+    });
     if (ids.length) await fitProspects(ctx, me, ids);
     return { added: ids.length };
   },
 });
+
+/** Searches recent funding news, saves the new companies and scores them for fit. */
+async function addFunded(ctx: ActionCtx, me: Context, scope: "india_remote" | "profile"): Promise<number> {
+  await spend(ctx, me.userId, "research");
+  const skip: string[] = await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId });
+  const where = scope === "india_remote" ? `${readPlace(me.location).kind === "place" ? me.location : "India"}, or hiring remotely in India` : me.location;
+  const found = await findFundedCompanies(where, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
+  const prospects: NewProspect[] = found.map((c) => ({
+    key: companyKey(c.name),
+    name: c.name,
+    website: c.website,
+    source: "funded",
+    oneLiner: c.oneLiner,
+    industry: c.industry,
+    location: c.location,
+    teamSize: c.teamSize || undefined,
+    funding: c.funding,
+    fundingSource: c.sourceUrl,
+    status: "new",
+    contacts: [],
+    updatedAt: Date.now(),
+  }));
+  const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, { userId: me.userId, prospects });
+  if (ids.length) await fitProspects(ctx, me, ids);
+  return ids.length;
+}
 
 /** Common ground and an early-approach note for one person at a company with no posted role. */
 export const personaliseProspect = action({

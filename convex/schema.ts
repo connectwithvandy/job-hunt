@@ -16,7 +16,7 @@ export default defineSchema({
     contactsCount: v.optional(v.number()),
     /** Search and score every morning without being asked. */
     autopilot: v.optional(v.boolean()),
-    lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number() })),
+    lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()) })),
   })
     .index("by_userId", ["userId"])
     .index("by_autopilot", ["autopilot"]),

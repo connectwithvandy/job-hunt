@@ -24,6 +24,8 @@ export default function Companies() {
   const rows = useQuery(api.prospects.list);
   const findYc = useAction(api.agent.findYcCompanies);
   const findFunded = useAction(api.agent.findFunded);
+  const findVcs = useAction(api.agent.findFromVcs);
+  const [vcs, setVcs] = useState("Accel, Peak XV, Lightspeed, Elevation Capital, Z47, Blume Ventures, Nexus Venture Partners, Bessemer, a16z, Sequoia");
   const setStatus = useMutation(api.prospects.setStatus);
   const setDream = useMutation(api.prospects.setDream);
   const addDream = useMutation(api.prospects.addDream);
@@ -134,12 +136,28 @@ export default function Companies() {
             >
               Find recently funded
             </ActionButton>
+            <ActionButton
+              run={async () => {
+                const { added } = await findVcs({ vcs: vcs.split(",") });
+                return added ? `Added ${added} companies from those VCs' portfolios.` : "No new portfolio companies found.";
+              }}
+              pending="Searching VC portfolios… 2 to 3 minutes"
+              variant="ghost"
+            >
+              Find from top VCs
+            </ActionButton>
             <select className="field !w-auto !py-1.5 text-sm" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} aria-label="Where">
               <option value="india_remote">India or remote only</option>
               <option value="profile">Where my Roles page says</option>
             </select>
           </div>
-          <p className="text-xs text-ink-3">YC companies come from the public YC directory; funding comes from news searches. Each one is scored for fit against your CVs.</p>
+          <label className="block">
+            <span className="label">VC firms to search</span>
+            <input className="field mt-1 text-sm" value={vcs} onChange={(e) => setVcs(e.target.value)} />
+          </label>
+          <p className="text-xs text-ink-3">
+            YC companies come from the public YC directory; funding and VC portfolios come from web searches. Each one is scored for fit against your CVs. With autopilot on, funding news is checked every morning.
+          </p>
         </div>
       )}
 
@@ -181,7 +199,7 @@ export default function Companies() {
                     <span className="text-sm text-ink-2">{p.oneLiner}</span>
                   </div>
                   <div className="mt-1 text-xs text-ink-3">
-                    {[p.batch && `YC ${p.batch}`, p.funding, p.teamSize && `${p.teamSize} people`, p.location, p.isHiring && "Hiring on YC"].filter(Boolean).join(" · ")}
+                    {[p.source === "funded" && "Just raised", p.batch && `YC ${p.batch}`, p.funding, p.teamSize && `${p.teamSize} people`, p.location, p.isHiring && "Hiring on YC"].filter(Boolean).join(" · ")}
                     {p.fundingSource && (
                       <>
                         {" · "}

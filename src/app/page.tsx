@@ -17,6 +17,7 @@ function msSince(when: number) {
 export default function Today() {
   const me = useQuery(api.users.me);
   const jobs = useQuery(api.jobs.list);
+  const prospects = useQuery(api.prospects.list);
   if (!me || !jobs) return <Loading />;
   const firstName = me.resume?.name.split(" ")[0];
 
@@ -50,6 +51,7 @@ export default function Today() {
       </header>
 
       <Autopilot on={me.autopilot} last={me.lastAutopilot} />
+      <JustRaised prospects={prospects ?? []} />
 
       {(me.contactsCount === 0 || jobs.length === 0) && (
         <section className="card mb-10 p-6">
@@ -206,7 +208,7 @@ function JobRow({ j, track }: { j: Pick<Doc<"jobs">, "_id" | "title" | "company"
 }
 
 /** The morning search-and-score switch, and what the last run found. */
-function Autopilot({ on, last }: { on: boolean; last: { at: number; added: number; scored: number; strong: number } | null }) {
+function Autopilot({ on, last }: { on: boolean; last: { at: number; added: number; scored: number; strong: number; funded?: number } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
   return (
     <section className="card mb-10 flex flex-wrap items-center gap-4 p-5">
@@ -216,7 +218,7 @@ function Autopilot({ on, last }: { on: boolean; last: { at: number; added: numbe
           {!on
             ? "Turn it on and every morning at 8 the app searches all your roles and scores what's new, so you start with a ranked list."
             : last
-              ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"}.`
+              ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"}${last.funded ? `, ${last.funded} newly funded ${last.funded === 1 ? "company" : "companies"}` : ""}.`
               : "First run is tomorrow at 8 in the morning, India time."}
         </p>
       </div>
@@ -228,6 +230,45 @@ function Autopilot({ on, last }: { on: boolean; last: { at: number; added: numbe
       <button className={`btn btn-sm ${on ? "btn-ghost" : "btn-primary"}`} onClick={() => void setAutopilot({ on: !on })}>
         {on ? "Turn off" : "Turn on"}
       </button>
+    </section>
+  );
+}
+
+/** Companies that raised money in the last two weeks: worth a note to the founder, role or no role. */
+function JustRaised({ prospects }: { prospects: Doc<"prospects">[] }) {
+  const fresh = prospects
+    .filter((p) => p.source === "funded" && p.status === "new" && msSince(p._creationTime) < 14 * DAY)
+    .sort((a, b) => (b.fit?.score ?? 0) - (a.fit?.score ?? 0))
+    .slice(0, 5);
+  if (!fresh.length) return null;
+  return (
+    <section className="card mb-10 p-5">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <h2 className="display text-2xl">Just raised money</h2>
+        <Link href="/companies" className="text-sm text-ink-3 hover:text-ink">
+          All companies
+        </Link>
+      </div>
+      <p className="mb-3 text-sm text-ink-2">Fresh funding means hiring soon. Reach the founder or sales leader now, before a role is posted.</p>
+      <ul className="divide-y divide-line">
+        {fresh.map((p) => (
+          <li key={p._id} className="flex items-start justify-between gap-3 py-3">
+            <div className="min-w-0">
+              <div className="font-medium">
+                {p.name} <span className="text-sm font-normal text-ink-2">{p.oneLiner}</span>
+              </div>
+              <div className="text-xs text-ink-3">{p.funding}</div>
+              {p.fit && <div className="mt-1 text-sm text-ink-2">Angle: {p.fit.angle}</div>}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <ScorePill score={p.fit?.score} />
+              <Link href="/companies" className="text-xs text-ink-3 underline hover:text-ink">
+                Reach out
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

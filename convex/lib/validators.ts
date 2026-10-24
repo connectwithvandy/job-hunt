@@ -160,7 +160,7 @@ export const prospectFields = {
   key: v.string(),
   name: v.string(),
   website: v.string(),
-  source: v.union(v.literal("yc"), v.literal("funded"), v.literal("manual")),
+  source: v.union(v.literal("yc"), v.literal("funded"), v.literal("vc"), v.literal("manual")),
   oneLiner: v.string(),
   industry: v.string(),
   location: v.string(),
