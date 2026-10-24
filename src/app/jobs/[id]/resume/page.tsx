@@ -16,6 +16,7 @@ import { logoMap } from "@/lib/logos";
 export default function TailoredResume() {
   const { id } = useParams<{ id: string }>();
   const me = useQuery(api.users.me);
+  const all = useQuery(api.users.resumes);
   const data = useQuery(api.jobs.get, { jobId: id as Id<"jobs"> });
   const pack = data?.job.pack;
 
@@ -53,7 +54,7 @@ export default function TailoredResume() {
         </p>
       )}
       <div className="max-w-full overflow-x-auto">
-        <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap(me.resumes.map((m) => m.resume))} />
+        <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap((all ?? []).map((m) => m.resume))} />
       </div>
       <details className="no-print card w-full max-w-[210mm] p-6">
         <summary className="cursor-pointer font-medium">Edit this CV</summary>

@@ -294,7 +294,7 @@ export const strongSince = internalQuery({
 
 /** Stores company research or interview prep on a job. */
 export const saveExtras = internalMutation({
-  args: { userId: v.id("users"), jobId: v.id("jobs"), research: v.optional(researchV), prep: v.optional(prepV) },
+  args: { userId: v.id("users"), jobId: v.id("jobs"), research: v.optional(researchV), prep: v.optional(prepV), description: v.optional(v.string()) },
   handler: async (ctx, { userId, jobId, ...extras }) => {
     await saveDetails(ctx, await ownJob(ctx, userId, jobId), extras);
     return null;

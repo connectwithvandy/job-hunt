@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { linkedInPeopleSearch } from "../../convex/lib/company";
@@ -15,8 +16,18 @@ function msSince(when: number) {
   return Date.now() - when;
 }
 
+/** Whether onboarding started the first searches in the last five minutes. */
+function startedFirstSearch() {
+  try {
+    return Date.now() - Number(sessionStorage.getItem("firstSearchAt") ?? 0) < 5 * 60_000;
+  } catch {
+    return false;
+  }
+}
+
 export default function Today() {
   const me = useQuery(api.users.me);
+  const [searching] = useState(startedFirstSearch);
   const jobs = useQuery(api.jobs.list);
   const prospects = useQuery(api.prospects.list);
   if (!me || !jobs) return <Loading />;
@@ -58,7 +69,7 @@ export default function Today() {
         <section className="card mb-10 p-6">
           <h2 className="display mb-4 text-2xl">Next steps</h2>
           <ol className="grid gap-3 md:grid-cols-2">
-            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? `${jobs.length} found. Score them to see which fit.` : "Search on the Jobs page, or paste a job description."} />
+            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? `${jobs.length} found. Score them to see which fit.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."} />
             <Setup done={me.contactsCount > 0} n={2} href="/network" title="Load your LinkedIn connections" text="So every job shows who you know there." />
           </ol>
         </section>

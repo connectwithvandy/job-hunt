@@ -47,13 +47,24 @@ export const me = query({
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
       lastAutopilot: profile?.lastAutopilot ?? null,
-      resumes: resumes.map((r) => ({ _id: r._id, label: r.label, resume: r.resume })),
+      // Names only: every page loads this, and only the CVs page needs the full text (`resumes` below).
+      resumes: resumes.map((r) => ({ _id: r._id, label: r.label })),
       defaultResumeId: defaultResume?._id ?? null,
       /** The default CV, for the greeting and quick checks. */
       resume: defaultResume?.resume ?? null,
       photoUrl: profile?.photo ? await ctx.storage.getUrl(profile.photo) : null,
       tracks,
     };
+  },
+});
+
+/** Your CVs in full, for the CVs page and printing a tailored CV. */
+export const resumes = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    return (await listResumes(ctx, userId)).map((r) => ({ _id: r._id, label: r.label, resume: r.resume }));
   },
 });
 

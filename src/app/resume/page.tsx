@@ -13,15 +13,16 @@ import { attempt, PrintButton, type ActionState, Feedback } from "@/components/u
 
 export default function Cvs() {
   const me = useQuery(api.users.me);
+  const all = useQuery(api.users.resumes);
   const [picked, setPicked] = useState<Id<"resumes"> | "new" | null>(null);
   const setDefault = useMutation(api.users.setDefaultResume);
   const rename = useMutation(api.users.renameResume);
   const remove = useMutation(api.users.deleteResume);
   const findLogos = useAction(api.agent.findLogos);
   const [state, setState] = useState<ActionState>(null);
-  if (!me) return <Loading />;
+  if (!me || !all) return <Loading />;
 
-  const current = picked === "new" ? null : (me.resumes.find((r) => r._id === picked) ?? me.resumes.find((r) => r._id === me.defaultResumeId) ?? me.resumes[0]);
+  const current = picked === "new" ? null : (all.find((r) => r._id === picked) ?? all.find((r) => r._id === me.defaultResumeId) ?? all[0]);
   const usedBy = current ? me.tracks.filter((t) => (t.resumeId ?? me.defaultResumeId) === current._id).map((t) => t.name) : [];
 
   return (

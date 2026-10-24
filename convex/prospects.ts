@@ -19,7 +19,9 @@ export const list = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    return await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(400);
+    const rows = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(400);
+    // Pasted LinkedIn profiles can be 8,000 characters each; the page only needs to know one was saved.
+    return rows.map((r) => ({ ...r, contacts: r.contacts.map((c) => ({ ...c, profileText: c.profileText ? "saved" : undefined })) }));
   },
 });
 
@@ -163,8 +165,8 @@ async function addDreamFor(ctx: MutationCtx, userId: Id<"users">, name: string, 
     await ctx.db.patch("prospects", existing._id, { dream: true, status: existing.status === "skip" ? "new" : existing.status, updatedAt: Date.now() });
     return existing._id;
   }
-  const all = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(1000);
-  if (all.filter((d) => d.dream).length >= 30) throw new ConvexError("Your dream list is full at 30. Take one off first.");
+  const dreams = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(30);
+  if (dreams.length >= 30) throw new ConvexError("Your dream list is full at 30. Take one off first.");
   return await ctx.db.insert("prospects", {
     userId, key, name: clean, website: website?.trim() ?? "", source: "manual", oneLiner: "", industry: "", location: "",
     dream: true, status: "new", contacts: [], updatedAt: Date.now(),
@@ -174,8 +176,8 @@ async function addDreamFor(ctx: MutationCtx, userId: Id<"users">, name: string, 
 export const dreamsForAction = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
-    const rows = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(1000);
-    return rows.filter((r) => r.dream && r.status !== "skip").slice(0, 30);
+    const rows = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(60);
+    return rows.filter((r) => r.status !== "skip").slice(0, 30);
   },
 });
 

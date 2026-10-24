@@ -64,7 +64,9 @@ export const warmCompanies = query({
       else byCompany.set(k, { company: j.company, jobId: j._id, jobs: 1 });
     }
     const out = [];
-    for (const c of byCompany.values()) {
+    // Each company costs several lookups; the 80 you have most jobs at are plenty for this page.
+    const top = [...byCompany.values()].sort((a, b) => b.jobs - a.jobs).slice(0, 80);
+    for (const c of top) {
       const people = (await contactsAt(ctx, userId, c.company)).length;
       if (people) out.push({ ...c, people });
     }

@@ -436,7 +436,8 @@ async function prepFor(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Co
     const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
     await spend(ctx, userId, "prep");
     const out = await interviewPrep(job, cv, track, job.research);
-    await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, prep: { createdAt: Date.now(), ...out } });
+    // Keep the description fetched for this, so the next run doesn't fetch it again.
+    await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, prep: { createdAt: Date.now(), ...out }, description: job.description });
     return null;
 }
 

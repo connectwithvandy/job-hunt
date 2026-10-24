@@ -222,7 +222,10 @@ function StepWhere({ location, setLocation, chosen, onBack }: { location: string
             setError("");
             try {
               await complete({ tracks: chosen.map((c) => ({ ...c, status: "active" as const })), location });
-              // Start the first searches; results stream into the Jobs page as they land.
+              // Start the first searches; results stream into the Jobs page as they land, and Today says so meanwhile.
+              try {
+                sessionStorage.setItem("firstSearchAt", String(Date.now()));
+              } catch {}
               for (const c of chosen) void findJobs({ trackKey: c.key }).catch(() => {});
             } catch (err) {
               setError(errorMessage(err));

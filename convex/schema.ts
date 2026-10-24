@@ -67,7 +67,8 @@ export default defineSchema({
 
   prospects: defineTable({ userId: v.id("users"), ...prospectFields })
     .index("by_userId", ["userId"])
-    .index("by_userId_and_key", ["userId", "key"]),
+    .index("by_userId_and_key", ["userId", "key"])
+    .index("by_userId_and_dream", ["userId", "dream"]),
 
   contacts: defineTable({
     userId: v.id("users"),
