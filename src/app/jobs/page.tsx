@@ -12,7 +12,7 @@ import { CompanyMark, PageHead, ScorePill, TrackTag, bestScore, jobTrackKey, tim
 import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
-import { applyFilters, FILTERS, fitFor } from "@/lib/jobFilters";
+import { applyFilters, FILTERS, fitFor, inRole } from "@/lib/jobFilters";
 import { inInr, payPerYearInr, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
 
@@ -66,8 +66,8 @@ function Jobs() {
   const oldCount = jobs.filter(isOld).length;
   const inView = jobs
     .filter((j) => (show === "hidden" ? j.status === "dismissed" : show === "old" ? isOld(j) : j.status !== "dismissed" && !isOld(j)))
-    // Picking a role ranks every job by that role's score, instead of hiding jobs whose best role is another.
-    .filter((j) => !track || j.scores?.some((s) => s.trackKey === track) || jobTrackKey(j) === track);
+    // A role shows only jobs whose title matches one of its job titles, ranked by that role's score.
+    .filter((j) => !track || (trackByKey.has(track) && inRole(j, trackByKey.get(track)!)));
   // Region counts follow the other filters, so each chip shows what clicking it would leave.
   const filtered = applyFilters(inView, params);
   const regionCounts = new Map<string, number>();
@@ -273,7 +273,7 @@ function Jobs() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <ScorePill score={best?.score} />
-                    <TrackTag track={trackByKey.get(jobTrackKey(j) ?? "")} />
+                    <TrackTag track={trackByKey.get((track ?? jobTrackKey(j)) ?? "")} />
                   </div>
                 </Link>
               </li>

@@ -94,3 +94,12 @@ export function applyFilters<J extends FilterableJob>(jobs: J[], params: URLSear
     return words.every((w) => text.includes(w)) && tests.every((t) => t(j, params.get("track")));
   });
 }
+
+const phrase = (s: string) => ` ${s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+
+/** Whether a job belongs to a role: its title contains one of the role's job titles as a phrase, or you applied as that role. */
+export function inRole(job: { title: string; trackKey?: string | null }, role: { key: string; titles: string[] }) {
+  if (job.trackKey === role.key) return true;
+  const title = phrase(job.title);
+  return role.titles.some((t) => title.includes(phrase(t)));
+}
