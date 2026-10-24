@@ -85,6 +85,27 @@ export const hiringContactV = v.object({
   phone: v.string(),
 });
 
+/** What the web says about the company, gathered when you ask. */
+export const researchV = v.object({
+  createdAt: v.number(),
+  summary: v.string(),
+  size: v.string(),
+  funding: v.string(),
+  news: v.array(v.string()),
+  india: v.string(),
+  hiringSignals: v.string(),
+  sources: v.array(v.string()),
+});
+
+/** Interview preparation for one job, built from the CV and the posting. */
+export const prepV = v.object({
+  createdAt: v.number(),
+  questions: v.array(v.object({ question: v.string(), why: v.string(), answer: v.string() })),
+  stories: v.array(v.object({ title: v.string(), situation: v.string(), action: v.string(), result: v.string() })),
+  askThem: v.array(v.string()),
+  first90Days: v.array(v.string()),
+});
+
 export const scoreV = v.object({ trackKey: v.string(), score: v.number(), reason: v.string(), gaps: v.array(v.string()) });
 
 export const jobFields = {
@@ -112,6 +133,8 @@ export const jobFields = {
   pack: v.optional(packV),
   outreach: v.array(outreachV),
   hiringContacts: v.optional(v.array(hiringContactV)),
+  research: v.optional(researchV),
+  prep: v.optional(prepV),
   appliedAt: v.optional(v.number()),
   updatedAt: v.number(),
 };

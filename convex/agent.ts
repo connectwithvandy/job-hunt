@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
-import { buildPack, draftReferralNotes, extractJob, parseResume, scoreJob } from "./lib/brain";
+import { buildPack, draftReferralNotes, extractJob, interviewPrep, parseResume, researchCompany, scoreJob } from "./lib/brain";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
 import { htmlToText, searchOtherSources, titleMatches, type Found } from "./lib/sources";
 import type { jobV, resumeV } from "./lib/validators";
@@ -28,7 +28,7 @@ type Context = {
   tracks: Doc<"tracks">[];
 };
 
-async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob", count = 1) {
+async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep", count = 1) {
   await ctx.runMutation(internal.limits.consume, { userId, kind, count });
 }
 
@@ -351,5 +351,33 @@ export const draftNotes = action({
     }
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, outreach });
     return { drafted: notes.length };
+  },
+});
+
+// ---------- Company research and interview prep ----------
+
+export const research = action({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }): Promise<null> => {
+    const userId = await requireUserId(ctx);
+    const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
+    await spend(ctx, userId, "research");
+    const found = await researchCompany(job);
+    await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, research: { createdAt: Date.now(), ...found } });
+    return null;
+  },
+});
+
+export const prep = action({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }): Promise<null> => {
+    const { userId, resume, resumeFor, tracks } = await setup(ctx);
+    const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+    const track = tracks.find((t) => t.key === (job.trackKey ?? job.pack?.trackKey ?? job.foundFor)) ?? null;
+    const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
+    await spend(ctx, userId, "prep");
+    const out = await interviewPrep(job, cv, track, job.research);
+    await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, prep: { createdAt: Date.now(), ...out } });
+    return null;
   },
 });

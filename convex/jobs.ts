@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { companyKey, referralRank, roleKey } from "./lib/company";
-import { hiringContactV, jobFields, jobStatusV, outreachStatusV, outreachV, packV, scoreV } from "./lib/validators";
+import { hiringContactV, jobFields, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   const job = await ctx.db.get("jobs", jobId);
@@ -43,7 +43,7 @@ export const list = query({
     if (!userId) return [];
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500);
     // The list doesn't need long descriptions or the tailored CV; keep the payload small.
-    return jobs.map((j) => ({ ...j, description: undefined, pack: undefined, hasPack: !!j.pack }));
+    return jobs.map((j) => ({ ...j, description: undefined, pack: undefined, research: undefined, prep: undefined, hasPack: !!j.pack }));
   },
 });
 
@@ -223,5 +223,15 @@ export const strongSince = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", userId).gte("_creationTime", since))
       .take(300);
     return recent.filter((j) => (j.scores ?? []).some((s) => s.score >= 75)).length;
+  },
+});
+
+/** Stores company research or interview prep on a job. */
+export const saveExtras = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), research: v.optional(researchV), prep: v.optional(prepV) },
+  handler: async (ctx, { userId, jobId, ...extras }) => {
+    await ownJob(ctx, userId, jobId);
+    await ctx.db.patch("jobs", jobId, extras);
+    return null;
   },
 });

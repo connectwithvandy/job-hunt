@@ -419,3 +419,143 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
     </div>
   );
 }
+
+/** What the web says about the company, gathered on request. */
+export function CompanyResearch({ jobId, company, research }: { jobId: Id<"jobs">; company: string; research?: Doc<"jobs">["research"] }) {
+  const run = useAction(api.agent.research);
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  const go = () => start(async () => setState(await attempt(async () => void (await run({ jobId })))));
+  return (
+    <div className="card p-6">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="display text-2xl">About {company}</h2>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={go}>
+          {busy && <Spinner />}
+          {busy ? "Searching the web…" : research ? "Refresh" : "Look them up"}
+        </button>
+      </div>
+      {!research ? (
+        <p className="text-sm text-ink-2">Size, funding, recent news and their India presence, from a quick web search. Worth reading before you message anyone there.</p>
+      ) : (
+        <dl className="space-y-3 text-sm">
+          <p className="leading-relaxed">{research.summary}</p>
+          {(
+            [
+              ["Size", research.size],
+              ["Funding", research.funding],
+              ["India", research.india],
+              ["Why they're hiring", research.hiringSignals],
+            ] as const
+          ).map(([k, val]) => (
+            <div key={k}>
+              <dt className="label">{k}</dt>
+              <dd className="mt-0.5 text-ink-2">{val}</dd>
+            </div>
+          ))}
+          {research.news.length > 0 && (
+            <div>
+              <dt className="label">Recent news</dt>
+              <dd>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-ink-2">
+                  {research.news.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          )}
+          {research.sources.length > 0 && (
+            <p className="text-xs text-ink-3">
+              Sources:{" "}
+              {research.sources.slice(0, 5).map((u, i) => (
+                <a key={u} className="underline hover:text-ink" href={u} target="_blank" rel="noreferrer">
+                  {i ? ", " : ""}
+                  {new URL(u).hostname.replace(/^www\./, "")}
+                </a>
+              ))}
+              {` · checked ${new Date(research.createdAt).toLocaleDateString("en-IN")}`}
+            </p>
+          )}
+        </dl>
+      )}
+      <Feedback state={busy ? null : state} />
+    </div>
+  );
+}
+
+/** Likely questions, stories to tell, questions to ask, and a 90-day plan. */
+export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"jobs">["prep"] }) {
+  const run = useAction(api.agent.prep);
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  const go = () => start(async () => setState(await attempt(async () => void (await run({ jobId })))));
+  return (
+    <div className="card p-6">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="display text-2xl">Interview prep</h2>
+        <button className={`btn btn-sm ${prep ? "btn-ghost" : "btn-primary"}`} disabled={busy} onClick={go}>
+          {busy && <Spinner />}
+          {busy ? "Preparing… about a minute" : prep ? "Redo" : "Prepare me"}
+        </button>
+      </div>
+      {!prep ? (
+        <p className="text-sm text-ink-2">Likely questions with answer outlines from your CV, four stories to have ready, sharp questions to ask them, and a first-90-days plan.</p>
+      ) : (
+        <div className="space-y-5 text-sm">
+          <details open>
+            <summary className="cursor-pointer font-medium">Likely questions</summary>
+            <ol className="mt-2 space-y-3">
+              {prep.questions.map((q) => (
+                <li key={q.question}>
+                  <div className="font-medium">{q.question}</div>
+                  <div className="text-xs text-ink-3">{q.why}</div>
+                  <p className="mt-1 text-ink-2">{q.answer}</p>
+                </li>
+              ))}
+            </ol>
+          </details>
+          <details>
+            <summary className="cursor-pointer font-medium">Stories to have ready</summary>
+            <ul className="mt-2 space-y-3">
+              {prep.stories.map((st) => (
+                <li key={st.title}>
+                  <div className="font-medium">{st.title}</div>
+                  <p className="text-ink-2">
+                    <span className="text-ink-3">Situation: </span>
+                    {st.situation}
+                  </p>
+                  <p className="text-ink-2">
+                    <span className="text-ink-3">What you did: </span>
+                    {st.action}
+                  </p>
+                  <p className="text-ink-2">
+                    <span className="text-ink-3">Result: </span>
+                    {st.result}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </details>
+          <details>
+            <summary className="cursor-pointer font-medium">Questions to ask them</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-2">
+              {prep.askThem.map((q) => (
+                <li key={q}>{q}</li>
+              ))}
+            </ul>
+          </details>
+          <details>
+            <summary className="cursor-pointer font-medium">Your first 90 days</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-2">
+              {prep.first90Days.map((q) => (
+                <li key={q}>{q}</li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      )}
+      <Feedback state={busy ? null : state} />
+    </div>
+  );
+}

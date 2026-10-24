@@ -7,7 +7,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
-import { CoverLetter, DirectNote, EmailDraft, HiringContacts, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { CompanyResearch, CoverLetter, DirectNote, EmailDraft, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
 import { inInr, useInrRates } from "@/lib/money";
@@ -110,6 +110,9 @@ export default function JobPage() {
               </div>
             )}
           </div>
+
+          <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
+          <InterviewPrep jobId={job._id} prep={job.prep} />
 
           {job.description && (
             <details className="card p-6">

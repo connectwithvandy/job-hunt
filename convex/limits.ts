@@ -12,6 +12,8 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
   tailor: { kind: "fixed window", rate: DAILY_LIMITS.tailor, period: DAY },
   notes: { kind: "fixed window", rate: DAILY_LIMITS.notes, period: DAY },
   addJob: { kind: "fixed window", rate: DAILY_LIMITS.addJob, period: DAY },
+  research: { kind: "fixed window", rate: DAILY_LIMITS.research, period: DAY },
+  prep: { kind: "fixed window", rate: DAILY_LIMITS.prep, period: DAY },
 });
 
 const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
@@ -20,13 +22,15 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
   tailor: "tailored CVs",
   notes: "referral note drafts",
   addJob: "added jobs",
+  research: "company lookups",
+  prep: "interview preps",
 };
 
 /** Spend `count` of today's allowance, or throw a friendly error. The owner has no limit. */
 export const consume = internalMutation({
   args: {
     userId: v.id("users"),
-    kind: v.union(v.literal("readCv"), v.literal("score"), v.literal("tailor"), v.literal("notes"), v.literal("addJob")),
+    kind: v.union(v.literal("readCv"), v.literal("score"), v.literal("tailor"), v.literal("notes"), v.literal("addJob"), v.literal("research"), v.literal("prep")),
     count: v.optional(v.number()),
   },
   handler: async (ctx, { userId, kind, count }) => {

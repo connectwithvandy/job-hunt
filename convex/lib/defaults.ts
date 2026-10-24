@@ -59,6 +59,8 @@ export const DAILY_LIMITS = {
   tailor: 3,
   notes: 10,
   addJob: 20,
+  research: 10,
+  prep: 5,
 } as const;
 
 /** Quick picks for where to search. "Remote" and "Anywhere" aren't places, so the search maps them to filters. */
