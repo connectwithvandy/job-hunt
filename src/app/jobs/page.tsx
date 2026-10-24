@@ -11,7 +11,7 @@ import { CompanyMark, PageHead, ScorePill, TrackTag, bestScore, jobTrackKey, tim
 import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
-import { applyFilters, FILTERS } from "@/lib/jobFilters";
+import { applyFilters, FILTERS, fitFor } from "@/lib/jobFilters";
 import { inInr, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
 
@@ -48,14 +48,15 @@ function Jobs() {
   const oldCount = jobs.filter(isOld).length;
   const inView = jobs
     .filter((j) => (show === "hidden" ? j.status === "dismissed" : show === "old" ? isOld(j) : j.status !== "dismissed" && !isOld(j)))
-    .filter((j) => !track || jobTrackKey(j) === track);
+    // Picking a role ranks every job by that role's score, instead of hiding jobs whose best role is another.
+    .filter((j) => !track || j.scores?.some((s) => s.trackKey === track) || jobTrackKey(j) === track);
   // Region counts follow the other filters, so each chip shows what clicking it would leave.
   const filtered = applyFilters(inView, params);
   const regionCounts = new Map<string, number>();
   for (const j of filtered) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
   const visible = filtered
     .filter((j) => !region || regionsOf(j).includes(region as never))
-    .sort((a, b) => (bestScore(b)?.score ?? -1) - (bestScore(a)?.score ?? -1) || b._creationTime - a._creationTime);
+    .sort((a, b) => fitFor(b, track) - fitFor(a, track) || b._creationTime - a._creationTime);
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
   const batch = unscored.slice(0, 12);
 
@@ -210,7 +211,7 @@ function Jobs() {
       ) : (
         <ul className="card divide-y divide-line overflow-hidden">
           {visible.map((j) => {
-            const best = bestScore(j);
+            const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
             return (
               <li key={j._id} className={`flex items-start ${picked.has(j._id) ? "bg-soft" : ""}`}>
                 <input
