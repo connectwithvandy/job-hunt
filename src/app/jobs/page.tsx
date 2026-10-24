@@ -10,6 +10,7 @@ import { CompanyMark, PageHead, ScorePill, TrackTag, bestScore, jobTrackKey, tim
 import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
+import { REGIONS, regionsOf } from "@/lib/regions";
 
 export default function JobsPage() {
   return (
@@ -23,19 +24,34 @@ function Jobs() {
   const params = useSearchParams();
   const track = params.get("track");
   const show = params.get("show");
+  const region = params.get("region");
   const me = useQuery(api.users.me);
   const jobs = useQuery(api.jobs.list);
   const scoreJobs = useAction(api.agent.scoreJobs);
   if (!me || !jobs) return <Loading />;
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
 
-  const visible = jobs
+  const inView = jobs
     .filter((j) => (show === "hidden" ? j.status === "dismissed" : j.status !== "dismissed"))
-    .filter((j) => !track || jobTrackKey(j) === track)
+    .filter((j) => !track || jobTrackKey(j) === track);
+  const regionCounts = new Map<string, number>();
+  for (const j of inView) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
+  const visible = inView
+    .filter((j) => !region || regionsOf(j).includes(region as never))
     .sort((a, b) => (bestScore(b)?.score ?? -1) - (bestScore(a)?.score ?? -1) || b._creationTime - a._creationTime);
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
   const batch = unscored.slice(0, 12);
 
+  // Keep the other filters when one changes.
+  const hrefWith = (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(changes)) {
+      if (v) next.set(k, v);
+      else next.delete(k);
+    }
+    const q = next.toString();
+    return q ? `/jobs?${q}` : "/jobs";
+  };
   const chip = (href: string, label: React.ReactNode, active: boolean) => (
     <Link key={href} href={href} className={`rounded-full border px-3 py-1 text-sm ${active ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}>
       {label}
@@ -52,10 +68,10 @@ function Jobs() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {chip("/jobs", "All tracks", !track && show !== "hidden")}
+        {chip(hrefWith({ track: null, show: null }), "All tracks", !track && show !== "hidden")}
         {me.tracks.map((t) =>
           chip(
-            `/jobs?track=${t.key}`,
+            hrefWith({ track: t.key, show: null }),
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />
               {t.name}
@@ -63,7 +79,7 @@ function Jobs() {
             track === t.key,
           ),
         )}
-        {chip("/jobs?show=hidden", "Not for me", show === "hidden")}
+        {chip(hrefWith({ track: null, show: "hidden" }), "Not for me", show === "hidden")}
         <span className="flex-1" />
         {batch.length > 0 && (
           <ActionButton
@@ -79,6 +95,16 @@ function Jobs() {
           </ActionButton>
         )}
       </div>
+
+      {inView.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="label mr-1">Region</span>
+          {chip(hrefWith({ region: null }), `Everywhere · ${inView.length}`, !region)}
+          {REGIONS.filter((r) => regionCounts.get(r.key) || region === r.key).map((r) =>
+            chip(hrefWith({ region: r.key }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, region === r.key),
+          )}
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <div className="card p-10 text-center text-ink-2">No jobs here yet. Search Dreamwork above, or paste a link to a job you saw.</div>
