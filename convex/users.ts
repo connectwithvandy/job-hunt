@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireUserId } from "./lib/auth";
+import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { resumeV, trackFields } from "./lib/validators";
 
 async function findProfile(ctx: QueryCtx, userId: Id<"users">) {
@@ -38,6 +38,7 @@ export const me = query({
     const resumes = await listResumes(ctx, userId);
     const defaultResume = resumes.find((r) => r._id === profile?.defaultResumeId) ?? resumes[0] ?? null;
     return {
+      isOwner: isOwnerEmail(user?.email),
       email: user?.email ?? "",
       onboarded: profile?.onboarded ?? false,
       location: profile?.location ?? "India",

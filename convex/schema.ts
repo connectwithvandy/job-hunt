@@ -6,6 +6,11 @@ import { jobFields, prospectFields, resumeV, trackFields } from "./lib/validator
 export default defineSchema({
   ...authTables,
 
+  /** The waitlist: everyone who signed up, and whether the owner let them in. */
+  access: defineTable({ userId: v.id("users"), email: v.string(), approved: v.boolean(), decidedAt: v.optional(v.number()) })
+    .index("by_userId", ["userId"])
+    .index("by_approved", ["approved"]),
+
   profiles: defineTable({
     userId: v.id("users"),
     /** The CV used for scoring, and for any track that doesn't pick its own. */

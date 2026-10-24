@@ -29,7 +29,7 @@ export function SignIn() {
           You&apos;re running several searches at once.
         </h1>
         <p className="mt-5 max-w-xl text-lg text-ink-2">
-          Built by a sales leader during a real job hunt, now free for anyone. Upload your CV, pick the kinds of roles you&apos;re after, and let it do the
+          Built by a sales leader during a real job hunt, now letting people in from a waitlist. Upload your CV, pick the kinds of roles you&apos;re after, and let it do the
           sorting, tailoring and intro hunting.
         </p>
         <ul className="mt-10 grid gap-5 sm:grid-cols-2">

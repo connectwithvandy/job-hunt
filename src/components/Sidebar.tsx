@@ -16,7 +16,7 @@ const NAV = [
   { href: "/tracks", label: "Roles" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isOwner }: { isOwner: boolean }) {
   const path = usePathname();
   const { signOut } = useAuthActions();
   return (
@@ -25,7 +25,7 @@ export function Sidebar() {
         JobPipe<span className="text-accent">.</span>
       </Link>
       <nav className="flex min-w-0 md:flex-col gap-1 overflow-x-auto text-sm">
-        {NAV.map((n) => {
+        {(isOwner ? [...NAV, { href: "/waitlist", label: "Waitlist" }] : NAV).map((n) => {
           const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
           return (
             <Link
