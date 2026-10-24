@@ -370,23 +370,63 @@ export function LocationForm({ location, markets }: { location: string; markets:
 }
 
 const STARTER_QUESTIONS = [
-  "Notice period",
-  "Current CTC",
-  "Expected CTC",
-  "Total years of experience",
-  "Why are you looking to move?",
-  "Willing to relocate?",
-  "Work authorization",
-  "Earliest start date",
+  // Contact
+  "Full name",
+  "Email",
+  "Phone",
+  "Current location",
   "LinkedIn profile",
+  // Current job
+  "Current company",
+  "Current job title",
+  "Total years of experience",
+  "Years managing teams",
+  "Largest team managed",
+  "Notice period",
+  "Can you buy out or shorten your notice?",
+  "Earliest start date",
+  // Pay
+  "Current CTC (fixed + variable)",
+  "Expected CTC",
+  "Current quota and attainment",
+  "Largest deal closed",
+  // Experience
+  "Industries you've sold into",
+  "Markets covered",
+  "Sales tools and CRMs you use",
+  "Biggest professional achievement",
+  // Eligibility and preferences
+  "Work authorization",
+  "Need visa sponsorship?",
+  "Willing to relocate?",
+  "Preferred work mode",
+  "Comfortable working US or EMEA hours?",
+  "Willing to travel?",
+  // Motivation
+  "Why are you looking to move?",
+  "What are you looking for in your next role?",
+  "Reason for any career gap",
+  "How did you hear about us?",
+  // Education
+  "Highest degree",
+  "University",
+  "Graduation year",
 ];
+
+/** Answers that only depend on your stated preferences, filled in for you. */
+const PRESET_ANSWERS: Record<string, string> = {
+  "Willing to relocate?": "No. Bengaluru or remote only.",
+  "Preferred work mode": "Remote, or hybrid in Bengaluru",
+};
 
 /** Your standard answers for application forms, written once and copied in one click. */
 export function AnswersForm({ answers }: { answers: { question: string; answer: string }[] }) {
   const save = useMutation(api.users.saveAnswers);
+  const draft = useAction(api.agent.draftAnswers);
+  const [drafting, setDrafting] = useState(false);
   const [rows, setRows] = useState(() => {
     const have = new Set(answers.map((a) => a.question));
-    return [...answers, ...STARTER_QUESTIONS.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: q === "Willing to relocate?" ? "No. Bengaluru or remote only." : "" }))];
+    return [...answers, ...STARTER_QUESTIONS.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: PRESET_ANSWERS[q] ?? "" }))];
   });
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
@@ -409,6 +449,26 @@ export function AnswersForm({ answers }: { answers: { question: string; answer: 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRows([...rows, { question: "", answer: "" }])}>
           + Add a question
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          disabled={drafting}
+          onClick={async () => {
+            setDrafting(true);
+            setState(
+              await attempt(async () => {
+                const empty = rows.filter((r) => r.question.trim() && !r.answer.trim()).map((r) => r.question);
+                const drafts = await draft({ questions: empty });
+                const byQ = new Map(drafts.map((d) => [d.question, d.answer]));
+                setRows(rows.map((r) => (!r.answer.trim() && byQ.get(r.question) ? { ...r, answer: byQ.get(r.question)! } : r)));
+                return `Filled ${drafts.length} from your CV. Check them, then save.`;
+              }),
+            );
+            setDrafting(false);
+          }}
+        >
+          {drafting ? "Reading your CV…" : "Fill from my CV"}
         </button>
         <button
           type="button"

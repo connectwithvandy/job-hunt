@@ -552,3 +552,27 @@ ${resumeText(cv)}`,
   const have = new Set(role.titles.map((t) => t.toLowerCase()));
   return out.titles.filter((t) => !have.has(t.title.toLowerCase()));
 }
+
+// ---------- Application answers ----------
+
+const AnswersSchema = z.strictObject({
+  answers: z.array(z.strictObject({ question: z.string(), answer: z.string() })).describe("Only questions the CV answers; skip the rest."),
+});
+
+/** Drafts form answers the CV can support. Pay, notice, visa and other personal facts are left for the candidate. */
+export async function draftFormAnswers(questions: string[], cv: Resume, markets: string, location: string) {
+  const out = await askJSON({
+    schema: AnswersSchema,
+    system: `You fill in job application form answers from a candidate's CV, in their voice, short and ready to paste. ${HONESTY}
+Only answer questions the CV or the stated preferences support. Never guess pay, notice period, visa or work authorization, start dates, career gaps, or how they heard about a company: skip those. Keep the question text exactly as given.`,
+    prompt: `Where they work: ${location}. Preferred markets: ${markets || "(not stated)"}
+
+Questions:
+${questions.map((q) => `- ${q}`).join("\n")}
+
+CV:
+${resumeText(cv)}`,
+  });
+  const asked = new Set(questions);
+  return out.answers.filter((a) => asked.has(a.question) && a.answer.trim());
+}

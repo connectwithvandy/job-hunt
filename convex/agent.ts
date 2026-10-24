@@ -10,7 +10,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { readPlace } from "./lib/sources";
@@ -882,5 +882,16 @@ export const similarTitles = action({
     const cv = requireResume(me.resumeFor[track.key] ?? me.resume);
     await spend(ctx, me.userId, "research");
     return await suggestTitles(track, cv, me.location);
+  },
+});
+
+export const draftAnswers = action({
+  args: { questions: v.array(v.string()) },
+  handler: async (ctx, { questions }): Promise<{ question: string; answer: string }[]> => {
+    const me = await setup(ctx);
+    const cv = requireResume(me.resume);
+    if (!questions.length) return [];
+    await spend(ctx, me.userId, "notes");
+    return await draftFormAnswers(questions.slice(0, 50), cv, me.markets, me.location);
   },
 });
