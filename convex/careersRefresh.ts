@@ -15,7 +15,10 @@ export const refresh = internalAction({
     let added = 0;
     let removed = 0;
     const one = async (board: CareerBoard) => {
-      const jobs = (await readBoard(board)).map((j) => ({ ...j, india: openTo(INDIA, j.location, j.workSetting, j.title) }));
+      // Only roles in India or remote are kept; on-site roles elsewhere drop out on the next run.
+      const jobs = (await readBoard(board))
+        .map((j) => ({ ...j, india: openTo(INDIA, j.location, j.workSetting, j.title) }))
+        .filter((j) => j.india || j.workSetting === "remote" || /remote|distributed/i.test(j.location));
       const have = new Set<string>(await ctx.runQuery(internal.careers.idsFor, { company: board.name }));
       const live = new Set(jobs.map((j) => j.externalId));
       const fresh = jobs.filter((j) => !have.has(j.externalId));
