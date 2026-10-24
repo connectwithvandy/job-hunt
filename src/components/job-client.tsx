@@ -263,8 +263,13 @@ export function EmailDraft({ jobId, subject, body }: { jobId: Id<"jobs">; subjec
 const blankContact = (): HiringContact => ({ id: crypto.randomUUID(), name: "", title: "", linkedinUrl: "", email: "", phone: "" });
 
 /** The people you plan to contact at this company, with one-click LinkedIn, email and phone. */
-export function HiringContacts({ jobId, contacts, note, emailSubject, email }: { jobId: Id<"jobs">; contacts: HiringContact[]; note?: string; emailSubject?: string; email?: string }) {
-  const save = useMutation(api.jobs.saveHiringContacts);
+/** Contacts live on a job, or on a company you're approaching before it posts a role. */
+export type ContactOwner = { jobId: Id<"jobs"> } | { prospectId: Id<"prospects"> };
+
+export function HiringContacts({ owner, contacts, note, emailSubject, email }: { owner: ContactOwner; contacts: HiringContact[]; note?: string; emailSubject?: string; email?: string }) {
+  const saveForJob = useMutation(api.jobs.saveHiringContacts);
+  const saveForProspect = useMutation(api.prospects.saveContacts);
+  const jobId = "jobId" in owner ? owner.jobId : null;
   const findEmail = useAction(api.agent.findEmail);
   const canFind = useAction(api.agent.canFindEmails);
   const [finderOn, setFinderOn] = useState(false);
@@ -274,7 +279,8 @@ export function HiringContacts({ jobId, contacts, note, emailSubject, email }: {
   }, [canFind]);
   const [editing, setEditing] = useState<HiringContact | null>(null);
   const [state, setState] = useState<ActionState>(null);
-  const store = async (next: HiringContact[]) => setState(await attempt(async () => void (await save({ jobId, contacts: next }))));
+  const store = async (next: HiringContact[]) =>
+    setState(await attempt(async () => void (await ("jobId" in owner ? saveForJob({ jobId: owner.jobId, contacts: next }) : saveForProspect({ prospectId: owner.prospectId, contacts: next })))));
 
   return (
     <div>
@@ -312,7 +318,7 @@ export function HiringContacts({ jobId, contacts, note, emailSubject, email }: {
                   </a>
                 )}
                 {c.phone && <CopyButton text={c.phone} label={`Copy ${c.phone}`} />}
-                {!c.email && finderOn && (
+                {!c.email && finderOn && jobId && (
                   <button
                     className="btn btn-ghost btn-sm"
                     disabled={!!finding}
@@ -329,7 +335,7 @@ export function HiringContacts({ jobId, contacts, note, emailSubject, email }: {
                   </button>
                 )}
               </div>
-              <CommonGround jobId={jobId} contact={c} />
+              <CommonGround owner={owner} contact={c} />
             </li>
           ))}
         </ul>
@@ -607,8 +613,9 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
 }
 
 /** Paste their profile (and optionally search the web) to find shared ground and get messages written for this one person. */
-function CommonGround({ jobId, contact }: { jobId: Id<"jobs">; contact: HiringContact }) {
-  const run = useAction(api.agent.personalise);
+function CommonGround({ owner, contact }: { owner: ContactOwner; contact: HiringContact }) {
+  const forJob = useAction(api.agent.personalise);
+  const forProspect = useAction(api.agent.personaliseProspect);
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState("");
   const [web, setWeb] = useState(false);
@@ -619,7 +626,8 @@ function CommonGround({ jobId, contact }: { jobId: Id<"jobs">; contact: HiringCo
     start(async () =>
       setState(
         await attempt(async () => {
-          await run({ jobId, contactId: contact.id, profileText: profile.trim() || undefined, searchWeb: web });
+          const args = { contactId: contact.id, profileText: profile.trim() || undefined, searchWeb: web };
+          await ("jobId" in owner ? forJob({ jobId: owner.jobId, ...args }) : forProspect({ prospectId: owner.prospectId, ...args }));
           setProfile("");
           setOpen(false);
         }),

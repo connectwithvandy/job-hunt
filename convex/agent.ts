@@ -8,10 +8,13 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
-import { buildPack, draftReferralNotes, extractJob, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob } from "./lib/brain";
+import { buildPack, draftReferralNotes, extractJob, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects } from "./lib/brain";
+import { companyKey } from "./lib/company";
+import { readPlace } from "./lib/sources";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
 import { htmlToText, searchOtherSources, titleMatches, type Found } from "./lib/sources";
 import type { jobV, resumeV } from "./lib/validators";
+import { prospectV } from "./lib/validators";
 
 type NewJob = Infer<typeof jobV>;
 
@@ -434,6 +437,142 @@ export const personalise = action({
       c.id === contactId ? { ...c, profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email } : c,
     );
     await ctx.runMutation(internal.jobs.saveContactsForAction, { userId, jobId, contacts });
+    return null;
+  },
+});
+
+// ---------- Companies to approach ----------
+
+type NewProspect = Infer<typeof prospectV>;
+
+type YcCompany = {
+  name: string; slug: string; website: string; one_liner: string; industry: string; subindustry: string; industries: string[];
+  regions: string[]; all_locations: string; team_size: number | null; batch: string; status: string; isHiring: boolean;
+  nonprofit: boolean; url: string; small_logo_thumb_url: string;
+};
+
+/** Recent, active YC startups in your place, the hiring ones first, that aren't in your list yet. */
+async function ycCandidates(location: string, skip: Set<string>, limit: number): Promise<NewProspect[]> {
+  const res = await fetch("https://yc-oss.github.io/api/companies/all.json", { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new ConvexError("The YC directory didn't answer. Try again in a minute.");
+  const all = (await res.json()) as YcCompany[];
+  const place = readPlace(location);
+  const year = (b: string) => Number(b.match(/\d{4}/)?.[0] ?? 0);
+  const where = (c: YcCompany) => {
+    const text = `${c.regions.join(" ")} ${c.all_locations}`.toLowerCase();
+    if (place.kind === "anywhere") return true;
+    if (place.kind === "remote") return text.includes("remote");
+    return text.includes(place.name.toLowerCase()) || (place.country === "in" && text.includes("india"));
+  };
+  return all
+    .filter((c) => c.status === "Active" && !c.nonprofit && year(c.batch) >= 2020)
+    .filter((c) => (c.team_size ?? 0) >= 8 && (c.team_size ?? 0) <= 500)
+    .filter((c) => c.industry === "B2B" || c.industries?.includes("B2B") || c.industry === "Fintech")
+    .filter((c) => where(c) && !skip.has(companyKey(c.name)))
+    .sort((a, b) => Number(b.isHiring) - Number(a.isHiring) || year(b.batch) - year(a.batch))
+    .slice(0, limit)
+    .map((c) => ({
+      key: companyKey(c.name),
+      name: c.name,
+      website: c.website,
+      source: "yc" as const,
+      oneLiner: c.one_liner,
+      industry: c.subindustry || c.industry,
+      location: c.all_locations || c.regions.join(", "),
+      teamSize: c.team_size ?? undefined,
+      batch: c.batch,
+      ycUrl: c.url,
+      logo: c.small_logo_thumb_url || undefined,
+      isHiring: c.isHiring,
+      status: "new" as const,
+      contacts: [],
+      updatedAt: Date.now(),
+    }));
+}
+
+/** Scores newly saved companies against your CVs, fifteen per call. */
+async function fitProspects(ctx: ActionCtx, me: Context, ids: Id<"prospects">[]) {
+  const rows: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.forAction, { userId: me.userId, ids });
+  const cvs = me.resumes.map((r) => r.resume);
+  for (let i = 0; i < rows.length; i += 15) {
+    const batch = rows.slice(i, i + 15);
+    const fits = await scoreProspects(batch, cvs, me.tracks);
+    for (const f of fits) {
+      const row = batch.find((r) => r.key === f.key);
+      if (row) {
+        await ctx.runMutation(internal.prospects.patchForAction, {
+          userId: me.userId,
+          prospectId: row._id,
+          fit: { score: Math.max(0, Math.min(100, Math.round(f.score))), reason: f.reason, angle: f.angle },
+        });
+      }
+    }
+  }
+}
+
+export const findYcCompanies = action({
+  args: {},
+  handler: async (ctx): Promise<{ added: number }> => {
+    const me = await setup(ctx);
+    if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
+    const skip = new Set<string>(await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId }));
+    const found = await ycCandidates(me.location, skip, 30);
+    const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, { userId: me.userId, prospects: found });
+    if (ids.length) {
+      await spend(ctx, me.userId, "score", Math.ceil(ids.length / 15));
+      await fitProspects(ctx, me, ids);
+    }
+    return { added: ids.length };
+  },
+});
+
+export const findFunded = action({
+  args: {},
+  handler: async (ctx): Promise<{ added: number }> => {
+    const me = await setup(ctx);
+    if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
+    await spend(ctx, me.userId, "research");
+    const skip: string[] = await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId });
+    const found = await findFundedCompanies(me.location, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
+    const prospects: NewProspect[] = found.map((c) => ({
+      key: companyKey(c.name),
+      name: c.name,
+      website: c.website,
+      source: "funded",
+      oneLiner: c.oneLiner,
+      industry: c.industry,
+      location: c.location,
+      teamSize: c.teamSize || undefined,
+      funding: c.funding,
+      fundingSource: c.sourceUrl,
+      status: "new",
+      contacts: [],
+      updatedAt: Date.now(),
+    }));
+    const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, { userId: me.userId, prospects });
+    if (ids.length) await fitProspects(ctx, me, ids);
+    return { added: ids.length };
+  },
+});
+
+/** Common ground and an early-approach note for one person at a company with no posted role. */
+export const personaliseProspect = action({
+  args: { prospectId: v.id("prospects"), contactId: v.string(), profileText: v.optional(v.string()), searchWeb: v.boolean() },
+  handler: async (ctx, { prospectId, contactId, profileText, searchWeb }): Promise<null> => {
+    const { userId, resumes } = await setup(ctx);
+    const [p]: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.forAction, { userId, ids: [prospectId] });
+    if (!p) throw new ConvexError("Company not found.");
+    const person = p.contacts.find((c) => c.id === contactId);
+    if (!person) throw new ConvexError("That person isn't on this company any more.");
+    const pasted = profileText?.trim() || person.profileText;
+    if (!pasted && !searchWeb) throw new ConvexError("Paste their LinkedIn profile, or tick the web search box.");
+    await spend(ctx, userId, "notes");
+    const asJob = { title: "(no role posted)", company: p.name, location: p.location, description: `${p.oneLiner}. ${p.funding ?? (p.batch ? `YC ${p.batch}` : "")}`, url: p.website };
+    const out = await personaliseOutreach(asJob, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb, true);
+    const contacts = p.contacts.map((c) =>
+      c.id === contactId ? { ...c, profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email } : c,
+    );
+    await ctx.runMutation(internal.prospects.patchForAction, { userId, prospectId, contacts });
     return null;
   },
 });

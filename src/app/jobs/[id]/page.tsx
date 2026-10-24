@@ -159,7 +159,7 @@ export default function JobPage() {
                 </a>
               ))}
             </div>
-            <HiringContacts jobId={job._id} contacts={job.hiringContacts ?? []} note={job.pack?.directNote} emailSubject={job.pack?.emailSubject} email={job.pack?.email} />
+            <HiringContacts owner={{ jobId: job._id }} contacts={job.hiringContacts ?? []} note={job.pack?.directNote} emailSubject={job.pack?.emailSubject} email={job.pack?.email} />
             {job.pack?.directNote ? (
               <div className="mt-5 space-y-5 border-t border-line pt-5">
                 <div>

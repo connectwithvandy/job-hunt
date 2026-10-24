@@ -149,3 +149,30 @@ export const jobFields = {
 };
 
 export const jobV = v.object(jobFields);
+
+/** A company worth approaching before it posts a role: a YC startup or one that just raised money. */
+export const prospectFields = {
+  /** Company name lowercased without punctuation, so the same company isn't saved twice. */
+  key: v.string(),
+  name: v.string(),
+  website: v.string(),
+  source: v.union(v.literal("yc"), v.literal("funded"), v.literal("manual")),
+  oneLiner: v.string(),
+  industry: v.string(),
+  location: v.string(),
+  teamSize: v.optional(v.number()),
+  /** YC batch, like "Summer 2024". */
+  batch: v.optional(v.string()),
+  ycUrl: v.optional(v.string()),
+  logo: v.optional(v.string()),
+  /** Latest round, like "Series A, $12M, Sept 2026, led by Accel". */
+  funding: v.optional(v.string()),
+  fundingSource: v.optional(v.string()),
+  isHiring: v.optional(v.boolean()),
+  fit: v.optional(v.object({ score: v.number(), reason: v.string(), angle: v.string() })),
+  status: v.union(v.literal("new"), v.literal("approaching"), v.literal("talking"), v.literal("skip")),
+  contacts: v.array(hiringContactV),
+  updatedAt: v.number(),
+};
+
+export const prospectV = v.object(prospectFields);

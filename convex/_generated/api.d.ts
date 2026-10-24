@@ -24,6 +24,7 @@ import type * as lib_facts from "../lib/facts.js";
 import type * as lib_sources from "../lib/sources.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
+import type * as prospects from "../prospects.js";
 import type * as users from "../users.js";
 
 import type {
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/sources": typeof lib_sources;
   "lib/validators": typeof lib_validators;
   limits: typeof limits;
+  prospects: typeof prospects;
   users: typeof users;
 }>;
 

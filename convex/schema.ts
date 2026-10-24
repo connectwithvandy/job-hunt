@@ -1,7 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { jobFields, resumeV, trackFields } from "./lib/validators";
+import { jobFields, prospectFields, resumeV, trackFields } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -30,6 +30,10 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_and_externalId", ["userId", "externalId"])
     .index("by_userId_and_roleKey", ["userId", "roleKey"]),
+
+  prospects: defineTable({ userId: v.id("users"), ...prospectFields })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_key", ["userId", "key"]),
 
   contacts: defineTable({
     userId: v.id("users"),

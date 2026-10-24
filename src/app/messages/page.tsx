@@ -65,7 +65,7 @@ export default function Messages() {
                 <>
                   <div>
                     <div className="label mb-2">Hiring manager or HR</div>
-                    <HiringContacts jobId={r._id} contacts={r.hiringContacts} note={r.directNote} emailSubject={r.emailSubject} email={r.email} />
+                    <HiringContacts owner={{ jobId: r._id }} contacts={r.hiringContacts} note={r.directNote} emailSubject={r.emailSubject} email={r.email} />
                   </div>
                   <details>
                     <summary className="cursor-pointer text-sm font-medium">LinkedIn note</summary>
