@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
+import { companyKey } from "./lib/company";
 import { hiringContactV, prospectFields } from "./lib/validators";
 
 const statusV = prospectFields.status;
@@ -103,5 +104,55 @@ export const topForChat = internalQuery({
       .filter((r) => r.status !== "skip")
       .sort((a, b) => (b.fit?.score ?? 0) - (a.fit?.score ?? 0))
       .slice(0, 20);
+  },
+});
+
+/** Puts a company on or off your Dream 20. */
+export const setDream = mutation({
+  args: { prospectId: v.id("prospects"), dream: v.boolean() },
+  handler: async (ctx, { prospectId, dream }) => {
+    const userId = await requireUserId(ctx);
+    await ownProspect(ctx, userId, prospectId);
+    await ctx.db.patch("prospects", prospectId, { dream, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+/** Adds a company to your Dream 20 by name, or marks it if it's already in your list. */
+export const addDream = mutation({
+  args: { name: v.string(), website: v.optional(v.string()) },
+  handler: async (ctx, { name, website }) => {
+    const userId = await requireUserId(ctx);
+    const clean = name.trim();
+    if (!clean) throw new ConvexError("Type a company name.");
+    const key = companyKey(clean);
+    const existing = await ctx.db.query("prospects").withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", key)).first();
+    if (existing) {
+      await ctx.db.patch("prospects", existing._id, { dream: true, status: existing.status === "skip" ? "new" : existing.status, updatedAt: Date.now() });
+      return existing._id;
+    }
+    const dreams = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(1000);
+    if (dreams.filter((d) => d.dream).length >= 30) throw new ConvexError("Your dream list is full at 30. Take one off first.");
+    return await ctx.db.insert("prospects", {
+      userId, key, name: clean, website: website?.trim() ?? "", source: "manual", oneLiner: "", industry: "", location: "",
+      dream: true, status: "new", contacts: [], updatedAt: Date.now(),
+    });
+  },
+});
+
+export const dreamsForAction = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const rows = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(1000);
+    return rows.filter((r) => r.dream && r.status !== "skip").slice(0, 30);
+  },
+});
+
+export const recordRoles = internalMutation({
+  args: { userId: v.id("users"), prospectId: v.id("prospects"), openRoles: v.number(), details: v.optional(v.object({ website: v.string(), oneLiner: v.string(), industry: v.string(), location: v.string(), whyDream: v.string() })) },
+  handler: async (ctx, { userId, prospectId, openRoles, details }) => {
+    await ownProspect(ctx, userId, prospectId);
+    await ctx.db.patch("prospects", prospectId, { openRoles, rolesCheckedAt: Date.now(), ...(details ?? {}) });
+    return null;
   },
 });

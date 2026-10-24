@@ -170,6 +170,12 @@ export const prospectFields = {
   fundingSource: v.optional(v.string()),
   isHiring: v.optional(v.boolean()),
   fit: v.optional(v.object({ score: v.number(), reason: v.string(), angle: v.string() })),
+  /** On your Dream 20: companies you'd love to work for, watched for openings. */
+  dream: v.optional(v.boolean()),
+  whyDream: v.optional(v.string()),
+  /** Sales and GTM openings in India or remote at the last check. */
+  openRoles: v.optional(v.number()),
+  rolesCheckedAt: v.optional(v.number()),
   status: v.union(v.literal("new"), v.literal("approaching"), v.literal("talking"), v.literal("skip")),
   contacts: v.array(hiringContactV),
   updatedAt: v.number(),

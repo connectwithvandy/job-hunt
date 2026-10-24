@@ -4,12 +4,12 @@ import { randomUUID } from "node:crypto";
 import { ConvexError, v, type Infer } from "convex/values";
 import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findFundedCompanies, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { readPlace } from "./lib/sources";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -298,6 +298,15 @@ export const dailyRun = internalAction({
             console.warn("Autopilot scoring stopped", String(err));
           }
         }
+        // Watch the Dream 20 for new sales and GTM openings too.
+        const dreams: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.dreamsForAction, { userId });
+        for (const p of dreams) {
+          try {
+            await ctx.runMutation(internal.prospects.recordRoles, { userId, prospectId: p._id, openRoles: await checkCompanyRoles(ctx, me, p) });
+          } catch (err) {
+            console.warn("Autopilot role check failed", p.name, String(err));
+          }
+        }
         const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
         await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong });
       } catch (err) {
@@ -453,7 +462,7 @@ type YcCompany = {
 };
 
 /** Recent, active YC startups in your place, the hiring ones first, that aren't in your list yet. */
-async function ycCandidates(location: string, skip: Set<string>, limit: number): Promise<NewProspect[]> {
+async function ycCandidates(location: string, skip: Set<string>, limit: number, indiaOrRemote: boolean): Promise<NewProspect[]> {
   const res = await fetch("https://yc-oss.github.io/api/companies/all.json", { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new ConvexError("The YC directory didn't answer. Try again in a minute.");
   const all = (await res.json()) as YcCompany[];
@@ -461,6 +470,7 @@ async function ycCandidates(location: string, skip: Set<string>, limit: number):
   const year = (b: string) => Number(b.match(/\d{4}/)?.[0] ?? 0);
   const where = (c: YcCompany) => {
     const text = `${c.regions.join(" ")} ${c.all_locations}`.toLowerCase();
+    if (indiaOrRemote) return text.includes("india") || text.includes("remote");
     if (place.kind === "anywhere") return true;
     if (place.kind === "remote") return text.includes("remote");
     return text.includes(place.name.toLowerCase()) || (place.country === "in" && text.includes("india"));
@@ -511,13 +521,16 @@ async function fitProspects(ctx: ActionCtx, me: Context, ids: Id<"prospects">[])
   }
 }
 
+/** India or remote only, whatever your Roles page says; the default for company searches. */
+const scopeV = v.union(v.literal("india_remote"), v.literal("profile"));
+
 export const findYcCompanies = action({
-  args: {},
-  handler: async (ctx): Promise<{ added: number }> => {
+  args: { scope: v.optional(scopeV) },
+  handler: async (ctx, { scope = "india_remote" }): Promise<{ added: number }> => {
     const me = await setup(ctx);
     if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
     const skip = new Set<string>(await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId }));
-    const found = await ycCandidates(me.location, skip, 30);
+    const found = await ycCandidates(me.location, skip, 30, scope === "india_remote");
     const ids: Id<"prospects">[] = await ctx.runMutation(internal.prospects.insertMany, { userId: me.userId, prospects: found });
     if (ids.length) {
       await spend(ctx, me.userId, "score", Math.ceil(ids.length / 15));
@@ -528,13 +541,13 @@ export const findYcCompanies = action({
 });
 
 export const findFunded = action({
-  args: {},
-  handler: async (ctx): Promise<{ added: number }> => {
+  args: { scope: v.optional(scopeV) },
+  handler: async (ctx, { scope = "india_remote" }): Promise<{ added: number }> => {
     const me = await setup(ctx);
     if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
     await spend(ctx, me.userId, "research");
     const skip: string[] = await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId });
-    const found = await findFundedCompanies(me.location, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
+    const found = await findFundedCompanies(scope === "india_remote" ? "India, or hiring remotely in India" : me.location, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);
     const prospects: NewProspect[] = found.map((c) => ({
       key: companyKey(c.name),
       name: c.name,
@@ -616,5 +629,76 @@ export const chatReply = internalAction({
       await ctx.runMutation(internal.chats.writeReply, { chatId, text: text ? `${text}\n\n(${reason})` : reason, done: true });
     }
     return null;
+  },
+});
+
+// ---------- Dream 20 and open roles ----------
+
+const GTM_TITLE = /\b(sales|gtm|go[- ]to[- ]market|business development|bdr|sdr|account (executive|manager|director)|revenue|partnerships?|growth|customer success|solutions? (engineer|consultant)|commercial)\b/i;
+const INDIA = /india|bengaluru|bangalore|mumbai|delhi|gurgaon|gurugram|noida|pune|hyderabad|chennai/i;
+
+/** Looks up a company's open sales and GTM roles in India or remote, saves them as jobs, and returns how many there are. */
+async function checkCompanyRoles(ctx: ActionCtx, me: Context, p: Doc<"prospects">): Promise<number> {
+  const listings = await companyListings(p.name);
+  const fits = listings.filter((l) => GTM_TITLE.test(l.title) && (INDIA.test(l.location ?? "") || l.workSetting === "remote" || /remote/i.test(l.location ?? "")));
+  if (!fits.length) return 0;
+  const active = me.tracks.filter((t) => t.status === "active");
+  const trackFor = (title: string) => (active.find((t) => t.titles.some((x) => titleMatches(x, title))) ?? active[0])?.key ?? "";
+  await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: fits.map((l) => fromListing(l, trackFor(l.title))) });
+  return fits.length;
+}
+
+export const checkOpenRoles = action({
+  args: { prospectId: v.optional(v.id("prospects")) },
+  handler: async (ctx, { prospectId }): Promise<{ companies: number; roles: number }> => {
+    const me = await setup(ctx);
+    const list: Doc<"prospects">[] = prospectId
+      ? await ctx.runQuery(internal.prospects.forAction, { userId: me.userId, ids: [prospectId] })
+      : await ctx.runQuery(internal.prospects.dreamsForAction, { userId: me.userId });
+    let roles = 0;
+    for (const p of list) {
+      try {
+        const n = await checkCompanyRoles(ctx, me, p);
+        roles += n;
+        await ctx.runMutation(internal.prospects.recordRoles, { userId: me.userId, prospectId: p._id, openRoles: n });
+      } catch (err) {
+        console.warn("Role check failed", p.name, String(err));
+      }
+    }
+    return { companies: list.length, roles };
+  },
+});
+
+export const suggestDreams = action({
+  args: { mustInclude: v.array(v.string()), count: v.optional(v.number()) },
+  handler: async (ctx, { mustInclude, count = 20 }): Promise<{ added: number }> => {
+    const me = await setup(ctx);
+    if (!me.resumes.length) throw new ConvexError("Upload your CV first.");
+    await spend(ctx, me.userId, "research");
+    const have: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.dreamsForAction, { userId: me.userId });
+    const want = Math.max(1, Math.min(20, count - have.length));
+    const picks = mustInclude.map((n) => n.trim()).filter(Boolean).slice(0, 20);
+    const found = await suggestDreamCompanies(me.resumes.map((r) => r.resume), me.tracks.map((t) => t.name), picks, have.map((h) => h.name), want);
+    let added = 0;
+    for (const c of found) {
+      const id: Id<"prospects"> = await ctx.runMutation(api.prospects.addDream, { name: c.name, website: c.website });
+      await ctx.runMutation(internal.prospects.recordRoles, {
+        userId: me.userId,
+        prospectId: id,
+        openRoles: 0,
+        details: { website: c.website, oneLiner: c.oneLiner, industry: c.industry, location: c.location, whyDream: c.whyDream },
+      });
+      added++;
+    }
+    // Check the new list for openings straight away.
+    const dreams: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.dreamsForAction, { userId: me.userId });
+    for (const p of dreams.filter((d) => !d.rolesCheckedAt)) {
+      try {
+        await ctx.runMutation(internal.prospects.recordRoles, { userId: me.userId, prospectId: p._id, openRoles: await checkCompanyRoles(ctx, me, p) });
+      } catch (err) {
+        console.warn("Role check failed", p.name, String(err));
+      }
+    }
+    return { added };
   },
 });

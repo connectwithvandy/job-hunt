@@ -1,6 +1,7 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
+import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
@@ -24,14 +25,24 @@ export default function Companies() {
   const findYc = useAction(api.agent.findYcCompanies);
   const findFunded = useAction(api.agent.findFunded);
   const setStatus = useMutation(api.prospects.setStatus);
+  const setDream = useMutation(api.prospects.setDream);
+  const addDream = useMutation(api.prospects.addDream);
+  const suggest = useAction(api.agent.suggestDreams);
+  const checkRoles = useAction(api.agent.checkOpenRoles);
+  const [tab, setTab] = useState<"dream" | "startups">("dream");
+  const [scope, setScope] = useState<"india_remote" | "profile">("india_remote");
   const [show, setShow] = useState<Status>("new");
   const [minFit, setMinFit] = useState(0);
+  const [picks, setPicks] = useState("OpenAI, ElevenLabs, Anthropic, Rubrik, Emergent");
+  const [newName, setNewName] = useState("");
   if (!rows) return <Loading />;
 
-  const count = (s: Status) => rows.filter((r) => r.status === s).length;
-  const visible = rows
+  const inTab = rows.filter((r) => (tab === "dream" ? r.dream : !r.dream));
+  const count = (s: Status) => inTab.filter((r) => r.status === s).length;
+  const visible = inTab
     .filter((r) => r.status === show && (r.fit?.score ?? 0) >= minFit)
-    .sort((a, b) => (b.fit?.score ?? -1) - (a.fit?.score ?? -1));
+    .sort((a, b) => (b.openRoles ?? 0) - (a.openRoles ?? 0) || (b.fit?.score ?? -1) - (a.fit?.score ?? -1));
+  const dreamCount = rows.filter((r) => r.dream && r.status !== "skip").length;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -39,28 +50,98 @@ export default function Companies() {
         title="Companies"
         sub="Startups worth approaching before they post a role: recent YC companies and ones that just raised money. Reach the founders or sales leaders early, when there's no queue."
       />
-      <div className="card mb-6 flex flex-wrap items-center gap-3 p-5">
-        <ActionButton
-          run={async () => {
-            const { added } = await findYc({});
-            return added ? `Added ${added} YC companies, scored for fit.` : "No new YC companies match right now.";
-          }}
-          pending="Searching YC… about a minute"
-        >
-          Find YC companies
-        </ActionButton>
-        <ActionButton
-          run={async () => {
-            const { added } = await findFunded({});
-            return added ? `Added ${added} recently funded companies.` : "No new funding news found. Try again in a few days.";
-          }}
-          pending="Searching funding news… 1 to 2 minutes"
-          variant="ghost"
-        >
-          Find recently funded
-        </ActionButton>
-        <span className="text-xs text-ink-3">Uses the place on your Roles page. YC companies come from the public YC directory; funding comes from news searches.</span>
+      <div className="mb-5 flex gap-2">
+        {(
+          [
+            ["dream", `Dream list · ${dreamCount}`],
+            ["startups", `Startups · ${rows.filter((r) => !r.dream).length}`],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`rounded-full border px-4 py-1.5 text-sm ${tab === k ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
+      {tab === "dream" ? (
+        <div className="card mb-6 space-y-3 p-5">
+          <p className="text-sm text-ink-2">
+            Up to 20 companies you&apos;d love to work for. They&apos;re checked for sales and GTM openings in India or remote, which land in your Jobs list, and re-checked every morning when autopilot is on.
+          </p>
+          <label className="block">
+            <span className="label">Your must-haves</span>
+            <input className="field mt-1" value={picks} onChange={(e) => setPicks(e.target.value)} placeholder="Company names, separated by commas" />
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <ActionButton
+              run={async () => {
+                const { added } = await suggest({ mustInclude: picks.split(",") });
+                return `Added ${added}. Checked them for open roles too.`;
+              }}
+              pending="Researching companies… 2 to 3 minutes"
+            >
+              {dreamCount ? "Fill my list to 20" : "Build my Dream 20"}
+            </ActionButton>
+            {dreamCount > 0 && (
+              <ActionButton
+                run={async () => {
+                  const { companies, roles } = await checkRoles({});
+                  return `Checked ${companies} companies: ${roles} sales and GTM ${roles === 1 ? "opening" : "openings"} in India or remote, added to Jobs.`;
+                }}
+                pending="Checking open roles…"
+                variant="ghost"
+              >
+                Check for open roles
+              </ActionButton>
+            )}
+          </div>
+          <form
+            className="flex gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newName.trim()) return;
+              await addDream({ name: newName });
+              setNewName("");
+            }}
+          >
+            <input className="field" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Add one company by name" />
+            <button className="btn btn-ghost btn-sm">Add</button>
+          </form>
+        </div>
+      ) : (
+        <div className="card mb-6 space-y-3 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <ActionButton
+              run={async () => {
+                const { added } = await findYc({ scope });
+                return added ? `Added ${added} YC companies, scored for fit.` : "No new YC companies match right now.";
+              }}
+              pending="Searching YC… about a minute"
+            >
+              Find YC companies
+            </ActionButton>
+            <ActionButton
+              run={async () => {
+                const { added } = await findFunded({ scope });
+                return added ? `Added ${added} recently funded companies.` : "No new funding news found. Try again in a few days.";
+              }}
+              pending="Searching funding news… 1 to 2 minutes"
+              variant="ghost"
+            >
+              Find recently funded
+            </ActionButton>
+            <select className="field !w-auto !py-1.5 text-sm" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} aria-label="Where">
+              <option value="india_remote">India or remote only</option>
+              <option value="profile">Where my Roles page says</option>
+            </select>
+          </div>
+          <p className="text-xs text-ink-3">YC companies come from the public YC directory; funding comes from news searches. Each one is scored for fit against your CVs.</p>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {STATUSES.map((s) => (
@@ -110,11 +191,28 @@ export default function Companies() {
                       </>
                     )}
                   </div>
+                  {p.whyDream && <p className="mt-2 text-sm text-ink-2">{p.whyDream}</p>}
                   {p.fit && (
                     <p className="mt-2 text-sm text-ink-2">
                       {p.fit.reason} <span className="text-ink">Angle: {p.fit.angle}</span>
                     </p>
                   )}
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    {p.rolesCheckedAt !== undefined &&
+                      (p.openRoles ? (
+                        <Link href={`/jobs?q=${encodeURIComponent(p.name)}`} className="rounded-full bg-accent px-2.5 py-0.5 font-medium text-on-accent">
+                          {p.openRoles} open {p.openRoles === 1 ? "role" : "roles"} in India or remote →
+                        </Link>
+                      ) : (
+                        <span className="text-ink-3">No sales or GTM openings in India or remote at the last check</span>
+                      ))}
+                    <button className="text-ink-3 underline hover:text-ink" onClick={() => void checkRoles({ prospectId: p._id })}>
+                      Check open roles
+                    </button>
+                    <button className="text-ink-3 underline hover:text-ink" onClick={() => void setDream({ prospectId: p._id, dream: !p.dream })}>
+                      {p.dream ? "Take off dream list" : "Add to dream list"}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <ScorePill score={p.fit?.score} />
