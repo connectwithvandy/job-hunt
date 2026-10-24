@@ -10,6 +10,7 @@ import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/compon
 import { CoverLetter, DirectNote, EmailDraft, HiringContacts, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
+import { inInr, useInrRates } from "@/lib/money";
 
 export default function JobPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ export default function JobPage() {
   const data = useQuery(api.jobs.get, { jobId });
   const scoreJobs = useAction(api.agent.scoreJobs);
   const setStatus = useMutation(api.jobs.setStatus);
+  const rates = useInrRates();
 
   if (!me || data === undefined) return <Loading />;
   if (data === null) {
@@ -50,6 +52,7 @@ export default function JobPage() {
             {job.company} · {job.location}
             {job.workSetting && job.workSetting !== "unknown" ? ` · ${job.workSetting}` : ""}
             {job.salary ? ` · ${job.salary}` : ""}
+            {inInr(job.salary, rates) ? ` (${inInr(job.salary, rates)})` : ""}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
             <TrackTag track={currentTrack} />

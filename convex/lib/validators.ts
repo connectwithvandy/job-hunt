@@ -89,6 +89,8 @@ export const scoreV = v.object({ trackKey: v.string(), score: v.number(), reason
 
 export const jobFields = {
   externalId: v.string(),
+  /** Company plus title, so the same role from another board or a later search isn't added twice. */
+  roleKey: v.optional(v.string()),
   source: v.union(v.literal("dreamwork"), v.literal("jsearch"), v.literal("adzuna"), v.literal("himalayas"), v.literal("link"), v.literal("pasted")),
   url: v.string(),
   sourceUrl: v.optional(v.string()),

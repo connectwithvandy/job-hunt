@@ -11,6 +11,7 @@ import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
 import { applyFilters, FILTERS } from "@/lib/jobFilters";
+import { inInr, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
 
 export default function JobsPage() {
@@ -25,6 +26,8 @@ function Jobs() {
   const params = useSearchParams();
   const router = useRouter();
   const [q, setQ] = useState(params.get("q") ?? "");
+  const rates = useInrRates();
+  const [now] = useState(() => Date.now());
   const track = params.get("track");
   const show = params.get("show");
   const region = params.get("region");
@@ -34,8 +37,11 @@ function Jobs() {
   if (!me || !jobs) return <Loading />;
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
 
+  // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
+  const isOld = (j: (typeof jobs)[number]) => j.status === "new" && now - (j.postedAt ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000;
+  const oldCount = jobs.filter(isOld).length;
   const inView = jobs
-    .filter((j) => (show === "hidden" ? j.status === "dismissed" : j.status !== "dismissed"))
+    .filter((j) => (show === "hidden" ? j.status === "dismissed" : show === "old" ? isOld(j) : j.status !== "dismissed" && !isOld(j)))
     .filter((j) => !track || jobTrackKey(j) === track);
   // Region counts follow the other filters, so each chip shows what clicking it would leave.
   const filtered = applyFilters(inView, params);
@@ -90,6 +96,7 @@ function Jobs() {
           ),
         )}
         {chip(hrefWith({ track: null, show: "hidden" }), "Not for me", show === "hidden")}
+        {oldCount > 0 && chip(hrefWith({ track: null, show: "old" }), `Older than 45 days · ${oldCount}`, show === "old")}
         <span className="flex-1" />
         {batch.length > 0 && (
           <ActionButton
@@ -172,6 +179,7 @@ function Jobs() {
                     <div className="mt-0.5 text-xs text-ink-3">
                       {j.location}
                       {j.postedAt ? ` · ${timeAgo(j.postedAt)}` : ""}
+                      {j.salary ? ` · ${inInr(j.salary, rates) ?? j.salary}` : ""}
                       {j.status !== "new" ? ` · ${STATUS_LABELS[j.status]}` : ""}
                     </div>
                     {best && <p className="mt-1.5 line-clamp-2 text-sm text-ink-2">{best.reason}</p>}

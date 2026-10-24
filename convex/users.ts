@@ -42,6 +42,8 @@ export const me = query({
       onboarded: profile?.onboarded ?? false,
       location: profile?.location ?? "India",
       contactsCount: profile?.contactsCount ?? 0,
+      autopilot: profile?.autopilot ?? false,
+      lastAutopilot: profile?.lastAutopilot ?? null,
       resumes: resumes.map((r) => ({ _id: r._id, label: r.label, resume: r.resume })),
       defaultResumeId: defaultResume?._id ?? null,
       /** The default CV, for the greeting and quick checks. */
@@ -210,5 +212,34 @@ export const storeParsedResume = internalMutation({
     const profile = await profileFor(ctx, userId);
     if (!profile.defaultResumeId) await ctx.db.patch("profiles", profile._id, { defaultResumeId: id });
     return id;
+  },
+});
+
+// ---------- Autopilot ----------
+
+export const setAutopilot = mutation({
+  args: { on: v.boolean() },
+  handler: async (ctx, { on }) => {
+    const userId = await requireUserId(ctx);
+    const profile = await profileFor(ctx, userId);
+    await ctx.db.patch("profiles", profile._id, { autopilot: on });
+    return null;
+  },
+});
+
+export const autopilotUsers = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const profiles = await ctx.db.query("profiles").withIndex("by_autopilot", (q) => q.eq("autopilot", true)).take(50);
+    return profiles.map((p) => p.userId);
+  },
+});
+
+export const recordAutopilot = internalMutation({
+  args: { userId: v.id("users"), added: v.number(), scored: v.number(), strong: v.number() },
+  handler: async (ctx, { userId, ...run }) => {
+    const profile = await profileFor(ctx, userId);
+    await ctx.db.patch("profiles", profile._id, { lastAutopilot: { at: Date.now(), ...run } });
+    return null;
   },
 });

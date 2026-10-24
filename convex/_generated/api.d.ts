@@ -11,6 +11,7 @@
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
 import type * as contacts from "../contacts.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
 import type * as lib_ai from "../lib/ai.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
   contacts: typeof contacts;
+  crons: typeof crons;
   http: typeof http;
   jobs: typeof jobs;
   "lib/ai": typeof lib_ai;

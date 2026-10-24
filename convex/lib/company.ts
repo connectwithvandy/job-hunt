@@ -23,3 +23,8 @@ export function referralRank(position: string) {
 export function linkedInPeopleSearch(company: string, title: string) {
   return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${title} ${company}`)}`;
 }
+
+/** Same company and title, ignoring case and punctuation: one role seen on several boards or searches. */
+export function roleKey(company: string, title: string) {
+  return `${companyKey(company)}|${title.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+}

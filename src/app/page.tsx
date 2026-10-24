@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -48,6 +48,8 @@ export default function Today() {
           {firstName ? `, ${firstName}` : ""}
         </h1>
       </header>
+
+      <Autopilot on={me.autopilot} last={me.lastAutopilot} />
 
       {(me.contactsCount === 0 || jobs.length === 0) && (
         <section className="card mb-10 p-6">
@@ -200,5 +202,32 @@ function JobRow({ j, track }: { j: Pick<Doc<"jobs">, "_id" | "title" | "company"
         <ScorePill score={bestScore(j)?.score} />
       </Link>
     </li>
+  );
+}
+
+/** The morning search-and-score switch, and what the last run found. */
+function Autopilot({ on, last }: { on: boolean; last: { at: number; added: number; scored: number; strong: number } | null }) {
+  const setAutopilot = useMutation(api.users.setAutopilot);
+  return (
+    <section className="card mb-10 flex flex-wrap items-center gap-4 p-5">
+      <div className="flex-1">
+        <div className="font-medium">Morning autopilot {on ? "is on" : "is off"}</div>
+        <p className="mt-0.5 text-sm text-ink-2">
+          {!on
+            ? "Turn it on and every morning at 8 the app searches all your active tracks and scores what's new, so you start with a ranked list."
+            : last
+              ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"}.`
+              : "First run is tomorrow at 8 in the morning, India time."}
+        </p>
+      </div>
+      {on && last && last.strong > 0 && (
+        <Link href="/jobs?fit=strong" className="btn btn-ghost btn-sm">
+          See strong fits
+        </Link>
+      )}
+      <button className={`btn btn-sm ${on ? "btn-ghost" : "btn-primary"}`} onClick={() => void setAutopilot({ on: !on })}>
+        {on ? "Turn off" : "Turn on"}
+      </button>
+    </section>
   );
 }

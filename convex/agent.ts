@@ -6,7 +6,7 @@ import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { action, type ActionCtx } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { buildPack, draftReferralNotes, extractJob, parseResume, scoreJob } from "./lib/brain";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -14,6 +14,9 @@ import { htmlToText, searchOtherSources, titleMatches, type Found } from "./lib/
 import type { jobV, resumeV } from "./lib/validators";
 
 type NewJob = Infer<typeof jobV>;
+
+/** Jobs the morning run scores per person; the rest wait a day. */
+const AUTOPILOT_SCORES = 24;
 type Resume = Infer<typeof resumeV>;
 type Context = {
   userId: Id<"users">;
@@ -30,7 +33,10 @@ async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "scor
 }
 
 async function setup(ctx: ActionCtx): Promise<Context> {
-  const userId = await requireUserId(ctx);
+  return await contextFor(ctx, await requireUserId(ctx));
+}
+
+async function contextFor(ctx: ActionCtx, userId: Id<"users">): Promise<Context> {
   const me: Omit<Context, "userId"> = await ctx.runQuery(internal.users.context, { userId });
   return { userId, ...me };
 }
@@ -135,11 +141,17 @@ export const findJobs = action({
     const { userId, tracks, location } = await setup(ctx);
     const track = tracks.find((t) => t.key === trackKey);
     if (!track) throw new ConvexError("Unknown track.");
+    return { added: await searchTrack(ctx, userId, track, location), trackName: track.name };
+  },
+});
+
+/** Searches every board for one track and saves the new roles. Returns how many were new. */
+async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2): Promise<number> {
     const [settled, others] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
         : Promise.allSettled(track.titles.slice(0, 8).map((title) => searchListings(title, location, 8))),
-      track.company ? Promise.resolve([]) : searchOtherSources(track.titles, location),
+      track.company ? Promise.resolve([]) : searchOtherSources(track.titles, location, googleTitles),
     ]);
     // Dreamwork also matches company names, so keep only titles holding the searched words.
     const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
@@ -152,9 +164,8 @@ export const findJobs = action({
     const all = [...listings.map((l) => fromListing(l, track.key)), ...others.map((f) => fromFound(f, track.key))];
     const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()];
     const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique });
-    return { added, trackName: track.name };
-  },
-});
+    return added;
+}
 
 export const addJob = action({
   args: { link: v.optional(v.string()), text: v.optional(v.string()) },
@@ -212,11 +223,19 @@ async function withDescription(job: Doc<"jobs">) {
 export const scoreJobs = action({
   args: { jobIds: v.array(v.id("jobs")) },
   handler: async (ctx, { jobIds }): Promise<{ scored: number; failed: number }> => {
-    const { userId, resume, resumeFor, tracks } = await setup(ctx);
+    const me = await setup(ctx);
+    const ids = jobIds.slice(0, 12);
+    await spend(ctx, me.userId, "score", ids.length);
+    const { scored, failed, lastError } = await scoreIds(ctx, me, ids);
+    if (failed === ids.length) throw new ConvexError(lastError);
+    return { scored, failed };
+  },
+});
+
+/** Scores jobs four at a time, each track against its own CV. Doesn't spend allowance; callers do. */
+async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Context, ids: Id<"jobs">[]) {
     const cv = requireResume(resume);
     const cvFor = (t: { key: string }) => resumeFor[t.key] ?? cv;
-    const ids = jobIds.slice(0, 12);
-    await spend(ctx, userId, "score", ids.length);
     let failed = 0;
     let lastError = "";
     // Four at a time, so twelve jobs take about as long as three.
@@ -242,8 +261,46 @@ export const scoreJobs = action({
         }),
       );
     }
-    if (failed === ids.length) throw new ConvexError(lastError);
-    return { scored: ids.length - failed, failed };
+    return { scored: ids.length - failed, failed, lastError };
+}
+
+// ---------- Autopilot ----------
+
+/** Every morning: search each active track for people who turned autopilot on, then score what's new. */
+export const dailyRun = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const userIds: Id<"users">[] = await ctx.runQuery(internal.users.autopilotUsers, {});
+    for (const userId of userIds) {
+      try {
+        const me = await contextFor(ctx, userId);
+        let added = 0;
+        // One Google Jobs title per track keeps a month of mornings inside JSearch's free 200 searches.
+        for (const track of me.tracks.filter((t) => t.status === "active")) {
+          try {
+            added += await searchTrack(ctx, userId, track, me.location, 1);
+          } catch (err) {
+            console.warn("Autopilot search failed", track.key, String(err));
+          }
+        }
+        let scored = 0;
+        const unscored: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit: AUTOPILOT_SCORES });
+        if (unscored.length && me.resume) {
+          try {
+            await spend(ctx, userId, "score", unscored.length);
+            for (let i = 0; i < unscored.length; i += 12) scored += (await scoreIds(ctx, me, unscored.slice(i, i + 12))).scored;
+          } catch (err) {
+            // Out of today's allowance: the rest wait for tomorrow.
+            console.warn("Autopilot scoring stopped", String(err));
+          }
+        }
+        const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
+        await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong });
+      } catch (err) {
+        console.error("Autopilot failed for a user", String(err));
+      }
+    }
+    return null;
   },
 });
 

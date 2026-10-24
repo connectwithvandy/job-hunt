@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation, query, type QueryCtx } from 
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
-import { companyKey, referralRank } from "./lib/company";
+import { companyKey, referralRank, roleKey } from "./lib/company";
 import { hiringContactV, jobFields, jobStatusV, outreachStatusV, outreachV, packV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
@@ -147,15 +147,21 @@ export const insertMany = internalMutation({
     let added = 0;
     let lastId: Id<"jobs"> | null = null;
     for (const job of jobs) {
-      const existing = await ctx.db
-        .query("jobs")
-        .withIndex("by_userId_and_externalId", (q) => q.eq("userId", userId).eq("externalId", job.externalId))
-        .unique();
+      const key = roleKey(job.company, job.title);
+      const existing =
+        (await ctx.db
+          .query("jobs")
+          .withIndex("by_userId_and_externalId", (q) => q.eq("userId", userId).eq("externalId", job.externalId))
+          .unique()) ??
+        (await ctx.db
+          .query("jobs")
+          .withIndex("by_userId_and_roleKey", (q) => q.eq("userId", userId).eq("roleKey", key))
+          .first());
       if (existing) {
         lastId = existing._id;
         continue;
       }
-      lastId = await ctx.db.insert("jobs", { userId, ...job });
+      lastId = await ctx.db.insert("jobs", { userId, ...job, roleKey: key });
       added++;
     }
     return { added, lastId };
@@ -184,5 +190,38 @@ export const patchForAction = internalMutation({
       updatedAt: Date.now(),
     });
     return null;
+  },
+});
+
+/** One-off: give jobs saved before role keys existed a key, a page at a time. */
+export const backfillRoleKeys = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor, numItems: 100 });
+    for (const job of page.page) {
+      if (!job.roleKey) await ctx.db.patch("jobs", job._id, { roleKey: roleKey(job.company, job.title) });
+    }
+    return { done: page.isDone, cursor: page.continueCursor };
+  },
+});
+
+/** Newest jobs not scored yet, for the morning run. */
+export const unscoredIds = internalQuery({
+  args: { userId: v.id("users"), limit: v.number() },
+  handler: async (ctx, { userId, limit }) => {
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
+    return recent.filter((j) => j.status === "new" && !j.scores?.length).slice(0, limit).map((j) => j._id);
+  },
+});
+
+/** How many jobs found since `since` score 75 or more. */
+export const strongSince = internalQuery({
+  args: { userId: v.id("users"), since: v.number() },
+  handler: async (ctx, { userId, since }) => {
+    const recent = await ctx.db
+      .query("jobs")
+      .withIndex("by_userId", (q) => q.eq("userId", userId).gte("_creationTime", since))
+      .take(300);
+    return recent.filter((j) => (j.scores ?? []).some((s) => s.score >= 75)).length;
   },
 });

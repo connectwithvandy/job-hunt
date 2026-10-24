@@ -14,7 +14,12 @@ export default defineSchema({
     location: v.string(),
     onboarded: v.boolean(),
     contactsCount: v.optional(v.number()),
-  }).index("by_userId", ["userId"]),
+    /** Search and score every morning without being asked. */
+    autopilot: v.optional(v.boolean()),
+    lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number() })),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_autopilot", ["autopilot"]),
 
   /** Several master CVs, e.g. one pitched for SDR leadership and one for GTM roles. */
   resumes: defineTable({ userId: v.id("users"), label: v.string(), resume: resumeV }).index("by_userId", ["userId"]),
@@ -23,7 +28,8 @@ export default defineSchema({
 
   jobs: defineTable({ userId: v.id("users"), ...jobFields })
     .index("by_userId", ["userId"])
-    .index("by_userId_and_externalId", ["userId", "externalId"]),
+    .index("by_userId_and_externalId", ["userId", "externalId"])
+    .index("by_userId_and_roleKey", ["userId", "roleKey"]),
 
   contacts: defineTable({
     userId: v.id("users"),

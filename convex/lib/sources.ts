@@ -159,11 +159,11 @@ async function himalayas(title: string, place: Place): Promise<Found[]> {
 }
 
 /** Searches every extra source for these titles. A source that fails is skipped, not fatal. */
-export async function searchOtherSources(titles: string[], location: string) {
+export async function searchOtherSources(titles: string[], location: string, googleTitles = 2) {
   const place = readPlace(location);
   const calls = [
     // JSearch's free plan is about 200 searches a month, so it gets the two main titles only.
-    ...titles.slice(0, 2).map((t) => jsearch(t, place)),
+    ...titles.slice(0, googleTitles).map((t) => jsearch(t, place)),
     ...titles.slice(0, 4).map((t) => adzuna(t, place)),
     ...titles.slice(0, 4).map((t) => himalayas(t, place)),
   ];
