@@ -68,7 +68,9 @@ async function jsearch(title: string, place: Place): Promise<Found[]> {
   if (!key) return [];
   const params = new URLSearchParams({ query: place.kind === "place" ? `${title} in ${place.name}` : title, page: "1", num_pages: "1", date_posted: "month" });
   if (place.kind === "remote") params.set("work_from_home", "true");
-  if (place.kind === "place" && place.country) params.set("country", place.country);
+  // JSearch assumes the US without a country. Dreamwork and Himalayas already cover worldwide
+  // and remote roles, so "Anywhere" and "Remote" use Google for the Indian market instead.
+  params.set("country", place.kind === "place" ? (place.country ?? "us") : "in");
   const body = await getJson<{ data: { jobs: JSearchJob[] } }>(`https://jsearch.p.rapidapi.com/search-v2?${params}`, {
     "X-RapidAPI-Key": key,
     "X-RapidAPI-Host": "jsearch.p.rapidapi.com",

@@ -74,6 +74,20 @@ export const setStatus = mutation({
   },
 });
 
+/** Moves several jobs at once, e.g. marking a batch "Not for me". */
+export const setStatusMany = mutation({
+  args: { jobIds: v.array(v.id("jobs")), status: jobStatusV },
+  handler: async (ctx, { jobIds, status }) => {
+    const userId = await requireUserId(ctx);
+    if (jobIds.length > 200) throw new ConvexError("Pick up to 200 jobs at a time.");
+    for (const jobId of jobIds) {
+      await ownJob(ctx, userId, jobId);
+      await ctx.db.patch("jobs", jobId, { status, updatedAt: Date.now() });
+    }
+    return null;
+  },
+});
+
 export const saveCoverLetter = mutation({
   args: { jobId: v.id("jobs"), text: v.string() },
   handler: async (ctx, { jobId, text }) => {
@@ -259,5 +273,31 @@ export const saveContactsForAction = internalMutation({
     await ownJob(ctx, userId, jobId);
     await ctx.db.patch("jobs", jobId, { hiringContacts: contacts, updatedAt: Date.now() });
     return null;
+  },
+});
+
+/** Every written message across your jobs, for the Messages page. Newest jobs first. */
+export const messages = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(400);
+    return jobs
+      .filter((j) => j.status !== "dismissed" && (j.pack?.directNote || j.outreach.length))
+      .map((j) => ({
+        _id: j._id,
+        title: j.title,
+        company: j.company,
+        status: j.status,
+        updatedAt: j.updatedAt,
+        packCreatedAt: j.pack?.createdAt ?? 0,
+        directNote: j.pack?.directNote,
+        emailSubject: j.pack?.emailSubject,
+        email: j.pack?.email,
+        hiringContacts: j.hiringContacts ?? [],
+        outreach: j.outreach,
+      }))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });

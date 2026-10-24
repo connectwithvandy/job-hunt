@@ -1,10 +1,11 @@
 "use client";
 
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
 import { CompanyMark, PageHead, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { AddJob, FindJobs } from "@/components/job-client";
@@ -34,6 +35,8 @@ function Jobs() {
   const me = useQuery(api.users.me);
   const jobs = useQuery(api.jobs.list);
   const scoreJobs = useAction(api.agent.scoreJobs);
+  const setStatusMany = useMutation(api.jobs.setStatusMany);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   if (!me || !jobs) return <Loading />;
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
 
@@ -161,6 +164,44 @@ function Jobs() {
         </div>
       )}
 
+      {picked.size > 0 && (
+        <div className="card sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-2 p-3 text-sm">
+          <span className="font-medium">{picked.size} selected</span>
+          <ActionButton
+            run={async () => {
+              await setStatusMany({ jobIds: [...picked] as Id<"jobs">[], status: show === "hidden" ? "new" : "dismissed" });
+              setPicked(new Set());
+              return show === "hidden" ? "Moved back to your list." : "Moved to Not for me.";
+            }}
+            variant="ghost"
+            size="sm"
+          >
+            {show === "hidden" ? "Put back in my list" : "Not for me"}
+          </ActionButton>
+          {show !== "hidden" && (
+            <ActionButton
+              run={async () => {
+                const ids = ([...picked] as Id<"jobs">[]).slice(0, 12);
+                const { scored, failed } = await scoreJobs({ jobIds: ids });
+                setPicked(new Set());
+                return failed ? `Scored ${scored}, ${failed} failed.` : `Scored ${scored}.`;
+              }}
+              pending="Scoring…"
+              variant="ghost"
+              size="sm"
+            >
+              Score {Math.min(12, picked.size)}
+            </ActionButton>
+          )}
+          <button className="text-ink-3 underline hover:text-ink" onClick={() => setPicked(new Set(visible.map((j) => j._id)))}>
+            Select all {visible.length}
+          </button>
+          <button className="text-ink-3 underline hover:text-ink" onClick={() => setPicked(new Set())}>
+            Clear
+          </button>
+        </div>
+      )}
+
       {visible.length === 0 ? (
         <div className="card p-10 text-center text-ink-2">{inView.length ? "No jobs match these filters." : "No jobs here yet. Search above, or paste a job description you saw."}</div>
       ) : (
@@ -168,8 +209,20 @@ function Jobs() {
           {visible.map((j) => {
             const best = bestScore(j);
             return (
-              <li key={j._id}>
-                <Link href={`/jobs/${j._id}`} className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-soft">
+              <li key={j._id} className={`flex items-start ${picked.has(j._id) ? "bg-soft" : ""}`}>
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${j.title}`}
+                  className="ml-4 mt-6 h-4 w-4 shrink-0"
+                  checked={picked.has(j._id)}
+                  onChange={(e) => {
+                    const next = new Set(picked);
+                    if (e.target.checked) next.add(j._id);
+                    else next.delete(j._id);
+                    setPicked(next);
+                  }}
+                />
+                <Link href={`/jobs/${j._id}`} className="flex min-w-0 flex-1 items-start gap-4 px-4 py-4 transition-colors hover:bg-soft">
                   <CompanyMark job={j} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-2">
