@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PageHead } from "@/components/bits";
 import { AnswersForm, AutofillLink, ResumeEditor, UploadResume } from "@/components/forms";
+import { MasterEditor } from "@/components/ResumeFields";
 import { Loading } from "@/components/Loading";
 import { ResumeDoc } from "@/components/ResumeDoc";
 import { downloadDocx } from "@/lib/docx";
@@ -106,8 +107,14 @@ export default function Cvs() {
             {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
             <details className="card p-6">
               <summary className="cursor-pointer font-medium">Fix something by hand</summary>
-              <p className="mt-2 mb-4 text-sm text-ink-2">This is your CV as data. Change any text, keep the quotes and commas, then save.</p>
-              <ResumeEditor key={current._id + JSON.stringify(current.resume).length} resumeId={current._id} resume={current.resume} />
+              <p className="mt-2 mb-4 text-sm text-ink-2">Change any line of this CV, then save. Tailored CVs for new jobs use the saved version.</p>
+              <MasterEditor key={current._id + JSON.stringify(current.resume).length} resumeId={current._id} resume={current.resume} />
+              <details className="mt-6">
+                <summary className="cursor-pointer text-xs text-ink-3">Advanced: edit as raw data</summary>
+                <div className="mt-3">
+                  <ResumeEditor key={current._id + JSON.stringify(current.resume).length} resumeId={current._id} resume={current.resume} />
+                </div>
+              </details>
             </details>
           </div>
         </>
