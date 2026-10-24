@@ -833,7 +833,9 @@ async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Rec
       const active = me.tracks.filter((t) => t.status === "active" && (!str("role_key") || t.key === str("role_key")));
       let added = 0;
       for (const t of active) added += await searchTrack(ctx, me.userId, t, me.location);
-      return `Searched ${active.map((t) => t.name).join(", ")}: ${added} new ${added === 1 ? "job" : "jobs"}.`;
+      // Name the new unscored jobs, so the assistant can score them next.
+      const fresh: Id<"jobs">[] = added ? await ctx.runQuery(internal.jobs.unscoredIds, { userId: me.userId, limit: Math.min(added, 12) }) : [];
+      return `Searched ${active.map((t) => t.name).join(", ")}: ${added} new ${added === 1 ? "job" : "jobs"}${fresh.length ? ` (unscored ids: ${fresh.join(", ")})` : ""}.`;
     }
     case "score_jobs": {
       const ids = ((input.job_ids as string[]) ?? []).slice(0, 12) as Id<"jobs">[];
