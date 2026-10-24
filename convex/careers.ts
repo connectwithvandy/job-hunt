@@ -14,6 +14,15 @@ const careerJobV = v.object({
   description: v.optional(v.string()),
 });
 
+/** Every title in anyone's tracks, typed or picked. Only roles matching one are kept. */
+export const trackTitles = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const tracks = await ctx.db.query("tracks").take(2000);
+    return [...new Set(tracks.flatMap((t) => t.titles.map((x) => x.trim().toLowerCase())).filter(Boolean))];
+  },
+});
+
 export const idsFor = internalQuery({
   args: { company: v.string() },
   handler: async (ctx, { company }) => {

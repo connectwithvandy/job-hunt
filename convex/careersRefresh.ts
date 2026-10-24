@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { readBoard } from "./lib/careers";
-import { openTo, readPlace } from "./lib/sources";
+import { openTo, readPlace, titleMatches } from "./lib/sources";
 
 const INDIA = readPlace("India");
 
@@ -12,13 +12,17 @@ const INDIA = readPlace("India");
 export const refresh = internalAction({
   args: {},
   handler: async (ctx) => {
+    const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
+    // No tracks yet would mean keeping nothing; leave the table as it is.
+    if (!titles.length) return null;
     let added = 0;
     let removed = 0;
     const one = async (board: CareerBoard) => {
-      // Only roles in India or remote are kept; on-site roles elsewhere drop out on the next run.
+      // Only roles in India or remote, with a title someone's tracks ask for; the rest drop out on the next run.
       const jobs = (await readBoard(board))
         .map((j) => ({ ...j, india: openTo(INDIA, j.location, j.workSetting, j.title) }))
-        .filter((j) => j.india || j.workSetting === "remote" || /remote|distributed/i.test(j.location));
+        .filter((j) => j.india || j.workSetting === "remote" || /remote|distributed/i.test(j.location))
+        .filter((j) => titles.some((t) => titleMatches(t, j.title)));
       const have = new Set<string>(await ctx.runQuery(internal.careers.idsFor, { company: board.name }));
       const live = new Set(jobs.map((j) => j.externalId));
       const fresh = jobs.filter((j) => !have.has(j.externalId));
