@@ -2,14 +2,15 @@
 
 import { useAction, useQuery } from "convex/react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
 import { CompanyMark, PageHead, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
+import { applyFilters, FILTERS } from "@/lib/jobFilters";
 import { REGIONS, regionsOf } from "@/lib/regions";
 
 export default function JobsPage() {
@@ -22,6 +23,8 @@ export default function JobsPage() {
 
 function Jobs() {
   const params = useSearchParams();
+  const router = useRouter();
+  const [q, setQ] = useState(params.get("q") ?? "");
   const track = params.get("track");
   const show = params.get("show");
   const region = params.get("region");
@@ -36,7 +39,7 @@ function Jobs() {
     .filter((j) => !track || jobTrackKey(j) === track);
   const regionCounts = new Map<string, number>();
   for (const j of inView) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
-  const visible = inView
+  const visible = applyFilters(inView, params)
     .filter((j) => !region || regionsOf(j).includes(region as never))
     .sort((a, b) => (bestScore(b)?.score ?? -1) - (bestScore(a)?.score ?? -1) || b._creationTime - a._creationTime);
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
@@ -51,6 +54,11 @@ function Jobs() {
     }
     const q = next.toString();
     return q ? `/jobs?${q}` : "/jobs";
+  };
+  const filtersOn = params.has("q") || FILTERS.some((f) => params.has(f.key));
+  const clearFilters = () => {
+    setQ("");
+    router.replace(hrefWith({ q: null, ...Object.fromEntries(FILTERS.map((f) => [f.key, null])) }), { scroll: false });
   };
   const chip = (href: string, label: React.ReactNode, active: boolean) => (
     <Link key={href} href={href} className={`rounded-full border px-3 py-1 text-sm ${active ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}>
@@ -106,8 +114,46 @@ function Jobs() {
         </div>
       )}
 
+      {inView.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <input
+            className="field !w-56 !py-1.5 text-sm"
+            placeholder="Search title or company"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              router.replace(hrefWith({ q: e.target.value.trim() || null }), { scroll: false });
+            }}
+          />
+          {FILTERS.map((f) => (
+            <select
+              key={f.key}
+              aria-label={f.label}
+              className={`field !w-auto !py-1.5 text-sm ${params.get(f.key) ? "!border-accent" : ""}`}
+              value={params.get(f.key) ?? ""}
+              onChange={(e) => router.replace(hrefWith({ [f.key]: e.target.value || null }), { scroll: false })}
+            >
+              <option value="">{f.label}</option>
+              {f.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ))}
+          {filtersOn && (
+            <button className="text-sm text-ink-3 underline hover:text-ink" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+          <span className="ml-auto text-sm text-ink-3">
+            {visible.length} of {inView.length}
+          </span>
+        </div>
+      )}
+
       {visible.length === 0 ? (
-        <div className="card p-10 text-center text-ink-2">No jobs here yet. Search Dreamwork above, or paste a link to a job you saw.</div>
+        <div className="card p-10 text-center text-ink-2">{inView.length ? "No jobs match these filters." : "No jobs here yet. Search above, or paste a job description you saw."}</div>
       ) : (
         <ul className="card divide-y divide-line overflow-hidden">
           {visible.map((j) => {

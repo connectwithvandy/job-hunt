@@ -58,7 +58,7 @@ async function getJson<T>(url: string, headers: Record<string, string> = {}): Pr
 
 type JSearchJob = {
   job_id: string; job_title: string; employer_name: string; employer_logo?: string | null;
-  job_city?: string | null; job_state?: string | null; job_country?: string | null; job_is_remote?: boolean;
+  job_location?: string | null; job_city?: string | null; job_state?: string | null; job_country?: string | null; job_is_remote?: boolean;
   job_apply_link: string; job_description?: string; job_posted_at_datetime_utc?: string | null;
   job_min_salary?: number | null; job_max_salary?: number | null; job_salary_currency?: string | null; job_salary_period?: string | null;
 };
@@ -69,17 +69,19 @@ async function jsearch(title: string, place: Place): Promise<Found[]> {
   const params = new URLSearchParams({ query: place.kind === "place" ? `${title} in ${place.name}` : title, page: "1", num_pages: "1", date_posted: "month" });
   if (place.kind === "remote") params.set("work_from_home", "true");
   if (place.kind === "place" && place.country) params.set("country", place.country);
-  const body = await getJson<{ data: JSearchJob[] }>(`https://jsearch.p.rapidapi.com/search?${params}`, {
+  const body = await getJson<{ data: { jobs: JSearchJob[] } }>(`https://jsearch.p.rapidapi.com/search-v2?${params}`, {
     "X-RapidAPI-Key": key,
     "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
   });
-  return (body.data ?? []).map((j) => ({
+  // Google's matching is loose (an "Account Executive" search brings accounting jobs), so keep exact-phrase titles only.
+  const phrase = title.toLowerCase();
+  return (body.data?.jobs ?? []).filter((j) => j.job_title.toLowerCase().includes(phrase)).map((j) => ({
     source: "jsearch",
     id: j.job_id,
     title: j.job_title,
     company: j.employer_name,
     companyLogo: j.employer_logo ?? undefined,
-    location: [j.job_city, j.job_state, j.job_country].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : ""),
+    location: j.job_location || [j.job_city, j.job_state, j.job_country].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : "Not listed"),
     workSetting: j.job_is_remote ? "remote" : undefined,
     salary: j.job_min_salary && j.job_max_salary ? `${j.job_salary_currency ?? ""} ${j.job_min_salary.toLocaleString()} – ${j.job_max_salary.toLocaleString()}${j.job_salary_period ? `/${j.job_salary_period.toLowerCase()}` : ""}`.trim() : undefined,
     postedAt: j.job_posted_at_datetime_utc ?? undefined,
