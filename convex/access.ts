@@ -66,3 +66,20 @@ export const setApproved = mutation({
     return null;
   },
 });
+
+/** Let several people in at once. Owner only. */
+export const approveMany = mutation({
+  args: { accessIds: v.array(v.id("access")) },
+  handler: async (ctx, { accessIds }) => {
+    await requireOwner(ctx);
+    const now = Date.now();
+    const emails: string[] = [];
+    for (const id of accessIds.slice(0, 100)) {
+      const row = await ctx.db.get("access", id);
+      if (!row || row.approved) continue;
+      await ctx.db.patch("access", id, { approved: true, decidedAt: now });
+      if (row.email) emails.push(row.email);
+    }
+    return emails;
+  },
+});
