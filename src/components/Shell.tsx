@@ -9,6 +9,8 @@ import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
 import { Waitlist } from "./Waitlist";
 
+const PUBLIC = ["/pricing", "/terms", "/privacy", "/refunds", "/contact"];
+
 /** Signed out: the landing page. Not let in yet: the waitlist. Signed in but new: onboarding. Otherwise the app. */
 export function Shell({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -16,6 +18,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const me = useQuery(api.users.me, access?.approved ? {} : "skip");
   const path = usePathname();
 
+  // Pricing and the policy pages are for everyone, signed in or not.
+  if (PUBLIC.includes(path)) return <>{children}</>;
   if (isLoading || (isAuthenticated && (access === undefined || (access?.approved && me === undefined)))) {
     return (
       <div className="flex min-h-screen items-center justify-center text-ink-3">

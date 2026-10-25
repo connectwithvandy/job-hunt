@@ -43,6 +43,13 @@ export function SignIn() {
         <a href="https://github.com/connectwithvandy/job-hunt" className="mt-10 inline-block text-sm text-ink-3 underline hover:text-ink" target="_blank" rel="noreferrer">
           Open source on GitHub
         </a>
+        <nav className="mt-4 flex flex-wrap gap-4 text-xs text-ink-3">
+          <a href="/pricing" className="hover:text-ink">Pricing</a>
+          <a href="/terms" className="hover:text-ink">Terms</a>
+          <a href="/privacy" className="hover:text-ink">Privacy</a>
+          <a href="/refunds" className="hover:text-ink">Refunds</a>
+          <a href="/contact" className="hover:text-ink">Contact</a>
+        </nav>
       </section>
 
       <form
