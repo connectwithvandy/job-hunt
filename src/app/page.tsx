@@ -1,12 +1,12 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
-import { linkedInPeopleSearch } from "../../convex/lib/company";
+import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { CompanyMark, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 
 const DAY = 86_400_000;
@@ -30,6 +30,8 @@ export default function Today() {
   const [searching] = useState(startedFirstSearch);
   const jobs = useQuery(api.jobs.list);
   const prospects = useQuery(api.prospects.list);
+  const markSeen = useMutation(api.users.markSeen);
+  useEffect(() => void markSeen().catch(() => {}), [markSeen]);
   if (!me || !jobs) return <Loading />;
   const firstName = me.resume?.name.split(" ")[0];
 
@@ -63,6 +65,7 @@ export default function Today() {
       </header>
 
       <Autopilot on={me.autopilot} last={me.lastAutopilot} />
+      {me.prevSeenAt && <NewSinceVisit since={me.prevSeenAt} jobs={jobs} prospects={prospects ?? []} tracks={me.tracks} />}
       <JustRaised prospects={prospects ?? []} />
 
       {(me.contactsCount === 0 || jobs.length === 0) && (
@@ -203,7 +206,7 @@ function Row({ href, main, sub }: { href: string; main: string; sub: string }) {
   );
 }
 
-function JobRow({ j, track }: { j: Pick<Doc<"jobs">, "_id" | "title" | "company" | "companyLogo" | "scores">; track?: Doc<"tracks"> }) {
+function JobRow({ j, track, dream }: { j: Pick<Doc<"jobs">, "_id" | "title" | "company" | "companyLogo" | "scores" | "quickFit">; track?: Doc<"tracks">; dream?: boolean }) {
   return (
     <li>
       <Link href={`/jobs/${j._id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-soft">
@@ -212,10 +215,44 @@ function JobRow({ j, track }: { j: Pick<Doc<"jobs">, "_id" | "title" | "company"
           <div className="truncate text-sm font-medium">{j.title}</div>
           <div className="text-xs text-ink-2">{j.company}</div>
         </div>
+        {dream && <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[11px] text-on-accent">Dream company</span>}
         <TrackTag track={track} />
-        <ScorePill score={bestScore(j)?.score} />
+        {bestScore(j) ? <ScorePill score={bestScore(j)!.score} /> : <QuickFitPill score={j.quickFit} />}
       </Link>
     </li>
+  );
+}
+
+/** Roles found since your last visit: your dream companies first, then the best fits. */
+function NewSinceVisit({ since, jobs, prospects, tracks }: { since: number; jobs: Doc<"jobs">[]; prospects: Doc<"prospects">[]; tracks: Doc<"tracks">[] }) {
+  const dreams = new Set(prospects.filter((p) => p.dream && p.status !== "skip").map((p) => p.key));
+  const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
+  const fresh = jobs
+    .filter((j) => j._creationTime > since && j.status === "new")
+    .map((j) => ({ j, dream: dreams.has(companyKey(j.company)) }))
+    .sort((a, b) => Number(b.dream) - Number(a.dream) || fit(b.j) - fit(a.j));
+  if (!fresh.length) return null;
+  const atDreams = fresh.filter((f) => f.dream).length;
+  return (
+    <section className="card mb-10 p-6">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="display text-2xl">New since your last visit</h2>
+        <span className="text-sm text-ink-2">
+          {fresh.length} {fresh.length === 1 ? "role" : "roles"}
+          {atDreams ? `, ${atDreams} at your dream companies` : ""} · since {timeAgo(since)}
+        </span>
+      </div>
+      <ul>
+        {fresh.slice(0, 8).map(({ j, dream }) => (
+          <JobRow key={j._id} j={j} track={tracks.find((t) => t.key === jobTrackKey(j))} dream={dream} />
+        ))}
+      </ul>
+      {fresh.length > 8 && (
+        <Link href="/jobs?sort=added" className="mt-2 inline-block text-sm text-ink-2 underline">
+          See all {fresh.length} in Jobs
+        </Link>
+      )}
+    </section>
   );
 }
 

@@ -47,6 +47,7 @@ export const me = query({
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
       lastAutopilot: profile?.lastAutopilot ?? null,
+      prevSeenAt: profile?.prevSeenAt ?? null,
       // Names only: every page loads this, and only the CVs page needs the full text (`resumes` below).
       resumes: resumes.map((r) => ({ _id: r._id, label: r.label })),
       defaultResumeId: defaultResume?._id ?? null,
@@ -55,6 +56,20 @@ export const me = query({
       photoUrl: profile?.photo ? await ctx.storage.getUrl(profile.photo) : null,
       tracks,
     };
+  },
+});
+
+/** Notes a visit. A new visit starts after half an hour away; "new since" counts from the one before. */
+export const markSeen = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const profile = await findProfile(ctx, userId);
+    if (!profile) return null;
+    const now = Date.now();
+    if (profile.lastSeenAt && now - profile.lastSeenAt < 30 * 60_000) return null;
+    await ctx.db.patch("profiles", profile._id, { prevSeenAt: profile.lastSeenAt ?? now, lastSeenAt: now });
+    return null;
   },
 });
 
