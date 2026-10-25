@@ -50,27 +50,38 @@ export default function Today() {
     .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75)
     .sort((a, b) => bestScore(b)!.score - bestScore(a)!.score)
     .slice(0, 5);
+  const replies = jobs.filter((j) => j.lastEmail && msSince(j.lastEmail.at) < 3 * DAY && ["screening", "interview", "offer"].includes(j.status));
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
   const nudges = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "sent" && o.sentAt && msSince(o.sentAt) > 5 * DAY).map((o) => ({ j, o })));
   const quiet = jobs.filter((j) => j.status === "applied" && j.appliedAt && msSince(j.appliedAt) > 10 * DAY);
-  const nothingToDo = !unscored.length && !strong.length && !drafts.length && !nudges.length && !quiet.length;
+  const raised = (prospects ?? [])
+    .filter((p) => p.source === "funded" && p.status === "new" && msSince(p._creationTime) < 14 * DAY)
+    .sort((a, b) => (b.fit?.score ?? 0) - (a.fit?.score ?? 0))
+    .slice(0, 2);
+
+  // One list, most urgent first: companies writing back, then the best jobs, then follow-ups.
+  const todo: Todo[] = [
+    ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}`, href: `/jobs/${j._id}` })),
+    ...strong.map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}`, href: `/jobs/${j._id}` })),
+    ...drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
+    ...nudges.map(({ j, o }) => ({ key: `n${j._id}${o.contactId}`, verb: "Nudge", main: o.name, sub: `Asked ${timeAgo(o.sentAt)} about ${j.company}, no reply`, href: `/jobs/${j._id}` })),
+    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
+    ...raised.map((p) => ({ key: `f${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
+    ...(unscored.length ? [{ key: "score", verb: "Score", main: `${unscored.length} new ${unscored.length === 1 ? "job" : "jobs"}`, sub: "See which ones are worth your time", href: "/jobs" }] : []),
+  ];
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <header className="mb-10">
+    <div className="mx-auto max-w-3xl">
+      <header className="mb-8">
         <p className="text-sm text-ink-3">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
-        <h1 className="display mt-1 text-4xl uppercase md:text-6xl">
+        <h1 className="display mt-1 text-4xl uppercase md:text-5xl">
           {greeting()}
           {firstName ? `, ${firstName}` : ""}
         </h1>
       </header>
 
-      <Autopilot on={me.autopilot} last={me.lastAutopilot} />
-      {me.prevSeenAt && <NewSinceVisit since={me.prevSeenAt} jobs={jobs} prospects={prospects ?? []} tracks={me.tracks} />}
-      <JustRaised prospects={prospects ?? []} />
-
       {(me.contactsCount === 0 || jobs.length === 0) && (
-        <section className="card mb-10 p-6">
+        <section className="card mb-8 p-6">
           <h2 className="display mb-4 text-2xl">Next steps</h2>
           <ol className="grid gap-3 md:grid-cols-2">
             <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? `${jobs.length} found. Score them to see which fit.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."} />
@@ -79,83 +90,86 @@ export default function Today() {
         </section>
       )}
 
-      <section className="mb-12">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="display text-3xl">Your roles</h2>
-          <Link href="/tracks" className="text-sm text-ink-3 hover:text-ink">
-            Edit roles
-          </Link>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-          {stats.map(({ t, inPlay, applied, asks, replies, interviews }) => (
-            <Link key={t._id} href={`/jobs?track=${t.key}`} className={`card group relative overflow-hidden p-5 transition-shadow hover:shadow-md ${t.status === "paused" ? "opacity-55" : ""}`}>
-              <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.color, boxShadow: `0 0 18px ${t.color}` }} />
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="display text-xl leading-tight">{t.name}</h3>
-                {t.status === "paused" && <span className="text-[11px] text-ink-3">Paused</span>}
-              </div>
-              <dl className="mt-5 grid grid-cols-2 gap-y-3 text-sm">
-                <Stat label="In play" value={inPlay} />
-                <Stat label="Applied" value={applied} />
-                <Stat label="Referrals asked" value={asks} />
-                <Stat label="Replies" value={replies} />
-              </dl>
-              <p className="mt-4 border-t border-line pt-3 text-xs text-ink-2">
-                {interviews ? `${interviews} in interviews` : asks ? `${Math.round((replies / asks) * 100)}% reply rate` : "No asks yet"}
-              </p>
-            </Link>
-          ))}
-        </div>
+      <section className="mb-8">
+        <h2 className="display mb-3 text-3xl">Do next</h2>
+        {todo.length ? <TodoList items={todo} /> : <div className="card p-8 text-ink-2">Nothing waiting on you. Find more jobs, or take the evening off.</div>}
       </section>
 
-      <WhatsWorking jobs={jobs} tracks={me.tracks} />
+      <Autopilot on={me.autopilot} last={me.lastAutopilot} />
 
-      <section>
-        <h2 className="display mb-4 text-3xl">Do next</h2>
-        {nothingToDo ? (
-          <div className="card p-8 text-ink-2">Nothing waiting on you. Find more jobs, or take the evening off.</div>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {strong.length > 0 && (
-              <Panel title="Strong fits to apply to" hint="75 and above, not started yet">
-                {strong.map((j) => (
-                  <JobRow key={j._id} j={j} track={me.tracks.find((t) => t.key === jobTrackKey(j))} />
-                ))}
-              </Panel>
-            )}
-            {drafts.length > 0 && (
-              <Panel title="Referral notes to send" hint="Drafted, waiting on you">
-                {drafts.map(({ j, o }) => (
-                  <Row key={j._id + o.contactId} href={`/jobs/${j._id}`} main={o.name} sub={`${j.title} at ${j.company}`} />
-                ))}
-              </Panel>
-            )}
-            {nudges.length > 0 && (
-              <Panel title="Nudge these people" hint="Asked over 5 days ago, no reply">
-                {nudges.map(({ j, o }) => (
-                  <Row key={j._id + o.contactId} href={`/jobs/${j._id}`} main={o.name} sub={`Asked ${timeAgo(o.sentAt)} about ${j.company}`} />
-                ))}
-              </Panel>
-            )}
-            {quiet.length > 0 && (
-              <Panel title="Gone quiet" hint="Applied over 10 days ago">
-                {quiet.map((j) => (
-                  <Row key={j._id} href={`/jobs/${j._id}`} main={`${j.title} at ${j.company}`} sub={`Applied ${timeAgo(j.appliedAt)}. Follow up, or find someone inside.`} />
-                ))}
-              </Panel>
-            )}
-            {unscored.length > 0 && (
-              <Panel title={`${unscored.length} new ${unscored.length === 1 ? "job" : "jobs"} to score`} hint="See which ones are worth your time">
-                <Row href="/jobs" main="Open jobs and score them" sub="Takes about 15 seconds each" />
-              </Panel>
-            )}
-          </div>
-        )}
-      </section>
+      <details className="mt-8">
+        <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">See more: new jobs, your roles, what&apos;s working, newly funded companies</summary>
+        <div className="mt-6">
+          {me.prevSeenAt && <NewSinceVisit since={me.prevSeenAt} jobs={jobs} prospects={prospects ?? []} tracks={me.tracks} />}
+          <section className="mb-12">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="display text-3xl">Your roles</h2>
+              <Link href="/tracks" className="text-sm text-ink-3 hover:text-ink">
+                Edit roles
+              </Link>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {stats.map(({ t, inPlay, applied, asks, replies, interviews }) => (
+                <Link key={t._id} href={`/jobs?track=${t.key}`} className={`card group relative overflow-hidden p-5 transition-shadow hover:shadow-md ${t.status === "paused" ? "opacity-55" : ""}`}>
+                  <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.color, boxShadow: `0 0 18px ${t.color}` }} />
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="display text-xl leading-tight">{t.name}</h3>
+                    {t.status === "paused" && <span className="text-[11px] text-ink-3">Paused</span>}
+                  </div>
+                  <dl className="mt-5 grid grid-cols-2 gap-y-3 text-sm">
+                    <Stat label="In play" value={inPlay} />
+                    <Stat label="Applied" value={applied} />
+                    <Stat label="Referrals asked" value={asks} />
+                    <Stat label="Replies" value={replies} />
+                  </dl>
+                  <p className="mt-4 border-t border-line pt-3 text-xs text-ink-2">
+                    {interviews ? `${interviews} in interviews` : asks ? `${Math.round((replies / asks) * 100)}% reply rate` : "No asks yet"}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+          <WhatsWorking jobs={jobs} tracks={me.tracks} />
+          <JustRaised prospects={prospects ?? []} />
+        </div>
+      </details>
 
       <p className="mt-16 text-xs text-ink-3">
         {me.email} · {me.contactsCount.toLocaleString()} connections loaded
       </p>
+    </div>
+  );
+}
+
+type Todo = { key: string; verb: string; main: string; sub: string; href: string };
+
+const STAGE_WORDS: Record<string, string> = { screening: "Recruiter wrote", interview: "Interview invite", offer: "Offer" };
+
+/** The first eight things to do, the rest one tap away. */
+function TodoList({ items }: { items: Todo[] }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? items : items.slice(0, 8);
+  return (
+    <div className="card p-2">
+      <ul className="divide-y divide-line">
+        {shown.map((t) => (
+          <li key={t.key}>
+            <Link href={t.href} className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
+              <span className="w-20 shrink-0 text-xs font-medium uppercase tracking-wide text-accent">{t.verb}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{t.main}</span>
+                <span className="block truncate text-xs text-ink-2">{t.sub}</span>
+              </span>
+              <span className="text-ink-3">→</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {items.length > 8 && (
+        <button type="button" className="px-3 py-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show all ${items.length}`}
+        </button>
+      )}
     </div>
   );
 }
@@ -222,27 +236,6 @@ function Setup({ done, n, href, title, text }: { done: boolean; n: number; href:
           {title}
         </div>
         <p className="mt-1 text-sm text-ink-2">{text}</p>
-      </Link>
-    </li>
-  );
-}
-
-function Panel({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
-  return (
-    <div className="card p-5">
-      <h3 className="font-medium">{title}</h3>
-      <p className="mb-3 text-xs text-ink-3">{hint}</p>
-      <ul className="divide-y divide-line">{children}</ul>
-    </div>
-  );
-}
-
-function Row({ href, main, sub }: { href: string; main: string; sub: string }) {
-  return (
-    <li>
-      <Link href={href} className="-mx-2 block rounded-lg px-2 py-2.5 hover:bg-soft">
-        <div className="text-sm font-medium">{main}</div>
-        <div className="text-xs text-ink-2">{sub}</div>
       </Link>
     </li>
   );
