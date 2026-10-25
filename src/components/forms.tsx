@@ -4,7 +4,7 @@ import { useAction, useMutation } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { LOCATION_CHOICES } from "../../convex/lib/defaults";
+import { LOCATION_CHOICES, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { autofillBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
 import { errorMessage } from "@/lib/errors";
@@ -214,6 +214,28 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
       }}
     >
       <span className="absolute inset-x-0 top-0 h-1" style={{ background: track.color }} />
+      {isNew && (
+        <div>
+          <span className="label">Start from a sales role</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {PRESET_TRACKS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className="rounded-full border border-dashed border-line px-3 py-1 text-sm text-ink-2 hover:border-accent hover:text-ink"
+                onClick={(e) => {
+                  const form = e.currentTarget.form!;
+                  (form.elements.namedItem("name") as HTMLInputElement).value = p.name;
+                  (form.elements.namedItem("pitch") as HTMLInputElement).value = p.pitch;
+                  setTitles(p.titles);
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <input name="name" defaultValue={track.name} className="field display !text-xl" placeholder="Role, like Head of Sales Development" />
         <label className="flex items-center gap-2 whitespace-nowrap text-sm">

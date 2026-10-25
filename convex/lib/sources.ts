@@ -3,6 +3,8 @@
 // Job boards searched beside Dreamwork. Each one switches on when its key is set
 // on the deployment (npx convex env set NAME value). Himalayas needs no key.
 
+import { fullTitle } from "./salesRoles";
+
 export type Found = {
   source: "jsearch" | "adzuna" | "himalayas" | "careers";
   id: string;
@@ -134,8 +136,9 @@ const COUNTRY_NAMES: Record<string, string> = { in: "india", us: "united states"
 
 /** True when the job title holds every word searched for. Loose boards also match descriptions. */
 export function titleMatches(searched: string, title: string) {
-  const t = title.toLowerCase();
-  return searched.toLowerCase().split(/[^a-z0-9']+/).filter(Boolean).every((w) => t.includes(w));
+  // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
+  const t = fullTitle(title);
+  return fullTitle(searched).split(" ").filter(Boolean).every((w) => t.includes(w));
 }
 
 async function himalayas(title: string, place: Place): Promise<Found[]> {

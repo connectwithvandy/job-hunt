@@ -169,7 +169,7 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
       <div className="card mt-6 p-5">
         <div className="label mb-3">Something else? Add your own</div>
         <div className="grid gap-3 sm:grid-cols-[1fr_1.5fr_auto]">
-          <input className="field" placeholder="Name, e.g. Customer Success" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="field" placeholder="Name, e.g. Field Sales" value={name} onChange={(e) => setName(e.target.value)} />
           <input className="field" placeholder="Job titles, comma separated" value={titles} onChange={(e) => setTitles(e.target.value)} />
           <button
             type="button"
