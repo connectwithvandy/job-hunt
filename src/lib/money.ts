@@ -57,3 +57,10 @@ export function payPerYearInr(salary: string | null | undefined, rates: Record<s
   const nums = [...salary.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)\s*([kK])?/g)].map((m) => Number(m[1]) * (m[2] ? 1000 : 1)).filter((n) => n >= (perYear === 2080 ? 5 : 100));
   return nums.length ? Math.max(...nums) * perYear * rates[code] : null;
 }
+
+/** A researched pay range, like "₹28L – ₹40L a year" or "$90k – $120k a year". */
+export function payRange(pay: { low: number; high: number; currency: string }) {
+  const one = (n: number) =>
+    pay.currency === "INR" ? `₹${n >= 1e7 ? `${+(n / 1e7).toFixed(1)}Cr` : `${+(n / 1e5).toFixed(n < 1e6 ? 1 : 0)}L`}` : `${pay.currency === "USD" ? "$" : `${pay.currency} `}${Math.round(n / 1000)}k`;
+  return `${one(pay.low)} – ${one(pay.high)} a year`;
+}

@@ -10,7 +10,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, type PastOutcome } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, type PastOutcome } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -442,6 +442,27 @@ async function researchFor(ctx: ActionCtx, userId: Id<"users">, jobId: Id<"jobs"
     await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, research: { createdAt: Date.now(), ...found } });
     return null;
 }
+
+/** Researches what to ask for in one of your roles. */
+export const estimateRolePay = action({
+  args: { trackKey: v.string() },
+  handler: async (ctx, { trackKey }): Promise<null> => {
+    const me = await setup(ctx);
+    const track = me.tracks.find((t) => t.key === trackKey);
+    if (!track) throw new ConvexError("That role is gone.");
+    const cv = requireResume(me.resumeFor[track.key] ?? me.resume);
+    await spend(ctx, me.userId, "research");
+    const out = await estimatePay(track, cv, me.location);
+    const low = Math.round(Math.min(out.low, out.high));
+    const high = Math.round(Math.max(out.low, out.high));
+    await ctx.runMutation(internal.users.savePayForAction, {
+      userId: me.userId,
+      trackKey,
+      pay: { low, high, currency: out.currency.toUpperCase().slice(0, 3), basis: out.basis, sources: out.sources.slice(0, 5), at: Date.now() },
+    });
+    return null;
+  },
+});
 
 export const prep = action({
   args: { jobId: v.id("jobs") },

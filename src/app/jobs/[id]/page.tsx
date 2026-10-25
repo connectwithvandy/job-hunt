@@ -10,7 +10,7 @@ import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/compon
 import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
-import { inInr, useInrRates } from "@/lib/money";
+import { inInr, payRange, useInrRates } from "@/lib/money";
 
 export default function JobPage() {
   const { id } = useParams<{ id: string }>();
@@ -68,6 +68,7 @@ export default function JobPage() {
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
             <TrackTag track={currentTrack} />
+            {currentTrack?.pay && <span className="text-ink-2">Ask for {payRange(currentTrack.pay)}</span>}
             {job.postedAt && <span className="text-ink-3">Posted {timeAgo(job.postedAt)}</span>}
             {job.sourceUrl && (
               <a className="text-ink-2 underline" href={job.sourceUrl} target="_blank" rel="noreferrer">

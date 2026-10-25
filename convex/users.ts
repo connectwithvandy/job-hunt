@@ -169,7 +169,8 @@ export const saveTrack = mutation({
       .query("tracks")
       .withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", track.key))
       .unique();
-    if (existing) await ctx.db.replace("tracks", existing._id, { userId, ...track });
+    // The pay estimate isn't on the form, so keep the one already researched.
+    if (existing) await ctx.db.replace("tracks", existing._id, { userId, ...track, pay: track.pay ?? existing.pay });
     else await ctx.db.insert("tracks", { userId, ...track });
     return null;
   },
@@ -326,6 +327,16 @@ export const setWritingSample = mutation({
     const userId = await requireUserId(ctx);
     const profile = await profileFor(ctx, userId);
     await ctx.db.patch("profiles", profile._id, { writingSample: sample.trim().slice(0, 4000) });
+    return null;
+  },
+});
+
+export const savePayForAction = internalMutation({
+  args: { userId: v.id("users"), trackKey: v.string(), pay: trackFields.pay },
+  handler: async (ctx, { userId, trackKey, pay }) => {
+    const track = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", trackKey)).unique();
+    if (!track) throw new ConvexError("That role is gone.");
+    await ctx.db.patch("tracks", track._id, { pay });
     return null;
   },
 });

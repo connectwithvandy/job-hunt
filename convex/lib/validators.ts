@@ -38,6 +38,8 @@ export const trackFields = {
   company: v.optional(v.string()),
   /** Which of your CVs this track starts from; the default CV when unset. */
   resumeId: v.optional(v.id("resumes")),
+  /** What to ask for in this role, researched on the web when you ask. */
+  pay: v.optional(v.object({ low: v.number(), high: v.number(), currency: v.string(), basis: v.string(), sources: v.array(v.string()), at: v.number() })),
 };
 
 export const jobStatusV = v.union(
