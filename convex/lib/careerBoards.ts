@@ -1,13 +1,15 @@
 // Companies whose own careers boards we read every morning. Most fast-growing startups post
 // only there (Ashby, Greenhouse or Lever), never on the job boards, so searches would miss them.
-// Picked for AI and SaaS companies hiring in India or remote. Each board was checked by hand:
+// Picked for B2B, SaaS and AI companies hiring in India or remote. The weekly finder
+// (careersFinder.ts) adds more on its own. Each board was checked by hand:
 // the slug is the name in the board's address, e.g. jobs.ashbyhq.com/elevenlabs. A Workday slug is
 // host/tenant/site from the careers address, e.g. adobe.wd5.myworkdayjobs.com/external_experienced.
 
-export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday"; slug: string };
+export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka"; slug: string };
 
 export const CAREER_BOARDS: CareerBoard[] = [
   // Voice and AI apps
+  { name: "Wispr Flow", website: "wisprflow.ai", ats: "ashby", slug: "wispr-flow" },
   { name: "ElevenLabs", website: "elevenlabs.io", ats: "ashby", slug: "elevenlabs" },
   { name: "Emergent", website: "emergent.sh", ats: "greenhouse", slug: "emergentlabsinc" },
   { name: "Sarvam AI", website: "sarvam.ai", ats: "ashby", slug: "sarvam" },
@@ -55,16 +57,16 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Supabase", website: "supabase.com", ats: "ashby", slug: "supabase" },
   { name: "n8n", website: "n8n.io", ats: "ashby", slug: "n8n" },
   { name: "Zapier", website: "zapier.com", ats: "ashby", slug: "zapier" },
-  // Fintech and consumer
+  // Fintech
   { name: "Stripe", website: "stripe.com", ats: "greenhouse", slug: "stripe" },
-  { name: "Coinbase", website: "coinbase.com", ats: "greenhouse", slug: "coinbase" },
-  { name: "Airbnb", website: "airbnb.com", ats: "greenhouse", slug: "airbnb" },
-  { name: "Groww", website: "groww.in", ats: "greenhouse", slug: "groww" },
   { name: "Zeta", website: "zeta.tech", ats: "lever", slug: "zeta" },
-  { name: "CRED", website: "cred.club", ats: "lever", slug: "cred" },
-  { name: "Paytm", website: "paytm.com", ats: "lever", slug: "paytm" },
-  { name: "Meesho", website: "meesho.com", ats: "lever", slug: "meesho" },
-  { name: "Pocket FM", website: "pocketfm.com", ats: "lever", slug: "pocketfm" },
+  // Indian companies on Keka (slug is the part before .keka.com)
+  { name: "Keka", website: "keka.com", ats: "keka", slug: "hr" },
+  { name: "GoKwik", website: "gokwik.co", ats: "keka", slug: "gokwik" },
+  { name: "BiteSpeed", website: "bitespeed.co", ats: "keka", slug: "bitespeed" },
+  { name: "Zluri", website: "zluri.com", ats: "keka", slug: "zluri" },
+  { name: "Zuddl", website: "zuddl.com", ats: "keka", slug: "zuddl" },
+  { name: "Signzy", website: "signzy.com", ats: "keka", slug: "signzy" },
   // Big software companies on Workday
   { name: "Adobe", website: "adobe.com", ats: "workday", slug: "adobe.wd5/adobe/external_experienced" },
   { name: "Zendesk", website: "zendesk.com", ats: "workday", slug: "zendesk.wd1/zendesk/zendesk" },

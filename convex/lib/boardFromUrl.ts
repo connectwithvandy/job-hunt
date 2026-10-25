@@ -2,7 +2,7 @@ import type { CareerBoard } from "./careerBoards";
 
 /**
  * The careers board behind a job link, when it's one we can read: jobs.ashbyhq.com/<slug>,
- * boards.greenhouse.io/<slug>, jobs.lever.co/<slug> or <tenant>.wdN.myworkdayjobs.com/<site>.
+ * boards.greenhouse.io/<slug>, jobs.lever.co/<slug>, <tenant>.wdN.myworkdayjobs.com/<site> or <slug>.keka.com/careers.
  * EU-hosted Greenhouse and Lever boards use other addresses, so they're left out.
  */
 export function boardFromUrl(link: string | undefined): Omit<CareerBoard, "name" | "website"> | null {
@@ -28,6 +28,8 @@ export function boardFromUrl(link: string | undefined): Omit<CareerBoard, "name"
     const slug = clean(parts[0]);
     return slug ? { ats: "lever", slug } : null;
   }
+  const keka = host.match(/^([a-z0-9-]+)\.keka\.com$/);
+  if (keka && parts[0] === "careers" && !["app", "www", "help", "academy"].includes(keka[1])) return { ats: "keka", slug: keka[1] };
   const workday = host.match(/^([a-z0-9-]+)\.(wd\d+)\.myworkdayjobs\.com$/);
   if (workday) {
     // The site name, after an optional language like en-US.

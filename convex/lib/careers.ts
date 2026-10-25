@@ -96,8 +96,38 @@ async function readWorkday(board: CareerBoard, titles: string[], known: Set<stri
   return out;
 }
 
+type KekaJob = {
+  id: string | number; title: string; description?: string; publishedOn?: string;
+  jobLocations?: { name?: string; city?: string; countryName?: string }[];
+};
+
+/** Keka's careers page names the company's board id; the open roles come from that board. */
+async function readKeka(board: CareerBoard): Promise<CareerJob[]> {
+  const base = `https://${board.slug}.keka.com/careers`;
+  const page = await fetch(base, { signal: AbortSignal.timeout(30_000) });
+  if (!page.ok) throw new Error(`${board.slug}.keka.com answered ${page.status}`);
+  const boardId = (await page.text()).match(/ats\/documents\/([0-9a-f-]{36})\//)?.[1];
+  if (!boardId) throw new Error(`${board.slug}.keka.com has no careers board`);
+  const jobs = await getJson<KekaJob[]>(`${base}/api/embedjobs/default/active/${boardId}`);
+  return jobs.map((j) => {
+    const places = [...new Set((j.jobLocations ?? []).flatMap((l) => [l.city || l.name, l.countryName]).filter(Boolean))].join("; ");
+    const remote = /remote/i.test(places);
+    return {
+      externalId: `keka:${board.slug}:${j.id}`,
+      company: board.name,
+      title: j.title.trim(),
+      location: places || "Not listed",
+      workSetting: remote ? "remote" : undefined,
+      postedAt: j.publishedOn,
+      url: `${base}/jobdetails/${j.id}`,
+      description: cut(j.description && htmlToText(j.description)),
+    };
+  });
+}
+
 export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
   if (board.ats === "workday") return await readWorkday(board, titles, known);
+  if (board.ats === "keka") return await readKeka(board);
   const id = (jobId: string | number) => `${board.ats}:${board.slug}:${jobId}`;
   if (board.ats === "ashby") {
     const body = await getJson<{ jobs: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`);
