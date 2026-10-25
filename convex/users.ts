@@ -43,6 +43,7 @@ export const me = query({
       onboarded: profile?.onboarded ?? false,
       location: profile?.location ?? "India",
       markets: profile?.markets ?? "",
+      writingSample: profile?.writingSample ?? "",
       contactsCount: profile?.contactsCount ?? 0,
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
@@ -218,6 +219,7 @@ export const context = internalQuery({
       email: user?.email ?? "",
       location: profile?.location ?? "India",
       markets: profile?.markets ?? "",
+      voice: profile?.writingSample ?? "",
       tracks,
       resume: fallback?.resume ?? null,
       resumes: resumes.map((r) => ({ _id: r._id, resume: r.resume })),
@@ -314,6 +316,16 @@ export const setMarkets = mutation({
     const userId = await requireUserId(ctx);
     const profile = await profileFor(ctx, userId);
     await ctx.db.patch("profiles", profile._id, { markets: markets.trim().slice(0, 300) });
+    return null;
+  },
+});
+
+export const setWritingSample = mutation({
+  args: { sample: v.string() },
+  handler: async (ctx, { sample }) => {
+    const userId = await requireUserId(ctx);
+    const profile = await profileFor(ctx, userId);
+    await ctx.db.patch("profiles", profile._id, { writingSample: sample.trim().slice(0, 4000) });
     return null;
   },
 });

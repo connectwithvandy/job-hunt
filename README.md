@@ -18,6 +18,9 @@ It runs on your laptop. Your CV, jobs and LinkedIn connections stay in a `data/`
 - **Tailors your CV and cover letter** for each job in your own CV design, reordering and trimming your master CV. A fact check flags any number that isn't in your master CV.
 - **Finds who you know there** from your LinkedIn connections, picks the one or two best people to ask, and drafts a personal referral note for each. You press Send yourself: nothing is automated on LinkedIn, so your account stays safe.
 - **Tracks everything**: applications on a board, referral asks with nudges after five days, and reply rates per track on the home screen.
+- **Moves jobs along from Gmail** with a small script in your own Google account, and emails you a morning summary: replies from companies, strong fits, who to follow up with.
+- **Learns from your results**: shows which roles and fit scores actually get replies, and feeds those results back into scoring.
+- **Writes like you**: paste a few things you wrote yourself, and cover letters and messages copy your style.
 
 ## Run it
 
@@ -37,10 +40,6 @@ Open http://127.0.0.1:3000 and follow the three setup steps on the home screen.
 **Your data.** Everything lives in `data/` (ignored by git in this repo). Back it up by making `data/` its own private git repo, then run `npm run backup` whenever you like. To keep it somewhere else, set `JOBHUNT_DATA_DIR`.
 
 **Your CV design.** `src/components/ResumeDoc.tsx` and the `.resume` styles in `src/app/globals.css` draw the CV. Change them to match your own design.
-
-## Not built yet
-
-Interview prep, Gmail reading to move applications along automatically, and calibrating scores from your results.
 
 ## Credits
 

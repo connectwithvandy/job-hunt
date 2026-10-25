@@ -7,6 +7,7 @@ import { requireUserId } from "./lib/auth";
 import { companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
+import { outcomeOf } from "./lib/outcomes";
 import { cvWords, quickFit } from "./lib/quickFit";
 import { hiringContactV, jobFields, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
@@ -315,6 +316,24 @@ export const unscoredIds = internalQuery({
       .sort((a, b) => (b.quickFit ?? 0) - (a.quickFit ?? 0))
       .slice(0, limit)
       .map((j) => j._id);
+  },
+});
+
+/** Recent applications with a known result, so scoring can learn which roles get replies. */
+export const pastOutcomes = internalQuery({
+  args: { userId: v.id("users"), now: v.number() },
+  handler: async (ctx, { userId, now }) => {
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500);
+    const rows = [];
+    for (const j of recent) {
+      const outcome = outcomeOf(j, now);
+      if (!outcome) continue;
+      const best = [...(j.scores ?? [])].sort((a, b) => b.score - a.score)[0];
+      const trackKey = j.trackKey ?? best?.trackKey ?? j.foundFor;
+      rows.push({ title: j.title, company: j.company, trackKey, score: j.scores?.find((s) => s.trackKey === trackKey)?.score, outcome });
+      if (rows.length >= 20) break;
+    }
+    return rows;
   },
 });
 

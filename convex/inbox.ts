@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
+import { env, internalMutation, mutation } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
+import { buildDigest, digestDue } from "./lib/digest";
 import { jobFor, nextStatus, stageOf } from "./lib/inbox";
 
 /** Your private code for the Gmail script, made the first time you ask. */
@@ -47,5 +48,23 @@ export const ingest = internalMutation({
       }
     }
     return { ok: true, moved };
+  },
+});
+
+/** The morning summary for the Gmail script to email you, once a day from 9:00 in India. Null when not due or nothing to say. */
+export const digest = internalMutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const profile = await ctx.db.query("profiles").withIndex("by_inboxToken", (q) => q.eq("inboxToken", token)).unique();
+    const now = Date.now();
+    if (!profile || !digestDue(profile.digestAt, now)) return null;
+    const userId = profile.userId;
+    const jobs = (await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500)).filter((j) => j.status !== "dismissed");
+    const dreams = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(80);
+    const since = profile.digestAt ?? now - 86_400_000;
+    const out = buildDigest({ jobs, dreams, run: profile.lastAutopilot ?? null, since, now, appUrl: (env.APP_URL ?? "https://myjobpipe.vercel.app").replace(/\/$/, "") });
+    // Marked even when there's nothing to say, so a quiet day isn't re-checked every hour.
+    await ctx.db.patch("profiles", profile._id, { digestAt: now });
+    return out;
   },
 });

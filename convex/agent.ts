@@ -10,7 +10,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, type PastOutcome } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -32,6 +32,8 @@ type Context = {
   resumeFor: Record<string, Resume | null>;
   location: string;
   markets: string;
+  /** A sample of the candidate's own writing, so letters and messages sound like them. */
+  voice: string;
   tracks: Doc<"tracks">[];
 };
 
@@ -274,6 +276,7 @@ export const scoreJobs = action({
 /** Scores jobs four at a time, each track against its own CV. Doesn't spend allowance; callers do. */
 async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, location, markets }: Context, ids: Id<"jobs">[]) {
     const cv = requireResume(resume);
+    const past: PastOutcome[] = await ctx.runQuery(internal.jobs.pastOutcomes, { userId, now: Date.now() });
     const cvFor = (t: { key: string }) => resumeFor[t.key] ?? cv;
     let failed = 0;
     let lastError = "";
@@ -283,7 +286,7 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, loc
         ids.slice(i, i + 4).map(async (jobId) => {
           try {
             const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
-            const s = await scoreJob(job, cvFor, tracks, location, markets);
+            const s = await scoreJob(job, cvFor, tracks, location, markets, past);
             await ctx.runMutation(internal.jobs.patchForAction, {
               userId,
               jobId,
@@ -386,7 +389,7 @@ export const tailor = action({
 
 async function tailorFor(
   ctx: ActionCtx,
-  { userId, resume, resumes, resumeFor, tracks }: Context,
+  { userId, resume, resumes, resumeFor, tracks, voice }: Context,
   { jobId, trackKey, resumeId, feedback }: { jobId: Id<"jobs">; trackKey?: string; resumeId?: Id<"resumes">; feedback?: string },
 ): Promise<null> {
     const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
@@ -399,7 +402,7 @@ async function tailorFor(
     const cv = requireResume(chosen ?? (track ? resumeFor[track.key] : resume));
     await spend(ctx, userId, "tailor");
     const notes = feedback?.trim().slice(0, 2000);
-    const pack = await buildPack(job, cv, track, notes ? { notes, previous: job.pack } : undefined);
+    const pack = await buildPack(job, cv, track, notes ? { notes, previous: job.pack } : undefined, voice);
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key });
     return null;
 }
@@ -407,7 +410,7 @@ async function tailorFor(
 export const draftNotes = action({
   args: { jobId: v.id("jobs"), contactIds: v.array(v.id("contacts")) },
   handler: async (ctx, { jobId, contactIds }): Promise<{ drafted: number }> => {
-    const { userId, resume, resumeFor, tracks } = await setup(ctx);
+    const { userId, resume, resumeFor, tracks, voice } = await setup(ctx);
     if (!contactIds.length) throw new ConvexError("Pick at least one person.");
     const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
@@ -415,7 +418,7 @@ export const draftNotes = action({
     const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
     const people: Doc<"contacts">[] = await ctx.runQuery(internal.jobs.contactsForAction, { userId, ids: contactIds });
     await spend(ctx, userId, "notes");
-    const notes = await draftReferralNotes(job, cv, track, people);
+    const notes = await draftReferralNotes(job, cv, track, people, voice);
     const entries = notes.flatMap((n) => {
       const p = people.find((c) => c._id === n.contactId);
       return p ? [{ contactId: p._id, name: `${p.firstName} ${p.lastName}`, position: p.position, url: p.linkedinUrl, message: n.message, status: "draft" as const }] : [];
@@ -494,7 +497,7 @@ export const findEmail = action({
 export const personalise = action({
   args: { jobId: v.id("jobs"), contactId: v.string(), profileText: v.optional(v.string()), searchWeb: v.boolean() },
   handler: async (ctx, { jobId, contactId, profileText, searchWeb }): Promise<null> => {
-    const { userId, resumes } = await setup(ctx);
+    const { userId, resumes, voice } = await setup(ctx);
     const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
     const person = job.hiringContacts?.find((c) => c.id === contactId);
     if (!person) throw new ConvexError("That person isn't on this job any more.");
@@ -502,7 +505,7 @@ export const personalise = action({
     if (!pasted && !searchWeb) throw new ConvexError("Paste their LinkedIn profile, or tick the web search box.");
     if (!resumes.length) throw new ConvexError("Upload your CV first.");
     await spend(ctx, userId, "notes");
-    const out = await personaliseOutreach(job, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb);
+    const out = await personaliseOutreach(job, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb, false, voice);
     await ctx.runMutation(internal.jobs.updateContactForAction, {
       userId, jobId, contactId,
       patch: { profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email },
@@ -667,7 +670,7 @@ async function addFunded(ctx: ActionCtx, me: Context, scope: "india_remote" | "p
 export const personaliseProspect = action({
   args: { prospectId: v.id("prospects"), contactId: v.string(), profileText: v.optional(v.string()), searchWeb: v.boolean() },
   handler: async (ctx, { prospectId, contactId, profileText, searchWeb }): Promise<null> => {
-    const { userId, resumes } = await setup(ctx);
+    const { userId, resumes, voice } = await setup(ctx);
     const [p]: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.forAction, { userId, ids: [prospectId] });
     if (!p) throw new ConvexError("Company not found.");
     const person = p.contacts.find((c) => c.id === contactId);
@@ -676,7 +679,7 @@ export const personaliseProspect = action({
     if (!pasted && !searchWeb) throw new ConvexError("Paste their LinkedIn profile, or tick the web search box.");
     await spend(ctx, userId, "notes");
     const asJob = { title: "(no role posted)", company: p.name, location: p.location, description: `${p.oneLiner}. ${p.funding ?? (p.batch ? `YC ${p.batch}` : "")}`, url: p.website };
-    const out = await personaliseOutreach(asJob, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb, true);
+    const out = await personaliseOutreach(asJob, resumes.map((r) => r.resume), { ...person, profileText: pasted }, searchWeb, true, voice);
     await ctx.runMutation(internal.prospects.updateContactForAction, {
       userId, prospectId, contactId,
       patch: { profileText: pasted, commonGround: out.commonGround, note: out.note, emailSubject: out.emailSubject, email2: out.email },
@@ -689,14 +692,14 @@ export const personaliseProspect = action({
 export const reachOutTo = action({
   args: { prospectId: v.id("prospects"), role: v.string() },
   handler: async (ctx, { prospectId, role }): Promise<string> => {
-    const { userId, resumes } = await setup(ctx);
+    const { userId, resumes, voice } = await setup(ctx);
     const wanted = role.trim().slice(0, 80);
     if (!wanted) throw new ConvexError("Pick or type a title, like Founder or Head of Sales.");
     const [p]: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.forAction, { userId, ids: [prospectId] });
     if (!p) throw new ConvexError("Company not found.");
     await spend(ctx, userId, "notes");
     const about = `${p.oneLiner}. ${p.funding ?? (p.batch ? `YC ${p.batch}` : "")}`;
-    const out = await findAndWriteTo({ name: p.name, website: p.website, about }, wanted, resumes.map((r) => r.resume));
+    const out = await findAndWriteTo({ name: p.name, website: p.website, about }, wanted, resumes.map((r) => r.resume), voice);
     if (!out.found || !out.name.trim()) throw new ConvexError(`Couldn't find a ${wanted} at ${p.name}. Try another title, or add someone by hand below.`);
     const existing = p.contacts.find((c) => c.name.toLowerCase() === out.name.trim().toLowerCase());
     const person = {
@@ -983,6 +986,6 @@ export const draftAnswers = action({
     const cv = requireResume(me.resume);
     if (!questions.length) return [];
     await spend(ctx, me.userId, "notes");
-    return await draftFormAnswers(questions.slice(0, 50), cv, me.markets, me.location);
+    return await draftFormAnswers(questions.slice(0, 50), cv, me.markets, me.location, me.voice);
   },
 });

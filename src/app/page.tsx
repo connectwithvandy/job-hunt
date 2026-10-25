@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
+import { BANDS, SILENT_AFTER, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
@@ -107,6 +108,8 @@ export default function Today() {
         </div>
       </section>
 
+      <WhatsWorking jobs={jobs} tracks={me.tracks} />
+
       <section>
         <h2 className="display mb-4 text-3xl">Do next</h2>
         {nothingToDo ? (
@@ -160,6 +163,45 @@ export default function Today() {
 function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
+/** Which roles and which fit scores actually get replies, from every application with a known result. */
+function WhatsWorking({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">[] }) {
+  const [now] = useState(() => Date.now());
+  const { total, byTrack, byBand } = tallyOutcomes(jobs, jobTrackKey, now);
+  if (!total) return null;
+  const rate = (t: Tally) => Math.round((t.responses / t.total) * 100);
+  const line = (label: string, t: Tally | undefined, color?: string) =>
+    t && (
+      <li key={label} className="flex items-center justify-between gap-3 py-2 text-sm">
+        <span className="flex items-center gap-2">
+          {color && <span className="h-2 w-2 rounded-full" style={{ background: color }} />}
+          {label}
+        </span>
+        <span className="tabular-nums text-ink-2">
+          {t.responses} of {t.total} replied <b className="ml-1 text-ink">{rate(t)}%</b>
+        </span>
+      </li>
+    );
+  return (
+    <section className="mb-12">
+      <h2 className="display mb-1 text-3xl">What&apos;s working</h2>
+      <p className="mb-4 text-sm text-ink-3">
+        From {total} application{total > 1 ? "s" : ""} with a result: a reply, a no, or silence after {SILENT_AFTER / 86_400_000} days.{" "}
+        {total >= 3 ? "Fit scores now lean toward what gets replies." : "After three results, fit scores start learning from them too."}
+      </p>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="card p-5">
+          <h3 className="font-medium">By role</h3>
+          <ul className="divide-y divide-line">{tracks.map((t) => line(t.name, byTrack.get(t.key), t.color))}</ul>
+        </div>
+        <div className="card p-5">
+          <h3 className="font-medium">By fit score</h3>
+          <ul className="divide-y divide-line">{BANDS.map((b) => line(b.label, byBand.get(b.key)))}</ul>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Stat({ label, value }: { label: string; value: number }) {

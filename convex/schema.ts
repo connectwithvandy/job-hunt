@@ -19,6 +19,8 @@ export default defineSchema({
     location: v.string(),
     /** Which markets and time zones you'd rather cover, like "APAC and EMEA first, North America second". */
     markets: v.optional(v.string()),
+    /** A few things you wrote yourself, so letters and messages sound like you. */
+    writingSample: v.optional(v.string()),
     onboarded: v.boolean(),
     contactsCount: v.optional(v.number()),
     /** Your standard answers for application forms: notice period, pay, why you're moving. */
@@ -29,6 +31,8 @@ export default defineSchema({
     lastSeenAt: v.optional(v.number()),
     /** Private code the Gmail script sends with recruiting emails (inbox.ts). */
     inboxToken: v.optional(v.string()),
+    /** When the Gmail script last emailed you the morning summary. */
+    digestAt: v.optional(v.number()),
     prevSeenAt: v.optional(v.number()),
     lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()) })),
   })

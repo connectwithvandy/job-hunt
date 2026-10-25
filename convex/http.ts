@@ -13,7 +13,7 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => {
     const body: unknown = await req.json().catch(() => null);
-    const b = body as { token?: unknown; messages?: unknown } | null;
+    const b = body as { token?: unknown; messages?: unknown; digest?: unknown } | null;
     const text = (x: unknown, max: number) => (typeof x === "string" ? x.slice(0, max) : "");
     if (!b || typeof b.token !== "string" || !Array.isArray(b.messages)) return new Response("Bad request", { status: 400 });
     const messages = b.messages.slice(0, 100).map((m: Record<string, unknown>) => ({
@@ -23,8 +23,11 @@ http.route({
       snippet: text(m?.snippet, 1500),
       date: text(m?.date, 60),
     })).filter((m) => m.id);
-    const result: { ok: boolean; moved: number } = await ctx.runMutation(internal.inbox.ingest, { token: b.token.slice(0, 100), messages });
-    return new Response(JSON.stringify(result), { status: result.ok ? 200 : 401, headers: { "Content-Type": "application/json" } });
+    const token = b.token.slice(0, 100);
+    const result: { ok: boolean; moved: number } = await ctx.runMutation(internal.inbox.ingest, { token, messages });
+    // Newer scripts ask for the morning summary too, and email it to their owner.
+    const digest: { subject: string; text: string } | null = result.ok && b.digest === true ? await ctx.runMutation(internal.inbox.digest, { token }) : null;
+    return new Response(JSON.stringify({ ...result, digest }), { status: result.ok ? 200 : 401, headers: { "Content-Type": "application/json" } });
   }),
 });
 

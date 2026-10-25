@@ -5,7 +5,7 @@ import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PageHead } from "@/components/bits";
-import { AnswersForm, AutofillLink, ResumeEditor, UploadResume } from "@/components/forms";
+import { AnswersForm, AutofillLink, ResumeEditor, UploadResume, WritingSampleForm } from "@/components/forms";
 import { MasterEditor } from "@/components/ResumeFields";
 import { Loading } from "@/components/Loading";
 import { ResumeDoc } from "@/components/ResumeDoc";
@@ -105,6 +105,7 @@ export default function Cvs() {
             <UploadResume replace={current} />
             <AnswersForm answers={me.answers} location={me.location} />
             {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
+            <WritingSampleForm sample={me.writingSample} />
             <details className="card p-6">
               <summary className="cursor-pointer font-medium">Fix something by hand</summary>
               <p className="mt-2 mb-4 text-sm text-ink-2">Change any line of this CV, then save. Tailored CVs for new jobs use the saved version.</p>

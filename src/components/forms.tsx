@@ -544,12 +544,42 @@ export function AutofillLink({ answers }: { answers: { question: string; answer:
   );
 }
 
+/** A few things you wrote yourself, so cover letters and messages sound like you. */
+export function WritingSampleForm({ sample }: { sample: string }) {
+  const save = useMutation(api.users.setWritingSample);
+  const [value, setValue] = useState(sample);
+  const [state, setState] = useState<ActionState>(null);
+  return (
+    <form
+      className="card p-6"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setState(await attempt(async () => (await save({ sample: value }), "Saved. New letters and messages will use it.")));
+      }}
+    >
+      <span className="label block">How you write</span>
+      <p className="mt-1 text-sm text-ink-2">
+        Paste two or three things you wrote yourself: an email to a client, a LinkedIn post, a message to a colleague. Cover letters, referral notes and
+        emails will copy your style. Only your style is used; facts still come from your CV.
+      </p>
+      <textarea className="field mt-3 h-40 text-sm" value={value} maxLength={4000} onChange={(e) => setValue(e.target.value)} placeholder="Hi Priya, thanks for the time today..." />
+      <div className="mt-3 flex items-center gap-3">
+        <button className="btn btn-primary btn-sm">Save</button>
+        <span className="text-xs text-ink-3">{value.length} / 4000</span>
+        <Feedback state={state} />
+      </div>
+    </form>
+  );
+}
+
 /** The Gmail script, with this person's private code and the app's address baked in. */
 function gmailScript(token: string, endpoint: string) {
   return `// JobPipe: reads recruiting emails from the last 2 days and moves your jobs along.
 // Only emails mentioning applications, interviews, offers or rejections are sent.
+// Once a day after 9:00 (India time) it also emails you a short summary from JobPipe.
 const TOKEN = "${token}";
 const ENDPOINT = "${endpoint}";
+const DAILY_SUMMARY = true;
 
 function sync() {
   const query = 'newer_than:2d -in:sent -category:promotions -category:social ' +
@@ -560,8 +590,11 @@ function sync() {
       messages.push({ id: m.getId(), from: m.getFrom(), subject: m.getSubject(), snippet: m.getPlainBody().slice(0, 1500), date: m.getDate().toISOString() });
     });
   });
-  if (!messages.length) return;
-  UrlFetchApp.fetch(ENDPOINT, { method: "post", contentType: "application/json", payload: JSON.stringify({ token: TOKEN, messages: messages }), muteHttpExceptions: true });
+  if (!messages.length && !DAILY_SUMMARY) return;
+  const res = UrlFetchApp.fetch(ENDPOINT, { method: "post", contentType: "application/json", payload: JSON.stringify({ token: TOKEN, messages: messages, digest: DAILY_SUMMARY }), muteHttpExceptions: true });
+  let reply = {};
+  try { reply = JSON.parse(res.getContentText()); } catch (e) {}
+  if (reply.digest) GmailApp.sendEmail(Session.getEffectiveUser().getEmail(), reply.digest.subject, reply.digest.text);
 }
 
 // Run this once: it checks every hour from now on.
@@ -582,7 +615,7 @@ export function GmailSync() {
   if (!script) {
     return (
       <button className="btn btn-ghost btn-sm" onClick={async () => setScript(gmailScript((await getToken()) ?? "", endpoint))}>
-        Track replies from Gmail
+        Track replies and get a morning email
       </button>
     );
   }
@@ -591,6 +624,10 @@ export function GmailSync() {
       <p className="text-ink-2">
         Recruiter replies, interview invites, offers and rejections move your jobs along by themselves, checked every hour. The script runs in your own
         Google account and sends only recruiting emails from the last two days; ones that don&apos;t match a job you&apos;re applying to are thrown away.
+      </p>
+      <p className="text-ink-2">
+        Each morning after 9:00 it also emails you a short summary: replies from companies, strong fits to apply to, and who to follow up with. It comes from
+        your own Gmail to your own Gmail. Already set up the script before? Paste this new one over it and run <b>setup</b> again to get the summary.
       </p>
       <ol className="list-decimal space-y-1 pl-5 text-ink-2">
         <li>
