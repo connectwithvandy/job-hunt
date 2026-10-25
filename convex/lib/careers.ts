@@ -125,9 +125,68 @@ async function readKeka(board: CareerBoard): Promise<CareerJob[]> {
   });
 }
 
+type ZohoJob = {
+  id: string; Posting_Title?: string; Job_Opening_Name?: string; City?: string; State?: string; Country?: string;
+  Remote_Job?: boolean; Job_Description?: string; Date_Opened?: string; Publish?: boolean;
+};
+
+/** Zoho Recruit puts the open roles in the careers page itself, as a hidden list. */
+async function readZoho(board: CareerBoard): Promise<CareerJob[]> {
+  const base = `https://${board.slug}/jobs/Careers`;
+  const res = await fetch(base, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`${board.slug} answered ${res.status}`);
+  const page = await res.text();
+  const raw = page.match(/<input[^>]*id="jobs"[^>]*value="([^"]*)"/)?.[1] ?? page.match(/value="([^"]*)"[^>]*id="jobs"/)?.[1];
+  if (!raw) throw new Error(`${board.slug} has no careers list`);
+  const jobs = JSON.parse(unescape(raw).replace(/&#34;/g, '"')) as ZohoJob[];
+  return jobs.filter((j) => j.Publish !== false).map((j) => {
+    const title = (j.Posting_Title || j.Job_Opening_Name || "").trim();
+    const places = [...new Set([j.City, j.State, j.Country].filter(Boolean))].join(", ");
+    return {
+      externalId: `zoho:${board.slug}:${j.id}`,
+      company: board.name,
+      title,
+      location: j.Remote_Job ? `${places || "Anywhere"} (Remote)` : places || "Not listed",
+      workSetting: j.Remote_Job ? "remote" : undefined,
+      postedAt: j.Date_Opened,
+      url: `${base}/${j.id}/${title.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+      description: cut(j.Job_Description && htmlToText(j.Job_Description)),
+    };
+  }).filter((j) => j.title);
+}
+
+/** Freshteam has no feed, but its careers page lists each role with its place in plain HTML. */
+async function readFreshteam(board: CareerBoard): Promise<CareerJob[]> {
+  const base = `https://${board.slug}.freshteam.com`;
+  const res = await fetch(`${base}/jobs`, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`${board.slug}.freshteam.com answered ${res.status}`);
+  const page = await res.text();
+  if (page.includes("couldn't find")) throw new Error(`${board.slug}.freshteam.com has no careers page`);
+  const out: CareerJob[] = [];
+  const re = /<a href="(\/jobs\/([A-Za-z0-9_-]+)\/[^"]*)"[^>]*data-portal-location="([^"]*)"[^>]*data-portal-remote-location=(true|false)[^>]*>([\s\S]*?)<\/a>/g;
+  for (const m of page.matchAll(re)) {
+    const title = htmlToText(m[5].match(/class="job-title">([\s\S]*?)<\/div>/)?.[1] ?? "");
+    if (!title) continue;
+    const remote = m[4] === "true";
+    out.push({
+      externalId: `freshteam:${board.slug}:${m[2]}`,
+      company: board.name,
+      title,
+      location: remote ? `${m[3] || "Anywhere"} (Remote)` : m[3] || "Not listed",
+      workSetting: remote ? "remote" : undefined,
+      url: `${base}${m[1]}`,
+      // Only the opening lines are on the list page; the full text is a click away.
+      description: cut(htmlToText(m[5].match(/class="job-desc[^"]*">([\s\S]*?)<\/div>/)?.[1] ?? "")),
+    });
+  }
+  return out;
+}
+
 export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
   if (board.ats === "workday") return await readWorkday(board, titles, known);
   if (board.ats === "keka") return await readKeka(board);
+  if (board.ats === "zoho") return await readZoho(board);
+  if (board.ats === "freshteam") return await readFreshteam(board);
   const id = (jobId: string | number) => `${board.ats}:${board.slug}:${jobId}`;
   if (board.ats === "ashby") {
     const body = await getJson<{ jobs: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`);

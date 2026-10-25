@@ -6,7 +6,8 @@ import { internalAction } from "./_generated/server";
 import type { CareerBoard } from "./lib/careerBoards";
 import { companyKey } from "./lib/company";
 
-// The weekly finder: looks up B2B, SaaS and AI startups on every careers system we read, and adds
+// The weekly finder: looks up B2B, SaaS and AI startups on every careers system we read
+// (Ashby, Greenhouse, Lever, Keka, Zoho Recruit, Freshteam; Workday has no guessable address), and adds
 // the ones it finds to the morning download. Each company is looked up about once a month.
 
 type Candidate = { name: string; website: string; slug?: string };
@@ -63,6 +64,13 @@ async function findBoard(c: Candidate): Promise<{ ats: CareerBoard["ats"]; slug:
     // Keka sends unknown names elsewhere, so a plain answer with a board id means it's real.
     const keka = await ok(`https://${slug}.keka.com/careers`);
     if (keka && /ats\/documents\/[0-9a-f-]{36}\//.test(keka)) return { ats: "keka", slug };
+    // Zoho answers every name; a real board carries its hidden list of roles.
+    for (const tld of ["in", "com"]) {
+      const zoho = await ok(`https://${slug}.zohorecruit.${tld}/jobs/Careers`);
+      if (zoho && /id="jobs"/.test(zoho) && !/value="\[\]"[^>]*id="jobs"|id="jobs"[^>]*value="\[\]"/.test(zoho)) return { ats: "zoho", slug: `${slug}.zohorecruit.${tld}` };
+    }
+    const freshteam = await ok(`https://${slug}.freshteam.com/jobs`);
+    if (freshteam && !freshteam.includes("couldn't find") && /data-portal-location=/.test(freshteam)) return { ats: "freshteam", slug };
   }
   return null;
 }
@@ -71,14 +79,15 @@ async function findBoard(c: Candidate): Promise<{ ats: CareerBoard["ats"]; slug:
 const CHUNK = 30;
 
 export const find = internalAction({
-  args: { start: v.optional(v.number()) },
-  handler: async (ctx, { start = 0 }) => {
+  // `again` looks everyone up now, even if checked this month: run it after adding a careers system.
+  args: { start: v.optional(v.number()), again: v.optional(v.boolean()) },
+  handler: async (ctx, { start = 0, again }) => {
     const fromYc = await ycCandidates().catch((err) => (console.warn("YC list failed:", String(err)), [] as Candidate[]));
     const fromPeople: Candidate[] = await ctx.runQuery(internal.careers.prospectCompanies, {});
     const everyone = [...new Map([...fromYc, ...fromPeople].map((c) => [companyKey(c.name), c])).entries()].filter(([key]) => key);
     const slice = everyone.slice(start, start + CHUNK);
     const due = new Set<string>(await ctx.runQuery(internal.careers.unchecked, { keys: slice.map(([key]) => key) }));
-    const todo = slice.filter(([key]) => due.has(key));
+    const todo = again ? slice : slice.filter(([key]) => due.has(key));
     const found: { name: string; ats: CareerBoard["ats"]; slug: string }[] = [];
     for (let i = 0; i < todo.length; i += 5) {
       const batch = todo.slice(i, i + 5);
@@ -87,7 +96,7 @@ export const find = internalAction({
     }
     await ctx.runMutation(internal.careers.recordFinds, { checked: todo.map(([key]) => key), found });
     console.log(`Finder ${start + 1}-${start + slice.length} of ${everyone.length}: looked up ${todo.length}, found ${found.map((f) => `${f.name} (${f.ats})`).join(", ") || "none"}.`);
-    if (start + CHUNK < everyone.length) await ctx.scheduler.runAfter(0, internal.careersFinder.find, { start: start + CHUNK });
+    if (start + CHUNK < everyone.length) await ctx.scheduler.runAfter(0, internal.careersFinder.find, { start: start + CHUNK, again });
     return null;
   },
 });

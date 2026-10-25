@@ -5,7 +5,7 @@
 // the slug is the name in the board's address, e.g. jobs.ashbyhq.com/elevenlabs. A Workday slug is
 // host/tenant/site from the careers address, e.g. adobe.wd5.myworkdayjobs.com/external_experienced.
 
-export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka"; slug: string };
+export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam"; slug: string };
 
 export const CAREER_BOARDS: CareerBoard[] = [
   // Voice and AI apps
@@ -67,6 +67,13 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Zluri", website: "zluri.com", ats: "keka", slug: "zluri" },
   { name: "Zuddl", website: "zuddl.com", ats: "keka", slug: "zuddl" },
   { name: "Signzy", website: "signzy.com", ats: "keka", slug: "signzy" },
+  // Indian B2B companies on Zoho Recruit (slug is the whole host) and Freshteam
+  { name: "Pazcare", website: "pazcare.com", ats: "zoho", slug: "pazcare.zohorecruit.in" },
+  { name: "Nova Benefits", website: "novabenefits.com", ats: "zoho", slug: "novabenefits.zohorecruit.in" },
+  { name: "Yubi", website: "go-yubi.com", ats: "zoho", slug: "go-yubi.zohorecruit.in" },
+  { name: "Increff", website: "increff.com", ats: "zoho", slug: "increff.zohorecruit.com" },
+  { name: "Shipthis", website: "shipthis.co", ats: "freshteam", slug: "shipthis" },
+  { name: "Locus", website: "locus.sh", ats: "freshteam", slug: "locus" },
   // Big software companies on Workday
   { name: "Adobe", website: "adobe.com", ats: "workday", slug: "adobe.wd5/adobe/external_experienced" },
   { name: "Zendesk", website: "zendesk.com", ats: "workday", slug: "zendesk.wd1/zendesk/zendesk" },

@@ -77,7 +77,7 @@ export default defineSchema({
   discoveredBoards: defineTable({
     key: v.string(),
     name: v.string(),
-    ats: v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka")),
+    ats: v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam")),
     slug: v.string(),
   })
     .index("by_ats_and_slug", ["ats", "slug"])
