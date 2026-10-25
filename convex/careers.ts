@@ -1,29 +1,69 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { boardFromUrl } from "./lib/boardFromUrl";
-import { CAREER_BOARDS } from "./lib/careerBoards";
+import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { companyKey } from "./lib/company";
 
 // Discovered boards are capped so the morning download stays a few minutes long.
-const MAX_DISCOVERED = 400;
+const MAX_DISCOVERED = 1000;
+
+const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"));
+
+async function saveBoard(ctx: MutationCtx, company: string, board: { ats: CareerBoard["ats"]; slug: string }) {
+  // Roles are filed by company name, so one board per name.
+  const key = companyKey(company);
+  if (!key || CAREER_BOARDS.some((b) => (b.ats === board.ats && b.slug === board.slug) || companyKey(b.name) === key)) return;
+  const seen =
+    (await ctx.db.query("discoveredBoards").withIndex("by_ats_and_slug", (q) => q.eq("ats", board.ats).eq("slug", board.slug)).first()) ??
+    (await ctx.db.query("discoveredBoards").withIndex("by_key", (q) => q.eq("key", key)).first());
+  if (seen) return;
+  if ((await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED)).length >= MAX_DISCOVERED) return;
+  await ctx.db.insert("discoveredBoards", { key, name: company.trim(), ...board });
+}
 
 /** Remembers the careers board behind a job's links, so tomorrow's download reads that company too. */
 export async function noteBoard(ctx: MutationCtx, company: string, links: (string | undefined)[]) {
-  for (const link of links) {
-    const board = boardFromUrl(link);
-    if (!board || !company.trim()) continue;
-    // Roles are filed by company name, so one board per name.
-    const key = companyKey(company);
-    if (CAREER_BOARDS.some((b) => (b.ats === board.ats && b.slug === board.slug) || companyKey(b.name) === key)) return;
-    const seen =
-      (await ctx.db.query("discoveredBoards").withIndex("by_ats_and_slug", (q) => q.eq("ats", board.ats).eq("slug", board.slug)).first()) ??
-      (await ctx.db.query("discoveredBoards").withIndex("by_key", (q) => q.eq("key", key)).first());
-    if (seen) return;
-    if ((await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED)).length >= MAX_DISCOVERED) return;
-    await ctx.db.insert("discoveredBoards", { key, name: company.trim(), ...board });
-    return;
-  }
+  const board = links.map(boardFromUrl).find(Boolean);
+  if (board && company.trim()) await saveBoard(ctx, company, board);
 }
+
+/** Of these companies, the ones not looked up in the last month. */
+export const unchecked = internalQuery({
+  args: { keys: v.array(v.string()) },
+  handler: async (ctx, { keys }) => {
+    const monthAgo = Date.now() - 30 * 86_400_000;
+    const out: string[] = [];
+    for (const key of keys) {
+      const c = await ctx.db.query("boardChecks").withIndex("by_key", (q) => q.eq("key", key)).first();
+      if (!c || c.checkedAt < monthAgo) out.push(key);
+    }
+    return out;
+  },
+});
+
+/** Records a finder pass: which companies were looked up, and the boards found. */
+export const recordFinds = internalMutation({
+  args: { checked: v.array(v.string()), found: v.array(v.object({ name: v.string(), ats: atsV, slug: v.string() })) },
+  handler: async (ctx, { checked, found }) => {
+    for (const key of checked) {
+      const c = await ctx.db.query("boardChecks").withIndex("by_key", (q) => q.eq("key", key)).first();
+      if (c) await ctx.db.patch("boardChecks", c._id, { checkedAt: Date.now() });
+      else await ctx.db.insert("boardChecks", { key, checkedAt: Date.now() });
+    }
+    for (const f of found) await saveBoard(ctx, f.name, f);
+    return null;
+  },
+});
+
+/** Startups people have gathered on the Companies page (YC, recently funded, dream lists). */
+export const prospectCompanies = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("prospects").take(5000);
+    return [...new Map(rows.map((r) => [r.key, { name: r.name, website: r.website }])).values()];
+  },
+});
 
 export const discovered = internalQuery({
   args: {},
@@ -46,7 +86,9 @@ export const discoverFromJobs = internalMutation({
   handler: async (ctx, { cursor }) => {
     const page = await ctx.db.query("jobs").paginate({ numItems: 200, cursor: cursor ?? null });
     for (const j of page.page) await noteBoard(ctx, j.company, [j.sourceUrl, j.url]);
-    return page.isDone ? null : page.continueCursor;
+    // Carries on through the rest of the jobs by itself.
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.careers.discoverFromJobs, { cursor: page.continueCursor });
+    return null;
   },
 });
 

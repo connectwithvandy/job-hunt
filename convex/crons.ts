@@ -3,6 +3,9 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// Sundays 5:30 in India: look up more B2B and AI startups' careers boards (careersFinder.ts).
+crons.weekly("careers finder", { dayOfWeek: "sunday", hourUTC: 0, minuteUTC: 0 }, internal.careersFinder.find, {});
+
 // 7:00 in India (01:30 UTC): read every company careers board, an hour before the searches use them.
 crons.cron("careers boards", "30 1 * * *", internal.careersRefresh.refresh, {});
 

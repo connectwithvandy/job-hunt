@@ -77,6 +77,9 @@ export default defineSchema({
     .index("by_ats_and_slug", ["ats", "slug"])
     .index("by_key", ["key"]),
 
+  /** Companies the weekly finder has looked up, so each is checked about once a month. */
+  boardChecks: defineTable({ key: v.string(), checkedAt: v.number() }).index("by_key", ["key"]),
+
   /** A careers-board role's description, kept apart so searching the titles stays light. */
   careerJobTexts: defineTable({ externalId: v.string(), description: v.string() }).index("by_externalId", ["externalId"]),
 
