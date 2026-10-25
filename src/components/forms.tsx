@@ -543,3 +543,76 @@ export function AutofillLink({ answers }: { answers: { question: string; answer:
     </div>
   );
 }
+
+/** The Gmail script, with this person's private code and the app's address baked in. */
+function gmailScript(token: string, endpoint: string) {
+  return `// JobPipe: reads recruiting emails from the last 2 days and moves your jobs along.
+// Only emails mentioning applications, interviews, offers or rejections are sent.
+const TOKEN = "${token}";
+const ENDPOINT = "${endpoint}";
+
+function sync() {
+  const query = 'newer_than:2d -in:sent -category:promotions -category:social ' +
+    '(application OR applying OR interview OR offer OR unfortunately OR candidacy OR recruiter OR "next steps")';
+  const messages = [];
+  GmailApp.search(query, 0, 50).forEach(function (thread) {
+    thread.getMessages().forEach(function (m) {
+      messages.push({ id: m.getId(), from: m.getFrom(), subject: m.getSubject(), snippet: m.getPlainBody().slice(0, 1500), date: m.getDate().toISOString() });
+    });
+  });
+  if (!messages.length) return;
+  UrlFetchApp.fetch(ENDPOINT, { method: "post", contentType: "application/json", payload: JSON.stringify({ token: TOKEN, messages: messages }), muteHttpExceptions: true });
+}
+
+// Run this once: it checks every hour from now on.
+function setup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("sync").timeBased().everyHours(1).create();
+  sync();
+}
+`;
+}
+
+/** Sets up the Gmail script that moves jobs along when recruiters write back. */
+export function GmailSync() {
+  const getToken = useMutation(api.inbox.token);
+  const [script, setScript] = useState("");
+  const [copied, setCopied] = useState(false);
+  const endpoint = (process.env.NEXT_PUBLIC_CONVEX_URL ?? "").replace(".convex.cloud", ".convex.site") + "/inbox";
+  if (!script) {
+    return (
+      <button className="btn btn-ghost btn-sm" onClick={async () => setScript(gmailScript((await getToken()) ?? "", endpoint))}>
+        Track replies from Gmail
+      </button>
+    );
+  }
+  return (
+    <div className="card space-y-3 p-5 text-sm">
+      <p className="text-ink-2">
+        Recruiter replies, interview invites, offers and rejections move your jobs along by themselves, checked every hour. The script runs in your own
+        Google account and sends only recruiting emails from the last two days; ones that don&apos;t match a job you&apos;re applying to are thrown away.
+      </p>
+      <ol className="list-decimal space-y-1 pl-5 text-ink-2">
+        <li>
+          Open{" "}
+          <a className="underline" href="https://script.google.com/home/projects/create" target="_blank" rel="noreferrer">
+            a new Google Apps Script
+          </a>
+          , delete what&apos;s there and paste the script below.
+        </li>
+        <li>Pick <b>setup</b> in the menu next to Run, press Run, and allow access when Google asks (it warns because you wrote the script yourself).</li>
+        <li>That&apos;s it. Keep this code private: it lets the script update your jobs.</li>
+      </ol>
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={async () => {
+          await navigator.clipboard.writeText(script);
+          setCopied(true);
+        }}
+      >
+        {copied ? "Copied" : "Copy the script"}
+      </button>
+      <textarea readOnly className="field h-40 font-mono text-xs" value={script} />
+    </div>
+  );
+}

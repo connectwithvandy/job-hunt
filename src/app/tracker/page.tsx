@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { PIPELINE } from "../../../convex/lib/defaults";
 import { CompanyMark, PageHead, jobTrackKey, timeAgo } from "@/components/bits";
+import { GmailSync } from "@/components/forms";
 import { StatusSelect } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 
@@ -18,6 +19,9 @@ export default function Tracker() {
   return (
     <div>
       <PageHead title="Tracker" sub={total ? `${total} applications in motion. Change a card's status to move it.` : "Applications show up here once you start one."} />
+      <div className="mb-6">
+        <GmailSync />
+      </div>
       <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-6 md:-mx-12 md:px-12">
         {PIPELINE.map((col) => {
           const cards = jobs.filter((j) => j.status === col.status).sort((a, b) => b.updatedAt - a.updatedAt);
@@ -41,6 +45,11 @@ export default function Tracker() {
                           <div className="text-xs text-ink-2">{j.company}</div>
                         </div>
                       </Link>
+                      {j.lastEmail && (
+                        <p className="mt-2 truncate text-xs text-ink-2" title={`${j.lastEmail.from}: ${j.lastEmail.subject}`}>
+                          Email {timeAgo(j.lastEmail.at)}: {j.lastEmail.subject}
+                        </p>
+                      )}
                       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-ink-3">
                         <span>
                           {j.appliedAt ? `Applied ${timeAgo(j.appliedAt)}` : `Updated ${timeAgo(j.updatedAt)}`}

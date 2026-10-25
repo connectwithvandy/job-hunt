@@ -27,11 +27,14 @@ export default defineSchema({
     autopilot: v.optional(v.boolean()),
     /** When you last opened the app, and the visit before, for "New since your last visit". */
     lastSeenAt: v.optional(v.number()),
+    /** Private code the Gmail script sends with recruiting emails (inbox.ts). */
+    inboxToken: v.optional(v.string()),
     prevSeenAt: v.optional(v.number()),
     lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()) })),
   })
     .index("by_userId", ["userId"])
-    .index("by_autopilot", ["autopilot"]),
+    .index("by_autopilot", ["autopilot"])
+    .index("by_inboxToken", ["inboxToken"]),
 
   /** Several master CVs, e.g. one pitched for SDR leadership and one for GTM roles. */
   resumes: defineTable({ userId: v.id("users"), label: v.string(), resume: resumeV }).index("by_userId", ["userId"]),
@@ -82,6 +85,9 @@ export default defineSchema({
 
   /** Companies the weekly finder has looked up, so each is checked about once a month. */
   boardChecks: defineTable({ key: v.string(), checkedAt: v.number() }).index("by_key", ["key"]),
+
+  /** Gmail messages already read, so the hourly script never counts one twice. */
+  inboxSeen: defineTable({ userId: v.id("users"), messageId: v.string() }).index("by_userId_and_messageId", ["userId", "messageId"]),
 
   /** A careers-board role's description, kept apart so searching the titles stays light. */
   careerJobTexts: defineTable({ externalId: v.string(), description: v.string() }).index("by_externalId", ["externalId"]),

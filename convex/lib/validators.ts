@@ -142,6 +142,8 @@ export const jobFields = {
   scores: v.optional(v.array(scoreV)),
   /** Free first guess at fit (lib/quickFit.ts), shown until the AI score arrives. */
   quickFit: v.optional(v.number()),
+  /** The latest recruiting email about this job, read by the Gmail script. */
+  lastEmail: v.optional(v.object({ subject: v.string(), from: v.string(), at: v.number(), stage: v.string() })),
   brief: v.optional(v.object({ whatTheyWant: v.string(), watchOuts: v.string() })),
   trackKey: v.optional(v.string()),
   status: jobStatusV,
