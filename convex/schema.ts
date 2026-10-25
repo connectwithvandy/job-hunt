@@ -21,6 +21,8 @@ export default defineSchema({
     markets: v.optional(v.string()),
     /** A few things you wrote yourself, so letters and messages sound like you. */
     writingSample: v.optional(v.string()),
+    /** Your own rules for letters and messages, like "never mention my notice period". */
+    writingRules: v.optional(v.string()),
     onboarded: v.boolean(),
     contactsCount: v.optional(v.number()),
     /** Your standard answers for application forms: notice period, pay, why you're moving. */

@@ -588,16 +588,17 @@ export function AutofillLink({ answers }: { answers: { question: string; answer:
 }
 
 /** A few things you wrote yourself, so cover letters and messages sound like you. */
-export function WritingSampleForm({ sample }: { sample: string }) {
+export function WritingSampleForm({ sample, rules }: { sample: string; rules: string }) {
   const save = useMutation(api.users.setWritingSample);
   const [value, setValue] = useState(sample);
+  const [myRules, setMyRules] = useState(rules);
   const [state, setState] = useState<ActionState>(null);
   return (
     <form
       className="card p-6"
       onSubmit={async (e) => {
         e.preventDefault();
-        setState(await attempt(async () => (await save({ sample: value }), "Saved. New letters and messages will use it.")));
+        setState(await attempt(async () => (await save({ sample: value, rules: myRules }), "Saved. New letters and messages will use it.")));
       }}
     >
       <span className="label block">How you write</span>
@@ -606,6 +607,17 @@ export function WritingSampleForm({ sample }: { sample: string }) {
         emails will copy your style. Only your style is used; facts still come from your CV.
       </p>
       <textarea className="field mt-3 h-40 text-sm" value={value} maxLength={4000} onChange={(e) => setValue(e.target.value)} placeholder="Hi Priya, thanks for the time today..." />
+      <label className="mt-4 block">
+        <span className="label">Your rules</span>
+        <span className="mt-1 block text-sm text-ink-2">Anything every letter and message should or shouldn&apos;t do, one per line.</span>
+        <textarea
+          className="field mt-2 h-24 text-sm"
+          value={myRules}
+          maxLength={1500}
+          onChange={(e) => setMyRules(e.target.value)}
+          placeholder={"Never mention my notice period\nOpen with a number from my last role\nOne ask only, a 15-minute call"}
+        />
+      </label>
       <div className="mt-3 flex items-center gap-3">
         <button className="btn btn-primary btn-sm">Save</button>
         <span className="text-xs text-ink-3">{value.length} / 4000</span>

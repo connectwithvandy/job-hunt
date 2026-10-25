@@ -10,7 +10,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, type PastOutcome } from "./lib/brain";
+import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, type PastOutcome, type Voice } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -32,8 +32,8 @@ type Context = {
   resumeFor: Record<string, Resume | null>;
   location: string;
   markets: string;
-  /** A sample of the candidate's own writing, so letters and messages sound like them. */
-  voice: string;
+  /** A sample of the candidate's own writing and their rules, so letters and messages sound like them. */
+  voice: Voice;
   tracks: Doc<"tracks">[];
 };
 
