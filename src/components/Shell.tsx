@@ -4,7 +4,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
 import { api } from "../../convex/_generated/api";
 import { Onboarding } from "./Onboarding";
-import { Sidebar } from "./Sidebar";
+import { ChatButton, Sidebar, SubTabs } from "./Sidebar";
 import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
 import { Waitlist } from "./Waitlist";
@@ -32,7 +32,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen md:flex">
       {!bare && <Sidebar isOwner={me.isOwner} />}
-      <main className="min-w-0 flex-1 px-5 py-8 md:px-12 md:py-12 print:p-0">{children}</main>
+      <main className="min-w-0 flex-1 px-5 py-8 md:px-12 md:py-12 print:p-0">
+        {!bare && <SubTabs />}
+        {children}
+      </main>
+      {!bare && <ChatButton />}
     </div>
   );
 }

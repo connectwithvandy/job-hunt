@@ -7,7 +7,7 @@ const http = httpRouter();
 
 auth.addHttpRoutes(http);
 
-/** Recruiting emails from the Gmail script (see GmailSync on the Tracker page). */
+/** Recruiting emails from the Gmail script (see GmailSync on the Applications page). */
 http.route({
   path: "/inbox",
   method: "POST",
