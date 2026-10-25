@@ -140,6 +140,8 @@ export const jobFields = {
   /** Track whose search found this job. Scoring may move it. */
   foundFor: v.optional(v.string()),
   scores: v.optional(v.array(scoreV)),
+  /** Free first guess at fit (lib/quickFit.ts), shown until the AI score arrives. */
+  quickFit: v.optional(v.number()),
   brief: v.optional(v.object({ whatTheyWant: v.string(), watchOuts: v.string() })),
   trackKey: v.optional(v.string()),
   status: jobStatusV,

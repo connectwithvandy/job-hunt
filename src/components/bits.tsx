@@ -29,6 +29,16 @@ export function ScorePill({ score }: { score?: number }) {
   );
 }
 
+/** The free quick fit, shown faded with a "~" until the AI score replaces it. */
+export function QuickFitPill({ score }: { score?: number }) {
+  if (score === undefined) return <span className="text-xs text-ink-3">Not scored</span>;
+  return (
+    <span title="Quick fit: title, CV words and place. The AI score replaces it." className="inline-flex h-fit min-w-9 shrink-0 justify-center self-start rounded-full border border-line px-2 py-0.5 text-xs tabular-nums text-ink-3">
+      ~{score}
+    </span>
+  );
+}
+
 export function bestScore(job: Pick<JobLike, "scores">) {
   if (!job.scores?.length) return undefined;
   return [...job.scores].sort((a, b) => b.score - a.score)[0];

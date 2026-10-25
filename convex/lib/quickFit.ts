@@ -1,0 +1,56 @@
+// A free first guess at fit, worked out when a job is saved, with no AI call. It ranks the list until
+// the AI score arrives, and decides which jobs the AI scores first.
+
+import type { Infer } from "convex/values";
+import { inBengaluru, remoteForIndia } from "./places";
+import type { resumeV } from "./validators";
+
+type Resume = Infer<typeof resumeV>;
+
+const STOP = new Set(
+  "with from that this have will your their they them were been into over more than such also about across which while where when what team teams work working role roles years year experience strong ability using including within other each both well very make made help helped across company companies business".split(" "),
+);
+
+const words = (text: string) => new Set((text.toLowerCase().match(/[a-z][a-z0-9+#.-]{3,}/g) ?? []).filter((w) => !STOP.has(w)));
+
+/** The CV's own vocabulary: skills, roles, headline and achievements. */
+export function cvWords(cv: Resume) {
+  return words(
+    [cv.headline, cv.summary, ...cv.skills.technical, ...cv.skills.soft, ...cv.experience.flatMap((e) => [e.role, e.blurb, ...e.bullets])].join(" "),
+  );
+}
+
+/**
+ * 0 to 100: title against the track titles (50), CV words found in the job (35), and place (15).
+ * `home` is the person's own location, like "Bengaluru, India".
+ */
+export function quickFit(job: { title: string; description?: string; location: string; workSetting?: string }, vocab: Set<string>, titles: string[], home: string) {
+  const norm = (t: string) => ` ${t.toLowerCase().replace(/[^a-z0-9']+/g, " ").trim()} `;
+  const title = norm(job.title);
+  const titleShare = Math.max(
+    0,
+    ...titles.map((t) => {
+      const want = norm(t);
+      // The whole phrase ("business operations") counts fully; the words scattered about count less.
+      if (title.includes(want)) return 1;
+      const parts = want.trim().split(" ").filter(Boolean);
+      const found = parts.filter((w) => title.includes(` ${w} `)).length;
+      return found === parts.length ? 0.6 : (found / Math.max(1, parts.length)) * 0.3;
+    }),
+  );
+  const jobWords = words(`${job.title} ${job.description ?? ""}`);
+  const shared = [...vocab].filter((w) => jobWords.has(w)).length;
+  // Forty-five shared words is about as good as it gets; a job with no description can only reach part way.
+  const cvShare = Math.min(1, shared / 45);
+  const where = `${job.location} ${job.title}`;
+  const homeCity = home.split(",")[0].trim().toLowerCase();
+  const place =
+    (homeCity && where.toLowerCase().includes(homeCity)) || (/bengaluru|bangalore/i.test(home) && inBengaluru(where))
+      ? 1
+      : remoteForIndia(job.location, job.workSetting)
+        ? 0.9
+        : /\bindia\b/i.test(where)
+          ? 0.5
+          : 0;
+  return Math.round(titleShare * 50 + cvShare * 35 + place * 15);
+}

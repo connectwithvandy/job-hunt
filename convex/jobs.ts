@@ -7,6 +7,7 @@ import { requireUserId } from "./lib/auth";
 import { companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
+import { cvWords, quickFit } from "./lib/quickFit";
 import { hiringContactV, jobFields, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
@@ -205,11 +206,24 @@ export const contactsForAction = internalQuery({
 });
 
 /** Insert jobs that aren't already in the list. Returns how many were new. */
+/** Scores jobs for one person with the free quick fit: their default CV, track titles and location. */
+async function quickFitFor(ctx: MutationCtx, userId: Id<"users">) {
+  const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+  const resumeDoc =
+    (profile?.defaultResumeId && (await ctx.db.get("resumes", profile.defaultResumeId))) ||
+    (await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", userId)).first());
+  const tracks = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", userId)).take(50);
+  const vocab = resumeDoc ? cvWords(resumeDoc.resume) : new Set<string>();
+  const titles = tracks.flatMap((t) => t.titles);
+  return (job: { title: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "");
+}
+
 export const insertMany = internalMutation({
   args: { userId: v.id("users"), jobs: v.array(v.object(jobFields)) },
   handler: async (ctx, { userId, jobs }) => {
     let added = 0;
     let lastId: Id<"jobs"> | null = null;
+    const fit = await quickFitFor(ctx, userId);
     for (const job of jobs) {
       const key = roleKey(job.company, job.title);
       const existing =
@@ -226,7 +240,7 @@ export const insertMany = internalMutation({
         continue;
       }
       const { description, pack, research, prep, ...light } = job;
-      lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack });
+      lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack, quickFit: light.quickFit ?? fit(job) });
       if (job.source !== "careers") await noteBoard(ctx, job.company, [job.sourceUrl, job.url]);
       if (description || pack || research || prep) await ctx.db.insert("jobDetails", { jobId: lastId, userId, ...defined({ description, pack, research, prep }) });
       added++;
@@ -273,12 +287,34 @@ export const backfillRoleKeys = internalMutation({
   },
 });
 
+/** Gives saved jobs a quick fit, one person's batch at a time. Run once: npx convex run jobs:backfillQuickFit */
+export const backfillQuickFit = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())), redo: v.optional(v.boolean()) },
+  handler: async (ctx, { cursor, redo }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 100 });
+    const fits = new Map<Id<"users">, Awaited<ReturnType<typeof quickFitFor>>>();
+    for (const job of page.page) {
+      if (job.quickFit !== undefined && !redo) continue;
+      if (!fits.has(job.userId)) fits.set(job.userId, await quickFitFor(ctx, job.userId));
+      const details = await ctx.db.query("jobDetails").withIndex("by_jobId", (q) => q.eq("jobId", job._id)).unique();
+      await ctx.db.patch("jobs", job._id, { quickFit: fits.get(job.userId)!({ ...job, description: details?.description ?? job.description }) });
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.backfillQuickFit, { cursor: page.continueCursor, redo });
+    return null;
+  },
+});
+
 /** Newest jobs not scored yet, for the morning run. */
 export const unscoredIds = internalQuery({
   args: { userId: v.id("users"), limit: v.number() },
   handler: async (ctx, { userId, limit }) => {
     const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
-    return recent.filter((j) => j.status === "new" && !j.scores?.length).slice(0, limit).map((j) => j._id);
+    // The best quick fits first, so the day's AI scores go where they matter.
+    return recent
+      .filter((j) => j.status === "new" && !j.scores?.length)
+      .sort((a, b) => (b.quickFit ?? 0) - (a.quickFit ?? 0))
+      .slice(0, limit)
+      .map((j) => j._id);
   },
 });
 

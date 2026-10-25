@@ -8,7 +8,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
-import { CompanyMark, PageHead, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, PageHead, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { AddJob, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
@@ -20,8 +20,14 @@ type ListJob = FunctionReturnType<typeof api.jobs.list>[number];
 const byTime = (j: ListJob) => (j.postedAt ? Date.parse(j.postedAt) : j._creationTime);
 
 /** Ways to order the list. Jobs without the thing being sorted on go last. */
+/** The AI score when there is one, else the quick fit. */
+const fitOrQuick = (j: ListJob, role: string | null) => {
+  const fit = fitFor(j, role);
+  return fit >= 0 ? fit : (j.quickFit ?? -1);
+};
+
 const SORTS = {
-  fit: { label: "Best fit", compare: (role: string | null) => (a: ListJob, b: ListJob) => fitFor(b, role) - fitFor(a, role) || b._creationTime - a._creationTime },
+  fit: { label: "Best fit", compare: (role: string | null) => (a: ListJob, b: ListJob) => fitOrQuick(b, role) - fitOrQuick(a, role) || b._creationTime - a._creationTime },
   pay: {
     label: "Highest pay",
     compare: (role: string | null, rates: Record<string, number>) => (a: ListJob, b: ListJob) =>
@@ -283,7 +289,7 @@ function Jobs() {
                     {best && <p className="mt-1.5 line-clamp-2 text-sm text-ink-2">{best.reason}</p>}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <ScorePill score={best?.score} />
+                    {best ? <ScorePill score={best.score} /> : <QuickFitPill score={j.quickFit} />}
                     <TrackTag track={trackByKey.get((track ?? jobTrackKey(j)) ?? "")} />
                   </div>
                 </Link>
