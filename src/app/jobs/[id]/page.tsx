@@ -218,6 +218,19 @@ export default function JobPage() {
                   {job.pack.trackKey && trackByKey.get(job.pack.trackKey) && <span className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</span>}
                 </div>
                 {job.pack.feedback && <p className="text-xs text-ink-3">Written with your changes: &quot;{job.pack.feedback}&quot;</p>}
+                {!!job.pack.fit?.length && (
+                  <div>
+                    <div className="label mb-2">What they ask for, and where your CV proves it</div>
+                    <ul className="card divide-y divide-line text-sm">
+                      {job.pack.fit.map((f) => (
+                        <li key={f.ask} className="grid gap-1 p-3 sm:grid-cols-[1fr_2fr] sm:gap-4">
+                          <span className="font-medium">{f.ask}</span>
+                          {f.proof ? <span className="text-ink-2">{f.proof}</span> : <span className="text-warn">Nothing in your CV shows this. Cover it in the cover letter or the interview, or add it to your CV if it&apos;s true.</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {job.pack.unverified.length > 0 ? (
                   <p className="rounded-lg bg-warn/10 p-3 text-sm text-warn">Check these numbers before sending, they aren&apos;t in your master CV: {job.pack.unverified.join(", ")}</p>
                 ) : (

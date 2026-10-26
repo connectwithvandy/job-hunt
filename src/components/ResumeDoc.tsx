@@ -9,7 +9,7 @@ export type Resume = Infer<typeof resumeV>;
 function Logo({ domain }: { domain?: string }) {
   if (!domain) return null;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className="logo" src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`} alt="" />;
+  return <img className="logo" src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=256`} alt="" />;
 }
 
 /** `logos` maps company or school names to websites, for CVs (like tailored ones) saved before logos existed. */

@@ -166,12 +166,25 @@ ${jobText(job)}`,
 // ---------- Application pack ----------
 
 const PackSchema = z.strictObject({
+  // First, so the bullets are written against it rather than the other way round.
+  fit: z
+    .array(
+      z.strictObject({
+        ask: z.string().describe("Something this job needs, in the posting's own words, short. Hardest must-haves first."),
+        proof: z.string().describe("The tailored CV bullet that answers it, quoted exactly as you write it below. Empty when nothing in the master CV honestly does: a gap, not a stretch."),
+      }),
+    )
+    .describe("The 4 to 6 things this job most needs, read from the posting, each matched to the bullet that proves it."),
   headline: z.string().describe("The orange title line under the name, in capitals, max 70 characters, using ' | ' between parts."),
   summary: z.string().describe("Executive summary, 60 to 90 words, aimed at this job."),
   experience: z.array(
     z.strictObject({
       id: z.string().describe("Experience id from the master CV. Include every role, in the original order."),
-      bullets: z.array(z.string()).describe("Most relevant first. Recent roles 3 to 5 bullets, older roles 1 to 3."),
+      bullets: z
+        .array(z.string())
+        .describe(
+          "Rewritten for this job, not just reordered. Recent roles 3 to 5 bullets, older roles 1 to 3. Each recent bullet answers one of the job's asks: lead with the part this job cares about, then the result with its real number. Use the posting's words for the same thing (their 'net new logos', not your 'new business') when it's true. Merge or cut bullets this job won't care about; give a buried relevant detail its own bullet.",
+        ),
     }),
   ),
   technicalSkills: z.array(z.string()).describe("Six to eight, picked and ordered for this job, from the master CV skills."),
@@ -205,7 +218,9 @@ export async function buildPack(job: Job, resume: Resume, track: Track | null, f
   const out = await askJSON({
     tier: "best",
     schema: PackSchema,
-    system: `You tailor a sales leader's CV and cover letter to one specific job${track ? ', using one positioning ("track")' : ""}, and write the short messages that go with it. ${HONESTY}\n${MESSAGE_RULES}${
+    system: `You tailor a sales leader's CV and cover letter to one specific job${track ? ', using one positioning ("track")' : ""}, and write the short messages that go with it. ${HONESTY}
+Tailoring is mostly the experience, not the summary. Read the posting for what it really needs (the must-haves, the motion, the buyer, the deal size, the market), then rewrite each role's bullets so a hiring manager skimming for 10 seconds sees those things proven, with numbers, in their language. Change what each bullet leads with and which details it keeps; keep titles, employers and dates exactly as they are. Write at the candidate's level: a senior leader is hired for what they owned and decided, so bullets show scope (team size, region, quota, revenue, P&L), the call they made and the business result. Leader verbs like built, owned, led, turned around, never assisted, supported, helped or was responsible for. No bullet should read like a task list a junior rep could also claim.
+${MESSAGE_RULES}${
       feedback ? " The candidate has reviewed your last version and asked for changes: make them, unless a change would break the rules above, in which case keep to the rules." : ""
     }`,
     prompt: `${angle(track)}
@@ -220,6 +235,8 @@ ${jobText(job)}${
 
 Last version's headline: ${previous?.resume.headline ?? "(none)"}
 Last version's summary: ${previous?.resume.summary ?? "(none)"}
+Last version's experience bullets:
+${previous?.resume.experience.map((e) => `${e.role}, ${e.company}:\n${e.bullets.map((b) => `- ${b}`).join("\n")}`).join("\n") ?? "(none)"}
 Last version's cover letter:
 ${previous?.coverLetter ?? "(none)"}
 
@@ -248,6 +265,7 @@ ${feedback.notes}`
     emailSubject: out.emailSubject,
     email: out.email,
     hiringManagerTitles: out.hiringManagerTitles,
+    fit: out.fit,
     unverified: unverifiedNumbers(resume, [out.headline, out.summary, ...out.experience.flatMap((e) => e.bullets), out.coverLetter, out.directNote, out.email]),
   };
 }

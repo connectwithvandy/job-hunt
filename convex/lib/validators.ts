@@ -85,6 +85,8 @@ export const packV = v.object({
   emailSubject: v.optional(v.string()),
   email: v.optional(v.string()),
   hiringManagerTitles: v.array(v.string()),
+  /** What the job asks for, and the line in the tailored CV that answers each. An empty proof is a gap. Missing on older packs. */
+  fit: v.optional(v.array(v.object({ ask: v.string(), proof: v.string() }))),
   /** Numbers in the tailored CV that don't appear in the master CV. Should be empty. */
   unverified: v.array(v.string()),
 });
