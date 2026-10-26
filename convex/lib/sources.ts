@@ -6,7 +6,7 @@
 import { fullTitle } from "./salesRoles";
 
 export type Found = {
-  source: "jsearch" | "adzuna" | "himalayas" | "careers";
+  source: "jsearch" | "adzuna" | "himalayas" | "careers" | "linkedin";
   id: string;
   title: string;
   company: string;
@@ -78,9 +78,8 @@ async function jsearch(title: string, place: Place): Promise<Found[]> {
     "X-RapidAPI-Key": key,
     "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
   });
-  // Google's matching is loose (an "Account Executive" search brings accounting jobs), so keep exact-phrase titles only.
-  const phrase = title.toLowerCase();
-  return (body.data?.jobs ?? []).filter((j) => j.job_title.toLowerCase().includes(phrase)).map((j) => ({
+  // Google's matching is loose (an "Account Executive" search brings accounting jobs), so keep titles holding the searched words.
+  return (body.data?.jobs ?? []).filter((j) => titleMatches(title, j.job_title)).map((j) => ({
     source: "jsearch",
     id: j.job_id,
     title: j.job_title,
@@ -107,10 +106,10 @@ async function adzuna(title: string, place: Place): Promise<Found[]> {
   const key = process.env.ADZUNA_APP_KEY;
   // Adzuna searches one country at a time, so it only runs for a place we can pin to a country.
   if (!id || !key || place.kind !== "place" || !place.country) return [];
-  const params = new URLSearchParams({ app_id: id, app_key: key, what: title, max_days_old: "30", results_per_page: "10", "content-type": "application/json" });
+  const params = new URLSearchParams({ app_id: id, app_key: key, what: title, max_days_old: "30", results_per_page: "50", "content-type": "application/json" });
   if (!(place.name.toLowerCase() in COUNTRIES)) params.set("where", place.name);
   const body = await getJson<{ results: AdzunaJob[] }>(`https://api.adzuna.com/v1/api/jobs/${place.country}/search/1?${params}`);
-  return (body.results ?? []).map((j) => ({
+  return (body.results ?? []).filter((j) => titleMatches(title, htmlToText(j.title))).map((j) => ({
     source: "adzuna",
     id: j.id,
     title: htmlToText(j.title),
@@ -138,8 +137,17 @@ const COUNTRY_NAMES: Record<string, string> = { in: "india", us: "united states"
 export function titleMatches(searched: string, title: string) {
   // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
   const t = fullTitle(title);
-  return fullTitle(searched).split(" ").filter(Boolean).every((w) => t.includes(w));
+  const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
+  // "Account Executive" isn't "Accounting Executive".
+  if (/\baccount(ing|ant)/.test(t) && !/\baccount(ing|ant)/.test(words.join(" "))) return false;
+  if (!words.some((w) => LEADER.has(w))) return words.every((w) => t.includes(w));
+  // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and
+  // "Director, Sales Development". Leaders run the reps, so their titles rarely say "representative".
+  return t.split(" ").some((w) => LEADER.has(w)) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
 }
+
+const FILLER = new Set(["of", "the", "and", "for", "&"]);
+const LEADER = new Set(["manager", "managers", "head", "director", "lead", "leader", "leadership", "vice", "president", "chief", "supervisor"]);
 
 async function himalayas(title: string, place: Place): Promise<Found[]> {
   const body = await getJson<{ jobs: HimalayasJob[] }>(`https://himalayas.app/jobs/api/search?${new URLSearchParams({ q: title })}`);
@@ -185,10 +193,13 @@ export function openTo(place: Place, location: string, workSetting?: string, tit
 /** Searches every extra source for these titles. A source that fails is skipped, not fatal. */
 export async function searchOtherSources(titles: string[], location: string, googleTitles = 2) {
   const place = readPlace(location);
+  // JSearch's free plan is about 200 searches a month and Adzuna's about 2,500, so they take a few titles a day,
+  // a different few each day, and every title gets its turn within the week.
+  const day = Math.floor(Date.now() / 86_400_000);
+  const turn = (n: number) => (titles.length <= n ? titles : Array.from({ length: n }, (_, i) => titles[(day * n + i) % titles.length]));
   const calls = [
-    // JSearch's free plan is about 200 searches a month, so it gets the two main titles only.
-    ...titles.slice(0, googleTitles).map((t) => jsearch(t, place)),
-    ...titles.slice(0, 4).map((t) => adzuna(t, place)),
+    ...turn(googleTitles).map((t) => jsearch(t, place)),
+    ...turn(4).map((t) => adzuna(t, place)),
     // Dreamwork and Himalayas are free, so they search every title; Google and Adzuna have quotas.
     ...titles.slice(0, 16).map((t) => himalayas(t, place)),
   ];

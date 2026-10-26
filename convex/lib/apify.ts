@@ -60,3 +60,51 @@ export async function searchPosts(queries: string[], perQuery = 10) {
   const seen = new Set<string>();
   return rows.map(toPost).filter((p): p is Post => !!p && !seen.has(p.id) && !!seen.add(p.id));
 }
+
+type RawJob = {
+  id?: string;
+  title?: string;
+  linkedinUrl?: string;
+  postedDate?: string;
+  descriptionText?: string;
+  location?: { linkedinText?: string };
+  workplaceType?: string;
+  salary?: { text?: string } | null;
+  applyMethod?: { companyApplyUrl?: string } | null;
+  company?: { name?: string; logo?: string };
+};
+
+export type LinkedInJob = {
+  id: string; title: string; company: string; companyLogo?: string; location: string; workSetting?: string;
+  salary?: string; postedAt?: string; url: string; applyUrl?: string; description?: string;
+};
+
+/**
+ * LinkedIn job listings for each search, which can join titles with OR. About $0.001 a job, and
+ * `maxUsd` caps the run. `where` is a place LinkedIn knows ("Bengaluru", "India"); `remote` keeps remote roles only.
+ */
+export async function searchJobs(queries: string[], where: string | undefined, remote: boolean, since: "24h" | "week" | "month", perQuery: number, maxUsd: number) {
+  const rows = await run<RawJob>(
+    "harvestapi~linkedin-job-search",
+    { jobTitles: queries, ...(where ? { locations: [where] } : {}), ...(remote ? { workplaceType: ["remote"] } : {}), postedLimit: since, sortBy: "date", maxItems: perQuery },
+    maxUsd,
+  );
+  const seen = new Set<string>();
+  return rows.flatMap((j): LinkedInJob[] => {
+    if (!j.id || !j.title || !j.company?.name || seen.has(j.id)) return [];
+    seen.add(j.id);
+    return [{
+      id: j.id,
+      title: j.title,
+      company: j.company.name,
+      companyLogo: j.company.logo,
+      location: j.location?.linkedinText ?? "",
+      workSetting: j.workplaceType === "remote" ? "remote" : j.workplaceType === "hybrid" ? "hybrid" : j.workplaceType === "on_site" ? "onsite" : undefined,
+      salary: j.salary?.text,
+      postedAt: j.postedDate,
+      url: j.linkedinUrl ?? `https://www.linkedin.com/jobs/view/${j.id}/`,
+      applyUrl: j.applyMethod?.companyApplyUrl,
+      description: j.descriptionText,
+    }];
+  });
+}

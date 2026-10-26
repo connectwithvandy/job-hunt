@@ -10,7 +10,7 @@ import { action, env, internalAction, type ActionCtx } from "./_generated/server
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
-import { recentPosts, searchPosts } from "./lib/apify";
+import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
 import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
@@ -151,11 +151,11 @@ function fromFound(f: Found, trackKey: string): NewJob {
 export const findJobs = action({
   args: { trackKey: v.string() },
   handler: async (ctx, { trackKey }): Promise<{ added: number; trackName: string }> => {
-    const { userId, tracks, location } = await setup(ctx);
+    const { userId, tracks, location, email } = await setup(ctx);
     const track = tracks.find((t) => t.key === trackKey);
     if (!track) throw new ConvexError("Unknown track.");
     await spend(ctx, userId, "search");
-    return { added: await searchTrack(ctx, userId, track, location), trackName: track.name };
+    return { added: await searchTrack(ctx, userId, track, location, 2, ownerLinkedIn(email)), trackName: track.name };
   },
 });
 
@@ -172,16 +172,41 @@ async function withCareerTexts(ctx: ActionCtx, rows: CareerRow[]): Promise<Found
 async function careerMatches(ctx: ActionCtx, titles: string[], location: string): Promise<Found[]> {
   const place = readPlace(location);
   const rows: CareerRow[] = await ctx.runQuery(internal.careers.search, { titles, india: place.kind === "place" && place.country === "in" });
-  return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 100));
+  return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 300));
 }
 
-/** Searches every board for one track and saves the new roles. Returns how many were new. */
-async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2): Promise<number> {
+/** LinkedIn's own job listings for a track's titles, in one OR search: the place itself, plus remote roles open to the country. */
+async function linkedInMatches(titles: string[], location: string, since: "24h" | "week"): Promise<Found[]> {
+  const place = readPlace(location);
+  const query = titles.slice(0, 16).map((t) => `"${t.replace(/"/g, "")}"`).join(" OR ");
+  const perQuery = since === "24h" ? 50 : 100;
+  const searches: [string | undefined, boolean][] = place.kind === "remote" ? [["India", true]] : place.kind === "anywhere" ? [[undefined, false]] : [[place.name, false]];
+  if (place.kind === "place" && place.country === "in") searches.push(["India", true]);
+  // About $0.001 a job, so a day's search for one track stays under about $0.10.
+  const settled = await Promise.allSettled(searches.map(([where, remote]) => searchJobs([query], where, remote, since, perQuery, 0.06)));
+  for (const r of settled) if (r.status === "rejected") console.warn("LinkedIn job search failed:", String(r.reason));
+  return settled
+    .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+    .filter((j) => titles.some((t) => titleMatches(t, j.title)) && openTo(place, j.location, j.workSetting, j.title))
+    .map((j) => ({ source: "linkedin", id: j.id, title: j.title, company: j.company, companyLogo: j.companyLogo, location: j.location, workSetting: j.workSetting, salary: j.salary, postedAt: j.postedAt, url: j.url, description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") }));
+}
+
+/**
+ * Searches every board for one track and saves the new roles. Returns how many were new.
+ * `linkedin` also reads LinkedIn's listings from that far back; only the owner's account pays for it.
+ */
+async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2, linkedin?: "24h" | "week"): Promise<number> {
     const [settled, others] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : Promise.allSettled(track.titles.slice(0, 16).map((title, i) => searchListings(title, location, 25, i < 3 ? 3 : 2))),
-      track.company ? Promise.resolve([]) : Promise.all([searchOtherSources(track.titles, location, googleTitles), careerMatches(ctx, track.titles, location)]).then((r) => r.flat()),
+        : Promise.allSettled(track.titles.slice(0, 16).map((title) => searchListings(title, location, 25, 4))),
+      track.company
+        ? Promise.resolve([])
+        : Promise.all([
+            searchOtherSources(track.titles, location, googleTitles),
+            careerMatches(ctx, track.titles, location),
+            linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, location, linkedin) : Promise.resolve([]),
+          ]).then((r) => r.flat()),
     ]);
     // Dreamwork also matches company names, so keep only titles holding the searched words.
     const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
@@ -380,7 +405,7 @@ export const autopilotFor = internalAction({
       // One Google Jobs title per track keeps a month of mornings inside JSearch's free 200 searches.
       for (const track of me.tracks.filter((t) => t.status === "active")) {
         try {
-          added += await searchTrack(ctx, userId, track, me.location, 1);
+          added += await searchTrack(ctx, userId, track, me.location, 1, isOwnerEmail(me.email) ? "24h" : undefined);
         } catch (err) {
           console.warn("Autopilot search failed", track.key, String(err));
         }
@@ -547,6 +572,11 @@ export const followUp = action({
 });
 
 // ---------- LinkedIn posts (the owner's account only, for now) ----------
+
+/** A search the owner runs by hand also reads the last week of LinkedIn listings. */
+function ownerLinkedIn(email: string | undefined): "week" | undefined {
+  return isOwnerEmail(email) ? "week" : undefined;
+}
 
 function requireOwner(me: Context) {
   if (!isOwnerEmail(me.email)) throw new ConvexError("Reading LinkedIn posts isn't open to everyone yet.");
@@ -1192,7 +1222,7 @@ async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Rec
       const active = me.tracks.filter((t) => t.status === "active" && (!str("role_key") || t.key === str("role_key")));
       await spend(ctx, me.userId, "search", Math.max(1, active.length));
       let added = 0;
-      for (const t of active) added += await searchTrack(ctx, me.userId, t, me.location);
+      for (const t of active) added += await searchTrack(ctx, me.userId, t, me.location, 2, ownerLinkedIn(me.email));
       // Name the new unscored jobs, so the assistant can score them next.
       const fresh: Id<"jobs">[] = added ? await ctx.runQuery(internal.jobs.unscoredIds, { userId: me.userId, limit: Math.min(added, 12) }) : [];
       return `Searched ${active.map((t) => t.name).join(", ")}: ${added} new ${added === 1 ? "job" : "jobs"}${fresh.length ? ` (unscored ids: ${fresh.join(", ")})` : ""}.`;

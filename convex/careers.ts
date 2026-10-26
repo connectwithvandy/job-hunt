@@ -4,6 +4,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import { boardFromUrl } from "./lib/boardFromUrl";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { companyKey, roleKey } from "./lib/company";
+import { fullTitle } from "./lib/salesRoles";
 
 // Discovered boards are capped so the morning download stays a few minutes long.
 const MAX_DISCOVERED = 1000;
@@ -163,13 +164,21 @@ export const removeJobs = internalMutation({
   },
 });
 
+const RANK_WORDS = new Set(["manager", "head", "of", "director", "lead", "leader", "team", "senior", "representative", "vice", "president", "chief"]);
+
 /** Roles whose titles best match any of these, closest first. The caller checks the exact words and the place. */
 export const search = internalQuery({
   args: { titles: v.array(v.string()), india: v.boolean() },
   handler: async (ctx, { titles, india }) => {
     const seen = new Map<string, { externalId: string; company: string; title: string; location: string; workSetting?: string; salary?: string; postedAt?: string; url: string; india: boolean }>();
-    for (const title of titles.slice(0, 16)) {
-      const rows = await ctx.db.query("careerJobs").withSearchIndex("search_title", (q) => (india ? q.search("title", title).eq("india", true) : q.search("title", title)))
+    // Each title as written, written out ("SDR" as "sales development"), and without its rank words, so
+    // "SDR Manager" also reaches "Head of Sales Development".
+    const terms = new Set(titles.slice(0, 16).flatMap((t) => {
+      const full = fullTitle(t);
+      return [t, full, full.split(" ").filter((w) => !RANK_WORDS.has(w)).join(" ")];
+    }).filter((t) => t.trim()));
+    for (const term of terms) {
+      const rows = await ctx.db.query("careerJobs").withSearchIndex("search_title", (q) => (india ? q.search("title", term).eq("india", true) : q.search("title", term)))
         .take(64);
       for (const { _id, _creationTime, ...r } of rows) seen.set(r.externalId, r);
     }
