@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
+import { nextFollowUp } from "../../convex/lib/followups";
 import { downloadDocx } from "@/lib/docx";
 import { errorMessage } from "@/lib/errors";
 import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
@@ -380,6 +381,16 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
                   </button>
                 )}
               </div>
+              <SendTracking contact={c} note={note} email={email} save={(patch) => store(contacts.map((x) => (x.id === c.id ? { ...x, ...patch } : x)))} />
+              {c.sentAt && (
+                <FollowUpBox
+                  thread={{ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps }}
+                  channel={c.channel ?? "linkedin"}
+                  url={c.channel === "email" ? (c.email ? `mailto:${c.email}` : "") : c.linkedinUrl}
+                  write={{ ...("jobId" in owner ? { jobId: owner.jobId } : { prospectId: owner.prospectId }), contactId: c.id, kind: "hiring" }}
+                  markSent={(index, text) => store(contacts.map((x) => (x.id === c.id ? { ...x, followUps: (x.followUps ?? []).map((f, i) => (i === index ? { ...f, text, sentAt: Date.now() } : f)) } : x)))}
+                />
+              )}
               <CommonGround owner={owner} contact={c} />
             </li>
           ))}
@@ -423,6 +434,117 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
         </button>
       )}
       <Feedback state={state} />
+    </div>
+  );
+}
+
+/** Whether you've messaged this person yet, how, and whether they wrote back. */
+/** Whether a message asks for something (a call, a chat) or just puts you on their radar, for comparing which gets more replies. */
+const asks = (text?: string) => !!text && /\?/.test(text);
+
+function SendTracking({ contact: c, save, note, email }: { contact: HiringContact; save: (patch: Partial<HiringContact>) => Promise<void>; note?: string; email?: string }) {
+  if (c.repliedAt) {
+    return (
+      <p className="mt-2 text-xs text-good">
+        Replied {new Date(c.repliedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.{" "}
+        <button className="text-ink-3 underline hover:text-ink" onClick={() => void save({ repliedAt: undefined })}>
+          Undo
+        </button>
+      </p>
+    );
+  }
+  if (c.sentAt) {
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-3">
+        <span>
+          Sent by {c.channel === "email" ? "email" : "LinkedIn"} {new Date(c.sentAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.
+        </span>
+        <button className="btn btn-ghost btn-sm" onClick={() => void save({ repliedAt: Date.now() })}>
+          They replied
+        </button>
+        <button className="underline hover:text-ink" onClick={() => void save({ sentAt: undefined, channel: undefined, asked: undefined, followUps: undefined })}>
+          Not sent
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-3">
+      <span>Sent it?</span>
+      <button className="btn btn-ghost btn-sm" onClick={() => void save({ sentAt: Date.now(), channel: "linkedin", asked: asks(c.note ?? note) })}>
+        Sent on LinkedIn
+      </button>
+      {c.email && (
+        <button className="btn btn-ghost btn-sm" onClick={() => void save({ sentAt: Date.now(), channel: "email", asked: asks(c.email2 ?? email ?? note) })}>
+          Sent by email
+        </button>
+      )}
+    </div>
+  );
+}
+
+type FollowUp = NonNullable<HiringContact["followUps"]>[number];
+
+/** The next follow-up to a message with no reply: when it's due, written on request, then copied and marked sent. */
+export function FollowUpBox({
+  thread,
+  channel,
+  url,
+  write,
+  markSent,
+}: {
+  thread: { sentAt?: number; replied: boolean; followUps?: FollowUp[] };
+  channel: "linkedin" | "email";
+  url: string;
+  write: { jobId?: Id<"jobs">; prospectId?: Id<"prospects">; contactId: string; kind: "hiring" | "referral" };
+  markSent: (index: number, text: string) => Promise<void>;
+}) {
+  const run = useAction(api.agent.followUp);
+  const [now] = useState(() => Date.now());
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  const next = nextFollowUp(thread);
+  const index = (thread.followUps ?? []).filter((f) => f.sentAt).length;
+  const draft = thread.followUps?.[index];
+  const [text, setText] = useState(draft?.text ?? "");
+  // A new draft from the server replaces what's in the box.
+  const [shown, setShown] = useState(draft?.writtenAt);
+  if (draft && draft.writtenAt !== shown) {
+    setShown(draft.writtenAt);
+    setText(draft.text);
+  }
+  const sentOnes = (thread.followUps ?? []).filter((f) => f.sentAt);
+  if (!next) {
+    return sentOnes.length && !thread.replied ? <p className="mt-2 text-xs text-ink-3">Both follow-ups sent. Leave this one now: silence is an answer too.</p> : null;
+  }
+  const days = Math.ceil((next.dueAt - now) / 86_400_000);
+  const when = days <= 0 ? "due now" : `due in ${days} ${days === 1 ? "day" : "days"}`;
+  const writeIt = () => start(async () => setState(await attempt(async () => void (await run(write)))));
+  return (
+    <div className={`mt-3 rounded-lg border p-3 ${days <= 0 ? "border-accent" : "border-line"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="font-medium">
+          Follow-up {next.n} <span className="text-xs font-normal text-ink-3">· {when}</span>
+        </span>
+        <button className={`btn btn-sm ${draft ? "btn-ghost" : days <= 0 ? "btn-primary" : "btn-ghost"}`} disabled={busy} onClick={writeIt}>
+          {busy && <Spinner />}
+          {busy ? "Writing…" : draft ? "Write another" : `Write follow-up ${next.n}`}
+        </button>
+      </div>
+      {!draft && <p className="mt-1 text-xs text-ink-3">{next.n === 1 ? "A new reason to reply, not a nudge." : "The last one: short, kind, with an easy out."}</p>}
+      {draft && (
+        <div className="mt-2">
+          {draft.subject && <p className="mb-1 text-xs text-ink-3">Subject: {draft.subject}</p>}
+          <textarea className="field h-28 text-sm leading-relaxed" value={text} onChange={(e) => setText(e.target.value)} />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {url ? <CopyAndOpen text={text} url={url} label={channel === "email" ? "Copy & open email" : "Copy & open LinkedIn"} /> : <CopyButton text={text} />}
+            <button className="btn btn-ghost btn-sm" onClick={() => start(async () => setState(await attempt(async () => void (await markSent(index, text)))))}>
+              Mark sent
+            </button>
+          </div>
+        </div>
+      )}
+      <Feedback state={busy ? null : state} />
     </div>
   );
 }
@@ -486,6 +608,7 @@ const OUTREACH_FLOW: { status: OutreachStatus; label: string }[] = [
 
 export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outreach; cvName: string }) {
   const setOutreach = useMutation(api.jobs.setOutreach);
+  const sendFollowUp = useMutation(api.jobs.sendOutreachFollowUp);
   const [message, setMessage] = useState(o.message);
   const [saved, setSaved] = useState("");
   const sentLabel = o.sentAt ? ` ${new Date(o.sentAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : "";
@@ -536,6 +659,15 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
         ))}
         {saved && <span className="text-xs text-good">{saved}</span>}
       </div>
+      {o.status === "sent" && (
+        <FollowUpBox
+          thread={{ sentAt: o.sentAt, replied: false, followUps: o.followUps }}
+          channel="linkedin"
+          url={o.url}
+          write={{ jobId, contactId: o.contactId, kind: "referral" }}
+          markSent={async (index, text) => void (await sendFollowUp({ jobId, contactId: o.contactId, index, text }))}
+        />
+      )}
     </div>
   );
 }

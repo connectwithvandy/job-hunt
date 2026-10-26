@@ -5,23 +5,31 @@ import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
+import { nextFollowUp } from "../../../convex/lib/followups";
 import { PageHead } from "@/components/bits";
 import { DirectNote, EmailDraft, HiringContacts, OutreachCard } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 
-type Show = "todo" | "waiting" | "all";
+type Show = "todo" | "followup" | "waiting" | "all";
 
 export default function Messages() {
   const rows = useQuery(api.jobs.messages);
   const [show, setShow] = useState<Show>("todo");
+  const [now] = useState(() => Date.now());
   if (!rows) return <Loading />;
 
-  const counts = { todo: 0, waiting: 0, all: rows.length };
+  const counts = { todo: 0, followup: 0, waiting: 0, all: rows.length };
   const kind = (r: (typeof rows)[number]): Show => {
     const asked = r.outreach.filter((o) => o.status !== "draft");
     const drafts = r.outreach.filter((o) => o.status === "draft");
-    if (drafts.length || (r.directNote && !asked.length)) return "todo";
-    if (asked.some((o) => o.status === "sent")) return "waiting";
+    const contacted = r.hiringContacts.filter((c) => c.sentAt);
+    const due = [
+      ...r.outreach.map((o) => nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps })),
+      ...r.hiringContacts.map((c) => nextFollowUp({ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps })),
+    ].some((f) => f && f.dueAt <= now);
+    if (due) return "followup";
+    if (drafts.length || (r.directNote && !asked.length && !contacted.length)) return "todo";
+    if (asked.some((o) => o.status === "sent") || contacted.some((c) => !c.repliedAt)) return "waiting";
     return "all";
   };
   for (const r of rows) {
@@ -42,9 +50,10 @@ export default function Messages() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <PageHead title="Messages" sub="Every note, email and referral ask you've written, across all your jobs. Edit, copy and send from here." />
+      <PageHead title="Messages" sub="Every note, email and referral ask you've written, across all your jobs. Send after you apply, mark what you sent, and follow up a week later: over half of replies come to a follow-up." />
       <div className="mb-5 flex flex-wrap gap-2">
         {tab("todo", "To send")}
+        {tab("followup", "Follow up")}
         {tab("waiting", "Waiting for a reply")}
         {tab("all", "All")}
       </div>

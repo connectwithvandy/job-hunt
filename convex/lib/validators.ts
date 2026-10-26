@@ -55,6 +55,11 @@ export const jobStatusV = v.union(
 
 export const outreachStatusV = v.union(v.literal("draft"), v.literal("sent"), v.literal("replied"), v.literal("referred"));
 
+export const channelV = v.union(v.literal("linkedin"), v.literal("email"));
+
+/** A follow-up to a message that got no reply, each with a new angle. Two at most (lib/followups.ts). */
+export const followUpV = v.object({ text: v.string(), subject: v.optional(v.string()), writtenAt: v.number(), sentAt: v.optional(v.number()) });
+
 export const outreachV = v.object({
   contactId: v.string(),
   name: v.string(),
@@ -63,6 +68,7 @@ export const outreachV = v.object({
   message: v.string(),
   status: outreachStatusV,
   sentAt: v.optional(v.number()),
+  followUps: v.optional(v.array(followUpV)),
 });
 
 export const packV = v.object({
@@ -98,6 +104,13 @@ export const hiringContactV = v.object({
   note: v.optional(v.string()),
   emailSubject: v.optional(v.string()),
   email2: v.optional(v.string()),
+  /** When you messaged them, how, and whether they wrote back, so follow-ups come due and replies are counted. */
+  sentAt: v.optional(v.number()),
+  channel: v.optional(channelV),
+  /** The message asked for something (a call); false when it only put you on their radar. Compared on Today. */
+  asked: v.optional(v.boolean()),
+  repliedAt: v.optional(v.number()),
+  followUps: v.optional(v.array(followUpV)),
 });
 
 /** What the web says about the company, gathered when you ask. */

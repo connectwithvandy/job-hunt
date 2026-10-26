@@ -55,6 +55,65 @@ export default function JobPage() {
   // Once a CV is written the choice is made, so the skip warning goes.
   const skip = job.pack ? null : skipReason(job);
   const ghost = ghostSigns(job, data.sighting, now);
+  const referralFirst = people.length > 0;
+
+  const hiringStep = (
+    <Fold key="hiring" n={referralFirst ? 3 : 2} title="Contact the hiring manager or HR" status={job.hiringContacts?.length ? `${job.hiringContacts.length} saved` : "Nobody saved yet"} open={false}>
+        <p className="-mt-2 mb-3 text-sm text-ink-2">Find them on LinkedIn, save their details here, then message them in one click.</p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {[...(job.pack?.hiringManagerTitles ?? []), "Talent Acquisition"].map((t) => (
+            <a key={t} className="btn btn-ghost btn-sm" href={linkedInPeopleSearch(job.company, t)} target="_blank" rel="noreferrer">
+              Find {t} ↗
+            </a>
+          ))}
+        </div>
+        <HiringContacts owner={{ jobId: job._id }} contacts={job.hiringContacts ?? []} note={job.pack?.directNote} emailSubject={job.pack?.emailSubject} email={job.pack?.email} />
+        {job.pack?.directNote ? (
+          <div className="mt-5 space-y-5 border-t border-line pt-5">
+            <div>
+              <div className="label mb-2">LinkedIn note</div>
+              <DirectNote key={job.pack.createdAt} jobId={job._id} text={job.pack.directNote} />
+            </div>
+            <div>
+              <div className="label mb-2">Email</div>
+              {job.pack.email ? (
+                <EmailDraft key={job.pack.createdAt} jobId={job._id} subject={job.pack.emailSubject ?? ""} body={job.pack.email} />
+              ) : (
+                <p className="text-sm text-ink-2">Press &quot;Write them again&quot; in step 1 to get an email version too.</p>
+              )}
+            </div>
+            <p className="text-xs text-ink-3">&quot;Hi &lt;first name&gt;&quot; is filled in with the person&apos;s name when you message them from their card above.</p>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-ink-2">Write your CV in step 1 to get a LinkedIn note and an email for them.</p>
+        )}
+    </Fold>
+  );
+  const referralStep = (
+    <Fold key="referral" n={referralFirst ? 2 : 3} title="Ask your connections for a referral" status={job.outreach.length ? `${job.outreach.length} asked` : people.length ? `You know ${people.length} there` : "No connections there"} open={referralFirst && stage === "reach"}>
+        {me.contactsCount === 0 ? (
+          <p className="text-sm text-ink-2">
+            Load your LinkedIn connections under People → <Link className="underline" href="/network">Your network</Link> to see who you know at {job.company}.
+          </p>
+        ) : people.length === 0 ? (
+          <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager in step 2, or a second-degree intro.</p>
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-ink-2">
+              You know {people.length} {people.length === 1 ? "person" : "people"} at {job.company}. Asking one or two works better than asking everyone.
+            </p>
+            {notAsked.length > 0 && <PeoplePicker jobId={job._id} people={notAsked} best={Math.min(2, notAsked.length)} />}
+          </>
+        )}
+        {job.outreach.length > 0 && (
+          <div className="mt-5 space-y-3">
+            {job.outreach.map((o) => (
+              <OutreachCard key={o.contactId + o.message.length} jobId={job._id} o={o} cvName={cvName} />
+            ))}
+          </div>
+        )}
+    </Fold>
+  );
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -101,7 +160,7 @@ export default function JobPage() {
 
       <PostingCheck live={job.liveCheck} checking={stale} ghost={ghost} check={async () => void (await checkPosting({ jobId: job._id }))} />
 
-      <NextStep stage={stage} skip={skip} dismiss={async () => void (await setStatus({ jobId: job._id, status: "dismissed" }))} job={job} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} scoreIt={async () => void (await scoreJobs({ jobIds: [job._id] }))} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
+      <NextStep stage={stage} skip={skip} knows={people.length} company={job.company} dismiss={async () => void (await setStatus({ jobId: job._id, status: "dismissed" }))} job={job} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} scoreIt={async () => void (await scoreJobs({ jobIds: [job._id] }))} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
 
       <div className="space-y-3">
         <Fold title="Is it a fit?" status={scores.length ? `Best fit ${scores[0].score}` : "Not scored yet"} open={stage === "score"}>
@@ -172,60 +231,8 @@ export default function JobPage() {
             )}
         </Fold>
 
-        <Fold n={2} title="Contact the hiring manager or HR" status={job.hiringContacts?.length ? `${job.hiringContacts.length} saved` : "Nobody saved yet"} open={false}>
-            <p className="-mt-2 mb-3 text-sm text-ink-2">Find them on LinkedIn, save their details here, then message them in one click.</p>
-            <div className="mb-4 flex flex-wrap gap-2">
-              {[...(job.pack?.hiringManagerTitles ?? []), "Talent Acquisition"].map((t) => (
-                <a key={t} className="btn btn-ghost btn-sm" href={linkedInPeopleSearch(job.company, t)} target="_blank" rel="noreferrer">
-                  Find {t} ↗
-                </a>
-              ))}
-            </div>
-            <HiringContacts owner={{ jobId: job._id }} contacts={job.hiringContacts ?? []} note={job.pack?.directNote} emailSubject={job.pack?.emailSubject} email={job.pack?.email} />
-            {job.pack?.directNote ? (
-              <div className="mt-5 space-y-5 border-t border-line pt-5">
-                <div>
-                  <div className="label mb-2">LinkedIn note</div>
-                  <DirectNote key={job.pack.createdAt} jobId={job._id} text={job.pack.directNote} />
-                </div>
-                <div>
-                  <div className="label mb-2">Email</div>
-                  {job.pack.email ? (
-                    <EmailDraft key={job.pack.createdAt} jobId={job._id} subject={job.pack.emailSubject ?? ""} body={job.pack.email} />
-                  ) : (
-                    <p className="text-sm text-ink-2">Press &quot;Write them again&quot; in step 1 to get an email version too.</p>
-                  )}
-                </div>
-                <p className="text-xs text-ink-3">&quot;Hi &lt;first name&gt;&quot; is filled in with the person&apos;s name when you message them from their card above.</p>
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-ink-2">Write your CV in step 1 to get a LinkedIn note and an email for them.</p>
-            )}
-        </Fold>
-
-        <Fold n={3} title="Ask your connections for a referral" status={job.outreach.length ? `${job.outreach.length} asked` : people.length ? `You know ${people.length} there` : "No connections there"} open={false}>
-            {me.contactsCount === 0 ? (
-              <p className="text-sm text-ink-2">
-                Load your LinkedIn connections under People → <Link className="underline" href="/network">Your network</Link> to see who you know at {job.company}.
-              </p>
-            ) : people.length === 0 ? (
-              <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager in step 2, or a second-degree intro.</p>
-            ) : (
-              <>
-                <p className="mb-3 text-sm text-ink-2">
-                  You know {people.length} {people.length === 1 ? "person" : "people"} at {job.company}. Asking one or two works better than asking everyone.
-                </p>
-                {notAsked.length > 0 && <PeoplePicker jobId={job._id} people={notAsked} best={Math.min(2, notAsked.length)} />}
-              </>
-            )}
-            {job.outreach.length > 0 && (
-              <div className="mt-5 space-y-3">
-                {job.outreach.map((o) => (
-                  <OutreachCard key={o.contactId + o.message.length} jobId={job._id} o={o} cvName={cvName} />
-                ))}
-              </div>
-            )}
-        </Fold>
+        {/* A referral from someone inside beats a cold note by a wide margin, so when you know someone there it comes first. */}
+        {referralFirst ? [referralStep, hiringStep] : [hiringStep, referralStep]}
 
         <Fold n={4} title="Apply" status={job.status === "new" || job.status === "applying" ? "Not applied yet" : `Applied${job.appliedAt ? ` ${timeAgo(job.appliedAt)}` : ""}`} open={stage === "apply"}>
             {me.answers.length > 0 ? (
@@ -333,6 +340,8 @@ function Fold({ n, title, status, open, children }: { n?: number; title: string;
 /** The one thing to do now for this job, with its button. */
 function NextStep({
   stage,
+  knows,
+  company,
   skip,
   dismiss,
   job,
@@ -342,6 +351,9 @@ function NextStep({
   markApplied,
 }: {
   stage: Stage;
+  /** How many of your connections work there. */
+  knows: number;
+  company: string;
   /** Why the app says not to apply, when it does. */
   skip: string | null;
   dismiss: () => Promise<void>;
@@ -355,7 +367,9 @@ function NextStep({
     score: ["See if it's worth your time", "A fit score for each of your roles, with the reasons and the gaps."],
     tailor: ["Write your tailored CV and cover letter", "Also writes a LinkedIn note and an email for the hiring manager."],
     apply: ["Apply", "Opens the form, downloads your tailored CV and copies your cover letter."],
-    reach: ["Get noticed", "Applied. Now message the hiring manager (step 2) or ask someone you know for a referral (step 3)."],
+    reach: knows
+      ? ["Ask for a referral", `Applied. You know ${knows} ${knows === 1 ? "person" : "people"} at ${company}: a referral is the strongest way in (step 2). Then message the hiring manager (step 3).`]
+      : ["Get noticed", "Applied. Now message the hiring manager (step 2), and follow up in a week if they don't reply."],
   }[stage];
   if (skip && stage === "tailor") {
     return (

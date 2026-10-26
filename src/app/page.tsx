@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
+import { nextFollowUp, replyTiming } from "../../convex/lib/followups";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
@@ -13,6 +14,9 @@ import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
 
 const DAY = 86_400_000;
+
+/** Jobs still worth chasing: not closed, not set aside. */
+const stillChasing = (status: string) => status !== "rejected" && status !== "dismissed" && status !== "offer";
 const LIVE = new Set(["applying", "applied", "screening", "interview", "offer"]);
 
 function msSince(when: number) {
@@ -57,7 +61,11 @@ export default function Today() {
     .slice(0, 5);
   const replies = jobs.filter((j) => j.lastEmail && msSince(j.lastEmail.at) < 3 * DAY && ["screening", "interview", "offer"].includes(j.status));
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
-  const nudges = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "sent" && o.sentAt && msSince(o.sentAt) > 5 * DAY).map((o) => ({ j, o })));
+  // Follow-ups that are due: referral asks and messages to hiring managers that got no reply in a week.
+  const followUps = jobs.flatMap((j) => [
+    ...j.outreach.map((o) => ({ j, name: o.name, n: nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps }) })),
+    ...(j.hiringContacts ?? []).map((c) => ({ j, name: c.name, n: nextFollowUp({ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps }) })),
+  ]).filter((f) => f.n && f.n.dueAt <= now && stillChasing(f.j.status));
   const quiet = jobs.filter((j) => j.status === "applied" && j.appliedAt && msSince(j.appliedAt) > 10 * DAY);
   const raised = (prospects ?? [])
     .filter((p) => p.source === "funded" && p.status === "new" && msSince(p._creationTime) < 14 * DAY)
@@ -74,7 +82,7 @@ export default function Today() {
     ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}`, href: `/jobs/${j._id}` })),
     ...strong.map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}`, href: `/jobs/${j._id}` })),
     ...drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
-    ...nudges.map(({ j, o }) => ({ key: `n${j._id}${o.contactId}`, verb: "Nudge", main: o.name, sub: `Asked ${timeAgo(o.sentAt)} about ${j.company}, no reply`, href: `/jobs/${j._id}` })),
+    ...followUps.map(({ j, name, n }) => ({ key: `n${j._id}${name}${n!.n}`, verb: "Follow up", main: name, sub: `Follow-up ${n!.n} about ${j.title} at ${j.company}, no reply yet`, href: `/jobs/${j._id}` })),
     ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
     ...raised.map((p) => ({ key: `f${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
     ...(interviewing.length && stories?.length === 0
@@ -237,6 +245,22 @@ function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; tracks: 
   const anyway = jobs.some((j) => j.wroteAnyway) ? tallyBy(jobs, (j) => (j.wroteAnyway ? "Wrote it anyway" : "Above the line"), now) : new Map<string, Tally>();
   const source = tallyBy(jobs, (j) => SOURCE_LABELS[j.source] ?? null, now);
   const habits = [...referral, ...speed, ...anyway];
+  // Messages you marked sent, and whether a reply came to the first message or to a follow-up.
+  const threads = jobs.flatMap((j) => [
+    ...j.outreach.map((o) => ({ kind: "Referral asks", sentAt: o.status === "draft" ? undefined : (o.sentAt ?? 1), replied: o.status === "replied" || o.status === "referred", followUps: o.followUps })),
+    ...(j.hiringContacts ?? []).map((c) => ({ kind: c.channel === "email" ? "Emails to hiring managers" : "LinkedIn notes to hiring managers", sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps })),
+  ]);
+  const kinds = ["Referral asks", "LinkedIn notes to hiring managers", "Emails to hiring managers"].map((k) => {
+    const t = threads.filter((x) => x.kind === k && x.sentAt);
+    return [k, { total: t.length, responses: t.filter((x) => x.replied).length }] as const;
+  });
+  const timing = replyTiming(threads);
+  // Asking for a call against just putting yourself on their radar, to see which your readers answer.
+  const contacted = jobs.flatMap((j) => (j.hiringContacts ?? []).filter((c) => c.sentAt && c.asked !== undefined));
+  const askSplit = (["With an ask", "On your radar, no ask"] as const).map((label) => {
+    const t = contacted.filter((c) => c.asked === (label === "With an ask"));
+    return [label, { total: t.length, responses: t.filter((c) => c.repliedAt).length }] as const;
+  });
   return (
     <section id="whats-working" className="mb-12 scroll-mt-6">
       <h2 className="display mb-1 text-3xl">What&apos;s working</h2>
@@ -257,6 +281,15 @@ function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; tracks: 
         <div className="card p-5">
           <h3 className="font-medium">By how you applied</h3>
           <ul className="divide-y divide-line">{habits.map(([label, t]) => line(label, t))}</ul>
+        </div>
+        <div className="card p-5">
+          <h3 className="font-medium">By message</h3>
+          <ul className="divide-y divide-line">{[...kinds, ...askSplit].filter(([, t]) => t.total).map(([label, t]) => line(label, t))}</ul>
+          {timing.toFirst + timing.toFollowUp > 0 && (
+            <p className="mt-2 text-xs text-ink-3">
+              {timing.toFollowUp} of {timing.toFirst + timing.toFollowUp} replies came after a follow-up.
+            </p>
+          )}
         </div>
         <div className="card p-5">
           <h3 className="font-medium">By where you found it</h3>

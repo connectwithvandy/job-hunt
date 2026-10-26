@@ -10,7 +10,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, type No, type PastOutcome, type Voice } from "./lib/brain";
+import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
@@ -487,6 +487,55 @@ export const draftNotes = action({
     });
     await ctx.runMutation(internal.jobs.mergeOutreachForAction, { userId, jobId, entries });
     return { drafted: notes.length };
+  },
+});
+
+// ---------- Follow-ups ----------
+
+const firstName = (text: string, name: string) => text.replace(/<first name>|<name>/gi, name.trim().split(/\s+/)[0] || "there");
+
+/** Writes the next follow-up to someone who hasn't replied: a hiring contact on a job or company, or a connection asked for a referral. */
+export const followUp = action({
+  args: { jobId: v.optional(v.id("jobs")), prospectId: v.optional(v.id("prospects")), contactId: v.string(), kind: v.union(v.literal("hiring"), v.literal("referral")) },
+  handler: async (ctx, { jobId, prospectId, contactId, kind }): Promise<null> => {
+    const { userId, resumes, voice } = await setup(ctx);
+    if (!resumes.length) throw new ConvexError("Upload your CV first.");
+    const job: Doc<"jobs"> | null = jobId ? await ctx.runQuery(internal.jobs.forAction, { userId, jobId }) : null;
+    const [p]: Doc<"prospects">[] = prospectId ? await ctx.runQuery(internal.prospects.forAction, { userId, ids: [prospectId] }) : [];
+    if (!job && !p) throw new ConvexError("That job or company is gone.");
+    const about = job ? { title: job.title, company: job.company } : { title: "(no role posted)", company: p.name };
+    const cvs = resumes.map((r) => r.resume);
+    const write = async (n: number, person: { name: string; title: string }, channel: "linkedin" | "email", first: { subject?: string; text: string }, earlier: string[]) => {
+      await spend(ctx, userId, "notes");
+      const out = await writeFollowUp({ n, channel, person, referral: kind === "referral", job: about, first, earlier, cvs, research: job?.research, voice });
+      return { text: out.text, subject: channel === "email" ? out.subject || `Re: ${first.subject ?? about.title}` : undefined, writtenAt: Date.now() };
+    };
+
+    if (kind === "referral") {
+      const o = job?.outreach.find((x) => x.contactId === contactId);
+      if (!job || !o) throw new ConvexError("That referral ask is gone.");
+      const sent = (o.followUps ?? []).filter((f) => f.sentAt);
+      if (!o.sentAt || sent.length >= 2) throw new ConvexError("Mark the message sent first. Two follow-ups is the most worth sending.");
+      const followUp = await write(sent.length + 1, { name: o.name, title: o.position }, "linkedin", { text: o.message }, sent.map((f) => f.text));
+      await ctx.runMutation(internal.jobs.saveOutreachFollowUpForAction, { userId, jobId: job._id, contactId, followUp });
+      return null;
+    }
+
+    const c = (job?.hiringContacts ?? p?.contacts ?? []).find((x) => x.id === contactId);
+    if (!c) throw new ConvexError("That person is gone.");
+    const sent = (c.followUps ?? []).filter((f) => f.sentAt);
+    if (!c.sentAt || sent.length >= 2) throw new ConvexError("Mark the message sent first. Two follow-ups is the most worth sending.");
+    const channel = c.channel ?? "linkedin";
+    const pack = job?.pack;
+    const first =
+      channel === "email"
+        ? { subject: c.emailSubject ?? pack?.emailSubject, text: c.email2 ?? firstName(pack?.email ?? pack?.directNote ?? "", c.name) }
+        : { text: c.note ?? firstName(pack?.directNote ?? "", c.name) };
+    const followUp = await write(sent.length + 1, { name: c.name, title: c.title }, channel, first, sent.map((f) => f.text));
+    const followUps = [...sent, followUp];
+    if (job) await ctx.runMutation(internal.jobs.updateContactForAction, { userId, jobId: job._id, contactId, patch: { followUps } });
+    else await ctx.runMutation(internal.prospects.updateContactForAction, { userId, prospectId: p._id, contactId, patch: { followUps } });
+    return null;
   },
 });
 

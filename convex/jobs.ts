@@ -10,7 +10,7 @@ import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
 import { cvWords, quickFit } from "./lib/quickFit";
-import { briefV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
+import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   const job = await ctx.db.get("jobs", jobId);
@@ -195,7 +195,36 @@ export const setOutreach = mutation({
   },
 });
 
+/** Marks a referral ask's follow-up as sent, with your edits to it. */
+export const sendOutreachFollowUp = mutation({
+  args: { jobId: v.id("jobs"), contactId: v.string(), index: v.number(), text: v.string() },
+  handler: async (ctx, { jobId, contactId, index, text }) => {
+    const userId = await requireUserId(ctx);
+    const job = await ownJob(ctx, userId, jobId);
+    await ctx.db.patch("jobs", jobId, {
+      outreach: job.outreach.map((o) =>
+        o.contactId === contactId ? { ...o, followUps: (o.followUps ?? []).map((f, i) => (i === index ? { ...f, text, sentAt: f.sentAt ?? Date.now() } : f)) } : o,
+      ),
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 // ---------- For actions ----------
+
+/** Saves a freshly written follow-up to a referral ask, replacing an unsent one. */
+export const saveOutreachFollowUpForAction = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), contactId: v.string(), followUp: followUpV },
+  handler: async (ctx, { userId, jobId, contactId, followUp }) => {
+    const job = await ownJob(ctx, userId, jobId);
+    await ctx.db.patch("jobs", jobId, {
+      outreach: job.outreach.map((o) => (o.contactId === contactId ? { ...o, followUps: [...(o.followUps ?? []).filter((f) => f.sentAt), followUp].slice(0, 2) } : o)),
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
 
 export const forAction = internalQuery({
   args: { userId: v.id("users"), jobId: v.id("jobs") },
