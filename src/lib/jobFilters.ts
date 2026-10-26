@@ -1,5 +1,7 @@
 // Filters for the Jobs list, modelled on Dreamwork's: each reads one URL parameter.
 
+import { titleMatches } from "../../convex/lib/salesRoles";
+
 type FilterableJob = {
   title: string;
   company: string;
@@ -97,11 +99,8 @@ export function applyFilters<J extends FilterableJob>(jobs: J[], params: URLSear
   });
 }
 
-const phrase = (s: string) => ` ${s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
-
-/** Whether a job belongs to a role: its title contains one of the role's job titles as a phrase, or you applied as that role. */
+/** Whether a job belongs to a role: its title matches one of the role's job titles the way the search does, or you applied as that role. */
 export function inRole(job: { title: string; trackKey?: string | null }, role: { key: string; titles: string[] }) {
   if (job.trackKey === role.key) return true;
-  const title = phrase(job.title);
-  return role.titles.some((t) => title.includes(phrase(t)));
+  return role.titles.some((t) => titleMatches(t, job.title));
 }

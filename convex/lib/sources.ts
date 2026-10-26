@@ -3,7 +3,9 @@
 // Job boards searched beside Dreamwork. Each one switches on when its key is set
 // on the deployment (npx convex env set NAME value). Himalayas needs no key.
 
-import { fullTitle } from "./salesRoles";
+import { titleMatches } from "./salesRoles";
+
+export { titleMatches };
 
 export type Found = {
   source: "jsearch" | "adzuna" | "himalayas" | "careers" | "linkedin";
@@ -133,21 +135,6 @@ type HimalayasJob = {
 
 const COUNTRY_NAMES: Record<string, string> = { in: "india", us: "united states", gb: "united kingdom", de: "germany", fr: "france", nl: "netherlands", ca: "canada", au: "australia", sg: "singapore", nz: "new zealand", ae: "united arab emirates" };
 
-/** True when the job title holds every word searched for. Loose boards also match descriptions. */
-export function titleMatches(searched: string, title: string) {
-  // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
-  const t = fullTitle(title);
-  const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
-  // "Account Executive" isn't "Accounting Executive".
-  if (/\baccount(ing|ant)/.test(t) && !/\baccount(ing|ant)/.test(words.join(" "))) return false;
-  if (!words.some((w) => LEADER.has(w))) return words.every((w) => t.includes(w));
-  // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and
-  // "Director, Sales Development". Leaders run the reps, so their titles rarely say "representative".
-  return t.split(" ").some((w) => LEADER.has(w)) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
-}
-
-const FILLER = new Set(["of", "the", "and", "for", "&"]);
-const LEADER = new Set(["manager", "managers", "head", "director", "lead", "leader", "leadership", "vice", "president", "chief", "supervisor"]);
 
 async function himalayas(title: string, place: Place): Promise<Found[]> {
   const body = await getJson<{ jobs: HimalayasJob[] }>(`https://himalayas.app/jobs/api/search?${new URLSearchParams({ q: title })}`);

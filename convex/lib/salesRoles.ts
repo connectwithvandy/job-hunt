@@ -114,3 +114,19 @@ export function fullTitle(title: string) {
     .map((w) => SHORT_FORMS[w] ?? w)
     .join(" ");
 }
+
+/** True when the job title holds every word searched for. Loose boards also match descriptions. */
+export function titleMatches(searched: string, title: string) {
+  // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
+  const t = fullTitle(title);
+  const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
+  // "Account Executive" isn't "Accounting Executive".
+  if (/\baccount(ing|ant)/.test(t) && !/\baccount(ing|ant)/.test(words.join(" "))) return false;
+  if (!words.some((w) => LEADER.has(w))) return words.every((w) => t.includes(w));
+  // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and
+  // "Director, Sales Development". Leaders run the reps, so their titles rarely say "representative".
+  return t.split(" ").some((w) => LEADER.has(w)) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
+}
+
+const FILLER = new Set(["of", "the", "and", "for", "&"]);
+const LEADER = new Set(["manager", "managers", "head", "director", "lead", "leader", "leadership", "vice", "president", "chief", "supervisor"]);
