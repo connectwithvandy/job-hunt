@@ -80,6 +80,11 @@ const ScoreSchema = z.strictObject({
   ),
   whatTheyWant: z.string().describe("Two sentences: the real job behind the posting."),
   watchOuts: z.string().describe("Red flags or unknowns: seniority mismatch, location, pay, vague role. 'None' if none."),
+  blocker: z
+    .string()
+    .describe(
+      "A requirement in the post that rules the candidate out whatever their fit, stated in the post itself: citizenship or a work permit they don't show (e.g. 'Must be authorised to work in the US'), a security clearance, a licence, or a language the CV doesn't show. One line, quoting the post. Empty if none. Don't count location or skill gaps here: those go in the score.",
+    ),
 });
 
 /** Scores the job for every active track, each read against the CV that track pitches from. */
@@ -361,7 +366,16 @@ ${resumeText(resume)}`,
   });
 }
 
-// ---------- Interview prep ----------
+// ---------- Interview prep and the story bank ----------
+
+const StoryShape = {
+  title: z.string().describe("A short handle, like 'Turned around the APAC pipeline'."),
+  situation: z.string().describe("The situation and the task: where, when, what was at stake."),
+  action: z.string().describe("What the candidate did, in first person, specific."),
+  result: z.string().describe("What happened, with the CV's real numbers."),
+  reflection: z.string().describe("One or two lines: what they learned or would do differently. Interviewers probe this for seniority. Grounded in the story, never invented facts."),
+  answers: z.array(z.string()).describe("Two to four behavioural questions this story answers, like 'Tell me about a deal you lost'."),
+};
 
 const PrepSchema = z.strictObject({
   questions: z
@@ -374,16 +388,32 @@ const PrepSchema = z.strictObject({
     )
     .describe("Eight likely questions, mixing role-specific, behavioural and one or two curveballs."),
   stories: z
-    .array(z.strictObject({ title: z.string(), situation: z.string(), action: z.string(), result: z.string() }))
-    .describe("Four stories from the CV to have ready, in situation, action, result form. Results use the CV's real numbers."),
+    .array(
+      z.strictObject({
+        storyId: z.string().describe("The id of the story bank entry this is, or empty for a new story."),
+        angle: z.string().describe("One line: how to tell this story for this job, what to stress."),
+        ...StoryShape,
+      }),
+    )
+    .describe("Four stories to have ready for this job. Reuse bank stories that fit, copying their fields; write new ones only for what the bank doesn't cover."),
   askThem: z.array(z.string()).describe("Five sharp questions for the candidate to ask, specific to this role and company."),
   first90Days: z.array(z.string()).describe("Four or five lines: what the candidate would do in the first 90 days."),
 });
 
-export async function interviewPrep(job: Job, resume: Resume, track: Track | null, research?: { summary: string; news: string[] } | null) {
-  return askJSON({
+type BankStory = { _id: string; title: string; situation: string; action: string; result: string; reflection: string; answers: string[] };
+
+function bankText(bank: BankStory[]) {
+  if (!bank.length) return "";
+  return `
+
+The candidate's story bank (stories they already know and have polished; reuse these before writing new ones, and keep their wording):
+${bank.map((b) => `- storyId ${b._id}: ${b.title}. Situation: ${b.situation} Action: ${b.action} Result: ${b.result} Reflection: ${b.reflection} Answers: ${b.answers.join("; ")}`).join("\n")}`;
+}
+
+export async function interviewPrep(job: Job, resume: Resume, track: Track | null, research?: { summary: string; news: string[] } | null, bank: BankStory[] = []) {
+  const out = await askJSON({
     schema: PrepSchema,
-    system: `You are an interview coach for sales and go-to-market roles. Prepare the candidate for interviews for one specific job. ${HONESTY} Address the candidate as "you".`,
+    system: `You are an interview coach for sales and go-to-market roles. Prepare the candidate for interviews for one specific job. ${HONESTY} Address the candidate as "you". A candidate who tells the same few strong stories well beats one with a new story for every interview, so reuse their bank.`,
     prompt: `${angle(track)}
 
 Candidate's CV:
@@ -391,7 +421,62 @@ ${resumeText(resume)}
 
 Job:
 ${jobText(job)}
-${research ? `\nAbout the company:\n${research.summary}\nRecent news: ${research.news.join("; ")}` : ""}`,
+${research ? `\nAbout the company:\n${research.summary}\nRecent news: ${research.news.join("; ")}` : ""}${bankText(bank)}`,
+  });
+  const known = new Set(bank.map((b) => b._id));
+  // An id the model made up is treated as a new story.
+  return { ...out, stories: out.stories.map((st) => ({ ...st, storyId: known.has(st.storyId) ? st.storyId : "" })) };
+}
+
+const BankSchema = z.strictObject({
+  stories: z.array(z.strictObject(StoryShape)).describe("Six to eight stories covering different strengths."),
+});
+
+/** Master interview stories from the CV: the handful worth knowing by heart, covering the questions sales interviews always ask. */
+export async function storiesFromCv(cvs: Resume[], bank: BankStory[], count: number) {
+  const out = await askJSON({
+    schema: BankSchema,
+    system: `You are an interview coach for sales and go-to-market roles. From the candidate's CV, pick the stories worth knowing by heart, in situation, task, action, result form, plus a short reflection. Cover different strengths: a big win, a loss or failure and what changed after, building or fixing a team or process, a hard stakeholder, a fast ramp in something new, and a moment of leadership. ${HONESTY} Write actions in first person. Skip anything already in their bank.`,
+    prompt: `How many new stories to write: ${count}
+
+The candidate's CVs (same person, different angles):
+${cvs.map((r, i) => `CV ${i + 1}:\n${resumeText(r)}`).join("\n\n")}${bankText(bank)}`,
+  });
+  return out.stories.slice(0, count);
+}
+
+// ---------- Learning from rejections ----------
+
+const LessonsSchema = z.strictObject({
+  summary: z.string().describe("Two sentences to the candidate as 'you': the pattern across these noes, plainly."),
+  items: z
+    .array(
+      z.strictObject({
+        gap: z.string().describe("The recurring gap in a few words, like 'No enterprise deals over $500K shown'."),
+        seen: z.number().describe("In how many of these applications it came up."),
+        kind: z.enum(["cv", "skill", "targeting"]).describe("cv: they likely have it but the CV doesn't show it. skill: they'd need to build it. targeting: they're applying to roles that don't fit."),
+        fix: z.string().describe("One concrete next step: what to add to the CV if it's true, what to learn and how, or which roles to stop applying to."),
+      }),
+    )
+    .describe("The top three recurring gaps, most common first. Only gaps seen in two or more applications."),
+});
+
+export type No = { title: string; company: string; outcome: "rejected" | "silent"; score?: number; gaps: string[]; watchOuts: string };
+
+/** Reads every no and silence together and names what keeps costing the candidate. */
+export async function lessonsFromNoes(noes: No[], replies: number, resume: Resume, tracks: Track[]) {
+  return askJSON({
+    tier: "cheap",
+    schema: LessonsSchema,
+    system: `You are a blunt, kind career strategist for sales and go-to-market roles. You read a candidate's rejections and unanswered applications together, with what was missing for each, and name the gaps that keep coming back. Group gaps that mean the same thing. Check each against the CV: if the CV already shows it, the fix is to make it more visible, not to learn it. Never invent facts about the candidate. Address them as "you".`,
+    prompt: `Roles they're going for: ${tracks.filter((t) => t.status === "active").map((t) => `${t.name} (${t.titles.join(", ")})`).join("; ")}
+Applications that got a reply: ${replies}
+
+Noes and silences, with what scoring said was missing:
+${noes.map((n) => `- ${n.title} at ${n.company}: ${n.outcome === "rejected" ? "rejected" : "no answer"}${n.score !== undefined ? `, fit ${n.score}` : ""}. Missing: ${n.gaps.join("; ") || "(none listed)"}. Watch outs: ${n.watchOuts || "none"}`).join("\n")}
+
+The candidate's CV:
+${resumeText(resume)}`,
   });
 }
 

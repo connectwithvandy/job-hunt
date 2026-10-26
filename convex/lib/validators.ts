@@ -116,10 +116,41 @@ export const researchV = v.object({
 export const prepV = v.object({
   createdAt: v.number(),
   questions: v.array(v.object({ question: v.string(), why: v.string(), answer: v.string() })),
-  stories: v.array(v.object({ title: v.string(), situation: v.string(), action: v.string(), result: v.string() })),
+  stories: v.array(
+    v.object({
+      title: v.string(),
+      situation: v.string(),
+      action: v.string(),
+      result: v.string(),
+      /** What you learned or would do differently: the part interviewers probe for seniority. */
+      reflection: v.optional(v.string()),
+      /** The story bank entry this came from, and how to tell it for this job. */
+      storyId: v.optional(v.id("stories")),
+      angle: v.optional(v.string()),
+    }),
+  ),
   askThem: v.array(v.string()),
   first90Days: v.array(v.string()),
 });
+
+/** The real job behind the posting, red flags, and anything that rules you out whatever your fit. */
+export const briefV = v.object({ whatTheyWant: v.string(), watchOuts: v.string(), blocker: v.optional(v.string()) });
+
+/** Whether the posting was still up when last checked (lib/posting.ts). */
+export const liveCheckV = v.object({ at: v.number(), state: v.union(v.literal("open"), v.literal("closed"), v.literal("unknown")), note: v.string() });
+
+/** One story from your career, kept to reuse across interviews: situation, task, action, result, and what you learned. */
+export const storyFields = {
+  title: v.string(),
+  situation: v.string(),
+  action: v.string(),
+  result: v.string(),
+  reflection: v.string(),
+  /** Interview questions this story answers, like "Tell me about a deal you lost". */
+  answers: v.array(v.string()),
+  /** Numbers in the story that aren't in any of your CVs. Should be empty. */
+  unverified: v.array(v.string()),
+};
 
 export const scoreV = v.object({ trackKey: v.string(), score: v.number(), reason: v.string(), gaps: v.array(v.string()) });
 
@@ -146,7 +177,10 @@ export const jobFields = {
   quickFit: v.optional(v.number()),
   /** The latest recruiting email about this job, read by the Gmail script. */
   lastEmail: v.optional(v.object({ subject: v.string(), from: v.string(), at: v.number(), stage: v.string() })),
-  brief: v.optional(v.object({ whatTheyWant: v.string(), watchOuts: v.string() })),
+  brief: v.optional(briefV),
+  liveCheck: v.optional(liveCheckV),
+  /** You wrote the CV even though the app said to skip it, so results can show whether that pays off. */
+  wroteAnyway: v.optional(v.boolean()),
   trackKey: v.optional(v.string()),
   status: jobStatusV,
   /** Older jobs keep these four on the job; newer ones keep them in jobDetails, so job lists stay light. */

@@ -10,15 +10,18 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, type PastOutcome, type Voice } from "./lib/brain";
+import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, type No, type PastOutcome, type Voice } from "./lib/brain";
 import { companyKey } from "./lib/company";
+import { MAX_STORIES } from "./lib/defaults";
+import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
 import { htmlToText, openTo, readPlace, searchOtherSources, titleMatches, type Found } from "./lib/sources";
-import type { jobV, resumeV } from "./lib/validators";
+import type { jobV, liveCheckV, resumeV } from "./lib/validators";
 import { prospectV } from "./lib/validators";
 
 type NewJob = Infer<typeof jobV>;
+type LiveCheck = Infer<typeof liveCheckV>;
 
 /** Jobs the morning run scores per person; the rest wait a day. */
 const AUTOPILOT_SCORES = 24;
@@ -252,6 +255,51 @@ function publicUrl(link: string) {
   return !/^[\d.]+$/.test(host) && !host.startsWith("[");
 }
 
+// ---------- Is it still open? ----------
+
+/** Looks at the posting itself, for free: the careers board's morning copy, or the job's own page. */
+async function liveState(ctx: ActionCtx, job: Doc<"jobs">): Promise<LiveCheck> {
+  const at = Date.now();
+  if (job.source === "careers") {
+    const listed: boolean = await ctx.runQuery(internal.careers.isListed, { externalId: job.externalId.replace(/^careers:/, "") });
+    return listed ? { at, state: "open", note: "Still on the company's careers board as of this morning." } : { at, state: "closed", note: "The company took it off its careers board." };
+  }
+  const link = job.sourceUrl || job.url;
+  if (!link || !publicUrl(link)) return { at, state: "unknown", note: "There's no link to check. Open the posting to make sure it's up." };
+  // Ashby builds its pages in the browser, so read its public job list instead.
+  const ashby = link.match(/jobs\.ashbyhq\.com\/([^/?#]+)\/([0-9a-f-]{36})/i);
+  if (ashby) {
+    const board = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(ashby[1])}`, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
+    const body = board?.ok ? ((await board.json()) as { jobs?: { id: string }[] }) : null;
+    if (body?.jobs) {
+      return body.jobs.some((j) => j.id.toLowerCase() === ashby[2].toLowerCase())
+        ? { at, state: "open", note: "Still on the company's Ashby job board." }
+        : { at, state: "closed", note: "No longer on the company's Ashby job board." };
+    }
+  }
+  const res = await fetch(link, { headers: { "user-agent": "Mozilla/5.0 (Macintosh) job-hunt" }, redirect: "follow", signal: AbortSignal.timeout(15_000) }).catch(() => null);
+  const landed = res?.url || link;
+  if (!res || !publicUrl(landed)) return { at, state: "unknown", note: "The site didn't answer. Open the posting to check." };
+  const text = res.ok ? htmlToText((await res.text()).slice(0, 2_000_000)) : "";
+  return { at, ...readLive(res.status, text, sentHome(link, landed)) };
+}
+
+async function checkAndSave(ctx: ActionCtx, userId: Id<"users">, job: Doc<"jobs">) {
+  const liveCheck = await liveState(ctx, job);
+  await ctx.runMutation(internal.jobs.saveLiveCheck, { userId, jobId: job._id, liveCheck });
+  return liveCheck;
+}
+
+/** Checks the posting is still up. No AI, so it doesn't use any of the day's allowance. */
+export const checkPosting = action({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }): Promise<LiveCheck["state"]> => {
+    const userId = await requireUserId(ctx);
+    const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
+    return (await checkAndSave(ctx, userId, job)).state;
+  },
+});
+
 // ---------- Scoring ----------
 
 async function withDescription(job: Doc<"jobs">) {
@@ -294,7 +342,7 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, loc
               companyLogo: job.companyLogo,
               seniority: job.seniority,
               scores: s.scores.map((x) => ({ trackKey: x.trackId, score: Math.max(0, Math.min(100, Math.round(x.score))), reason: x.reason, gaps: x.gaps })),
-              brief: { whatTheyWant: s.whatTheyWant, watchOuts: s.watchOuts },
+              brief: { whatTheyWant: s.whatTheyWant, watchOuts: s.watchOuts, blocker: s.blocker.trim() || undefined },
             });
           } catch (err) {
             failed++;
@@ -371,6 +419,15 @@ export const autopilotFor = internalAction({
           console.warn("Autopilot role check failed", p.name, String(err));
         }
       }
+      // Check the jobs worth applying to are still up, so Today never sends you to a closed one.
+      const toCheck: Id<"jobs">[] = await ctx.runQuery(internal.jobs.toCheckLive, { userId, before: Date.now() - RECHECK_AFTER });
+      for (const jobId of toCheck) {
+        try {
+          await checkAndSave(ctx, userId, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+        } catch (err) {
+          console.warn("Live check failed", String(err));
+        }
+      }
       const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
       await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded });
     } catch (err) {
@@ -383,16 +440,21 @@ export const autopilotFor = internalAction({
 // ---------- Applying ----------
 
 export const tailor = action({
-  args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")), feedback: v.optional(v.string()) },
+  args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")), feedback: v.optional(v.string()), anyway: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<null> => await tailorFor(ctx, await setup(ctx), args),
 });
 
 async function tailorFor(
   ctx: ActionCtx,
   { userId, resume, resumes, resumeFor, tracks, voice }: Context,
-  { jobId, trackKey, resumeId, feedback }: { jobId: Id<"jobs">; trackKey?: string; resumeId?: Id<"resumes">; feedback?: string },
+  { jobId, trackKey, resumeId, feedback, anyway }: { jobId: Id<"jobs">; trackKey?: string; resumeId?: Id<"resumes">; feedback?: string; anyway?: boolean },
 ): Promise<null> {
-    const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+    const saved = (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">;
+    // Before the most expensive step, make sure it's worth it: still open, nothing ruling you out, a fit above the line.
+    const live = !anyway && !saved.pack && (!saved.liveCheck || Date.now() - saved.liveCheck.at > RECHECK_AFTER) ? await checkAndSave(ctx, userId, saved) : saved.liveCheck;
+    const skip = skipReason({ ...saved, liveCheck: live });
+    if (skip && !anyway && !saved.pack) throw new ConvexError(`${skip} If you still want to apply, choose "Write it anyway".`);
+    const job = await withDescription(saved);
     // No track picked: use the best-scoring one if the job was scored, otherwise pitch straight at the job.
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
     const track = tracks.find((t) => t.key === (trackKey ?? best)) ?? null;
@@ -403,7 +465,7 @@ async function tailorFor(
     await spend(ctx, userId, "tailor");
     const notes = feedback?.trim().slice(0, 2000);
     const pack = await buildPack(job, cv, track, notes ? { notes, previous: job.pack } : undefined, voice);
-    await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key });
+    await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
     return null;
 }
 
@@ -474,11 +536,55 @@ async function prepFor(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Co
     const track = tracks.find((t) => t.key === (job.trackKey ?? job.pack?.trackKey ?? job.foundFor)) ?? null;
     const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
     await spend(ctx, userId, "prep");
-    const out = await interviewPrep(job, cv, track, job.research);
+    const bank: Doc<"stories">[] = await ctx.runQuery(internal.stories.forAction, { userId });
+    const out = await interviewPrep(job, cv, track, job.research, bank);
+    // New stories join your bank; bank stories are marked as used for this job.
+    const ids: (Id<"stories"> | null)[] = await ctx.runMutation(internal.stories.fileForAction, {
+      userId,
+      jobId,
+      stories: out.stories.map(({ storyId, angle, ...story }) => ({ storyId: storyId || undefined, story })),
+    });
+    const stories = out.stories.map(({ title, situation, action, result, reflection, angle }, i) => ({ title, situation, action, result, reflection, angle, storyId: ids[i] ?? undefined }));
     // Keep the description fetched for this, so the next run doesn't fetch it again.
-    await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, prep: { createdAt: Date.now(), ...out }, description: job.description });
+    await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, prep: { createdAt: Date.now(), ...out, stories }, description: job.description });
     return null;
 }
+
+/** Writes your master interview stories from your CVs, to fill the story bank. */
+export const buildStoryBank = action({
+  args: {},
+  handler: async (ctx): Promise<{ added: number }> => {
+    const { userId, resumes } = await setup(ctx);
+    if (!resumes.length) throw new ConvexError("Upload your CV first.");
+    const bank: Doc<"stories">[] = await ctx.runQuery(internal.stories.forAction, { userId });
+    const count = Math.min(8, MAX_STORIES - bank.length);
+    if (count <= 0) throw new ConvexError(`Your bank is full at ${MAX_STORIES} stories. Delete one you never use first.`);
+    await spend(ctx, userId, "prep");
+    const found = await storiesFromCv(resumes.map((r) => r.resume), bank, count);
+    const ids: (Id<"stories"> | null)[] = await ctx.runMutation(internal.stories.fileForAction, { userId, stories: found.map((story) => ({ story })) });
+    return { added: ids.filter((id) => id && !bank.some((b) => b._id === id)).length };
+  },
+});
+
+// ---------- Learning from noes ----------
+
+/** Reads your rejections and silences together and names the gaps that keep costing you. */
+export const learnFromNoes = action({
+  args: {},
+  handler: async (ctx): Promise<null> => {
+    const me = await setup(ctx);
+    const cv = requireResume(me.resume);
+    const { noes, replies }: { noes: No[]; replies: number } = await ctx.runQuery(internal.jobs.noesForAction, { userId: me.userId, now: Date.now() });
+    if (noes.length < 3) throw new ConvexError(`This needs three noes or silences to find a pattern. You have ${noes.length} so far.`);
+    await spend(ctx, me.userId, "research");
+    const out = await lessonsFromNoes(noes, replies, cv, me.tracks);
+    await ctx.runMutation(internal.users.saveLessonsForAction, {
+      userId: me.userId,
+      lessons: { at: Date.now(), basedOn: noes.length, summary: out.summary, items: out.items.slice(0, 3).map((i) => ({ ...i, seen: Math.max(0, Math.round(i.seen)) })) },
+    });
+    return null;
+  },
+});
 
 // ---------- Contact lookup ----------
 
@@ -914,6 +1020,10 @@ const CHAT_TOOLS: Anthropic.Beta.BetaTool[] = [
   tool("write_application", "Write the tailored CV, cover letter, LinkedIn note and email for a saved job. Takes about a minute.", {
     job_id: jobIdProp,
     notes: { type: ["string", "null"], description: "What the candidate wants changed from the last version, or null." },
+    anyway: {
+      type: "boolean",
+      description: "False at first. True only after you told the candidate the app says to skip this job (closed, a blocker, or a fit under 60) and they said to write it anyway.",
+    },
   }),
   tool("set_job_status", "Move a job along: new, applying, applied, screening, interview, offer, rejected, or dismissed (not for me).", {
     job_id: jobIdProp,
@@ -960,7 +1070,7 @@ async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Rec
       return `Scored ${scored} ${scored === 1 ? "job" : "jobs"}${failed ? `, ${failed} failed` : ""}.`;
     }
     case "write_application": {
-      await tailorFor(ctx, me, { jobId: jobId!, feedback: str("notes") });
+      await tailorFor(ctx, me, { jobId: jobId!, feedback: str("notes"), anyway: input.anyway === true });
       return `Wrote the CV, cover letter, LinkedIn note and email for ${await titleOf(jobId!)}. Open it from the job's page.`;
     }
     case "set_job_status": {

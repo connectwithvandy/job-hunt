@@ -3,9 +3,11 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
+import { RECHECK_AFTER, ghostSigns, skipReason } from "../../../../convex/lib/posting";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
@@ -19,7 +21,16 @@ export default function JobPage() {
   const data = useQuery(api.jobs.get, { jobId });
   const scoreJobs = useAction(api.agent.scoreJobs);
   const setStatus = useMutation(api.jobs.setStatus);
+  const checkPosting = useAction(api.agent.checkPosting);
   const rates = useInrRates();
+  const [now] = useState(() => Date.now());
+  // A job you might still apply to gets its posting looked at again once a day. It's free: no AI.
+  const live = data?.job.liveCheck;
+  const active = data?.job.status === "new" || data?.job.status === "applying";
+  const stale = !!data && active && (!live || now - live.at > RECHECK_AFTER);
+  useEffect(() => {
+    if (stale) void checkPosting({ jobId }).catch(() => {});
+  }, [stale, jobId, checkPosting]);
   // Set by "Add job" when the job saved but writing its CV didn't work.
   const cvError = useSearchParams().get("cvError");
 
@@ -41,6 +52,9 @@ export default function JobPage() {
   const cvName = currentTrack?.company ? "" : `${me.resume?.name ?? "Your"} CV ${job.company}.pdf`;
   // Where this job is up to, so the page leads with the one thing to do now.
   const stage: Stage = !scores.length ? "score" : !job.pack ? "tailor" : job.status === "new" || job.status === "applying" ? "apply" : "reach";
+  // Once a CV is written the choice is made, so the skip warning goes.
+  const skip = job.pack ? null : skipReason(job);
+  const ghost = ghostSigns(job, data.sighting, now);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -85,7 +99,9 @@ export default function JobPage() {
         <StatusSelect jobId={job._id} status={job.status} />
       </header>
 
-      <NextStep stage={stage} job={job} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} scoreIt={async () => void (await scoreJobs({ jobIds: [job._id] }))} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
+      <PostingCheck live={job.liveCheck} checking={stale} ghost={ghost} check={async () => void (await checkPosting({ jobId: job._id }))} />
+
+      <NextStep stage={stage} skip={skip} dismiss={async () => void (await setStatus({ jobId: job._id, status: "dismissed" }))} job={job} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} scoreIt={async () => void (await scoreJobs({ jobIds: [job._id] }))} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
 
       <div className="space-y-3">
         <Fold title="Is it a fit?" status={scores.length ? `Best fit ${scores[0].score}` : "Not scored yet"} open={stage === "score"}>
@@ -120,13 +136,20 @@ export default function JobPage() {
                   <div className="label mb-1">Watch outs</div>
                   <p>{job.brief.watchOuts}</p>
                 </div>
+                {job.brief.blocker && (
+                  <div>
+                    <div className="label mb-1 text-bad">Rules you out</div>
+                    <p>{job.brief.blocker}</p>
+                  </div>
+                )}
               </div>
             )}
         </Fold>
 
         <Fold n={1} title="Tailor your CV and cover letter" status={job.pack ? "Done" : "Not written yet"} open={stage === "tailor"}>
             <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter, and a LinkedIn note and email for the hiring manager.</p>
-            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} />
+            {skip && <p className="mb-3 rounded-lg bg-warn/10 p-3 text-sm text-warn">{skip}</p>}
+            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} />
             {job.pack && (
               <div className="mt-5 space-y-4 border-t border-line pt-5">
                 <div className="flex flex-wrap items-center gap-3">
@@ -253,6 +276,45 @@ export default function JobPage() {
 
 type Stage = "score" | "tailor" | "apply" | "reach";
 
+/** Whether the posting is still up, and any signs it isn't a real opening. */
+function PostingCheck({
+  live,
+  checking,
+  ghost,
+  check,
+}: {
+  live?: { at: number; state: "open" | "closed" | "unknown"; note: string };
+  checking: boolean;
+  ghost: ReturnType<typeof ghostSigns>;
+  check: () => Promise<void>;
+}) {
+  const tone = live?.state === "closed" ? "text-bad" : live?.state === "open" ? "text-good" : "text-ink-3";
+  const word = checking && !live ? "Checking the posting is still up…" : !live ? "Not checked yet." : { open: "Still open.", closed: "Looks closed.", unknown: "Couldn't check." }[live.state];
+  return (
+    <div className="mb-6 space-y-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <span className={`font-medium ${tone}`}>{word}</span>
+        {live && <span className="text-ink-2">{live.note}</span>}
+        {live && <span className="text-xs text-ink-3">Checked {timeAgo(live.at)}</span>}
+        <ActionButton run={check} pending="Checking…" variant="ghost" size="sm">
+          Check again
+        </ActionButton>
+      </div>
+      {ghost.level !== "none" && (
+        <div className={`card p-4 text-sm ${ghost.level === "likely" ? "border-warn" : ""}`}>
+          <div className={`font-medium ${ghost.level === "likely" ? "text-warn" : ""}`}>{ghost.level === "likely" ? "This may not be a real opening" : "One thing to know"}</div>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-ink-2">
+            {ghost.signs.map((g) => (
+              <li key={g}>{g}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-ink-3">Signs, not proof. A referral or a note to the hiring manager is the quickest way to find out if they&apos;re really hiring.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** One part of the job, folded shut unless it's the step you're on. */
 function Fold({ n, title, status, open, children }: { n?: number; title: string; status: string; open: boolean; children: React.ReactNode }) {
   return (
@@ -271,6 +333,8 @@ function Fold({ n, title, status, open, children }: { n?: number; title: string;
 /** The one thing to do now for this job, with its button. */
 function NextStep({
   stage,
+  skip,
+  dismiss,
   job,
   resumes,
   defaultResumeId,
@@ -278,6 +342,9 @@ function NextStep({
   markApplied,
 }: {
   stage: Stage;
+  /** Why the app says not to apply, when it does. */
+  skip: string | null;
+  dismiss: () => Promise<void>;
   job: Parameters<typeof ApplyButton>[0]["job"] & { _id: Id<"jobs">; pack?: unknown };
   resumes: { _id: Id<"resumes">; label: string }[];
   defaultResumeId: Id<"resumes"> | null | undefined;
@@ -290,6 +357,20 @@ function NextStep({
     apply: ["Apply", "Opens the form, downloads your tailored CV and copies your cover letter."],
     reach: ["Get noticed", "Applied. Now message the hiring manager (step 2) or ask someone you know for a referral (step 3)."],
   }[stage];
+  if (skip && stage === "tailor") {
+    return (
+      <section className="card mb-6 border-warn p-6">
+        <div className="label mb-1 text-warn">Next step</div>
+        <h2 className="display text-2xl">Skip this one</h2>
+        <p className="mt-1 mb-4 text-sm text-ink-2">{skip}</p>
+        <div className="flex flex-wrap items-start gap-3">
+          <ActionButton run={dismiss}>Not for me</ActionButton>
+          <TailorButton jobId={job._id} resumes={resumes} defaultResumeId={defaultResumeId ?? null} redo={false} anyway />
+        </div>
+        <p className="mt-3 text-xs text-ink-3">Your call. If you write it anyway, What&apos;s working on Today shows whether those pay off.</p>
+      </section>
+    );
+  }
   return (
     <section className="card mb-6 border-accent p-6">
       <div className="label mb-1 text-accent">Next step</div>

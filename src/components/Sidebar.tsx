@@ -10,7 +10,7 @@ const NAV = [
   { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }, { href: "/tracker", label: "Applications" }] },
   { label: "Companies", pages: [{ href: "/companies", label: "Companies" }] },
   { label: "People", pages: [{ href: "/messages", label: "Messages" }, { href: "/network", label: "Your network" }] },
-  { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }] },
+  { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }, { href: "/stories", label: "Stories" }] },
 ];
 
 const isOn = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));

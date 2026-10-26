@@ -8,8 +8,9 @@ import { companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
+import { SKIP_BELOW } from "./lib/posting";
 import { cvWords, quickFit } from "./lib/quickFit";
-import { hiringContactV, jobFields, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
+import { briefV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   const job = await ctx.db.get("jobs", jobId);
@@ -88,7 +89,10 @@ export const get = query({
     const job = await ctx.db.get("jobs", jobId);
     if (!job || job.userId !== userId) return null;
     const people = await contactsAt(ctx, userId, job.company);
-    return { job: await withDetails(ctx, job), people };
+    // How long the role has been on the company's careers board, and how often it was put back up.
+    const seen = await ctx.db.query("roleSightings").withIndex("by_key", (q) => q.eq("key", job.roleKey ?? roleKey(job.company, job.title))).first();
+    const sighting = seen ? { firstSeen: seen.firstSeen, reposts: seen.reposts } : null;
+    return { job: await withDetails(ctx, job), people, sighting };
   },
 });
 
@@ -258,10 +262,12 @@ export const patchForAction = internalMutation({
     companyLogo: v.optional(v.string()),
     seniority: v.optional(v.string()),
     scores: v.optional(v.array(scoreV)),
-    brief: v.optional(v.object({ whatTheyWant: v.string(), watchOuts: v.string() })),
+    brief: v.optional(briefV),
     pack: v.optional(packV),
     trackKey: v.optional(v.string()),
     outreach: v.optional(v.array(outreachV)),
+    liveCheck: v.optional(liveCheckV),
+    wroteAnyway: v.optional(v.boolean()),
   },
   handler: async (ctx, { userId, jobId, description, pack, ...fields }) => {
     const job = await ownJob(ctx, userId, jobId);
@@ -272,6 +278,15 @@ export const patchForAction = internalMutation({
       ...(pack && job.status === "new" ? { status: "applying" as const } : {}),
       updatedAt: Date.now(),
     });
+    return null;
+  },
+});
+
+export const saveLiveCheck = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), liveCheck: liveCheckV },
+  handler: async (ctx, { userId, jobId, liveCheck }) => {
+    await ownJob(ctx, userId, jobId);
+    await ctx.db.patch("jobs", jobId, { liveCheck });
     return null;
   },
 });
@@ -305,6 +320,19 @@ export const backfillQuickFit = internalMutation({
   },
 });
 
+/** Jobs worth applying to whose posting hasn't been checked in a day, for the morning run's free live check. */
+export const toCheckLive = internalQuery({
+  args: { userId: v.id("users"), before: v.number() },
+  handler: async (ctx, { userId, before }) => {
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
+    return recent
+      .filter((j) => (j.status === "new" || j.status === "applying") && Math.max(-1, ...(j.scores ?? []).map((s) => s.score)) >= SKIP_BELOW)
+      .filter((j) => j.liveCheck?.state !== "closed" && (j.liveCheck?.at ?? 0) < before)
+      .slice(0, 15)
+      .map((j) => j._id);
+  },
+});
+
 /** Newest jobs not scored yet, for the morning run. */
 export const unscoredIds = internalQuery({
   args: { userId: v.id("users"), limit: v.number() },
@@ -334,6 +362,27 @@ export const pastOutcomes = internalQuery({
       if (rows.length >= 20) break;
     }
     return rows;
+  },
+});
+
+/** Applications that got a no or no answer, with what scoring said was missing, for learning what keeps costing you. */
+export const noesForAction = internalQuery({
+  args: { userId: v.id("users"), now: v.number() },
+  handler: async (ctx, { userId, now }) => {
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500);
+    const rows = [];
+    let replies = 0;
+    for (const j of recent) {
+      const outcome = outcomeOf(j, now);
+      if (outcome === "response") replies++;
+      if (outcome !== "rejected" && outcome !== "silent") continue;
+      const best = [...(j.scores ?? [])].sort((a, b) => b.score - a.score)[0];
+      const key = j.trackKey ?? best?.trackKey ?? j.foundFor;
+      const s = j.scores?.find((x) => x.trackKey === key) ?? best;
+      rows.push({ title: j.title, company: j.company, outcome, score: s?.score, gaps: s?.gaps ?? [], watchOuts: j.brief?.watchOuts ?? "" });
+      if (rows.length >= 40) break;
+    }
+    return { noes: rows, replies };
   },
 });
 

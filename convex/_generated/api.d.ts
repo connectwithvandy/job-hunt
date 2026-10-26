@@ -34,12 +34,14 @@ import type * as lib_facts from "../lib/facts.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_outcomes from "../lib/outcomes.js";
 import type * as lib_places from "../lib/places.js";
+import type * as lib_posting from "../lib/posting.js";
 import type * as lib_quickFit from "../lib/quickFit.js";
 import type * as lib_salesRoles from "../lib/salesRoles.js";
 import type * as lib_sources from "../lib/sources.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
 import type * as prospects from "../prospects.js";
+import type * as stories from "../stories.js";
 import type * as users from "../users.js";
 
 import type {
@@ -75,12 +77,14 @@ declare const fullApi: ApiFromModules<{
   "lib/inbox": typeof lib_inbox;
   "lib/outcomes": typeof lib_outcomes;
   "lib/places": typeof lib_places;
+  "lib/posting": typeof lib_posting;
   "lib/quickFit": typeof lib_quickFit;
   "lib/salesRoles": typeof lib_salesRoles;
   "lib/sources": typeof lib_sources;
   "lib/validators": typeof lib_validators;
   limits: typeof limits;
   prospects: typeof prospects;
+  stories: typeof stories;
   users: typeof users;
 }>;
 

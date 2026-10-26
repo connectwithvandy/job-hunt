@@ -1,7 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV } from "./lib/validators";
+import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, storyFields } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -37,6 +37,16 @@ export default defineSchema({
     digestAt: v.optional(v.number()),
     prevSeenAt: v.optional(v.number()),
     lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()) })),
+    /** What keeps costing you, read from your rejections and silences (agent.learnFromNoes). */
+    lessons: v.optional(
+      v.object({
+        at: v.number(),
+        /** How many noes it read, so the page knows when there are enough new ones to read again. */
+        basedOn: v.number(),
+        summary: v.string(),
+        items: v.array(v.object({ gap: v.string(), seen: v.number(), fix: v.string(), kind: v.union(v.literal("cv"), v.literal("skill"), v.literal("targeting")) })),
+      }),
+    ),
   })
     .index("by_userId", ["userId"])
     .index("by_autopilot", ["autopilot"])
@@ -91,6 +101,18 @@ export default defineSchema({
 
   /** Companies the weekly finder has looked up, so each is checked about once a month. */
   boardChecks: defineTable({ key: v.string(), checkedAt: v.number() }).index("by_key", ["key"]),
+
+  /** Your interview stories, reused and sharpened across jobs instead of written fresh for each one. */
+  stories: defineTable({
+    userId: v.id("users"),
+    ...storyFields,
+    /** Jobs whose interview prep used this story. */
+    usedFor: v.array(v.id("jobs")),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  /** Each careers-board role by company and title, so a role taken down and put up again shows as a repost. */
+  roleSightings: defineTable({ key: v.string(), firstSeen: v.number(), reposts: v.number(), lastClosedAt: v.optional(v.number()) }).index("by_key", ["key"]),
 
   /** Gmail messages already read, so the hourly script never counts one twice. */
   inboxSeen: defineTable({ userId: v.id("users"), messageId: v.string() }).index("by_userId_and_messageId", ["userId", "messageId"]),

@@ -51,3 +51,26 @@ export function tallyOutcomes<J extends JobLike>(jobs: J[], trackOf: (j: J) => s
   }
   return { total, byTrack, byBand };
 }
+
+/** Response rates split any way you like, e.g. by where the job came from. Jobs `keyOf` returns null for are left out. */
+export function tallyBy<J extends JobLike>(jobs: J[], keyOf: (j: J) => string | null, now: number) {
+  const out = new Map<string, Tally>();
+  for (const j of jobs) {
+    const o = outcomeOf(j, now);
+    const key = o && keyOf(j);
+    if (!key) continue;
+    const t = out.get(key) ?? { total: 0, responses: 0 };
+    t.total++;
+    if (o === "response") t.responses++;
+    out.set(key, t);
+  }
+  return out;
+}
+
+/** How many noes and silences there are, to know when there's enough to learn from. */
+export function countNoes(jobs: JobLike[], now: number) {
+  return jobs.filter((j) => {
+    const o = outcomeOf(j, now);
+    return o === "rejected" || o === "silent";
+  }).length;
+}

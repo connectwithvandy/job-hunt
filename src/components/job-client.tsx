@@ -119,7 +119,8 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
 }
 
 /** Writes the tailored CV, cover letter and hiring-manager note from the CV you pick. */
-export function TailorButton({ jobId, resumes, defaultResumeId, redo }: { jobId: Id<"jobs">; resumes: { _id: Id<"resumes">; label: string }[]; defaultResumeId: Id<"resumes"> | null; redo: boolean }) {
+/** `anyway` is set when the app says to skip this job: the button then says so, and writes past the warning. */
+export function TailorButton({ jobId, resumes, defaultResumeId, redo, anyway }: { jobId: Id<"jobs">; resumes: { _id: Id<"resumes">; label: string }[]; defaultResumeId: Id<"resumes"> | null; redo: boolean; anyway?: boolean }) {
   const tailor = useAction(api.agent.tailor);
   const [resumeId, setResumeId] = useState(defaultResumeId ?? resumes[0]?._id);
   const [feedback, setFeedback] = useState("");
@@ -151,13 +152,13 @@ export function TailorButton({ jobId, resumes, defaultResumeId, redo }: { jobId:
         </label>
       )}
       <button
-        className={`btn btn-sm ${redo && feedback.trim() ? "btn-primary" : redo ? "btn-ghost" : "btn-primary"}`}
+        className={`btn btn-sm ${anyway && !redo ? "btn-ghost" : redo && feedback.trim() ? "btn-primary" : redo ? "btn-ghost" : "btn-primary"}`}
         disabled={busy || !resumeId}
         onClick={() =>
           start(async () =>
             setState(
               await attempt(async () => {
-                await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined });
+                await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined, anyway });
                 setFeedback("");
               }),
             ),
@@ -165,7 +166,7 @@ export function TailorButton({ jobId, resumes, defaultResumeId, redo }: { jobId:
         }
       >
         {busy && <Spinner />}
-        {busy ? "Writing… about a minute" : redo ? (feedback.trim() ? "Rewrite with my changes" : "Write them again") : "Write my CV and cover letter"}
+        {busy ? "Writing… about a minute" : redo ? (feedback.trim() ? "Rewrite with my changes" : "Write them again") : anyway ? "Write it anyway" : "Write my CV and cover letter"}
       </button>
       <LeftToday kind="cvsLeft" label="tailored CVs" />
       <Feedback state={busy ? null : state} />
@@ -640,6 +641,7 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
               {prep.stories.map((st) => (
                 <li key={st.title}>
                   <div className="font-medium">{st.title}</div>
+                  {st.angle && <p className="text-xs text-accent">For this job: {st.angle}</p>}
                   <p className="text-ink-2">
                     <span className="text-ink-3">Situation: </span>
                     {st.situation}
@@ -652,9 +654,18 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
                     <span className="text-ink-3">Result: </span>
                     {st.result}
                   </p>
+                  {st.reflection && (
+                    <p className="text-ink-2">
+                      <span className="text-ink-3">What you learned: </span>
+                      {st.reflection}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
+            <p className="mt-3 text-xs text-ink-3">
+              New stories are saved to your <a className="underline" href="/stories">story bank</a>, so the next interview reuses the ones you already know.
+            </p>
           </details>
           <details>
             <summary className="cursor-pointer font-medium">Questions to ask them</summary>

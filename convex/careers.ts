@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { boardFromUrl } from "./lib/boardFromUrl";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
-import { companyKey } from "./lib/company";
+import { companyKey, roleKey } from "./lib/company";
 
 // Discovered boards are capped so the morning download stays a few minutes long.
 const MAX_DISCOVERED = 1000;
@@ -122,6 +122,10 @@ export const idsFor = internalQuery({
   },
 });
 
+async function sightingOf(ctx: MutationCtx, key: string) {
+  return await ctx.db.query("roleSightings").withIndex("by_key", (q) => q.eq("key", key)).first();
+}
+
 export const addJobs = internalMutation({
   args: { jobs: v.array(careerJobV) },
   handler: async (ctx, { jobs }) => {
@@ -129,6 +133,11 @@ export const addJobs = internalMutation({
       if (await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.eq("externalId", job.externalId)).first()) continue;
       await ctx.db.insert("careerJobs", job);
       if (description) await ctx.db.insert("careerJobTexts", { externalId: job.externalId, description });
+      // The same title back after it was taken down is a repost.
+      const key = roleKey(job.company, job.title);
+      const seen = await sightingOf(ctx, key);
+      if (!seen) await ctx.db.insert("roleSightings", { key, firstSeen: Date.now(), reposts: 0 });
+      else if (seen.lastClosedAt) await ctx.db.patch("roleSightings", seen._id, { reposts: seen.reposts + 1, lastClosedAt: undefined });
     }
     return null;
   },
@@ -140,7 +149,13 @@ export const removeJobs = internalMutation({
   handler: async (ctx, { externalIds }) => {
     for (const externalId of externalIds) {
       const job = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.eq("externalId", externalId)).first();
-      if (job) await ctx.db.delete("careerJobs", job._id);
+      if (job) {
+        const key = roleKey(job.company, job.title);
+        const seen = await sightingOf(ctx, key);
+        if (seen) await ctx.db.patch("roleSightings", seen._id, { lastClosedAt: Date.now() });
+        else await ctx.db.insert("roleSightings", { key, firstSeen: job._creationTime, reposts: 0, lastClosedAt: Date.now() });
+        await ctx.db.delete("careerJobs", job._id);
+      }
       const text = await ctx.db.query("careerJobTexts").withIndex("by_externalId", (q) => q.eq("externalId", externalId)).first();
       if (text) await ctx.db.delete("careerJobTexts", text._id);
     }
@@ -160,6 +175,12 @@ export const search = internalQuery({
     }
     return [...seen.values()];
   },
+});
+
+/** Whether a careers-board role is still on the company's board, as of this morning's download. */
+export const isListed = internalQuery({
+  args: { externalId: v.string() },
+  handler: async (ctx, { externalId }) => !!(await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.eq("externalId", externalId)).first()),
 });
 
 export const forCompany = internalQuery({

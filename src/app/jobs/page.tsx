@@ -285,6 +285,8 @@ function Jobs() {
                       {j.postedAt ? ` · ${timeAgo(j.postedAt)}` : ""}
                       {j.salary ? ` · ${inInr(j.salary, rates) ?? j.salary}` : ""}
                       {j.status !== "new" ? ` · ${STATUS_LABELS[j.status]}` : ""}
+                      {j.liveCheck?.state === "closed" && <span className="text-bad"> · Looks closed</span>}
+                      {j.brief?.blocker && <span className="text-bad"> · Rules you out</span>}
                     </div>
                     {best && <p className="mt-1.5 line-clamp-2 text-sm text-ink-2">{best.reason}</p>}
                   </div>

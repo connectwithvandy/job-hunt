@@ -25,6 +25,9 @@ export const PIPELINE: { status: string; label: string }[] = [
   { status: "rejected", label: "Closed" },
 ];
 
+/** Story bank size: enough for every common interview question, few enough to know by heart. */
+export const MAX_STORIES = 20;
+
 /** Daily allowance per person, so a public app can't run up an unbounded AI bill. */
 export const DAILY_LIMITS = {
   readCv: 5,

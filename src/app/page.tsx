@@ -1,14 +1,16 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
-import { BANDS, SILENT_AFTER, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
+import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
+import { ActionButton } from "@/components/ui";
 
 const DAY = 86_400_000;
 const LIVE = new Set(["applying", "applied", "screening", "interview", "offer"]);
@@ -31,6 +33,8 @@ export default function Today() {
   const [searching] = useState(startedFirstSearch);
   const jobs = useQuery(api.jobs.list);
   const prospects = useQuery(api.prospects.list);
+  const stories = useQuery(api.stories.list);
+  const [now] = useState(() => Date.now());
   const markSeen = useMutation(api.users.markSeen);
   useEffect(() => void markSeen().catch(() => {}), [markSeen]);
   if (!me || !jobs) return <Loading />;
@@ -47,7 +51,8 @@ export default function Today() {
 
   const unscored = jobs.filter((j) => j.status === "new" && !j.scores?.length);
   const strong = jobs
-    .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75)
+    // A closed posting or one that rules you out isn't worth the evening.
+    .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker)
     .sort((a, b) => bestScore(b)!.score - bestScore(a)!.score)
     .slice(0, 5);
   const replies = jobs.filter((j) => j.lastEmail && msSince(j.lastEmail.at) < 3 * DAY && ["screening", "interview", "offer"].includes(j.status));
@@ -59,6 +64,11 @@ export default function Today() {
     .sort((a, b) => (b.fit?.score ?? 0) - (a.fit?.score ?? 0))
     .slice(0, 2);
 
+  // Every three new noes, there's something new to learn from them.
+  const noes = countNoes(jobs, now);
+  const learn = noes >= 3 && (!me.lessons || noes - me.lessons.basedOn >= 3);
+  const interviewing = jobs.filter((j) => j.status === "interview");
+
   // One list, most urgent first: companies writing back, then the best jobs, then follow-ups.
   const todo: Todo[] = [
     ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}`, href: `/jobs/${j._id}` })),
@@ -67,6 +77,10 @@ export default function Today() {
     ...nudges.map(({ j, o }) => ({ key: `n${j._id}${o.contactId}`, verb: "Nudge", main: o.name, sub: `Asked ${timeAgo(o.sentAt)} about ${j.company}, no reply`, href: `/jobs/${j._id}` })),
     ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
     ...raised.map((p) => ({ key: `f${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
+    ...(interviewing.length && stories?.length === 0
+      ? [{ key: "stories", verb: "Prepare", main: "Your interview stories", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six stories cover most questions.`, href: "/stories" }]
+      : []),
+    ...(learn ? [{ key: "learn", verb: "Learn", main: "What keeps costing you", sub: `${noes} noes and silences so far. See the pattern.`, href: "/#whats-working" }] : []),
     ...(unscored.length ? [{ key: "score", verb: "Score", main: `${unscored.length} new ${unscored.length === 1 ? "job" : "jobs"}`, sub: "See which ones are worth your time", href: "/jobs" }] : []),
   ];
 
@@ -97,7 +111,7 @@ export default function Today() {
 
       <Autopilot on={me.autopilot} last={me.lastAutopilot} />
 
-      <details className="mt-8">
+      <details className="mt-8" open={learn || undefined}>
         <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">See more: new jobs, your roles, what&apos;s working, newly funded companies</summary>
         <div className="mt-6">
           {me.prevSeenAt && <NewSinceVisit since={me.prevSeenAt} jobs={jobs} prospects={prospects ?? []} tracks={me.tracks} />}
@@ -129,7 +143,7 @@ export default function Today() {
               ))}
             </div>
           </section>
-          <WhatsWorking jobs={jobs} tracks={me.tracks} />
+          <WhatsWorking jobs={jobs} tracks={me.tracks} lessons={me.lessons} />
           <JustRaised prospects={prospects ?? []} />
         </div>
       </details>
@@ -180,7 +194,19 @@ function greeting() {
 }
 
 /** Which roles and which fit scores actually get replies, from every application with a known result. */
-function WhatsWorking({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">[] }) {
+const SOURCE_LABELS: Record<string, string> = {
+  careers: "Company careers boards",
+  dreamwork: "Dreamwork",
+  jsearch: "Google Jobs",
+  adzuna: "Adzuna",
+  himalayas: "Himalayas",
+  link: "Added by you",
+  pasted: "Added by you",
+};
+
+type Lessons = NonNullable<NonNullable<FunctionReturnType<typeof api.users.me>>["lessons"]>;
+
+function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">[]; lessons: Lessons | null }) {
   const [now] = useState(() => Date.now());
   const { total, byTrack, byBand } = tallyOutcomes(jobs, jobTrackKey, now);
   if (!total) return null;
@@ -197,13 +223,28 @@ function WhatsWorking({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"trac
         </span>
       </li>
     );
+  // The habits behind replies: asking for a referral, applying early, and where the job came from.
+  const referral = tallyBy(jobs, (j) => (j.outreach.some((o) => o.status !== "draft") ? "With a referral ask" : "Without one"), now);
+  const speed = tallyBy(
+    jobs,
+    (j) => {
+      const posted = j.postedAt ? new Date(j.postedAt).getTime() : NaN;
+      if (!j.appliedAt || !Number.isFinite(posted)) return null;
+      return j.appliedAt - posted <= 3 * DAY ? "Applied within 3 days of posting" : "Applied later";
+    },
+    now,
+  );
+  const anyway = jobs.some((j) => j.wroteAnyway) ? tallyBy(jobs, (j) => (j.wroteAnyway ? "Wrote it anyway" : "Above the line"), now) : new Map<string, Tally>();
+  const source = tallyBy(jobs, (j) => SOURCE_LABELS[j.source] ?? null, now);
+  const habits = [...referral, ...speed, ...anyway];
   return (
-    <section className="mb-12">
+    <section id="whats-working" className="mb-12 scroll-mt-6">
       <h2 className="display mb-1 text-3xl">What&apos;s working</h2>
       <p className="mb-4 text-sm text-ink-3">
         From {total} application{total > 1 ? "s" : ""} with a result: a reply, a no, or silence after {SILENT_AFTER / 86_400_000} days.{" "}
         {total >= 3 ? "Fit scores now lean toward what gets replies." : "After three results, fit scores start learning from them too."}
       </p>
+      <LessonsCard jobs={jobs} lessons={lessons} now={now} />
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
           <h3 className="font-medium">By role</h3>
@@ -213,8 +254,56 @@ function WhatsWorking({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"trac
           <h3 className="font-medium">By fit score</h3>
           <ul className="divide-y divide-line">{BANDS.map((b) => line(b.label, byBand.get(b.key)))}</ul>
         </div>
+        <div className="card p-5">
+          <h3 className="font-medium">By how you applied</h3>
+          <ul className="divide-y divide-line">{habits.map(([label, t]) => line(label, t))}</ul>
+        </div>
+        <div className="card p-5">
+          <h3 className="font-medium">By where you found it</h3>
+          <ul className="divide-y divide-line">{[...source].map(([label, t]) => line(label, t))}</ul>
+        </div>
       </div>
     </section>
+  );
+}
+
+const KIND_WORDS = { cv: "Show it on your CV", skill: "Build it", targeting: "Aim differently" };
+
+/** The gaps that keep coming up in your noes, read by AI once there are enough of them. */
+function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Lessons | null; now: number }) {
+  const learn = useAction(api.agent.learnFromNoes);
+  const noes = countNoes(jobs, now);
+  if (noes < 3 && !lessons) {
+    return <p className="card mb-4 p-5 text-sm text-ink-2">After three noes or silences, JobPipe reads them together and names the gap that keeps costing you. {noes} so far.</p>;
+  }
+  const fresh = lessons && noes - lessons.basedOn < 3;
+  return (
+    <div className="card mb-4 border-accent p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-medium">What keeps costing you</h3>
+        <ActionButton run={async () => void (await learn())} pending="Reading your noes…" variant={fresh ? "ghost" : "primary"} size="sm">
+          {lessons ? (fresh ? "Read again" : `Read the ${noes - lessons.basedOn} new ones`) : `Read my ${noes} noes`}
+        </ActionButton>
+      </div>
+      {lessons ? (
+        <>
+          <p className="mt-2 text-sm">{lessons.summary}</p>
+          <ol className="mt-3 space-y-3 text-sm">
+            {lessons.items.map((i) => (
+              <li key={i.gap}>
+                <div className="font-medium">
+                  {i.gap} <span className="text-xs font-normal text-ink-3">· in {i.seen} applications · {KIND_WORDS[i.kind]}</span>
+                </div>
+                <p className="text-ink-2">{i.fix}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 text-xs text-ink-3">From {lessons.basedOn} noes and silences, {timeAgo(lessons.at)}.</p>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-ink-2">You have {noes} noes and silences. One read finds the gaps that come up again and again, and what to do about each.</p>
+      )}
+    </div>
   );
 }
 

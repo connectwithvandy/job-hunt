@@ -49,6 +49,7 @@ export const me = query({
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
       lastAutopilot: profile?.lastAutopilot ?? null,
+      lessons: profile?.lessons ?? null,
       prevSeenAt: profile?.prevSeenAt ?? null,
       // Names only: every page loads this, and only the CVs page needs the full text (`resumes` below).
       resumes: resumes.map((r) => ({ _id: r._id, label: r.label })),
@@ -229,6 +230,23 @@ export const context = internalQuery({
       /** The CV each track should be pitched from. */
       resumeFor: Object.fromEntries(tracks.map((t) => [t.key, (resumes.find((r) => r._id === t.resumeId) ?? fallback)?.resume ?? null])),
     };
+  },
+});
+
+export const saveLessonsForAction = internalMutation({
+  args: {
+    userId: v.id("users"),
+    lessons: v.object({
+      at: v.number(),
+      basedOn: v.number(),
+      summary: v.string(),
+      items: v.array(v.object({ gap: v.string(), seen: v.number(), fix: v.string(), kind: v.union(v.literal("cv"), v.literal("skill"), v.literal("targeting")) })),
+    }),
+  },
+  handler: async (ctx, { userId, lessons }) => {
+    const profile = await profileFor(ctx, userId);
+    await ctx.db.patch("profiles", profile._id, { lessons });
+    return null;
   },
 });
 
