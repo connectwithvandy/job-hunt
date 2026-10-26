@@ -58,7 +58,7 @@ export async function askJSON<T extends z.ZodType>(opts: { system: string; promp
   }
   // One line per call in the Convex logs, to see what each task costs.
   const u = response.usage;
-  console.log(`AI ${model}: ${u.input_tokens} in, ${u.cache_read_input_tokens ?? 0} cached, ${u.output_tokens} out`);
+  console.log(`AI ${model}: ${u.input_tokens} in, ${u.cache_read_input_tokens ?? 0} cached, ${u.cache_creation_input_tokens ?? 0} stored, ${u.output_tokens} out`);
   if (response.stop_reason === "refusal") throw new ConvexError("Claude declined this request. Try rewording the job text.");
   if (response.stop_reason === "max_tokens") throw new ConvexError("Claude's answer was cut off. Try again.");
   if (response.stop_reason === "pause_turn") throw new ConvexError("The web search took too long. Try again.");
@@ -96,6 +96,8 @@ export async function streamChat(opts: {
       fallbacks: "default",
       // The system prompt (CV, roles, jobs) is the same across a conversation, so cache it.
       system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
+      // Cache the conversation too: each tool turn and each new message resends everything before it.
+      cache_control: { type: "ephemeral" },
       output_config: { effort: "medium" },
       tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }, ...(opts.tools ?? [])],
       messages,
@@ -113,6 +115,8 @@ export async function streamChat(opts: {
       }
     }
     const final = await stream.finalMessage();
+    const u = final.usage;
+    console.log(`AI chat: ${u.input_tokens} in, ${u.cache_read_input_tokens ?? 0} cached, ${u.cache_creation_input_tokens ?? 0} stored, ${u.output_tokens} out`);
     if (final.stop_reason === "refusal") return text || "I can't help with that one. Try asking it another way.";
     if (final.stop_reason === "tool_use" && opts.runTool) {
       const calls = final.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
