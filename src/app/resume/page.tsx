@@ -28,7 +28,7 @@ export default function Cvs() {
 
   return (
     <div>
-      <PageHead title="CVs" sub="Your master CVs. Each job gets a tailored copy that only reorders and trims one of these, so every real number belongs here.">
+      <PageHead title="CVs" sub="Your master CVs. Each job gets a tailored copy that rewrites your experience for that role, using only facts from these. So every real number and win belongs here.">
         {current && <PrintButton />}
         {current && (
           <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(current.resume, current.label)}>
