@@ -75,7 +75,8 @@ export const list = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500);
+    // Room for a long search across several roles; older roles past this drop off the list.
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
     // Jobs not moved to jobDetails yet still carry their heavy parts; leave them out of the list.
     return jobs.map((j) => ({ ...j, description: undefined, pack: undefined, research: undefined, prep: undefined, hasPack: !!j.hasPack || !!j.pack }));
   },
