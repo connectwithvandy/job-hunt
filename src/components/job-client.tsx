@@ -1,6 +1,6 @@
 "use client";
 
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
@@ -318,6 +318,8 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
   const jobId = "jobId" in owner ? owner.jobId : null;
   const findEmail = useAction(api.agent.findEmail);
   const canFind = useAction(api.agent.canFindEmails);
+  // Reading LinkedIn posts is on the owner's account only, for now.
+  const isOwner = useQuery(api.users.me)?.isOwner ?? false;
   const [finderOn, setFinderOn] = useState(false);
   const [finding, setFinding] = useState("");
   useEffect(() => {
@@ -391,6 +393,7 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
                   markSent={(index, text) => store(contacts.map((x) => (x.id === c.id ? { ...x, followUps: (x.followUps ?? []).map((f, i) => (i === index ? { ...f, text, sentAt: Date.now() } : f)) } : x)))}
                 />
               )}
+              {(isOwner || !!c.recentPosts?.length) && <RecentPosts owner={owner} contact={c} canRead={isOwner} />}
               <CommonGround owner={owner} contact={c} />
             </li>
           ))}
@@ -439,6 +442,56 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
 }
 
 /** Whether you've messaged this person yet, how, and whether they wrote back. */
+/** Their latest LinkedIn posts, so a message can open with something they actually said. */
+function RecentPosts({ owner, contact: c, canRead }: { owner: ContactOwner; contact: HiringContact; canRead: boolean }) {
+  const read = useAction(api.agent.readRecentPosts);
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  const posts = c.recentPosts ?? [];
+  return (
+    <div className="mt-2 text-sm">
+      {posts.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-xs text-ink-2">Their latest posts ({posts.length}). Personalise below uses them.</summary>
+          <ul className="mt-2 space-y-2">
+            {posts.map((p) => (
+              <li key={p.url + p.text.slice(0, 20)} className="rounded-lg bg-soft p-2 text-xs text-ink-2">
+                {p.at && <span className="text-ink-3">{new Date(p.at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · </span>}
+                <span className="line-clamp-4 whitespace-pre-line">{p.text}</span>
+                {p.url && (
+                  <a className="underline" href={p.url} target="_blank" rel="noreferrer">
+                    Open
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {canRead && c.linkedinUrl && (
+        <button
+          className="btn btn-ghost btn-sm mt-1"
+          disabled={busy}
+          onClick={() =>
+            start(async () =>
+              setState(
+                await attempt(async () => {
+                  const n = await read({ ...("jobId" in owner ? { jobId: owner.jobId } : { prospectId: owner.prospectId }), contactId: c.id });
+                  return n ? `Read ${n} ${n === 1 ? "post" : "posts"}.` : "No public posts found.";
+                }),
+              ),
+            )
+          }
+        >
+          {busy && <Spinner />}
+          {busy ? "Reading their posts…" : posts.length ? "Read their posts again" : "Read their recent posts"}
+        </button>
+      )}
+      <Feedback state={busy ? null : state} />
+    </div>
+  );
+}
+
 /** Whether a message asks for something (a call, a chat) or just puts you on their radar, for comparing which gets more replies. */
 const asks = (text?: string) => !!text && /\?/.test(text);
 

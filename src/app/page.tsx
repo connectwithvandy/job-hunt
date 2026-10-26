@@ -210,6 +210,7 @@ const SOURCE_LABELS: Record<string, string> = {
   himalayas: "Himalayas",
   link: "Added by you",
   pasted: "Added by you",
+  post: "LinkedIn posts",
 };
 
 type Lessons = NonNullable<NonNullable<FunctionReturnType<typeof api.users.me>>["lessons"]>;

@@ -57,6 +57,7 @@ function Jobs() {
   // With a home city set, the list opens on that city plus remote; "all" shows everywhere.
   const regionParam = params.get("region");
   const me = useQuery(api.users.me);
+  const findHiringPosts = useAction(api.agent.findHiringPosts);
   const jobs = useQuery(api.jobs.list);
   const scoreJobs = useAction(api.agent.scoreJobs);
   const scoresLeft = useLeftToday("scoresLeft");
@@ -123,6 +124,21 @@ function Jobs() {
         <FindJobs tracks={me.tracks} />
         <AddJob />
       </div>
+      {me.isOwner && (
+        <div className="mb-8">
+          <ActionButton
+            run={async () => {
+              const { added } = await findHiringPosts();
+              return added ? `Saved ${added} ${added === 1 ? "role" : "roles"} from LinkedIn posts, each with the person who posted it.` : "No new fitting roles in last week's posts.";
+            }}
+            pending="Reading last week's LinkedIn posts… about two minutes"
+            variant="ghost"
+            size="sm"
+          >
+            Find &quot;we&apos;re hiring&quot; posts on LinkedIn
+          </ActionButton>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {chip(hrefWith({ track: null, show: null }), "All roles", !track && show !== "hidden")}

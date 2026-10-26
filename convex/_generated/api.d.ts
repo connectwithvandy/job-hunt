@@ -21,6 +21,7 @@ import type * as http from "../http.js";
 import type * as inbox from "../inbox.js";
 import type * as jobs from "../jobs.js";
 import type * as lib_ai from "../lib/ai.js";
+import type * as lib_apify from "../lib/apify.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_boardFromUrl from "../lib/boardFromUrl.js";
 import type * as lib_brain from "../lib/brain.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   inbox: typeof inbox;
   jobs: typeof jobs;
   "lib/ai": typeof lib_ai;
+  "lib/apify": typeof lib_apify;
   "lib/auth": typeof lib_auth;
   "lib/boardFromUrl": typeof lib_boardFromUrl;
   "lib/brain": typeof lib_brain;

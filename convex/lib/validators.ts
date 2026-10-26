@@ -111,6 +111,8 @@ export const hiringContactV = v.object({
   asked: v.optional(v.boolean()),
   repliedAt: v.optional(v.number()),
   followUps: v.optional(v.array(followUpV)),
+  /** Their latest LinkedIn posts, read through Apify, so a message can mention something they actually said. */
+  recentPosts: v.optional(v.array(v.object({ text: v.string(), url: v.string(), at: v.optional(v.number()) }))),
 });
 
 /** What the web says about the company, gathered when you ask. */
@@ -171,7 +173,7 @@ export const jobFields = {
   externalId: v.string(),
   /** Company plus title, so the same role from another board or a later search isn't added twice. */
   roleKey: v.optional(v.string()),
-  source: v.union(v.literal("dreamwork"), v.literal("jsearch"), v.literal("adzuna"), v.literal("himalayas"), v.literal("careers"), v.literal("link"), v.literal("pasted")),
+  source: v.union(v.literal("dreamwork"), v.literal("jsearch"), v.literal("adzuna"), v.literal("himalayas"), v.literal("careers"), v.literal("link"), v.literal("pasted"), v.literal("post")),
   url: v.string(),
   sourceUrl: v.optional(v.string()),
   title: v.string(),

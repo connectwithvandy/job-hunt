@@ -57,7 +57,7 @@ export type Ghost = { level: "none" | "some" | "likely"; signs: string[] };
  * Observations, not a verdict: one sign is common on real jobs too.
  */
 export function ghostSigns(
-  job: { postedAt?: string; description?: string; liveCheck?: { state: string } },
+  job: { postedAt?: string; description?: string; source?: string; liveCheck?: { state: string } },
   sighting: { firstSeen: number; reposts: number } | null,
   now: number,
 ): Ghost {
@@ -73,7 +73,8 @@ export function ghostSigns(
   const text = job.description ?? "";
   const evergreen = text.match(EVERGREEN)?.[0];
   if (evergreen) signs.push(`The post mentions "${evergreen}", which usually means CVs are gathered for later, not for a role open now.`);
-  if (text && text.length < 500) signs.push("The description is very short, with few details about the actual work.");
+  // A LinkedIn post is short by nature; that says nothing about the role.
+  if (text && text.length < 500 && job.source !== "post") signs.push("The description is very short, with few details about the actual work.");
   const level = signs.length === 0 ? "none" : signs.length === 1 && !evergreen ? "some" : "likely";
   return { level, signs };
 }

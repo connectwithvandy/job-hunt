@@ -12,6 +12,8 @@ const app = defineApp({
     JOBHUNT_MODEL: v.optional(v.string()),
     /** Where the app lives, for links in the morning email; defaults to https://myjobpipe.vercel.app. */
     APP_URL: v.optional(v.string()),
+    /** Reads LinkedIn posts through Apify (lib/apify.ts). The owner's account only, for now. */
+    APIFY_TOKEN: v.optional(v.string()),
   },
 });
 app.use(rateLimiter);

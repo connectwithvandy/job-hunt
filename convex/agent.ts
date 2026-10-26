@@ -6,11 +6,12 @@ import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { action, internalAction, type ActionCtx } from "./_generated/server";
+import { action, env, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
-import { requireUserId } from "./lib/auth";
-import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
+import { isOwnerEmail, requireUserId } from "./lib/auth";
+import { recentPosts, searchPosts } from "./lib/apify";
+import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
@@ -410,6 +411,12 @@ export const autopilotFor = internalAction({
       } catch (err) {
         console.warn("Autopilot company search failed", String(err));
       }
+      // The owner's account also reads LinkedIn "we're hiring" posts, once a week.
+      try {
+        if (new Date().getUTCDay() === 1 && isOwnerEmail(me.email) && env.APIFY_TOKEN) added += await addHiringPosts(ctx, me);
+      } catch (err) {
+        console.warn("Autopilot hiring posts failed", String(err));
+      }
       // Watch the Dream 20 for new sales and GTM openings too.
       const dreams: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.dreamsForAction, { userId });
       for (const p of dreams) {
@@ -538,6 +545,84 @@ export const followUp = action({
     return null;
   },
 });
+
+// ---------- LinkedIn posts (the owner's account only, for now) ----------
+
+function requireOwner(me: Context) {
+  if (!isOwnerEmail(me.email)) throw new ConvexError("Reading LinkedIn posts isn't open to everyone yet.");
+}
+
+/** Reads a contact's latest LinkedIn posts, so the next personalised message can mention one. */
+export const readRecentPosts = action({
+  args: { jobId: v.optional(v.id("jobs")), prospectId: v.optional(v.id("prospects")), contactId: v.string() },
+  handler: async (ctx, { jobId, prospectId, contactId }): Promise<number> => {
+    const me = await setup(ctx);
+    requireOwner(me);
+    const job: Doc<"jobs"> | null = jobId ? await ctx.runQuery(internal.jobs.forAction, { userId: me.userId, jobId }) : null;
+    const [p]: Doc<"prospects">[] = prospectId ? await ctx.runQuery(internal.prospects.forAction, { userId: me.userId, ids: [prospectId] }) : [];
+    const c = (job?.hiringContacts ?? p?.contacts ?? []).find((x) => x.id === contactId);
+    if (!c) throw new ConvexError("That person is gone.");
+    if (!/linkedin\.com\/in\//i.test(c.linkedinUrl)) throw new ConvexError("Add their LinkedIn profile link first.");
+    const posts = await recentPosts(c.linkedinUrl);
+    const patch = { recentPosts: posts.map((x) => ({ text: x.text.slice(0, 1500), url: x.url, at: x.at })) };
+    if (job) await ctx.runMutation(internal.jobs.updateContactForAction, { userId: me.userId, jobId: job._id, contactId, patch });
+    else await ctx.runMutation(internal.prospects.updateContactForAction, { userId: me.userId, prospectId: p._id, contactId, patch });
+    return posts.length;
+  },
+});
+
+/** Searches last week's LinkedIn posts for openings in your roles and saves the real ones as jobs, with the poster to message. */
+export const findHiringPosts = action({
+  args: {},
+  handler: async (ctx): Promise<{ added: number }> => {
+    const me = await setup(ctx);
+    requireOwner(me);
+    return { added: await addHiringPosts(ctx, me) };
+  },
+});
+
+async function addHiringPosts(ctx: ActionCtx, me: Context): Promise<number> {
+  const active = me.tracks.filter((t) => t.status === "active");
+  if (!active.length) return 0;
+  const place = readPlace(me.location);
+  const where = place.kind === "place" ? place.name : "India";
+  // The first two titles of each role, four searches at most: about $0.10 a week.
+  const titles = [...new Set(active.flatMap((t) => t.titles.slice(0, 2)))].slice(0, 4);
+  const posts = await searchPosts(titles.map((t) => `hiring ${t} ${where}`), 10);
+  if (!posts.length) return 0;
+  const read = await readHiringPosts(posts.map((x) => ({ id: x.id, text: x.text, author: `${x.author.name} (${x.author.headline})` })), me.tracks, me.location);
+  const trackFor = (title: string) => (active.find((t) => t.titles.some((x) => titleMatches(x, title))) ?? active[0]).key;
+  const jobs: NewJob[] = read.flatMap((r) => {
+    const x = posts.find((q) => q.id === r.postId);
+    if (!x || !r.isHiring || !r.fits || !r.title.trim()) return [];
+    return [
+      {
+        externalId: `post:${x.id}`,
+        source: "post" as const,
+        url: x.url,
+        sourceUrl: x.url,
+        title: r.title.trim(),
+        // An unnamed company still needs a name that keeps two such roles apart.
+        company: r.company.trim() || `${x.author.name}'s team`,
+        location: r.location,
+        workSetting: r.workSetting,
+        description: x.text,
+        postedAt: x.at ? new Date(x.at).toISOString() : undefined,
+        foundFor: trackFor(r.title),
+        status: "new" as const,
+        outreach: [],
+        // The person who posted is the one to message, and their post is the opener.
+        hiringContacts: x.author.url
+          ? [{ id: randomUUID(), name: x.author.name, title: x.author.headline.slice(0, 160), linkedinUrl: x.author.url, email: "", phone: "", recentPosts: [{ text: x.text.slice(0, 1500), url: x.url, at: x.at }] }]
+          : undefined,
+        updatedAt: Date.now(),
+      },
+    ];
+  });
+  if (!jobs.length) return 0;
+  const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs });
+  return added;
+}
 
 // ---------- Company research and interview prep ----------
 
