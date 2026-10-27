@@ -7,6 +7,7 @@ import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
 import { nextFollowUp, replyTiming } from "../../convex/lib/followups";
+import { SKIP_BELOW } from "../../convex/lib/posting";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
@@ -89,30 +90,66 @@ export default function Today() {
     jobs.filter((j) => j.outreach.some((o) => sentToday(o.sentAt)) || (j.hiringContacts ?? []).some((c) => sentToday(c.sentAt))).map((j) => companyKey(j.company)),
   ).size;
   const appliedToday = jobs.filter((j) => sentToday(j.appliedAt)).length;
-  // The next companies from your top 50 that you haven't asked anyone at yet.
+  // The next companies from your top 50 that you haven't asked anyone at yet: a few a day, after the routine.
   const askedAt = new Set(jobs.filter((j) => j.outreach.length || (j.hiringContacts ?? []).some((c) => c.sentAt)).map((j) => companyKey(j.company)));
-  const toAsk = (warm ?? []).map((c, rank) => ({ c, rank })).filter(({ c }) => !askedAt.has(c.key)).slice(0, Math.max(0, COMPANIES_A_DAY - companiesAskedToday));
+  const toAsk = (warm ?? []).map((c, rank) => ({ c, rank })).filter(({ c }) => !askedAt.has(c.key)).slice(0, Math.max(0, Math.min(3, COMPANIES_A_DAY - companiesAskedToday)));
 
-  // One list, most urgent first: companies writing back, notes ready to send, follow-ups due, then today's new asks and applications.
-  const todo: Todo[] = [
+  // 1. People who wrote back: companies by email, connections who answered a referral ask, hiring managers.
+  const open = (j: Doc<"jobs">) => j.status === "new" || j.status === "applying";
+  const answer: Todo[] = [
     ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}`, href: `/jobs/${j._id}` })),
-    ...drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
-    ...followUps.map(({ j, name, n }) => ({ key: `n${j._id}${name}${n!.n}`, verb: "Follow up", main: name, sub: `Follow-up ${n!.n} about ${j.title} at ${j.company}, no reply yet`, href: `/jobs/${j._id}` })),
-    ...toAsk.map(({ c, rank }) => ({
-      key: `a${c.key}`,
-      verb: "Ask",
-      main: `${c.company} · #${rank + 1} on your list`,
-      sub: [`You know ${c.peopleCount}`, c.fitting > 1 ? `${c.fitting} roles fit` : null, c.funding ? "just raised" : null, c.jobs[0]?.title].filter(Boolean).join(" · "),
-      href: `/jobs/${c.jobs[0]._id}`,
-    })),
-    ...strong.slice(0, Math.max(0, APPLIES_A_DAY - appliedToday)).map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}`, href: `/jobs/${j._id}` })),
-    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
-    ...raised.map((p) => ({ key: `f${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
+    ...jobs.flatMap((j) =>
+      j.outreach
+        .filter((o) => (o.status === "replied" || o.status === "referred") && open(j))
+        .map((o) => ({
+          key: `o${j._id}${o.contactId}`,
+          verb: o.status === "referred" ? "Apply" : "Reply",
+          main: o.name,
+          sub: o.status === "referred" ? `Referred you for ${j.title} at ${j.company}. Apply now and thank them.` : `Answered your ask about ${j.title} at ${j.company}`,
+          href: `/jobs/${j._id}`,
+        })),
+    ),
+    ...jobs.flatMap((j) =>
+      (j.hiringContacts ?? [])
+        .filter((c) => c.repliedAt && msSince(c.repliedAt) < 7 * DAY && stillChasing(j.status) && !["interview", "offer"].includes(j.status))
+        .map((c) => ({ key: `h${j._id}${c.name}`, verb: "Reply", main: c.name, sub: `Wrote back ${timeAgo(new Date(c.repliedAt!).toISOString())} about ${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
+    ),
     ...(interviewing.length && stories?.length === 0
       ? [{ key: "stories", verb: "Prepare", main: "Your interview stories", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six stories cover most questions.`, href: "/stories" }]
       : []),
+  ];
+
+  // 2. Jobs found in the last two days that fit, best first: applying early gets more replies.
+  const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
+  const fresh = jobs
+    .filter((j) => j.status === "new" && now - j._creationTime < 2 * DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker)
+    .sort((a, b) => fit(b) - fit(a));
+  const freshIds = new Set(fresh.map((j) => j._id));
+  const apply: Todo[] = [
+    ...fresh.slice(0, 8).map((j) => ({ key: `n${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `New ${timeAgo(new Date(j._creationTime).toISOString())} · ${bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ${j.quickFit ?? 0}, not scored yet`}`, href: `/jobs/${j._id}` })),
+    // Older strong fits fill in when there's little new.
+    ...strong.filter((j) => !freshIds.has(j._id)).slice(0, Math.max(0, APPLIES_A_DAY - fresh.length)).map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
+    ...(unscored.length ? [{ key: "score", verb: "Score", main: `${unscored.length} new ${unscored.length === 1 ? "job" : "jobs"} not scored yet`, sub: "See which ones are worth your time", href: "/jobs?sort=added" }] : []),
+  ];
+
+  // 3. Messages and applications with no answer yet.
+  const chase: Todo[] = [
+    ...drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `Drafted, not sent yet · ${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
+    ...followUps.map(({ j, name, n }) => ({ key: `f${j._id}${name}${n!.n}`, verb: "Follow up", main: name, sub: `Follow-up ${n!.n} about ${j.title} at ${j.company}, no reply yet`, href: `/jobs/${j._id}` })),
+    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
+  ];
+
+  // 4. New companies to open up, once the rest is done.
+  const reach: Todo[] = [
+    ...toAsk.map(({ c, rank }) => ({
+      key: `a${c.key}`,
+      verb: "Ask",
+      main: `${c.company} · #${rank + 1} on your top 50`,
+      sub: [`You know ${c.peopleCount}`, c.fitting > 1 ? `${c.fitting} roles fit` : null, c.funding ? "just raised" : null, c.jobs[0]?.title].filter(Boolean).join(" · "),
+      href: `/jobs/${c.jobs[0]._id}`,
+    })),
+    ...raised.map((p) => ({ key: `r${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
     ...(learn ? [{ key: "learn", verb: "Learn", main: "What keeps costing you", sub: `${noes} noes and silences so far. See the pattern.`, href: "/#whats-working" }] : []),
-    ...(unscored.length ? [{ key: "score", verb: "Score", main: `${unscored.length} new ${unscored.length === 1 ? "job" : "jobs"}`, sub: "See which ones are worth your time", href: "/jobs" }] : []),
   ];
 
   return (
@@ -143,10 +180,10 @@ export default function Today() {
         ]}
       />
 
-      <section className="mb-8">
-        <h2 className="display mb-3 text-3xl">Do next</h2>
-        {todo.length ? <TodoList items={todo} /> : <div className="card p-8 text-ink-2">Nothing waiting on you. Find more jobs, or take the evening off.</div>}
-      </section>
+      <Step n={1} title="Answer people who wrote back" items={answer} empty="No one waiting on a reply from you." />
+      <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits since yesterday. Run a search on the Jobs page." />
+      <Step n={3} title="Follow up" items={chase} empty="No follow-ups due today." />
+      <Step n={4} title="Open up new companies" items={reach} empty="You've asked at every company on your top 50 list." />
 
       <Autopilot on={me.autopilot} last={me.lastAutopilot} />
 
@@ -220,6 +257,21 @@ function TodayProgress({ items }: { items: { label: string; done: number; goal: 
 }
 
 const STAGE_WORDS: Record<string, string> = { screening: "Recruiter wrote", interview: "Interview invite", offer: "Offer" };
+
+/** One step of the daily routine, with how many things are in it. */
+function Step({ n, title, items, empty }: { n: number; title: string; items: Todo[]; empty: string }) {
+  return (
+    <section className="mb-8">
+      <h2 className="mb-3 flex items-baseline gap-3">
+        <span className="display text-3xl">
+          {n}. {title}
+        </span>
+        <span className="text-sm text-ink-3">{items.length || "Done"}</span>
+      </h2>
+      {items.length ? <TodoList items={items} /> : <div className="card p-5 text-sm text-ink-2">{empty}</div>}
+    </section>
+  );
+}
 
 /** The first eight things to do, the rest one tap away. */
 function TodoList({ items }: { items: Todo[] }) {
