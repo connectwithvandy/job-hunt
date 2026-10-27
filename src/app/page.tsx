@@ -15,6 +15,10 @@ import { ActionButton } from "@/components/ui";
 
 const DAY = 86_400_000;
 
+/** A steady day's outreach: new companies asked for a referral, and applications sent. */
+const COMPANIES_A_DAY = 10;
+const APPLIES_A_DAY = 5;
+
 /** Jobs still worth chasing: not closed, not set aside. */
 const stillChasing = (status: string) => status !== "rejected" && status !== "dismissed" && status !== "offer";
 const LIVE = new Set(["applying", "applied", "screening", "interview", "offer"]);
@@ -38,6 +42,7 @@ export default function Today() {
   const jobs = useQuery(api.jobs.list);
   const prospects = useQuery(api.prospects.list);
   const stories = useQuery(api.stories.list);
+  const warm = useQuery(api.contacts.warmCompanies);
   const [now] = useState(() => Date.now());
   const markSeen = useMutation(api.users.markSeen);
   useEffect(() => void markSeen().catch(() => {}), [markSeen]);
@@ -77,12 +82,30 @@ export default function Today() {
   const learn = noes >= 3 && (!me.lessons || noes - me.lessons.basedOn >= 3);
   const interviewing = jobs.filter((j) => j.status === "interview");
 
-  // One list, most urgent first: companies writing back, then the best jobs, then follow-ups.
+  // What you've done since midnight, so the day starts fresh each morning.
+  const midnight = new Date(now).setHours(0, 0, 0, 0);
+  const sentToday = (at?: number) => !!at && at >= midnight;
+  const companiesAskedToday = new Set(
+    jobs.filter((j) => j.outreach.some((o) => sentToday(o.sentAt)) || (j.hiringContacts ?? []).some((c) => sentToday(c.sentAt))).map((j) => companyKey(j.company)),
+  ).size;
+  const appliedToday = jobs.filter((j) => sentToday(j.appliedAt)).length;
+  // The next companies from your top 50 that you haven't asked anyone at yet.
+  const askedAt = new Set(jobs.filter((j) => j.outreach.length || (j.hiringContacts ?? []).some((c) => c.sentAt)).map((j) => companyKey(j.company)));
+  const toAsk = (warm ?? []).map((c, rank) => ({ c, rank })).filter(({ c }) => !askedAt.has(c.key)).slice(0, Math.max(0, COMPANIES_A_DAY - companiesAskedToday));
+
+  // One list, most urgent first: companies writing back, notes ready to send, follow-ups due, then today's new asks and applications.
   const todo: Todo[] = [
     ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}`, href: `/jobs/${j._id}` })),
-    ...strong.map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}`, href: `/jobs/${j._id}` })),
     ...drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
     ...followUps.map(({ j, name, n }) => ({ key: `n${j._id}${name}${n!.n}`, verb: "Follow up", main: name, sub: `Follow-up ${n!.n} about ${j.title} at ${j.company}, no reply yet`, href: `/jobs/${j._id}` })),
+    ...toAsk.map(({ c, rank }) => ({
+      key: `a${c.key}`,
+      verb: "Ask",
+      main: `${c.company} · #${rank + 1} on your list`,
+      sub: [`You know ${c.peopleCount}`, c.fitting > 1 ? `${c.fitting} roles fit` : null, c.funding ? "just raised" : null, c.jobs[0]?.title].filter(Boolean).join(" · "),
+      href: `/jobs/${c.jobs[0]._id}`,
+    })),
+    ...strong.slice(0, Math.max(0, APPLIES_A_DAY - appliedToday)).map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}`, href: `/jobs/${j._id}` })),
     ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
     ...raised.map((p) => ({ key: `f${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
     ...(interviewing.length && stories?.length === 0
@@ -111,6 +134,14 @@ export default function Today() {
           </ol>
         </section>
       )}
+
+      <TodayProgress
+        items={[
+          { label: "Companies asked", done: companiesAskedToday, goal: COMPANIES_A_DAY },
+          { label: "Applications sent", done: appliedToday, goal: APPLIES_A_DAY },
+          { label: "Follow-ups due", done: 0, goal: followUps.length, left: true },
+        ]}
+      />
 
       <section className="mb-8">
         <h2 className="display mb-3 text-3xl">Do next</h2>
@@ -164,6 +195,29 @@ export default function Today() {
 }
 
 type Todo = { key: string; verb: string; main: string; sub: string; href: string };
+
+/** Today's goals and how far along you are. Counts start again at midnight. */
+function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean }[] }) {
+  return (
+    <section className="card mb-8 grid grid-cols-3 gap-4 p-5">
+      {items.map((i) => (
+        <div key={i.label}>
+          <div className="text-xs text-ink-3">{i.label}</div>
+          <div className="display mt-1 text-3xl leading-none tabular-nums">
+            {i.left ? i.goal : i.done}
+            {!i.left && <span className="text-lg text-ink-3"> / {i.goal}</span>}
+          </div>
+          {!i.left && (
+            <div className="mt-2 h-1 rounded-full bg-soft">
+              <div className="h-1 rounded-full bg-accent" style={{ width: `${Math.min(100, (i.done / Math.max(1, i.goal)) * 100)}%` }} />
+            </div>
+          )}
+          {i.left && <div className="mt-2 text-xs text-ink-2">{i.goal ? "Clear these first" : "All caught up"}</div>}
+        </div>
+      ))}
+    </section>
+  );
+}
 
 const STAGE_WORDS: Record<string, string> = { screening: "Recruiter wrote", interview: "Interview invite", offer: "Offer" };
 
