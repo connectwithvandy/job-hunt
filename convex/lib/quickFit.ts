@@ -3,6 +3,7 @@
 
 import type { Infer } from "convex/values";
 import { inBengaluru, remoteForIndia } from "./places";
+import { titleMatches } from "./salesRoles";
 import type { resumeV } from "./validators";
 
 type Resume = Infer<typeof resumeV>;
@@ -33,6 +34,8 @@ export function quickFit(job: { title: string; description?: string; location: s
       const want = norm(t);
       // The whole phrase ("business operations") counts fully; the words scattered about count less.
       if (title.includes(want)) return 1;
+      // Every word in another order, or a leader title worded differently: "Manager - Sales Development, India".
+      if (titleMatches(t, job.title)) return 0.9;
       const parts = want.trim().split(" ").filter(Boolean);
       const found = parts.filter((w) => title.includes(` ${w} `)).length;
       return found === parts.length ? 0.6 : (found / Math.max(1, parts.length)) * 0.3;
@@ -52,5 +55,9 @@ export function quickFit(job: { title: string; description?: string; location: s
         : /\bindia\b/i.test(where)
           ? 0.5
           : 0;
-  return Math.round(titleShare * 50 + cvShare * 35 + place * 15);
+  // A role for speakers of another language says so in the title: "Account Executive - Spanish".
+  const language = LANGUAGE.test(job.title) ? 0.4 : 1;
+  return Math.round((titleShare * 50 + cvShare * 35 + place * 15) * language);
 }
+
+const LANGUAGE = /\b(spanish|french|german|italian|portuguese|dutch|japanese|korean|mandarin|chinese|cantonese|arabic|turkish|polish|russian|swedish|danish|norwegian|finnish|hebrew|thai|vietnamese|indonesian|bahasa)\b|\b(dach|nordics|benelux)\b/i;

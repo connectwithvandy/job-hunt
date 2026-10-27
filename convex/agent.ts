@@ -176,19 +176,25 @@ async function careerMatches(ctx: ActionCtx, titles: string[], location: string)
   return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 300));
 }
 
-/** LinkedIn's own job listings for a track's titles, in one OR search: the place itself, plus remote roles open to the country. */
+/**
+ * LinkedIn's own job listings for a track's titles: the place itself, plus remote roles open to the country.
+ * Titles go four to a search, so one busy title ("Sales Manager") can't use up the results the others need.
+ */
 async function linkedInMatches(titles: string[], location: string, since: "24h" | "week"): Promise<Found[]> {
   const place = readPlace(location);
-  const query = titles.slice(0, 16).map((t) => `"${t.replace(/"/g, "")}"`).join(" OR ");
+  const list = titles.slice(0, 16);
+  const groups = Array.from({ length: Math.ceil(list.length / 4) }, (_, i) => list.slice(i * 4, i * 4 + 4).map((t) => `"${t.replace(/"/g, "")}"`).join(" OR "));
   const perQuery = since === "24h" ? 50 : 100;
-  const searches: [string | undefined, boolean][] = place.kind === "remote" ? [["India", true]] : place.kind === "anywhere" ? [[undefined, false]] : [[place.name, false]];
-  if (place.kind === "place" && place.country === "in") searches.push(["India", true]);
-  // About $0.001 a job, so a day's search for one track stays under about $0.10.
-  const settled = await Promise.allSettled(searches.map(([where, remote]) => searchJobs([query], where, remote, since, perQuery, 0.06)));
+  const places: [string | undefined, boolean][] = place.kind === "remote" ? [["India", true]] : place.kind === "anywhere" ? [[undefined, false]] : [[place.name, false]];
+  if (place.kind === "place" && place.country === "in") places.push(["India", true]);
+  // About $0.001 a job. A morning's search for one track costs about $0.10 to $0.40, a week's look back up to about $1.
+  const maxUsd = since === "24h" ? 0.05 : 0.12;
+  const settled = await Promise.allSettled(places.flatMap(([where, remote]) => groups.map((q) => searchJobs([q], where, remote, since, perQuery, maxUsd))));
   for (const r of settled) if (r.status === "rejected") console.warn("LinkedIn job search failed:", String(r.reason));
+  const seen = new Set<string>();
   return settled
     .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
-    .filter((j) => titles.some((t) => titleMatches(t, j.title)) && openTo(place, j.location, j.workSetting, j.title))
+    .filter((j) => !seen.has(j.id) && seen.add(j.id) && titles.some((t) => titleMatches(t, j.title)) && openTo(place, j.location, j.workSetting, j.title))
     .map((j) => ({ source: "linkedin", id: j.id, title: j.title, company: j.company, companyLogo: j.companyLogo, location: j.location, workSetting: j.workSetting, salary: j.salary, postedAt: j.postedAt, url: j.url, description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") }));
 }
 
