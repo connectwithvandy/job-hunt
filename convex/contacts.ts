@@ -88,11 +88,13 @@ export const warmCompanies = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
-    const byCompany = new Map<string, { company: string; jobs: { _id: Id<"jobs">; title: string; status: Doc<"jobs">["status"]; outreach: Doc<"jobs">["outreach"] }[] }>();
+    const byCompany = new Map<string, { company: string; jobs: { _id: Id<"jobs">; title: string; status: Doc<"jobs">["status"]; outreach: Doc<"jobs">["outreach"]; fit: number }[] }>();
     for (const j of jobs) {
       if (j.status === "dismissed" || j.status === "rejected") continue;
       const k = companyKey(j.company);
-      const job = { _id: j._id, title: j.title, status: j.status, outreach: j.outreach };
+      // The AI fit score when there is one, else the free first guess.
+      const fit = Math.max(...(j.scores ?? []).map((x) => x.score), j.quickFit ?? 0);
+      const job = { _id: j._id, title: j.title, status: j.status, outreach: j.outreach, fit };
       const e = byCompany.get(k);
       if (e) e.jobs.push(job);
       else byCompany.set(k, { company: j.company, jobs: [job] });
@@ -103,13 +105,13 @@ export const warmCompanies = query({
     const top = [...byCompany.values()].sort((a, b) => b.jobs.length - a.jobs.length).slice(0, 80);
     for (const c of top) {
       const people = await contactsAt(ctx, userId, c.company);
-      // A job you already asked about comes first, so its notes stay in view.
-      c.jobs.sort((a, b) => b.outreach.length - a.outreach.length);
+      // A job you already asked about comes first, so its notes stay in view; then your best fit.
+      c.jobs.sort((a, b) => b.outreach.length - a.outreach.length || b.fit - a.fit);
       if (!people.length) continue;
       // The best dozen by role, then re-ranked so people you actually talk to come first.
       const ranked = await withChats(ctx, userId, people.slice(0, 12), profile?.chatsAt ?? 0);
       out.push({ company: c.company, jobs: c.jobs.slice(0, 5), people: ranked.slice(0, 8), peopleCount: people.length });
     }
-    return out.sort((a, b) => b.jobs[0].outreach.length - a.jobs[0].outreach.length || b.peopleCount - a.peopleCount);
+    return out.sort((a, b) => b.jobs[0].outreach.length - a.jobs[0].outreach.length || b.jobs[0].fit - a.jobs[0].fit || b.peopleCount - a.peopleCount);
   },
 });

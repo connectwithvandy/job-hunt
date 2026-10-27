@@ -658,7 +658,7 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
           }
         >
           {busy && <Spinner />}
-          {busy ? "Writing notes…" : `Draft ${picked.length} referral ${picked.length === 1 ? "note" : "notes"}`}
+          {busy ? "Writing notes…" : !picked.length ? "Tick someone to ask" : `Draft ${picked.length} referral ${picked.length === 1 ? "note" : "notes"}`}
         </button>
         <Feedback state={busy ? null : state} />
       </div>
