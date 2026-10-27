@@ -119,10 +119,10 @@ export default function Today() {
       : []),
   ];
 
-  // 2. Jobs found in the last two days that fit, best first: applying early gets more replies.
+  // 2. Jobs found in the last 24 hours that fit, best first: applying early gets more replies.
   const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
   const fresh = jobs
-    .filter((j) => j.status === "new" && now - j._creationTime < 2 * DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker)
+    .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker)
     .sort((a, b) => fit(b) - fit(a));
   const freshIds = new Set(fresh.map((j) => j._id));
   const apply: Todo[] = [
@@ -181,7 +181,7 @@ export default function Today() {
       />
 
       <Step n={1} title="Answer people who wrote back" items={answer} empty="No one waiting on a reply from you." />
-      <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits since yesterday. Run a search on the Jobs page." />
+      <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits in the last 24 hours. Run a search on the Jobs page." />
       <Step n={3} title="Follow up" items={chase} empty="No follow-ups due today." />
       <Step n={4} title="Open up new companies" items={reach} empty="You've asked at every company on your top 50 list." />
 
