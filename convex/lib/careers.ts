@@ -224,8 +224,50 @@ async function readSmartRecruiters(board: CareerBoard, known: Set<string>): Prom
   return out;
 }
 
+/**
+ * Google's careers site has no feed, but each search page carries its results as data inside the page.
+ * It's searched for each title in India only; the description comes with the result.
+ */
+async function readGoogle(board: CareerBoard, titles: string[]): Promise<CareerJob[]> {
+  const jobs = new Map<string, CareerJob>();
+  const searchTitle = async (title: string) => {
+    // Two pages of 20: the close ones come first.
+    for (let page = 1; page <= 2; page++) {
+      const q = new URLSearchParams({ location: "India", q: title, page: String(page) });
+      const res = await fetch(`https://www.google.com/about/careers/applications/jobs/results?${q}`, { signal: AbortSignal.timeout(30_000) });
+      if (!res.ok) throw new Error(`google.com answered ${res.status}`);
+      const raw = (await res.text()).match(/AF_initDataCallback\(\{key: 'ds:1'[\s\S]*?data:([\s\S]*?), sideChannel/)?.[1];
+      if (!raw) throw new Error("google.com sent no results");
+      // Each result is a list: id, title, link, duties, qualifications, …, places, about, …, posted time.
+      const found = ((JSON.parse(raw) as unknown[][])[0] ?? []) as unknown[][];
+      for (const r of found) {
+        const id = String(r[0]);
+        const name = String(r[1] ?? "").trim();
+        if (!name || !titleMatches(title, name)) continue;
+        const places = ((r[9] as [string][] | null) ?? []).map((p) => p[0]).filter(Boolean).join("; ");
+        const html = (x: unknown) => (Array.isArray(x) && typeof x[1] === "string" ? x[1] : "");
+        const posted = (r[12] as [number] | null)?.[0];
+        jobs.set(id, {
+          externalId: `google:${board.slug}:${id}`,
+          company: board.name,
+          title: name,
+          location: places || "India",
+          workSetting: /remote/i.test(places) ? "remote" : undefined,
+          postedAt: posted ? new Date(posted * 1000).toISOString() : undefined,
+          url: `https://www.google.com/about/careers/applications/jobs/results/${id}`,
+          description: cut(htmlToText([html(r[10]), html(r[3]), html(r[4]), html(r[19])].filter(Boolean).join("\n\n"))),
+        });
+      }
+      if (found.length < 20) break;
+    }
+  };
+  await Promise.all(titles.map(searchTitle));
+  return [...jobs.values()];
+}
+
 export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
   if (board.ats === "workday") return await readWorkday(board, titles, known);
+  if (board.ats === "google") return await readGoogle(board, titles);
   if (board.ats === "smartrecruiters") return await readSmartRecruiters(board, known);
   if (board.ats === "keka") return await readKeka(board);
   if (board.ats === "zoho") return await readZoho(board);
