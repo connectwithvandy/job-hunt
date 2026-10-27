@@ -27,6 +27,7 @@ import type * as lib_boardFromUrl from "../lib/boardFromUrl.js";
 import type * as lib_brain from "../lib/brain.js";
 import type * as lib_careerBoards from "../lib/careerBoards.js";
 import type * as lib_careers from "../lib/careers.js";
+import type * as lib_chats from "../lib/chats.js";
 import type * as lib_company from "../lib/company.js";
 import type * as lib_defaults from "../lib/defaults.js";
 import type * as lib_digest from "../lib/digest.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   "lib/brain": typeof lib_brain;
   "lib/careerBoards": typeof lib_careerBoards;
   "lib/careers": typeof lib_careers;
+  "lib/chats": typeof lib_chats;
   "lib/company": typeof lib_company;
   "lib/defaults": typeof lib_defaults;
   "lib/digest": typeof lib_digest;

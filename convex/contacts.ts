@@ -4,6 +4,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { companyKey } from "./lib/company";
+import { SKIP_BELOW } from "./lib/posting";
 import { contactsAt } from "./jobs";
 import { chatRowV, withChats } from "./lib/chats";
 
@@ -81,14 +82,21 @@ export const clearChats = mutation({
   },
 });
 
-/** Each company in your job list where you know someone: its open jobs, your connections there, and the referral notes so far. */
+/**
+ * Your top 50 companies to reach out to, best first: where several roles fit you, you know people,
+ * the company raised money lately, or it's on your dream list. Each with its open jobs, your
+ * connections there and the referral notes so far. The first 20 are your Dream 20.
+ */
 export const warmCompanies = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(600);
     const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    // Funding and dream marks come from the Companies page.
+    const prospects = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(400);
+    const prospectByKey = new Map(prospects.map((p) => [companyKey(p.name), p]));
     // Queries can't read the clock, so "now" is your last visit.
     const now = profile?.lastSeenAt ?? 0;
     const byCompany = new Map<string, { company: string; jobs: { _id: Id<"jobs">; title: string; status: Doc<"jobs">["status"]; outreach: Doc<"jobs">["outreach"]; fit: number }[] }>();
@@ -108,17 +116,28 @@ export const warmCompanies = query({
       else byCompany.set(k, { company: j.company, jobs: [job] });
     }
     const out = [];
-    // Each company costs several lookups; the 80 you have most jobs at are plenty for this page.
-    const top = [...byCompany.values()].sort((a, b) => b.jobs.length - a.jobs.length).slice(0, 80);
-    for (const c of top) {
+    // Each company costs several lookups; the 100 you have most jobs at are plenty for this page.
+    const top = [...byCompany.entries()].sort((a, b) => b[1].jobs.length - a[1].jobs.length).slice(0, 100);
+    for (const [key, c] of top) {
       const people = await contactsAt(ctx, userId, c.company);
+      if (!people.length) continue;
       // A job you already asked about comes first, so its notes stay in view; then your best fit.
       c.jobs.sort((a, b) => b.outreach.length - a.outreach.length || b.fit - a.fit);
-      if (!people.length) continue;
-      // The best dozen by role, then re-ranked so people you actually talk to come first.
-      const ranked = await withChats(ctx, userId, people.slice(0, 12), profile?.chatsAt ?? 0);
-      out.push({ company: c.company, jobs: c.jobs.slice(0, 5), people: ranked.slice(0, 8), peopleCount: people.length });
+      const prospect = prospectByKey.get(key);
+      const fitting = c.jobs.filter((j) => j.fit >= SKIP_BELOW).length;
+      const best = Math.max(...c.jobs.map((j) => j.fit));
+      // Several roles that fit means several ways in; people you know make it warm; fresh money means they're building.
+      const score = Math.min(fitting, 4) * 12 + best * 0.4 + Math.min(people.length, 10) * 2 + (prospect?.funding ? 12 : 0) + (prospect?.dream ? 15 : 0);
+      out.push({ key, company: c.company, jobs: c.jobs, people, peopleCount: people.length, fitting, score, funding: prospect?.funding ?? null, dream: !!prospect?.dream });
     }
-    return out.sort((a, b) => b.jobs[0].outreach.length - a.jobs[0].outreach.length || b.jobs[0].fit - a.jobs[0].fit || b.peopleCount - a.peopleCount);
+    const ranked = out.sort((a, b) => b.score - a.score).slice(0, 50);
+    // Only the 50 shown pay for the chat lookups: the best dozen by role, re-ranked so people you talk to come first.
+    return await Promise.all(
+      ranked.map(async (c) => ({
+        ...c,
+        jobs: c.jobs.slice(0, 5),
+        people: (await withChats(ctx, userId, c.people.slice(0, 12), profile?.chatsAt ?? 0)).slice(0, 8),
+      })),
+    );
   },
 });
