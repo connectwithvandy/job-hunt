@@ -120,16 +120,27 @@ export default function Today() {
   ];
 
   // 2. Jobs found in the last 24 hours that fit, best first: applying early gets more replies.
+  // AI-scored jobs rank above first guesses, which run high.
   const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
   const fresh = jobs
     .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker)
-    .sort((a, b) => fit(b) - fit(a));
+    .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || fit(b) - fit(a));
   const freshIds = new Set(fresh.map((j) => j._id));
+  const freshUnscored = fresh.filter((j) => !j.scores?.length).length;
   const apply: Todo[] = [
-    ...fresh.slice(0, 8).map((j) => ({ key: `n${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `New ${timeAgo(new Date(j._creationTime).toISOString())} · ${bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ${j.quickFit ?? 0}, not scored yet`}`, href: `/jobs/${j._id}` })),
+    // The free first guess is rough, so scoring comes before applying.
+    ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} new ${freshUnscored === 1 ? "job" : "jobs"} first`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
+    ...fresh.slice(0, 8).map((j) => ({
+      key: `n${j._id}`,
+      verb: "Apply",
+      main: `${j.title} at ${j.company}`,
+      // Found today isn't posted today: a role up for weeks may be filled.
+      sub: [j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : `Found ${timeAgo(new Date(j._creationTime).toISOString())}`, bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ${j.quickFit ?? 0}, not scored yet`].join(" · "),
+      href: `/jobs/${j._id}`,
+    })),
     // Older strong fits fill in when there's little new.
     ...strong.filter((j) => !freshIds.has(j._id)).slice(0, Math.max(0, APPLIES_A_DAY - fresh.length)).map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
-    ...(unscored.length ? [{ key: "score", verb: "Score", main: `${unscored.length} new ${unscored.length === 1 ? "job" : "jobs"} not scored yet`, sub: "See which ones are worth your time", href: "/jobs?sort=added" }] : []),
+    ...(unscored.length > freshUnscored ? [{ key: "score", verb: "Score", main: `${unscored.length - freshUnscored} older ${unscored.length - freshUnscored === 1 ? "job" : "jobs"} not scored yet`, sub: "See which ones are worth your time", href: "/jobs?sort=added" }] : []),
   ];
 
   // 3. Messages and applications with no answer yet.
