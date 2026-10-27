@@ -39,6 +39,9 @@ export const SALES_ROLES = [
       "Director of Business Development",
       "Senior Manager Business Development",
       "Outbound Sales Manager",
+      "Business Development Lead",
+      "VP Business Development",
+      "AVP Business Development",
     ],
     pitch: "Builds and scales SDR teams across regions that beat pipeline targets.",
   },
@@ -109,6 +112,7 @@ const SHORT_FORMS: Record<string, string> = {
   csm: "customer success manager",
   cro: "chief revenue officer",
   vp: "vice president",
+  avp: "assistant vice president",
   rep: "representative",
   sr: "senior",
   mgr: "manager",
@@ -137,11 +141,17 @@ export function titleMatches(searched: string, title: string) {
   const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
   // "Account Executive" isn't "Accounting Executive".
   if (/\baccount(ing|ant)/.test(t) && !/\baccount(ing|ant)/.test(words.join(" "))) return false;
-  if (!words.some((w) => LEADER.has(w))) return words.every((w) => t.includes(w));
+  // A rep search leaves out the reps' team leads and managers; the leadership role finds those.
+  if (!isLeader(words)) return words.every((w) => t.includes(w)) && !(words.includes("representative") && isLeader(t.split(" ")));
   // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and
   // "Director, Sales Development". Leaders run the reps, so their titles rarely say "representative".
-  return t.split(" ").some((w) => LEADER.has(w)) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
+  return isLeader(t.split(" ")) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
 }
 
 const FILLER = new Set(["of", "the", "and", "for", "&"]);
 const LEADER = new Set(["manager", "managers", "head", "director", "lead", "leader", "leadership", "vice", "president", "chief", "supervisor"]);
+
+/** Whether a title names a leader. "Lead Development Representative" is a rep who works leads, not a team lead. */
+function isLeader(words: string[]) {
+  return words.some((w, i) => LEADER.has(w) && !(w === "lead" && words[i + 1] === "development"));
+}
