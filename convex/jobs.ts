@@ -359,9 +359,10 @@ export const toCheckLive = internalQuery({
   handler: async (ctx, { userId, before }) => {
     const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
     return recent
-      .filter((j) => (j.status === "new" || j.status === "applying") && Math.max(-1, ...(j.scores ?? []).map((s) => s.score)) >= SKIP_BELOW)
+      // Jobs not scored by the AI yet count by their free first guess, so they get checked too.
+      .filter((j) => (j.status === "new" || j.status === "applying") && (j.scores?.length ? Math.max(...j.scores.map((s) => s.score)) : (j.quickFit ?? 0)) >= SKIP_BELOW)
       .filter((j) => j.liveCheck?.state !== "closed" && (j.liveCheck?.at ?? 0) < before)
-      .slice(0, 15)
+      .slice(0, 40)
       .map((j) => j._id);
   },
 });

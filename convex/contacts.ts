@@ -88,9 +88,17 @@ export const warmCompanies = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    // Queries can't read the clock, so "now" is your last visit.
+    const now = profile?.lastSeenAt ?? 0;
     const byCompany = new Map<string, { company: string; jobs: { _id: Id<"jobs">; title: string; status: Doc<"jobs">["status"]; outreach: Doc<"jobs">["outreach"]; fit: number }[] }>();
     for (const j of jobs) {
       if (j.status === "dismissed" || j.status === "rejected") continue;
+      // A closed posting, or a new one up for over 45 days, is likely filled: not worth asking a friend about.
+      // Jobs you already asked about stay, so their notes don't vanish.
+      const posted = j.postedAt ? Date.parse(j.postedAt) : j._creationTime;
+      const stale = j.liveCheck?.state === "closed" || (j.status === "new" && now - posted > 45 * 86_400_000);
+      if (stale && !j.outreach.length) continue;
       const k = companyKey(j.company);
       // The AI fit score when there is one, else the free first guess.
       const fit = Math.max(...(j.scores ?? []).map((x) => x.score), j.quickFit ?? 0);
@@ -99,7 +107,6 @@ export const warmCompanies = query({
       if (e) e.jobs.push(job);
       else byCompany.set(k, { company: j.company, jobs: [job] });
     }
-    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     const out = [];
     // Each company costs several lookups; the 80 you have most jobs at are plenty for this page.
     const top = [...byCompany.values()].sort((a, b) => b.jobs.length - a.jobs.length).slice(0, 80);

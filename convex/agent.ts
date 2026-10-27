@@ -460,12 +460,17 @@ export const autopilotFor = internalAction({
       }
       // Check the jobs worth applying to are still up, so Today never sends you to a closed one.
       const toCheck: Id<"jobs">[] = await ctx.runQuery(internal.jobs.toCheckLive, { userId, before: Date.now() - RECHECK_AFTER });
-      for (const jobId of toCheck) {
-        try {
-          await checkAndSave(ctx, userId, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
-        } catch (err) {
-          console.warn("Live check failed", String(err));
-        }
+      // Five at a time: each is a plain page fetch, free, but some sites are slow.
+      for (let i = 0; i < toCheck.length; i += 5) {
+        await Promise.all(
+          toCheck.slice(i, i + 5).map(async (jobId) => {
+            try {
+              await checkAndSave(ctx, userId, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+            } catch (err) {
+              console.warn("Live check failed", String(err));
+            }
+          }),
+        );
       }
       const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
       await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded });
