@@ -4,8 +4,9 @@
 // (careersFinder.ts) adds more on its own. Each board was checked by hand:
 // the slug is the name in the board's address, e.g. jobs.ashbyhq.com/elevenlabs. A Workday slug is
 // host/tenant/site from the careers address, e.g. adobe.wd5.myworkdayjobs.com/external_experienced.
+// A SmartRecruiters slug is the company name in jobs.smartrecruiters.com/canva.
 
-export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam"; slug: string };
+export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters"; slug: string };
 
 export const CAREER_BOARDS: CareerBoard[] = [
   // Voice and AI apps
@@ -27,6 +28,7 @@ export const CAREER_BOARDS: CareerBoard[] = [
   // From a16z's top 100 consumer AI apps: the ones with India or worldwide-remote roles
   { name: "Quillbot", website: "quillbot.com", ats: "greenhouse", slug: "learneo" },
   { name: "Higgsfield", website: "higgsfield.ai", ats: "ashby", slug: "higgsfieldai" },
+  { name: "Canva", website: "canva.com", ats: "smartrecruiters", slug: "canva" },
   // AI labs and infrastructure
   { name: "OpenAI", website: "openai.com", ats: "ashby", slug: "openai" },
   { name: "Anthropic", website: "anthropic.com", ats: "greenhouse", slug: "anthropic" },

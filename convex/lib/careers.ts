@@ -1,6 +1,6 @@
 "use node";
 
-// Reads one company's careers board. All three systems publish open roles as free public JSON, no key.
+// Reads one company's careers board. Most systems publish open roles as free public JSON, no key.
 
 import type { CareerBoard } from "./careerBoards";
 import { htmlToText, titleMatches } from "./sources";
@@ -182,8 +182,51 @@ async function readFreshteam(board: CareerBoard): Promise<CareerJob[]> {
   return out;
 }
 
+type SmartRecruitersHit = { id: string; name: string; releasedDate?: string; location?: { city?: string; country?: string; remote?: boolean; fullLocation?: string } };
+type SmartRecruitersJob = { postingUrl: string; jobAd?: { sections?: Record<string, { text?: string } | undefined> } };
+
+/**
+ * SmartRecruiters lists roles in pages of 100, without descriptions. Each new role is opened for its
+ * description; roles already saved (`known`) come back as ids only.
+ */
+async function readSmartRecruiters(board: CareerBoard, known: Set<string>): Promise<(CareerJob | { externalId: string; known: true })[]> {
+  const base = `https://api.smartrecruiters.com/v1/companies/${board.slug}/postings`;
+  const hits: SmartRecruitersHit[] = [];
+  for (let offset = 0; offset < 1000; offset += 100) {
+    const page = await getJson<{ totalFound: number; content: SmartRecruitersHit[] }>(`${base}?limit=100&offset=${offset}`);
+    hits.push(...page.content);
+    if (page.content.length < 100) break;
+  }
+  const open = async (h: SmartRecruitersHit): Promise<CareerJob | { externalId: string; known: true }> => {
+    const externalId = `smartrecruiters:${board.slug}:${h.id}`;
+    if (known.has(externalId)) return { externalId, known: true };
+    const j = await getJson<SmartRecruitersJob>(`${base}/${h.id}`);
+    const s = j.jobAd?.sections ?? {};
+    const text = [s.jobDescription?.text, s.qualifications?.text].filter(Boolean).join("\n\n");
+    // The full place is "city, region code, country"; the region code is left out.
+    const country = h.location?.fullLocation?.split(",").pop()?.trim() || h.location?.country?.toUpperCase();
+    const places = [...new Set([h.location?.city, country].filter(Boolean))].join(", ");
+    const remote = !!h.location?.remote;
+    return {
+      externalId,
+      company: board.name,
+      title: h.name.trim(),
+      location: remote ? `${places || "Anywhere"} (Remote)` : places || "Not listed",
+      workSetting: remote ? "remote" : undefined,
+      postedAt: h.releasedDate,
+      url: j.postingUrl,
+      description: cut(text && htmlToText(text)),
+    };
+  };
+  const list = hits.slice(0, 300);
+  const out: (CareerJob | { externalId: string; known: true })[] = [];
+  for (let i = 0; i < list.length; i += 8) out.push(...(await Promise.all(list.slice(i, i + 8).map(open))));
+  return out;
+}
+
 export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
   if (board.ats === "workday") return await readWorkday(board, titles, known);
+  if (board.ats === "smartrecruiters") return await readSmartRecruiters(board, known);
   if (board.ats === "keka") return await readKeka(board);
   if (board.ats === "zoho") return await readZoho(board);
   if (board.ats === "freshteam") return await readFreshteam(board);

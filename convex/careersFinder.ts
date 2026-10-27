@@ -71,6 +71,9 @@ async function findBoard(c: Candidate): Promise<{ ats: CareerBoard["ats"]; slug:
     }
     const freshteam = await ok(`https://${slug}.freshteam.com/jobs`);
     if (freshteam && !freshteam.includes("couldn't find") && /data-portal-location=/.test(freshteam)) return { ats: "freshteam", slug };
+    // SmartRecruiters answers every name; a real board has roles.
+    const sr = await ok(`https://api.smartrecruiters.com/v1/companies/${slug}/postings?limit=1`);
+    if (sr && (JSON.parse(sr) as { totalFound?: number }).totalFound) return { ats: "smartrecruiters", slug };
   }
   return null;
 }
