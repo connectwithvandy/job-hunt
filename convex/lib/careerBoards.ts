@@ -24,6 +24,9 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Writer", website: "writer.com", ats: "ashby", slug: "writer" },
   { name: "Harvey", website: "harvey.ai", ats: "ashby", slug: "harvey" },
   { name: "Glean", website: "glean.com", ats: "greenhouse", slug: "gleanwork" },
+  // From a16z's top 100 consumer AI apps: the ones with India or worldwide-remote roles
+  { name: "Quillbot", website: "quillbot.com", ats: "greenhouse", slug: "learneo" },
+  { name: "Higgsfield", website: "higgsfield.ai", ats: "ashby", slug: "higgsfieldai" },
   // AI labs and infrastructure
   { name: "OpenAI", website: "openai.com", ats: "ashby", slug: "openai" },
   { name: "Anthropic", website: "anthropic.com", ats: "greenhouse", slug: "anthropic" },
