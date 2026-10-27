@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
 import { nextFollowUp } from "../../convex/lib/followups";
 import { downloadDocx } from "@/lib/docx";
@@ -602,7 +603,18 @@ export function FollowUpBox({
   );
 }
 
-export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; people: Doc<"contacts">[]; best: number }) {
+/** How well you know someone, from your loaded LinkedIn chats. */
+function ChatLine({ p }: { p: Pick<ContactWithChat, "chat" | "closeness"> }) {
+  if (!p.chat) return null;
+  const last = new Date(p.chat.lastAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+  return (
+    <div className="text-xs text-ink-3">
+      {CLOSENESS_LABEL[p.closeness]} · {p.chat.messages} {p.chat.messages === 1 ? "message" : "messages"}, last {last}
+    </div>
+  );
+}
+
+export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; people: ContactWithChat[]; best: number }) {
   const draft = useAction(api.agent.draftNotes);
   const [picked, setPicked] = useState<Id<"contacts">[]>(people.slice(0, best).map((p) => p._id));
   const [busy, start] = useTransition();
@@ -624,6 +636,7 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
                 {p.firstName} {p.lastName}
               </a>
               <div className="truncate text-xs text-ink-2">{p.position}</div>
+              <ChatLine p={p} />
             </div>
             {i < best && <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-on-accent">Best to ask</span>}
           </li>

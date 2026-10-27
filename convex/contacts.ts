@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { companyKey } from "./lib/company";
 import { contactsAt } from "./jobs";
+import { chatRowV, withChats } from "./lib/chats";
 
 const rowV = v.object({
   linkedinUrl: v.string(),
@@ -49,6 +50,37 @@ export const clearBatch = mutation({
 });
 
 /** Companies in your job list where you know someone. */
+/** The browser reads LinkedIn's messages.csv and sends a short summary per person here, in batches. */
+export const importChats = mutation({
+  args: { rows: v.array(chatRowV) },
+  handler: async (ctx, { rows }) => {
+    const userId = await requireUserId(ctx);
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if ((profile?.chatsCount ?? 0) + rows.length > 20_000) throw new ConvexError("That's chats with over 20,000 people, the most the app keeps.");
+    const batch = rows.slice(0, 200);
+    for (const r of batch) {
+      await ctx.db.insert("linkedinChats", { userId, ...r, recent: r.recent.slice(-4).map((m) => ({ ...m, text: m.text.slice(0, 300) })) });
+    }
+    if (profile) await ctx.db.patch("profiles", profile._id, { chatsCount: (profile.chatsCount ?? 0) + batch.length, chatsAt: Date.now() });
+    return null;
+  },
+});
+
+/** Delete your loaded chats in chunks; call until it returns false. */
+export const clearChats = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const rows = await ctx.db.query("linkedinChats").withIndex("by_userId_and_profileKey", (q) => q.eq("userId", userId)).take(500);
+    for (const r of rows) await ctx.db.delete("linkedinChats", r._id);
+    if (rows.length < 500) {
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+      if (profile) await ctx.db.patch("profiles", profile._id, { chatsCount: 0 });
+    }
+    return rows.length === 500;
+  },
+});
+
 /** Each company in your job list where you know someone: its open jobs, your connections there, and the referral notes so far. */
 export const warmCompanies = query({
   args: {},
@@ -65,6 +97,7 @@ export const warmCompanies = query({
       if (e) e.jobs.push(job);
       else byCompany.set(k, { company: j.company, jobs: [job] });
     }
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     const out = [];
     // Each company costs several lookups; the 80 you have most jobs at are plenty for this page.
     const top = [...byCompany.values()].sort((a, b) => b.jobs.length - a.jobs.length).slice(0, 80);
@@ -72,7 +105,10 @@ export const warmCompanies = query({
       const people = await contactsAt(ctx, userId, c.company);
       // A job you already asked about comes first, so its notes stay in view.
       c.jobs.sort((a, b) => b.outreach.length - a.outreach.length);
-      if (people.length) out.push({ company: c.company, jobs: c.jobs.slice(0, 5), people: people.slice(0, 8), peopleCount: people.length });
+      if (!people.length) continue;
+      // The best dozen by role, then re-ranked so people you actually talk to come first.
+      const ranked = await withChats(ctx, userId, people.slice(0, 12), profile?.chatsAt ?? 0);
+      out.push({ company: c.company, jobs: c.jobs.slice(0, 5), people: ranked.slice(0, 8), peopleCount: people.length });
     }
     return out.sort((a, b) => b.jobs[0].outreach.length - a.jobs[0].outreach.length || b.peopleCount - a.peopleCount);
   },

@@ -7,6 +7,7 @@ import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { LOCATION_CHOICES, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { autofillBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
+import { parseMessagesCsv } from "@/lib/linkedinMessages";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
 import type { Resume } from "./ResumeDoc";
@@ -54,6 +55,49 @@ export function ImportConnections() {
       <button className="btn btn-primary" disabled={!!busy}>
         {busy && <Spinner />}
         {busy || "Load connections"}
+      </button>
+      <Feedback state={busy ? null : state} />
+    </form>
+  );
+}
+
+export function ImportChats() {
+  const clear = useMutation(api.contacts.clearChats);
+  const importChats = useMutation(api.contacts.importChats);
+  const [busy, setBusy] = useState("");
+  const [state, setState] = useState<ActionState>(null);
+  return (
+    <form
+      className="flex flex-wrap items-center gap-3"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const file = new FormData(e.currentTarget).get("file") as File | null;
+        setState(
+          await attempt(async () => {
+            if (!file?.size) throw new Error("Choose your messages.csv file.");
+            const rows = parseMessagesCsv(await file.text());
+            setBusy("Replacing your old chats…");
+            while (await clear()) {
+              // keep deleting until the old chats are gone
+            }
+            for (let i = 0; i < rows.length; i += 200) {
+              setBusy(`Loading ${Math.min(i + 200, rows.length).toLocaleString()} of ${rows.length.toLocaleString()} people…`);
+              try {
+                await importChats({ rows: rows.slice(i, i + 200) });
+              } catch (err) {
+                throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} people loaded: ${errorMessage(err)} Load the file again to finish.`);
+              }
+            }
+            return `Loaded your chats with ${rows.length.toLocaleString()} people.`;
+          }),
+        );
+        setBusy("");
+      }}
+    >
+      <input type="file" name="file" accept=".csv,text/csv" className={fileClass} />
+      <button className="btn btn-primary" disabled={!!busy}>
+        {busy && <Spinner />}
+        {busy || "Load chats"}
       </button>
       <Feedback state={busy ? null : state} />
     </form>

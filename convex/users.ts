@@ -46,6 +46,7 @@ export const me = query({
       writingSample: profile?.writingSample ?? "",
       writingRules: profile?.writingRules ?? "",
       contactsCount: profile?.contactsCount ?? 0,
+      chatsCount: profile?.chatsCount ?? 0,
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
       lastAutopilot: profile?.lastAutopilot ?? null,

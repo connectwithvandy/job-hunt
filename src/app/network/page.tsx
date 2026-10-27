@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { PageHead } from "@/components/bits";
-import { ImportConnections } from "@/components/forms";
+import { ImportChats, ImportConnections } from "@/components/forms";
 import { OutreachCard, PeoplePicker } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 
@@ -35,6 +35,29 @@ export default function Network() {
           Only names, companies, titles and profile links are kept, visible to you alone. Loading a new file replaces the old list. Nothing is ever sent on LinkedIn for you.
         </p>
       </section>
+
+      {me.contactsCount > 0 && (
+        <section className="card mb-8 p-6">
+          <h2 className="display mb-1 text-2xl">{me.chatsCount ? `Chats with ${me.chatsCount.toLocaleString()} people loaded` : "Load your LinkedIn chats"}</h2>
+          <p className="mt-2 text-sm text-ink-2">
+            So the app knows who you actually talk to. People you chat with come first, and each referral note matches how well you know them, picking up where you left off.
+          </p>
+          <ol className="mt-3 mb-5 list-decimal space-y-1 pl-5 text-sm text-ink-2">
+            <li>
+              On the same{" "}
+              <a className="underline" href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noreferrer">
+                Get a copy of your data
+              </a>{" "}
+              page, tick only Messages and request the archive.
+            </li>
+            <li>Unzip what LinkedIn emails you and pick messages.csv below.</li>
+          </ol>
+          <ImportChats />
+          <p className="mt-3 text-xs text-ink-3">
+            Your chats are read in your browser. Only a summary per person is sent to the app: how many messages, when, and the last four lines, trimmed. Group chats are skipped. Loading a new file replaces the old one.
+          </p>
+        </section>
+      )}
 
       {me.contactsCount > 0 && (
         <section>

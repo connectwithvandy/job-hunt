@@ -12,6 +12,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
 import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
+import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
@@ -510,7 +511,7 @@ export const draftNotes = action({
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
     const track = tracks.find((t) => t.key === (job.trackKey ?? best ?? job.foundFor)) ?? null;
     const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
-    const people: Doc<"contacts">[] = await ctx.runQuery(internal.jobs.contactsForAction, { userId, ids: contactIds });
+    const people: ContactWithChat[] = await ctx.runQuery(internal.jobs.contactsForAction, { userId, ids: contactIds, now: Date.now() });
     await spend(ctx, userId, "notes");
     const notes = await draftReferralNotes(job, cv, track, people, voice);
     const entries = notes.flatMap((n) => {

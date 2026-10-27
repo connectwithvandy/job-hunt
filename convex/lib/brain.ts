@@ -5,13 +5,27 @@ import { askJSON } from "./ai";
 import { unverifiedNumbers } from "./facts";
 import type { Infer } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
+import type { Closeness, ContactWithChat } from "./chats";
 import type { packV, resumeV, trackFields } from "./validators";
 
 type Resume = Infer<typeof resumeV>;
 type Pack = Infer<typeof packV>;
 type Track = Pick<Doc<"tracks">, keyof typeof trackFields>;
 type Job = Pick<Doc<"jobs">, "title" | "company" | "location" | "workSetting" | "salary" | "description" | "url" | "sourceUrl">;
-type Contact = Pick<Doc<"contacts">, "_id" | "firstName" | "lastName" | "position" | "company" | "connectedOn">;
+type Contact = Pick<Doc<"contacts">, "_id" | "firstName" | "lastName" | "position" | "company" | "connectedOn"> & { chat?: ContactWithChat["chat"]; closeness?: Closeness };
+
+const day = (at: number) => new Date(at).toISOString().slice(0, 10);
+
+/** What you and this person have said to each other on LinkedIn, for the note to build on. */
+function chatHistory(p: Contact) {
+  if (!p.chat) return "    History: you've never messaged each other on LinkedIn.";
+  const { messages, fromMe, firstAt, lastAt, recent } = p.chat;
+  const lines = recent.map((m) => `      ${day(m.at)} ${m.fromMe ? "You" : p.firstName}: ${m.text.replace(/\s+/g, " ")}`);
+  return [
+    `    History (${p.closeness}): ${messages} LinkedIn messages, ${fromMe} from you, ${day(firstAt)} to ${day(lastAt)}.`,
+    ...(lines.length ? ["    Last messages:", ...lines] : []),
+  ].join("\n");
+}
 
 const HONESTY = `Hard rules:
 - Use only facts that appear in the candidate's master CV. Never invent employers, titles, dates, numbers, tools or achievements.
@@ -282,7 +296,7 @@ export async function draftReferralNotes(job: Job, resume: Resume, track: Track 
   const out = await askJSON({
     schema: DmSchema,
     system: `${track?.company ? INTERNAL + "\n\n" : ""}You write LinkedIn messages a job seeker sends to their own first-degree connections, asking for a referral. ${HONESTY}
-A referral from someone inside is the strongest way in, so these matter most. Each message: under 80 words, warm and direct, written in first person as the candidate. Mention the exact role and link, and one proof point from the CV aimed at the track. Then one ask with an easy out, like "Would you be comfortable referring me? Totally fine if not.": not a referral and an intro and advice all at once. Say the CV is attached. Tailor to the person's role: a recruiter gets "who's the right person to talk to about this role?", a sales leader gets a peer tone, a junior person gets a lighter ask. Never pretend a closeness you can't know; if unsure, open simply.
+A referral from someone inside is the strongest way in, so these matter most. Each message: under 80 words, warm and direct, written in first person as the candidate. Mention the exact role and link, and one proof point from the CV aimed at the track. Then one ask with an easy out, like "Would you be comfortable referring me? Totally fine if not.": not a referral and an intro and advice all at once. Say the CV is attached. Tailor to the person's role: a recruiter gets "who's the right person to talk to about this role?", a sales leader gets a peer tone, a junior person gets a lighter ask. Match how well they know the candidate, from each person's chat history: "close" means a casual, direct note that can pick up a thread from their last messages if it fits naturally; "talked" means a friendly reminder of when you last spoke; "one-way" or never messaged means introduce yourself properly and make the ask smaller, like who to talk to. Use only what the history shows: never invent a conversation, and never quote private chat back at them word for word.
 ${MESSAGE_RULES}`,
     prompt: `Candidate CV:
 ${resumeText(resume)}
@@ -293,7 +307,7 @@ Job: ${job.title} at ${job.company}
 Link: ${job.sourceUrl || job.url}
 
 Write one message for each of these connections (use their contactId):
-${people.map((p) => `- contactId ${p._id}: ${p.firstName} ${p.lastName}, ${p.position} at ${p.company}, connected ${p.connectedOn}`).join("\n")}${voiceBlock(voice)}`,
+${people.map((p) => `- contactId ${p._id}: ${p.firstName} ${p.lastName}, ${p.position} at ${p.company}, connected ${p.connectedOn}\n${chatHistory(p)}`).join("\n")}${voiceBlock(voice)}`,
   });
   return out.messages;
 }

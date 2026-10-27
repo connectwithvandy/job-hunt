@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { chatRowV } from "./lib/chats";
 import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, storyFields } from "./lib/validators";
 
 export default defineSchema({
@@ -25,6 +26,9 @@ export default defineSchema({
     writingRules: v.optional(v.string()),
     onboarded: v.boolean(),
     contactsCount: v.optional(v.number()),
+    /** How many people your loaded LinkedIn chats cover (lib/chats.ts), and when the file was loaded. */
+    chatsCount: v.optional(v.number()),
+    chatsAt: v.optional(v.number()),
     /** Your standard answers for application forms: notice period, pay, why you're moving. */
     answers: v.optional(v.array(v.object({ question: v.string(), answer: v.string() }))),
     /** Search and score every morning without being asked. */
@@ -151,4 +155,9 @@ export default defineSchema({
     position: v.string(),
     connectedOn: v.string(),
   }).index("by_userId_and_companyKey", ["userId", "companyKey"]),
+
+  /** A short summary of your LinkedIn chats with one person, from messages.csv. Kept apart from contacts so reloading connections keeps it. */
+  linkedinChats: defineTable({ userId: v.id("users"), ...chatRowV.fields })
+    .index("by_userId_and_profileKey", ["userId", "profileKey"])
+    .index("by_userId_and_nameKey", ["userId", "nameKey"]),
 });

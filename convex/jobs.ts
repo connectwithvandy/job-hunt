@@ -4,6 +4,7 @@ import { internalMutation, internalQuery, mutation, query, type MutationCtx, typ
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
+import { withChats } from "./lib/chats";
 import { companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
@@ -89,7 +90,8 @@ export const get = query({
     if (!userId) return null;
     const job = await ctx.db.get("jobs", jobId);
     if (!job || job.userId !== userId) return null;
-    const people = await contactsAt(ctx, userId, job.company);
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    const people = await withChats(ctx, userId, await contactsAt(ctx, userId, job.company), profile?.chatsAt ?? 0);
     // How long the role has been on the company's careers board, and how often it was put back up.
     const seen = await ctx.db.query("roleSightings").withIndex("by_key", (q) => q.eq("key", job.roleKey ?? roleKey(job.company, job.title))).first();
     const sighting = seen ? { firstSeen: seen.firstSeen, reposts: seen.reposts } : null;
@@ -233,10 +235,11 @@ export const forAction = internalQuery({
 });
 
 export const contactsForAction = internalQuery({
-  args: { userId: v.id("users"), ids: v.array(v.id("contacts")) },
-  handler: async (ctx, { userId, ids }) => {
+  args: { userId: v.id("users"), ids: v.array(v.id("contacts")), now: v.number() },
+  handler: async (ctx, { userId, ids, now }) => {
     const rows = await Promise.all(ids.slice(0, 10).map((id) => ctx.db.get("contacts", id)));
-    return rows.filter((c): c is Doc<"contacts"> => !!c && c.userId === userId);
+    // With the last few chat lines, so each note can pick up where you left off.
+    return await withChats(ctx, userId, rows.filter((c): c is Doc<"contacts"> => !!c && c.userId === userId), now, { recent: true });
   },
 });
 
