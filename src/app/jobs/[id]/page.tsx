@@ -9,7 +9,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { RECHECK_AFTER, ghostSigns, skipReason } from "../../../../convex/lib/posting";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
-import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
 import { inInr, payRange, useInrRates } from "@/lib/money";
@@ -132,7 +132,10 @@ export default function JobPage() {
       <header className="mt-4 mb-8 flex flex-wrap items-start gap-4">
         <CompanyMark job={job} size={52} />
         <div className="min-w-0 flex-1">
-          <h1 className="display text-3xl leading-tight md:text-4xl">{job.title}</h1>
+          <div className="flex items-start gap-2">
+            <h1 className="display text-3xl leading-tight md:text-4xl">{job.title}</h1>
+            <FavoriteStar jobId={job._id} favorite={!!job.favorite} className="mt-1.5 text-2xl" />
+          </div>
           <p className="mt-1 text-ink-2">
             {job.company} · {job.location}
             {job.workSetting && job.workSetting !== "unknown" ? ` · ${job.workSetting}` : ""}
@@ -208,7 +211,7 @@ export default function JobPage() {
         <Fold n={1} title="Tailor your CV and cover letter" status={job.pack ? "Done" : "Not written yet"} open={stage === "tailor"}>
             <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter, and a LinkedIn note and email for the hiring manager.</p>
             {skip && <p className="mb-3 rounded-lg bg-warn/10 p-3 text-sm text-warn">{skip}</p>}
-            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} />
+            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} favorite={!!job.favorite} />
             {job.pack && (
               <div className="mt-5 space-y-4 border-t border-line pt-5">
                 <div className="flex flex-wrap items-center gap-3">
@@ -416,7 +419,7 @@ function NextStep({
   /** Why the app says not to apply, when it does. */
   skip: string | null;
   dismiss: () => Promise<void>;
-  job: Parameters<typeof ApplyButton>[0]["job"] & { _id: Id<"jobs">; pack?: unknown };
+  job: Parameters<typeof ApplyButton>[0]["job"] & { _id: Id<"jobs">; pack?: unknown; favorite?: boolean };
   resumes: { _id: Id<"resumes">; label: string }[];
   defaultResumeId: Id<"resumes"> | null | undefined;
   scoreIt: () => Promise<void>;
@@ -438,7 +441,7 @@ function NextStep({
         <p className="mt-1 mb-4 text-sm text-ink-2">{skip}</p>
         <div className="flex flex-wrap items-start gap-3">
           <ActionButton run={dismiss}>Not for me</ActionButton>
-          <TailorButton jobId={job._id} resumes={resumes} defaultResumeId={defaultResumeId ?? null} redo={false} anyway />
+          <TailorButton jobId={job._id} resumes={resumes} defaultResumeId={defaultResumeId ?? null} redo={false} anyway favorite={!!job.favorite} />
         </div>
         <p className="mt-3 text-xs text-ink-3">Your call. If you write it anyway, What&apos;s working on Today shows whether those pay off.</p>
       </section>
@@ -454,7 +457,7 @@ function NextStep({
           Score this job
         </ActionButton>
       )}
-      {stage === "tailor" && <TailorButton jobId={job._id} resumes={resumes} defaultResumeId={defaultResumeId ?? null} redo={false} />}
+      {stage === "tailor" && <TailorButton jobId={job._id} resumes={resumes} defaultResumeId={defaultResumeId ?? null} redo={false} favorite={!!job.favorite} />}
       {stage === "apply" && (
         <div className="flex flex-wrap items-start gap-3">
           <ApplyButton job={job} />

@@ -10,6 +10,7 @@ type FilterableJob = {
   salary?: string | null;
   source: string;
   scores?: { trackKey: string; score: number }[] | null;
+  favorite?: boolean | null;
 };
 
 type Filter = { key: string; label: string; options: { value: string; label: string; test: (j: FilterableJob, role: string | null) => boolean }[] };
@@ -31,6 +32,11 @@ export function seniorityOf(title: string) {
 }
 
 export const FILTERS: Filter[] = [
+  {
+    key: "fav",
+    label: "Favourites",
+    options: [{ value: "yes", label: "Favourites only", test: (j) => !!j.favorite }],
+  },
   {
     key: "setting",
     label: "Work setting",

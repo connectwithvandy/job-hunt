@@ -121,28 +121,137 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
   );
 }
 
+/** A star that marks a job as a favourite. Favourites sort first, and ask a few questions before their first CV. */
+export function FavoriteStar({ jobId, favorite, className = "" }: { jobId: Id<"jobs">; favorite: boolean; className?: string }) {
+  const setFavorite = useMutation(api.jobs.setFavorite);
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-pressed={favorite}
+      aria-label={favorite ? "Remove from favourites" : "Add to favourites"}
+      title={favorite ? "Favourite: click to remove" : "Add to favourites"}
+      disabled={busy}
+      className={`text-xl leading-none ${favorite ? "text-accent" : "text-ink-3 hover:text-ink"} ${className}`}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await setFavorite({ jobId, favorite: !favorite });
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {favorite ? "★" : "☆"}
+    </button>
+  );
+}
+
+type TailorQuestion = { question: string; why: string };
+
 /** Writes the tailored CV, cover letter and hiring-manager note from the CV you pick. */
 /** `anyway` is set when the app says to skip this job: the button then says so, and writes past the warning. */
-export function TailorButton({ jobId, resumes, defaultResumeId, redo, anyway }: { jobId: Id<"jobs">; resumes: { _id: Id<"resumes">; label: string }[]; defaultResumeId: Id<"resumes"> | null; redo: boolean; anyway?: boolean }) {
+/** For a favourite, the first write asks a few questions first; once a draft exists, you can ask for them to sharpen it. */
+export function TailorButton({
+  jobId,
+  resumes,
+  defaultResumeId,
+  redo,
+  anyway,
+  favorite,
+}: {
+  jobId: Id<"jobs">;
+  resumes: { _id: Id<"resumes">; label: string }[];
+  defaultResumeId: Id<"resumes"> | null;
+  redo: boolean;
+  anyway?: boolean;
+  favorite?: boolean;
+}) {
   const tailor = useAction(api.agent.tailor);
+  const getQuestions = useAction(api.agent.tailorQuestions);
+  const addFacts = useMutation(api.users.addFacts);
   const [resumeId, setResumeId] = useState(defaultResumeId ?? resumes[0]?._id);
   const [feedback, setFeedback] = useState("");
+  // Null until asked for; then the questions shown, with your answers.
+  const [questions, setQuestions] = useState<TailorQuestion[] | null>(null);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [asking, setAsking] = useState(false);
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
+
+  const write = async () => {
+    await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined, anyway });
+    setFeedback("");
+    setQuestions(null);
+    setAnswers([]);
+  };
+  /** Fetches the questions; returns how many there are. */
+  const ask = async () => {
+    setAsking(true);
+    try {
+      const qs = await getQuestions({ jobId, resumeId });
+      setQuestions(qs);
+      setAnswers(qs.map(() => ""));
+      return qs.length;
+    } finally {
+      setAsking(false);
+    }
+  };
+  const run = (fn: () => Promise<string | void>) => start(async () => setState(await attempt(fn)));
+
+  const picker = resumes.length > 1 && (
+    <label className="flex items-center gap-2 text-sm text-ink-2">
+      From
+      <select className="field !w-auto !py-1.5 text-sm" value={resumeId} onChange={(e) => setResumeId(e.target.value as Id<"resumes">)}>
+        {resumes.map((r) => (
+          <option key={r._id} value={r._id}>
+            {r.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  if (questions?.length) {
+    return (
+      <div className="w-full space-y-3">
+        {picker}
+        <p className="text-sm text-ink-2">A few questions first. Answer the ones that apply; the AI keeps your answers for every job, and you can edit them on the CVs page.</p>
+        {questions.map((q, i) => (
+          <label key={i} className="block">
+            <span className="text-sm font-medium">{q.question}</span>
+            <textarea className="field mt-1 h-16 text-sm" value={answers[i] ?? ""} onChange={(e) => setAnswers(answers.map((a, j) => (j === i ? e.target.value : a)))} />
+            <span className="mt-0.5 block text-xs text-ink-3">{q.why}</span>
+          </label>
+        ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={busy || !resumeId}
+            onClick={() =>
+              run(async () => {
+                const answered = questions.map((q, i) => ({ question: q.question, answer: (answers[i] ?? "").trim() })).filter((a) => a.answer);
+                if (answered.length) await addFacts({ facts: answered });
+                await write();
+              })
+            }
+          >
+            {busy && <Spinner />}
+            {busy ? "Writing… about a minute" : redo ? "Rewrite it" : "Write it"}
+          </button>
+          <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => (redo ? setQuestions(null) : run(write))}>
+            {redo ? "Not now" : "Skip questions"}
+          </button>
+          <LeftToday kind="cvsLeft" label="tailored CVs" />
+          <Feedback state={busy ? null : state} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {resumes.length > 1 && (
-        <label className="flex items-center gap-2 text-sm text-ink-2">
-          From
-          <select className="field !w-auto !py-1.5 text-sm" value={resumeId} onChange={(e) => setResumeId(e.target.value as Id<"resumes">)}>
-            {resumes.map((r) => (
-              <option key={r._id} value={r._id}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      {picker}
       {redo && (
         <label className="block w-full">
           <span className="label">What should change? (optional)</span>
@@ -156,21 +265,38 @@ export function TailorButton({ jobId, resumes, defaultResumeId, redo, anyway }: 
       )}
       <button
         className={`btn btn-sm ${anyway && !redo ? "btn-ghost" : redo && feedback.trim() ? "btn-primary" : redo ? "btn-ghost" : "btn-primary"}`}
-        disabled={busy || !resumeId}
+        disabled={busy || asking || !resumeId}
         onClick={() =>
-          start(async () =>
-            setState(
-              await attempt(async () => {
-                await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined, anyway });
-                setFeedback("");
-              }),
-            ),
-          )
+          run(async () => {
+            // A favourite's first CV starts with a few questions, unless there's nothing worth asking.
+            if (favorite && !redo && questions === null && (await ask())) return;
+            await write();
+          })
         }
       >
-        {busy && <Spinner />}
-        {busy ? "Writing… about a minute" : redo ? (feedback.trim() ? "Rewrite with my changes" : "Write them again") : anyway ? "Write it anyway" : "Write my CV and cover letter"}
+        {(busy || asking) && <Spinner />}
+        {asking
+          ? "Reading the job…"
+          : busy
+            ? "Writing… about a minute"
+            : redo
+              ? feedback.trim()
+                ? "Rewrite with my changes"
+                : "Write them again"
+              : anyway
+                ? "Write it anyway"
+                : "Write my CV and cover letter"}
       </button>
+      {redo && (
+        <button
+          type="button"
+          className="text-sm text-ink-2 underline hover:text-ink"
+          disabled={busy || asking}
+          onClick={() => run(async () => ((await ask()) ? undefined : "Nothing to ask: your CV and answers already cover this job."))}
+        >
+          {asking ? "Reading the job…" : "Answer a few questions to sharpen it"}
+        </button>
+      )}
       <LeftToday kind="cvsLeft" label="tailored CVs" />
       <Feedback state={busy ? null : state} />
     </div>

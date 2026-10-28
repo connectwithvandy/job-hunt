@@ -126,6 +126,17 @@ export const setStatus = mutation({
   },
 });
 
+/** Stars or unstars a job. */
+export const setFavorite = mutation({
+  args: { jobId: v.id("jobs"), favorite: v.boolean() },
+  handler: async (ctx, { jobId, favorite }) => {
+    const userId = await requireUserId(ctx);
+    await ownJob(ctx, userId, jobId);
+    await ctx.db.patch("jobs", jobId, { favorite: favorite || undefined });
+    return null;
+  },
+});
+
 /** Moves several jobs at once, e.g. marking a batch "Not for me". */
 export const setStatusMany = mutation({
   args: { jobIds: v.array(v.id("jobs")), status: jobStatusV },
@@ -162,7 +173,9 @@ export const saveTailoredResume = mutation({
     const masters = await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", userId)).take(20);
     const p = job.pack;
     const texts = [resume.headline, resume.summary, ...resume.experience.flatMap((e) => e.bullets), p.coverLetter, p.directNote ?? "", p.email ?? ""];
-    const unverified = unverifiedNumbers(masters.map((m) => m.resume), texts);
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    const facts = (profile?.facts ?? []).map((f) => f.answer);
+    const unverified = unverifiedNumbers(masters.map((m) => m.resume), texts, facts);
     await saveDetails(ctx, job, { pack: { ...p, resume, unverified } });
     await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
     return unverified;

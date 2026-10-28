@@ -83,6 +83,8 @@ export const packV = v.object({
   trackKey: v.optional(v.string()),
   /** What you asked to change when this version was written. */
   feedback: v.optional(v.string()),
+  /** Every change you asked for on this job, oldest first, so a rewrite keeps the earlier ones too. */
+  notes: v.optional(v.array(v.string())),
   createdAt: v.number(),
   resume: resumeV,
   coverLetter: v.string(),
@@ -210,6 +212,8 @@ export const jobFields = {
   wroteAnyway: v.optional(v.boolean()),
   trackKey: v.optional(v.string()),
   status: jobStatusV,
+  /** Starred by you: sorts first in the list, and asks you a few questions before its first CV is written. */
+  favorite: v.optional(v.boolean()),
   /** Older jobs keep these four on the job; newer ones keep them in jobDetails, so job lists stay light. */
   pack: v.optional(packV),
   /** Whether a tailored CV has been written, so lists can show it without loading it. */

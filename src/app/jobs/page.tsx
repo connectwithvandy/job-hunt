@@ -9,7 +9,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
 import { CompanyMark, PageHead, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
-import { AddJob, FindJobs } from "@/components/job-client";
+import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
 import { applyFilters, FILTERS, fitFor, inRole } from "@/lib/jobFilters";
@@ -82,7 +82,9 @@ function Jobs() {
   for (const j of filtered) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
   const visible = filtered
     .filter((j) => !region || regionsOf(j).includes(region as never))
-    .sort(SORTS[sort].compare(track, rates));
+    .sort(SORTS[sort].compare(track, rates))
+    // Favourites first, each group in the order picked.
+    .sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite));
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
   // Never ask for more scores than today's allowance has left; the owner has no limit.
   const batch = unscored.slice(0, me.isOwner ? 12 : Math.min(12, scoresLeft ?? 12));
@@ -289,6 +291,7 @@ function Jobs() {
                     setPicked(next);
                   }}
                 />
+                <FavoriteStar jobId={j._id} favorite={!!j.favorite} className="ml-3 mt-5 shrink-0" />
                 <Link href={`/jobs/${j._id}`} className="flex min-w-0 flex-1 items-start gap-4 px-4 py-4 transition-colors hover:bg-soft">
                   <CompanyMark job={j} />
                   <div className="min-w-0 flex-1">

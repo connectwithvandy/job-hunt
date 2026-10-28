@@ -49,6 +49,7 @@ export const me = query({
       chatsCount: profile?.chatsCount ?? 0,
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
+      facts: profile?.facts ?? [],
       lastAutopilot: profile?.lastAutopilot ?? null,
       /** When the Gmail script last checked in; null when it was never set up. */
       inboxAt: profile?.inboxAt ?? null,
@@ -230,6 +231,8 @@ export const context = internalQuery({
       resume: fallback?.resume ?? null,
       resumes: resumes.map((r) => ({ _id: r._id, resume: r.resume })),
       answers: profile?.answers ?? [],
+      /** What you told the AI beyond your CV, used like CV facts when tailoring. */
+      facts: profile?.facts ?? [],
       /** The CV each track should be pitched from. */
       resumeFor: Object.fromEntries(tracks.map((t) => [t.key, (resumes.find((r) => r._id === t.resumeId) ?? fallback)?.resume ?? null])),
     };
@@ -329,6 +332,85 @@ export const saveAnswerForAction = internalMutation({
     const profile = await profileFor(ctx, userId);
     const rest = (profile.answers ?? []).filter((a) => a.question.toLowerCase() !== question.trim().toLowerCase());
     await ctx.db.patch("profiles", profile._id, { answers: [...rest, { question: question.trim(), answer: answer.trim() }].slice(-40) });
+    return null;
+  },
+});
+
+// ---------- What the AI knows beyond your CV ----------
+
+const MAX_FACTS = 40;
+const factV = v.object({ question: v.string(), answer: v.string() });
+type Fact = { question: string; answer: string; at: number };
+
+/** Trims each fact, drops empty answers, and keeps the newest 40. */
+function cleanFacts(facts: { question: string; answer: string; at?: number }[], now: number): Fact[] {
+  return facts
+    .map((f) => ({ question: f.question.trim().slice(0, 300), answer: f.answer.trim().slice(0, 1000), at: f.at ?? now }))
+    .filter((f) => f.answer)
+    .slice(-MAX_FACTS);
+}
+
+/** Adds answered questions to what the AI knows. An answer to a question already there replaces the old one. */
+async function appendFacts(ctx: MutationCtx, userId: Id<"users">, facts: { question: string; answer: string }[]) {
+  const profile = await profileFor(ctx, userId);
+  const fresh = cleanFacts(facts, Date.now());
+  if (!fresh.length) return null;
+  const asked = new Set(fresh.map((f) => f.question.toLowerCase()));
+  const kept = (profile.facts ?? []).filter((f) => !asked.has(f.question.toLowerCase()));
+  await ctx.db.patch("profiles", profile._id, { facts: [...kept, ...fresh].slice(-MAX_FACTS) });
+  return null;
+}
+
+export const addFacts = mutation({
+  args: { facts: v.array(factV) },
+  handler: async (ctx, { facts }) => {
+    const userId = await requireUserId(ctx);
+    if (facts.length > MAX_FACTS) throw new ConvexError(`Add up to ${MAX_FACTS} at a time.`);
+    return await appendFacts(ctx, userId, facts);
+  },
+});
+
+/** Replaces the whole list, after you edit it on the CVs page. */
+export const setFacts = mutation({
+  args: { facts: v.array(v.object({ question: v.string(), answer: v.string(), at: v.optional(v.number()) })) },
+  handler: async (ctx, { facts }) => {
+    const userId = await requireUserId(ctx);
+    if (facts.length > MAX_FACTS) throw new ConvexError(`Keep up to ${MAX_FACTS}.`);
+    const profile = await profileFor(ctx, userId);
+    await ctx.db.patch("profiles", profile._id, { facts: cleanFacts(facts, Date.now()) });
+    return null;
+  },
+});
+
+/** The same as addFacts, for seeding facts from the command line. */
+export const addFactsForAction = internalMutation({
+  args: { userId: v.id("users"), facts: v.array(factV) },
+  handler: async (ctx, { userId, facts }) => await appendFacts(ctx, userId, facts.slice(0, MAX_FACTS)),
+});
+
+/** Adds rules learned from your change requests to your writing rules, skipping ones already there, kept under 1500 characters. */
+export const addWritingRulesForAction = internalMutation({
+  args: { userId: v.id("users"), rules: v.array(v.string()) },
+  handler: async (ctx, { userId, rules }) => {
+    const profile = await profileFor(ctx, userId);
+    const current = (profile.writingRules ?? "").trim();
+    const have = new Set(
+      current
+        .split("\n")
+        .map((l) => l.replace(/^[-*•]\s*/, "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+    let next = current;
+    for (const rule of rules) {
+      const r = rule.replace(/\s+/g, " ").trim().slice(0, 200);
+      if (!r || have.has(r.toLowerCase())) continue;
+      const line = `- ${r}`;
+      const joined = next ? `${next}\n${line}` : line;
+      if (joined.length > 1500) break;
+      next = joined;
+      have.add(r.toLowerCase());
+    }
+    if (next !== current) await ctx.db.patch("profiles", profile._id, { writingRules: next });
     return null;
   },
 });

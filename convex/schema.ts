@@ -31,6 +31,8 @@ export default defineSchema({
     chatsAt: v.optional(v.number()),
     /** Your standard answers for application forms: notice period, pay, why you're moving. */
     answers: v.optional(v.array(v.object({ question: v.string(), answer: v.string() }))),
+    /** Things you told the AI that your CV doesn't say, like how many managers you've led. Used for every tailored CV and letter. */
+    facts: v.optional(v.array(v.object({ question: v.string(), answer: v.string(), at: v.number() }))),
     /** Search and score every morning without being asked. */
     autopilot: v.optional(v.boolean()),
     /** When you last opened the app, and the visit before, for "New since your last visit". */

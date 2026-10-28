@@ -606,6 +606,53 @@ export function AnswersForm({ answers, location }: { answers: { question: string
   );
 }
 
+/** What you told the AI that your CV doesn't say, from the questions before tailoring. Every tailored CV and letter uses it. */
+export function FactsForm({ facts }: { facts: { question: string; answer: string; at: number }[] }) {
+  const save = useMutation(api.users.setFacts);
+  const [rows, setRows] = useState<{ question: string; answer: string; at?: number }[]>(() => facts);
+  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<ActionState>(null);
+  const set = (i: number, k: "question" | "answer", val: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)));
+  return (
+    <div className="card p-6">
+      <h2 className="display mb-1 text-2xl">What the AI knows beyond your CV</h2>
+      <p className="mb-4 text-sm text-ink-2">
+        Your answers to the questions asked before writing a CV, like how many managers you&apos;ve led. Every tailored CV and cover letter can use them as facts, numbers included, so keep them true.
+      </p>
+      {rows.length === 0 && <p className="mb-3 text-sm text-ink-3">Nothing yet. Star a job and write its CV to be asked a few questions, or add one here.</p>}
+      <div className="space-y-3">
+        {rows.map((r, i) => (
+          <div key={i} className="grid gap-2 sm:grid-cols-[14rem_1fr_auto]">
+            <input className="field text-sm" value={r.question} onChange={(e) => set(i, "question", e.target.value)} placeholder="Question or topic" />
+            <textarea className="field min-h-[42px] text-sm" rows={r.answer.length > 80 ? 3 : 1} value={r.answer} onChange={(e) => set(i, "answer", e.target.value)} placeholder="Your answer" />
+            <button type="button" aria-label="Remove" className="text-ink-3 hover:text-ink" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" className="btn btn-ghost btn-sm" disabled={rows.length >= 40} onClick={() => setRows([...rows, { question: "", answer: "" }])}>
+          + Add a fact
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setState(await attempt(async () => (await save({ facts: rows.filter((r) => r.answer.trim()) }), "Saved.")));
+            setBusy(false);
+          }}
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+        <Feedback state={busy ? null : state} />
+      </div>
+    </div>
+  );
+}
+
 /** The draggable autofill bookmark, carrying your saved answers. Re-drag it after changing them. */
 export function AutofillLink({ answers }: { answers: { question: string; answer: string }[] }) {
   const ref = useRef<HTMLAnchorElement>(null);

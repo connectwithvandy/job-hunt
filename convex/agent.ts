@@ -11,7 +11,7 @@ import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
-import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
+import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
@@ -35,6 +35,8 @@ type Context = {
   resume: Resume | null;
   resumes: { _id: Id<"resumes">; resume: Resume }[];
   answers: { question: string; answer: string }[];
+  /** What the candidate told the AI beyond their CV, used like CV facts when tailoring. */
+  facts: { question: string; answer: string; at: number }[];
   resumeFor: Record<string, Resume | null>;
   location: string;
   markets: string;
@@ -490,9 +492,26 @@ export const tailor = action({
   handler: async (ctx, args): Promise<null> => await tailorFor(ctx, await setup(ctx), args),
 });
 
+/** Up to four questions to answer before tailoring, where an honest answer could change the CV or letter. */
+export const tailorQuestions = action({
+  args: { jobId: v.id("jobs"), resumeId: v.optional(v.id("resumes")) },
+  handler: async (ctx, { jobId, resumeId }): Promise<{ question: string; why: string }[]> => {
+    const { userId, resume, resumes, resumeFor, tracks, facts } = await setup(ctx);
+    const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+    // The same CV tailoring would use: the one picked, else the best-scoring track's, else the default.
+    const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
+    const track = tracks.find((t) => t.key === best) ?? null;
+    const chosen = resumeId ? resumes.find((r) => r._id === resumeId)?.resume : undefined;
+    if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
+    const cv = requireResume(chosen ?? (track ? resumeFor[track.key] : resume));
+    await spend(ctx, userId, "notes");
+    return await askTailorQuestions(job, cv, facts);
+  },
+});
+
 async function tailorFor(
   ctx: ActionCtx,
-  { userId, resume, resumes, resumeFor, tracks, voice }: Context,
+  { userId, resume, resumes, resumeFor, tracks, voice, facts }: Context,
   { jobId, trackKey, resumeId, feedback, anyway }: { jobId: Id<"jobs">; trackKey?: string; resumeId?: Id<"resumes">; feedback?: string; anyway?: boolean },
 ): Promise<null> {
     const saved = (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">;
@@ -509,9 +528,14 @@ async function tailorFor(
     if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
     const cv = await withLogos(ctx, userId, resumes, requireResume(chosen ?? (track ? resumeFor[track.key] : resume)));
     await spend(ctx, userId, "tailor");
-    const notes = feedback?.trim().slice(0, 2000);
-    const pack = await buildPack(job, cv, track, notes ? { notes, previous: job.pack } : undefined, voice);
+    // Every change asked for on this job so far, oldest first, so a rewrite never drops an earlier one.
+    const note = feedback?.trim().slice(0, 2000);
+    const earlier = job.pack?.notes ?? (job.pack?.feedback ? [job.pack.feedback] : []);
+    const allNotes = [...earlier, ...(note ? [note] : [])].slice(-20);
+    const { pack, standingRules } = await buildPack(job, cv, track, allNotes.length ? { notes: allNotes, previous: job.pack } : undefined, voice, facts);
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
+    // Requests that hold for every application (like "never call me a hunter") become your writing rules.
+    if (standingRules.length) await ctx.runMutation(internal.users.addWritingRulesForAction, { userId, rules: standingRules });
     return null;
 }
 
