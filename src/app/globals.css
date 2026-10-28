@@ -153,6 +153,8 @@ select.field option { background: var(--card); }
   display: block;
 }
 .resume .contact { font-size: 9pt; font-weight: 700; text-decoration: underline; display: grid; gap: 2.4mm; padding-bottom: 4mm; border-bottom: 1px solid #ccc; }
+.resume .contact > * { display: flex; align-items: center; gap: 2.5mm; overflow-wrap: anywhere; }
+.resume .contact .icon { width: 4mm; height: 4mm; flex: none; color: #6b6b6b; }
 .resume .side-item-title { color: var(--r-blue); font-size: 10.5pt; }
 .resume .muted { color: var(--r-muted); }
 
