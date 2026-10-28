@@ -412,7 +412,9 @@ const ResumeSchema = z.strictObject({
   name: z.string(),
   headline: z.string().describe("The title line under the name, in capitals, using ' | ' between parts. Write one from the CV if it has none."),
   summary: z.string().describe("The CV's summary, copied. If it has none, write 50 to 80 words from the CV's own facts, without 'I'."),
-  contact: z.strictObject({ phone: z.string(), email: z.string(), location: z.string(), linkedin: z.string().describe("Full URL, or empty") }),
+  contact: z.strictObject({ phone: z.string(), email: z.string(), location: z.string(), linkedin: z.string().describe("Full URL, or empty"),
+    links: z.array(z.string()).describe("Every other link in the contact details, like a website, GitHub, Substack or portfolio, as written. Not LinkedIn."),
+  }),
   experience: z.array(
     z.strictObject({
       id: z.string().describe("Short lowercase slug of the company, unique"),

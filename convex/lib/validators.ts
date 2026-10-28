@@ -4,7 +4,14 @@ export const resumeV = v.object({
   name: v.string(),
   headline: v.string(),
   summary: v.string(),
-  contact: v.object({ phone: v.string(), email: v.string(), location: v.string(), linkedin: v.string() }),
+  contact: v.object({
+    phone: v.string(),
+    email: v.string(),
+    location: v.string(),
+    linkedin: v.string(),
+    /** Other links from the CV's contact block, as written, like "github.com/name" or a website. */
+    links: v.optional(v.array(v.string())),
+  }),
   experience: v.array(
     v.object({
       id: v.string(),

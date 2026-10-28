@@ -78,10 +78,11 @@ export function TailoredEditor({ jobId, resume }: { jobId: Id<"jobs">; resume: R
 export function MasterEditor({ resumeId, resume }: { resumeId: Id<"resumes">; resume: Resume }) {
   const save = useMutation(api.users.saveResume);
   const [r, setR] = useState(resume);
-  // Bullets and skills are edited as text, one per line or comma-separated, and split on save.
+  // Bullets, skills and links are edited as text, one per line or comma-separated, and split on save.
   const [bullets, setBullets] = useState(resume.experience.map((e) => e.bullets.join("\n")));
   const [technical, setTechnical] = useState(resume.skills.technical.join(", "));
   const [soft, setSoft] = useState(resume.skills.soft.join(", "));
+  const [links, setLinks] = useState((resume.contact.links ?? []).join(", "));
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
   const lines = (text: string, sep: RegExp) => text.split(sep).map((b) => b.trim()).filter(Boolean);
@@ -105,6 +106,7 @@ export function MasterEditor({ resumeId, resume }: { resumeId: Id<"resumes">; re
         {text("Phone", r.contact.phone, (phone) => setR({ ...r, contact: { ...r.contact, phone } }))}
         {text("Location", r.contact.location, (location) => setR({ ...r, contact: { ...r.contact, location } }))}
         {text("LinkedIn", r.contact.linkedin, (linkedin) => setR({ ...r, contact: { ...r.contact, linkedin } }))}
+        {text("Other links, separated by commas", links, setLinks)}
       </div>
       <label className="block">
         <span className="label">Summary</span>
@@ -154,6 +156,7 @@ export function MasterEditor({ resumeId, resume }: { resumeId: Id<"resumes">; re
               await attempt(async () => {
                 const next: Resume = {
                   ...r,
+                  contact: { ...r.contact, links: lines(links, /,/) },
                   experience: r.experience.map((e, i) => ({ ...e, bullets: lines(bullets[i], /\n/) })),
                   skills: { technical: lines(technical, /,/), soft: lines(soft, /,/) },
                 };

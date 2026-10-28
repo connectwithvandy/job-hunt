@@ -9,7 +9,7 @@ const line = (text: string, opts: { bold?: boolean; italics?: boolean; size?: nu
 const bullet = (text: string) => new Paragraph({ text, bullet: { level: 0 }, spacing: { after: 40 } });
 
 export async function resumeDocx(r: Resume): Promise<Blob> {
-  const contact = [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin].filter(Boolean).join("  |  ");
+  const contact = [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin, ...(r.contact.links ?? [])].filter(Boolean).join("  |  ");
   const children: Paragraph[] = [
     new Paragraph({ alignment: AlignmentType.LEFT, children: [new TextRun({ text: r.name, bold: true, size: 36 })] }),
     line(r.headline, { bold: true, size: 22 }),

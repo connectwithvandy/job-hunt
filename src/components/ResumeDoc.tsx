@@ -60,6 +60,11 @@ export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: s
           {r.contact.linkedin && <a href={r.contact.linkedin}>LinkedIn Profile</a>}
           {r.contact.email && <span>{r.contact.email}</span>}
           {r.contact.location && <span>{r.contact.location}</span>}
+          {r.contact.links?.map((l) => (
+            <a key={l} href={/^https?:\/\//.test(l) ? l : `https://${l}`}>
+              {l.replace(/^https?:\/\/(www\.)?/, "")}
+            </a>
+          ))}
         </div>
         <h2>Education</h2>
         {r.education.map((ed, i) => (

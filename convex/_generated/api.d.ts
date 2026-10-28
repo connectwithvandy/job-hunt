@@ -37,6 +37,7 @@ import type * as lib_facts from "../lib/facts.js";
 import type * as lib_followups from "../lib/followups.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_outcomes from "../lib/outcomes.js";
+import type * as lib_pdfText from "../lib/pdfText.js";
 import type * as lib_places from "../lib/places.js";
 import type * as lib_posting from "../lib/posting.js";
 import type * as lib_quickFit from "../lib/quickFit.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "lib/followups": typeof lib_followups;
   "lib/inbox": typeof lib_inbox;
   "lib/outcomes": typeof lib_outcomes;
+  "lib/pdfText": typeof lib_pdfText;
   "lib/places": typeof lib_places;
   "lib/posting": typeof lib_posting;
   "lib/quickFit": typeof lib_quickFit;
