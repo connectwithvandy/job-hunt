@@ -180,14 +180,23 @@ async function careerMatches(ctx: ActionCtx, titles: string[], location: string)
   return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 300));
 }
 
+/** "Senior Sales Development Manager" also written as "Manager Sales Development", the way "Sr Manager, Sales Development" reads once commas drop out. */
+function flipped(title: string) {
+  const words = title.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter((w) => w && !/^(senior|sr|junior|jr)$/i.test(w));
+  const last = words.at(-1)?.toLowerCase();
+  return words.length >= 3 && (last === "manager" || last === "director" || last === "lead") ? [`${words.at(-1)} ${words.slice(0, -1).join(" ")}`] : [];
+}
+
 /**
  * LinkedIn's own job listings for a track's titles: the place itself, plus remote roles open to the country.
  * Titles go four to a search, so one busy title ("Sales Manager") can't use up the results the others need.
  */
 async function linkedInMatches(titles: string[], location: string, since: "24h" | "week"): Promise<Found[]> {
   const place = readPlace(location);
-  const list = titles.slice(0, 16);
-  const groups = Array.from({ length: Math.ceil(list.length / 4) }, (_, i) => list.slice(i * 4, i * 4 + 4).map((t) => `"${t.replace(/"/g, "")}"`).join(" OR "));
+  // LinkedIn matches each title as an exact phrase, and big companies often write it the other way round:
+  // "Sr Manager, Sales Development", not "Senior Sales Development Manager". Both are searched, six to a search, so the cost stays the same.
+  const list = [...new Set(titles.slice(0, 16).flatMap((t) => [t, ...flipped(t)]))].slice(0, 24);
+  const groups = Array.from({ length: Math.ceil(list.length / 6) }, (_, i) => list.slice(i * 6, i * 6 + 6).map((t) => `"${t.replace(/"/g, "")}"`).join(" OR "));
   const perQuery = since === "24h" ? 50 : 100;
   const places: [string | undefined, boolean][] = place.kind === "remote" ? [["India", true]] : place.kind === "anywhere" ? [[undefined, false]] : [[place.name, false]];
   if (place.kind === "place" && place.country === "in") places.push(["India", true]);

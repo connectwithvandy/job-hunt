@@ -9,7 +9,7 @@ import { fullTitle } from "./lib/salesRoles";
 // Discovered boards are capped so the morning download stays a few minutes long.
 const MAX_DISCOVERED = 1000;
 
-const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("google"));
+const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"));
 
 async function saveBoard(ctx: MutationCtx, company: string, board: { ats: CareerBoard["ats"]; slug: string }) {
   // Roles are filed by company name, so one board per name.

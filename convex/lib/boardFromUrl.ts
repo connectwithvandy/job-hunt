@@ -3,7 +3,7 @@ import type { CareerBoard } from "./careerBoards";
 /**
  * The careers board behind a job link, when it's one we can read: jobs.ashbyhq.com/<slug>,
  * boards.greenhouse.io/<slug>, jobs.lever.co/<slug>, <tenant>.wdN.myworkdayjobs.com/<site>, <slug>.keka.com/careers,
- * <slug>.zohorecruit.in/jobs, <slug>.freshteam.com/jobs or jobs.smartrecruiters.com/<slug>.
+ * <slug>.zohorecruit.in/jobs, <slug>.freshteam.com/jobs, jobs.smartrecruiters.com/<slug> or ats.rippling.com/<slug>/jobs.
  * EU-hosted Greenhouse and Lever boards use other addresses, so they're left out.
  */
 export function boardFromUrl(link: string | undefined): Omit<CareerBoard, "name" | "website"> | null {
@@ -28,6 +28,10 @@ export function boardFromUrl(link: string | undefined): Omit<CareerBoard, "name"
   if (host === "jobs.lever.co") {
     const slug = clean(parts[0]);
     return slug ? { ats: "lever", slug } : null;
+  }
+  if (host === "ats.rippling.com") {
+    const slug = clean(parts[0]);
+    return slug ? { ats: "rippling", slug } : null;
   }
   if (host === "jobs.smartrecruiters.com" || host === "careers.smartrecruiters.com") {
     const slug = clean(parts[0]);

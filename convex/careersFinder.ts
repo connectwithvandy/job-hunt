@@ -7,7 +7,7 @@ import type { CareerBoard } from "./lib/careerBoards";
 import { companyKey } from "./lib/company";
 
 // The weekly finder: looks up B2B, SaaS and AI startups on every careers system we read
-// (Ashby, Greenhouse, Lever, Keka, Zoho Recruit, Freshteam; Workday has no guessable address), and adds
+// (Ashby, Greenhouse, Lever, Keka, Zoho Recruit, Freshteam, SmartRecruiters, Rippling; Workday has no guessable address), and adds
 // the ones it finds to the morning download. Each company is looked up about once a month.
 
 type Candidate = { name: string; website: string; slug?: string };
@@ -74,6 +74,8 @@ async function findBoard(c: Candidate): Promise<{ ats: CareerBoard["ats"]; slug:
     // SmartRecruiters answers every name; a real board has roles.
     const sr = await ok(`https://api.smartrecruiters.com/v1/companies/${slug}/postings?limit=1`);
     if (sr && (JSON.parse(sr) as { totalFound?: number }).totalFound) return { ats: "smartrecruiters", slug };
+    const rippling = await ok(`https://api.rippling.com/platform/api/ats/v1/board/${slug}/jobs`);
+    if (rippling && rippling.startsWith("[") && (JSON.parse(rippling) as unknown[]).length) return { ats: "rippling", slug };
   }
   return null;
 }

@@ -6,7 +6,7 @@
 // host/tenant/site from the careers address, e.g. adobe.wd5.myworkdayjobs.com/external_experienced.
 // A SmartRecruiters slug is the company name in jobs.smartrecruiters.com/canva.
 
-export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "google"; slug: string };
+export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google"; slug: string };
 
 export const CAREER_BOARDS: CareerBoard[] = [
   // Voice and AI apps
@@ -51,6 +51,7 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Okta", website: "okta.com", ats: "greenhouse", slug: "okta" },
   { name: "Zscaler", website: "zscaler.com", ats: "greenhouse", slug: "zscaler" },
   { name: "Rubrik", website: "rubrik.com", ats: "greenhouse", slug: "rubrik" },
+  { name: "Rippling", website: "rippling.com", ats: "rippling", slug: "rippling" },
   { name: "Druva", website: "druva.com", ats: "greenhouse", slug: "druva" },
   { name: "Samsara", website: "samsara.com", ats: "greenhouse", slug: "samsara" },
   { name: "HighRadius", website: "highradius.com", ats: "greenhouse", slug: "highradius" },

@@ -224,6 +224,41 @@ async function readSmartRecruiters(board: CareerBoard, known: Set<string>): Prom
   return out;
 }
 
+type RipplingHit = { uuid: string; name: string; url: string; workLocation?: { label?: string } };
+type RipplingJob = { description?: Record<string, string | null>; workLocations?: string[]; createdOn?: string; url: string };
+
+/**
+ * Rippling lists every role in one go, without descriptions, and big companies list hundreds. So only titles
+ * someone's tracks ask for are opened for their description; roles already saved (`known`) come back as ids only.
+ */
+async function readRippling(board: CareerBoard, titles: string[], known: Set<string>): Promise<(CareerJob | { externalId: string; known: true })[]> {
+  const base = `https://api.rippling.com/platform/api/ats/v1/board/${board.slug}/jobs`;
+  const hits = await getJson<RipplingHit[]>(base);
+  const wanted = titles.length ? hits.filter((h) => titles.some((t) => titleMatches(t, h.name.trim()))) : hits;
+  const open = async (h: RipplingHit): Promise<CareerJob | { externalId: string; known: true }> => {
+    const externalId = `rippling:${board.slug}:${h.uuid}`;
+    if (known.has(externalId)) return { externalId, known: true };
+    const j = await getJson<RipplingJob>(`${base}/${h.uuid}`);
+    const places = [...new Set([h.workLocation?.label, ...(j.workLocations ?? [])].filter(Boolean))].join("; ");
+    const remote = /remote/i.test(places);
+    const text = Object.values(j.description ?? {}).filter(Boolean).join("\n\n");
+    return {
+      externalId,
+      company: board.name,
+      title: h.name.trim(),
+      location: places || "Not listed",
+      workSetting: remote ? "remote" : undefined,
+      postedAt: j.createdOn,
+      url: j.url || h.url,
+      description: cut(text && htmlToText(text)),
+    };
+  };
+  const list = wanted.slice(0, 300);
+  const out: (CareerJob | { externalId: string; known: true })[] = [];
+  for (let i = 0; i < list.length; i += 8) out.push(...(await Promise.all(list.slice(i, i + 8).map(open))));
+  return out;
+}
+
 /**
  * Google's careers site has no feed, but each search page carries its results as data inside the page.
  * It's searched for each title in India only; the description comes with the result.
@@ -269,6 +304,7 @@ export async function readBoard(board: CareerBoard, titles: string[] = [], known
   if (board.ats === "workday") return await readWorkday(board, titles, known);
   if (board.ats === "google") return await readGoogle(board, titles);
   if (board.ats === "smartrecruiters") return await readSmartRecruiters(board, known);
+  if (board.ats === "rippling") return await readRippling(board, titles, known);
   if (board.ats === "keka") return await readKeka(board);
   if (board.ats === "zoho") return await readZoho(board);
   if (board.ats === "freshteam") return await readFreshteam(board);
