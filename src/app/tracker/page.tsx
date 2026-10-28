@@ -45,6 +45,13 @@ export default function Tracker() {
                           <div className="text-xs text-ink-2">{j.company}</div>
                         </div>
                       </Link>
+                      {j.hasSent && (
+                        <p className="mt-2 text-xs text-ink-2">
+                          What you sent:{" "}
+                          <Link className="underline" href={`/jobs/${j._id}/resume?sent=1`}>CV</Link> ·{" "}
+                          <Link className="underline" href={`/jobs/${j._id}/letter?sent=1`}>cover letter</Link>
+                        </p>
+                      )}
                       {j.lastEmail && (
                         <p className="mt-2 truncate text-xs text-ink-2" title={`${j.lastEmail.from}: ${j.lastEmail.subject}`}>
                           Email {timeAgo(j.lastEmail.at)}: {j.lastEmail.subject}

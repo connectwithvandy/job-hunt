@@ -207,6 +207,8 @@ export const jobFields = {
   pack: v.optional(packV),
   /** Whether a tailored CV has been written, so lists can show it without loading it. */
   hasPack: v.optional(v.boolean()),
+  /** Whether the CV and cover letter you sent are kept (in jobDetails), so the Applications page can link them. */
+  hasSent: v.optional(v.boolean()),
   outreach: v.array(outreachV),
   hiringContacts: v.optional(v.array(hiringContactV)),
   research: v.optional(researchV),

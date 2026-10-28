@@ -39,6 +39,7 @@ export async function freezeSent(ctx: MutationCtx, job: Doc<"jobs">, status: str
   const pack = d?.pack ?? job.pack;
   if (!pack || d?.sent) return;
   await saveDetails(ctx, job, { sent: { at: Date.now(), resume: pack.resume, coverLetter: pack.coverLetter } });
+  await ctx.db.patch("jobs", job._id, { hasSent: true });
 }
 
 const defined = (o: Details) => Object.fromEntries(Object.entries(o).filter(([, val]) => val !== undefined)) as Details;
