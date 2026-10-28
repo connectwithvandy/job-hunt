@@ -19,6 +19,7 @@ import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as inbox from "../inbox.js";
+import type * as inboxReader from "../inboxReader.js";
 import type * as jobs from "../jobs.js";
 import type * as lib_ai from "../lib/ai.js";
 import type * as lib_apify from "../lib/apify.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   http: typeof http;
   inbox: typeof inbox;
+  inboxReader: typeof inboxReader;
   jobs: typeof jobs;
   "lib/ai": typeof lib_ai;
   "lib/apify": typeof lib_apify;

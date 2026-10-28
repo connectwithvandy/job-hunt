@@ -297,6 +297,7 @@ async function liveState(ctx: ActionCtx, job: Doc<"jobs">): Promise<LiveCheck> {
     const listed: boolean = await ctx.runQuery(internal.careers.isListed, { externalId: job.externalId.replace(/^careers:/, "") });
     return listed ? { at, state: "open", note: "Still on the company's careers board as of this morning." } : { at, state: "closed", note: "The company took it off its careers board." };
   }
+  if (job.source === "email") return { at, state: "unknown", note: "This job came from an email, so there's no posting to check." };
   const link = job.sourceUrl || job.url;
   if (!link || !publicUrl(link)) return { at, state: "unknown", note: "There's no link to check. Open the posting to make sure it's up." };
   // Ashby builds its pages in the browser, so read its public job list instead.

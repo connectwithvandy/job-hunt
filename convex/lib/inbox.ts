@@ -1,9 +1,17 @@
 // Reads a recruiting email sent in by the Gmail script: which stage it means, and which job it's about.
 // Plain keyword rules, no AI, so it costs nothing to run every hour.
 
+import { v } from "convex/values";
 import { companyKey } from "./company";
 
+export const inboxMessageV = v.object({ id: v.string(), from: v.string(), subject: v.string(), snippet: v.string(), date: v.string() });
 export type InboxMessage = { id: string; from: string; subject: string; snippet: string; date: string };
+export const stageV = v.union(v.literal("applied"), v.literal("screening"), v.literal("interview"), v.literal("offer"), v.literal("rejected"));
+
+/** LinkedIn's email saying someone messaged you. The company is in the message, not the sender, so the AI reads it. */
+export function isLinkedInMessage(m: InboxMessage) {
+  return /linkedin\.com/i.test(m.from) && /(messages-noreply|inmail|hit-reply)/i.test(m.from);
+}
 export type Stage = "applied" | "screening" | "interview" | "offer" | "rejected";
 
 // Checked in this order: an offer or a no beats everything; "thanks for applying" emails often

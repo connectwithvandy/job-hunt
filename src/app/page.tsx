@@ -351,6 +351,7 @@ const SOURCE_LABELS: Record<string, string> = {
   adzuna: "Adzuna",
   himalayas: "Himalayas",
   hn: "Hacker News",
+  email: "From your email",
   linkedin: "LinkedIn jobs",
   link: "Added by you",
   pasted: "Added by you",

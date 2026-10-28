@@ -83,6 +83,7 @@ export const FILTERS: Filter[] = [
       { value: "jsearch", label: "Google Jobs", test: (j) => j.source === "jsearch" },
       { value: "himalayas", label: "Himalayas", test: (j) => j.source === "himalayas" },
       { value: "hn", label: "Hacker News", test: (j) => j.source === "hn" },
+      { value: "email", label: "From my email", test: (j) => j.source === "email" },
       { value: "linkedin", label: "LinkedIn", test: (j) => j.source === "linkedin" || j.source === "post" },
       { value: "careers", label: "Company careers pages", test: (j) => j.source === "careers" },
       { value: "added", label: "Added by me", test: (j) => j.source === "link" || j.source === "pasted" },

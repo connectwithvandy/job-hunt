@@ -3,7 +3,9 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { env, internalMutation, mutation, query } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { buildDigest, digestDue } from "./lib/digest";
-import { jobFor, jobForEvent, nextStatus, stageOf } from "./lib/inbox";
+import { internal } from "./_generated/api";
+import { companyKey, roleKey } from "./lib/company";
+import { inboxMessageV, isLinkedInMessage, jobFor, jobForEvent, nextStatus, stageOf, stageV, type InboxMessage } from "./lib/inbox";
 import { freezeSent } from "./jobs";
 
 /** Your private code for the Gmail script, made the first time you ask. */
@@ -20,11 +22,10 @@ export const token = mutation({
   },
 });
 
-const messageV = v.object({ id: v.string(), from: v.string(), subject: v.string(), snippet: v.string(), date: v.string() });
 
 /** Emails from the Gmail script: each one about a job in motion moves that job along. Others are dropped. */
 export const ingest = internalMutation({
-  args: { token: v.string(), messages: v.array(messageV) },
+  args: { token: v.string(), messages: v.array(inboxMessageV) },
   handler: async (ctx, { token, messages }) => {
     const profile = await ctx.db.query("profiles").withIndex("by_inboxToken", (q) => q.eq("inboxToken", token)).unique();
     if (!profile) return { ok: false, moved: 0 };
@@ -34,13 +35,19 @@ export const ingest = internalMutation({
       ["applying", "applied", "screening", "interview", "offer"].includes(j.status),
     );
     let moved = 0;
+    // Recruiting emails about a job you don't have yet, and LinkedIn messages, go to the AI to read.
+    const unread: InboxMessage[] = [];
     for (const m of messages.slice(0, 100)) {
       const seen = await ctx.db.query("inboxSeen").withIndex("by_userId_and_messageId", (q) => q.eq("userId", userId).eq("messageId", m.id)).first();
       if (seen) continue;
       await ctx.db.insert("inboxSeen", { userId, messageId: m.id });
       const stage = stageOf(m);
-      const job = stage && jobFor(m, jobs);
-      if (!stage || !job) continue;
+      const linkedIn = isLinkedInMessage(m);
+      const job = stage && !linkedIn ? jobFor(m, jobs) : null;
+      if (!stage || !job) {
+        if (stage || linkedIn) unread.push(m);
+        continue;
+      }
       const status = nextStatus(job.status, stage);
       const at = Date.parse(m.date) || Date.now();
       const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage }, updatedAt: Date.now() };
@@ -52,7 +59,55 @@ export const ingest = internalMutation({
         moved++;
       }
     }
+    if (unread.length) await ctx.scheduler.runAfter(0, internal.inboxReader.read, { userId, messages: unread.slice(0, 20) });
     return { ok: true, moved };
+  },
+});
+
+/**
+ * What the AI found in emails that matched no job: each is about a real role at a named company.
+ * Joins the company's job when there is one (the same role, when it's named), otherwise adds the job.
+ */
+export const saveFromEmails = internalMutation({
+  args: { userId: v.id("users"), items: v.array(v.object({ company: v.string(), title: v.string(), stage: stageV, message: inboxMessageV })) },
+  handler: async (ctx, { userId, items }) => {
+    const jobs = (await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000)).filter((j) => j.status !== "dismissed");
+    let added = 0;
+    for (const { company, title, stage, message: m } of items) {
+      const key = companyKey(company);
+      if (key.length < 2) continue;
+      const at = Date.parse(m.date) || Date.now();
+      const lastEmail = { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage };
+      const same = jobs.filter((j) => companyKey(j.company) === key).sort((a, b) => b.updatedAt - a.updatedAt);
+      const titled = title && same.find((j) => roleKey(j.company, j.title) === roleKey(company, title));
+      let job = titled || (!title ? same[0] : undefined);
+      if (job) {
+        const status = nextStatus(job.status, stage);
+        await ctx.db.patch("jobs", job._id, { lastEmail, updatedAt: Date.now(), ...(status ? { status, appliedAt: job.appliedAt ?? at } : {}) });
+        if (status) await freezeSent(ctx, job, status);
+      } else {
+        const id = await ctx.db.insert("jobs", {
+          userId,
+          externalId: `email:${m.id}`,
+          roleKey: roleKey(company, title),
+          source: "email",
+          url: `https://mail.google.com/mail/u/0/#all/${m.id}`,
+          title: title || "Role not named yet",
+          company: company.slice(0, 120),
+          location: "",
+          status: stage,
+          appliedAt: at,
+          lastEmail,
+          outreach: [],
+          updatedAt: Date.now(),
+        });
+        job = (await ctx.db.get("jobs", id))!;
+        jobs.unshift(job);
+        added++;
+      }
+      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage });
+    }
+    return { added };
   },
 });
 

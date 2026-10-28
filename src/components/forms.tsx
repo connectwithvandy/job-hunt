@@ -705,8 +705,10 @@ function calendarEvents() {
 function sync() {
   const query = 'newer_than:2d -in:sent -category:promotions -category:social ' +
     '(application OR applying OR interview OR offer OR unfortunately OR candidacy OR recruiter OR "next steps")';
+  // LinkedIn emails you when someone messages you; recruiters often write there first.
+  const linkedIn = 'newer_than:2d from:(messages-noreply@linkedin.com OR inmail-hit-reply@linkedin.com OR hit-reply@linkedin.com)';
   const messages = [];
-  GmailApp.search(query, 0, 50).forEach(function (thread) {
+  GmailApp.search(query, 0, 50).concat(GmailApp.search(linkedIn, 0, 30)).forEach(function (thread) {
     thread.getMessages().forEach(function (m) {
       messages.push({ id: m.getId(), from: m.getFrom(), subject: m.getSubject(), snippet: m.getPlainBody().slice(0, 1500), date: m.getDate().toISOString() });
     });
@@ -755,7 +757,8 @@ export function GmailSync() {
     <div className="card space-y-3 p-5 text-sm">
       <p className="text-ink-2">
         Recruiter replies, interview invites, offers and rejections move your jobs along by themselves, checked every hour. The script runs in your own
-        Google account and sends only recruiting emails from the last two days; ones that don&apos;t match a job you&apos;re applying to are thrown away.
+        Google account and sends only recruiting emails and LinkedIn message alerts from the last two days. One about a role you don&apos;t have in
+        JobPipe yet (applied somewhere else, or a recruiter reaching out) is read by the AI and added as a job; the rest are thrown away.
       </p>
       <p className="text-ink-2">
         Each morning after 9:00 it also emails you a short summary: replies from companies, strong fits to apply to, and who to follow up with. It comes from

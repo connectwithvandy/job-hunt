@@ -814,6 +814,30 @@ const DomainSchema = z.strictObject({
   domains: z.array(z.strictObject({ name: z.string(), domain: z.string().describe("Bare website domain like 'rubrik.com', or '' if not sure.") })),
 });
 
+const EmailRolesSchema = z.object({
+  emails: z.array(
+    z.strictObject({
+      id: z.string(),
+      aboutRole: z.boolean().describe("True only for a specific job: an application they made, or a recruiter or hiring person reaching out about a role."),
+      company: z.string().describe("The hiring company. Not the tool that sent it (Greenhouse, Lever, Workday, LinkedIn). For an agency, the client if named, else the agency."),
+      title: z.string().describe("The role as written, or '' if not named."),
+      stage: z.enum(["applied", "screening", "interview", "offer", "rejected"]),
+    }),
+  ),
+});
+
+/** Reads recruiting emails and LinkedIn messages that matched no job: which are about a real role, where, and how far along. */
+export async function readRecruitingEmails(messages: { id: string; from: string; subject: string; snippet: string }[]) {
+  const out = await askJSON({
+    tier: "cheap",
+    schema: EmailRolesSchema,
+    system:
+      "You read emails and LinkedIn messages a job seeker received. For each, decide if it's about a specific job: an application they made, or a recruiter or hiring person reaching out about a role. Job alerts, newsletters, marketing, course ads and friendly chats with no role are not. Stage: applied (application received), screening (a recruiter reaching out or asking for a first call), interview (an interview is being set up or happened), offer, rejected. Answer for every id.",
+    prompt: messages.map((m) => `id: ${m.id}\nFrom: ${m.from}\nSubject: ${m.subject}\n${m.snippet.slice(0, 1200)}`).join("\n\n---\n\n"),
+  });
+  return out.emails;
+}
+
 /** The website of each employer and school, so the CV can show their logos. */
 export async function findDomains(names: string[]) {
   const out = await askJSON({
