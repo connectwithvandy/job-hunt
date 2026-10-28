@@ -1,6 +1,7 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
@@ -245,10 +246,15 @@ export function CoverLetter({ jobId, text }: { jobId: Id<"jobs">; text: string }
       <textarea className="field h-64 leading-relaxed" value={value} onChange={(e) => setValue(e.target.value)} />
       <div className="mt-2 flex items-center gap-2">
         <CopyButton text={value} label="Copy cover letter" />
-        {value !== text && (
+        {value !== text ? (
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => start(async () => setState(await attempt(async () => (await save({ jobId, text: value }), "Saved."))))}>
             {busy ? "Saving…" : "Save edits"}
           </button>
+        ) : (
+          // Application forms usually want the letter as a file, so it opens as a page to save as PDF or Word.
+          <Link href={`/jobs/${jobId}/letter`} className="btn btn-ghost btn-sm">
+            Download as PDF or Word
+          </Link>
         )}
         <Feedback state={busy ? null : state} />
       </div>

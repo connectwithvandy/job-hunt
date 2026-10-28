@@ -48,9 +48,29 @@ export async function resumeDocx(r: Resume): Promise<Blob> {
   return Packer.toBlob(doc);
 }
 
+/** A cover letter on one page: name and contact on top, then the letter's paragraphs. */
+export async function letterDocx(r: Resume, text: string): Promise<Blob> {
+  const contact = [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin].filter(Boolean).join("  |  ");
+  const children: Paragraph[] = [
+    new Paragraph({ children: [new TextRun({ text: r.name, bold: true, size: 32 })] }),
+    new Paragraph({ children: [new TextRun({ text: contact, size: 18 })], spacing: { after: 360 } }),
+    ...text.trim().split(/\n\s*\n/).map((p) => new Paragraph({ children: p.split("\n").map((l, i) => new TextRun({ text: l, break: i ? 1 : 0 })), spacing: { after: 200 } })),
+  ];
+  const doc = new Document({ styles: { default: { document: { run: { font: "Calibri", size: 22 } } } }, sections: [{ children }] });
+  return Packer.toBlob(doc);
+}
+
+export async function downloadLetterDocx(r: Resume, text: string, fileName: string) {
+  save(await letterDocx(r, text), fileName);
+}
+
 /** Builds the Word file and hands it to the browser as a download. */
 export async function downloadDocx(r: Resume, fileName: string) {
-  const url = URL.createObjectURL(await resumeDocx(r));
+  save(await resumeDocx(r), fileName);
+}
+
+function save(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = `${fileName}.docx`;

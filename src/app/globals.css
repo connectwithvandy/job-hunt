@@ -156,7 +156,24 @@ select.field option { background: var(--card); }
 .resume .side-item-title { color: var(--r-blue); font-size: 10.5pt; }
 .resume .muted { color: var(--r-muted); }
 
+/* A cover letter on an A4 sheet, in the CV's font. */
+.letter {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 22mm 22mm;
+  background: #fff;
+  color: #1f1f1f;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+.letter h1 { font-size: 20pt; font-weight: 400; line-height: 1.1; }
+.letter .contact { color: #6b6b6b; font-size: 9pt; margin: 2mm 0 10mm; display: flex; flex-wrap: wrap; gap: 0 4mm; }
+.letter p { white-space: pre-line; margin-bottom: 4mm; }
+
 @media print {
+  .letter { box-shadow: none; }
   @page { size: A4; margin: 0; }
   html, body { background: #fff !important; }
   .resume { box-shadow: none; }
