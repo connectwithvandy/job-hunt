@@ -105,7 +105,8 @@ export const get = query({
     // How long the role has been on the company's careers board, and how often it was put back up.
     const seen = await ctx.db.query("roleSightings").withIndex("by_key", (q) => q.eq("key", job.roleKey ?? roleKey(job.company, job.title))).first();
     const sighting = seen ? { firstSeen: seen.firstSeen, reposts: seen.reposts } : null;
-    return { job: await withDetails(ctx, job), people, sighting };
+    const emails = await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", jobId)).order("desc").take(50);
+    return { job: await withDetails(ctx, job), people, sighting, emails };
   },
 });
 

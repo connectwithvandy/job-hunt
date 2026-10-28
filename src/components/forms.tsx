@@ -1,6 +1,6 @@
 "use client";
 
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -10,6 +10,7 @@ import { parseConnectionsCsv } from "@/lib/connections";
 import { parseMessagesCsv } from "@/lib/linkedinMessages";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
+import { timeAgo } from "./bits";
 import type { Resume } from "./ResumeDoc";
 import { type ActionState, ActionButton, attempt, Feedback, Spinner } from "./ui";
 import { payRange } from "@/lib/money";
@@ -708,14 +709,24 @@ function setup() {
 /** Sets up the Gmail script that moves jobs along when recruiters write back. */
 export function GmailSync() {
   const getToken = useMutation(api.inbox.token);
+  const me = useQuery(api.users.me);
   const [script, setScript] = useState("");
   const [copied, setCopied] = useState(false);
   const endpoint = (process.env.NEXT_PUBLIC_CONVEX_URL ?? "").replace(".convex.cloud", ".convex.site") + "/inbox";
+  // The script checks in every hour, so more than three hours of quiet means it stopped.
+  const [now] = useState(() => Date.now());
+  const inboxAt = me?.inboxAt ?? null;
+  const live = inboxAt !== null && now - inboxAt < 3 * 3_600_000;
   if (!script) {
     return (
-      <button className="btn btn-ghost btn-sm" onClick={async () => setScript(gmailScript((await getToken()) ?? "", endpoint))}>
-        Track replies and get a morning email
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`text-sm ${live ? "text-good" : "text-ink-2"}`}>
+          {live ? `Gmail connected, last checked ${timeAgo(inboxAt)}` : inboxAt ? `Gmail stopped checking ${timeAgo(inboxAt)}. Run setup in the script again.` : "Gmail isn't connected yet."}
+        </span>
+        <button className="btn btn-ghost btn-sm" onClick={async () => setScript(gmailScript((await getToken()) ?? "", endpoint))}>
+          {inboxAt ? "Show the Gmail script" : "Track replies and get a morning email"}
+        </button>
+      </div>
     );
   }
   return (

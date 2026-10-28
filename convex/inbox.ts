@@ -28,6 +28,7 @@ export const ingest = internalMutation({
     const profile = await ctx.db.query("profiles").withIndex("by_inboxToken", (q) => q.eq("inboxToken", token)).unique();
     if (!profile) return { ok: false, moved: 0 };
     const userId = profile.userId;
+    await ctx.db.patch("profiles", profile._id, { inboxAt: Date.now() });
     const jobs = (await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500)).filter((j) =>
       ["applying", "applied", "screening", "interview", "offer"].includes(j.status),
     );
@@ -42,6 +43,7 @@ export const ingest = internalMutation({
       const status = nextStatus(job.status, stage);
       const at = Date.parse(m.date) || Date.now();
       const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage }, updatedAt: Date.now() };
+      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage });
       await ctx.db.patch("jobs", job._id, status ? { ...patch, status, appliedAt: status === "applied" && !job.appliedAt ? at : job.appliedAt } : patch);
       if (status) {
         await freezeSent(ctx, job, status);

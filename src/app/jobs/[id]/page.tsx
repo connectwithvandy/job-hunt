@@ -283,6 +283,24 @@ export default function JobPage() {
             </div>
         </Fold>
 
+        {data.emails.length > 0 && (
+          <div className="card p-6">
+            <h2 className="display mb-4 text-2xl">Emails from {job.company}</h2>
+            <ul className="divide-y divide-line text-sm">
+              {data.emails.map((m) => (
+                <li key={m._id} className="py-3">
+                  <div className="flex justify-between gap-3">
+                    <span className="font-medium">{m.subject}</span>
+                    <span className="shrink-0 text-xs text-ink-3">{timeAgo(m.at)}</span>
+                  </div>
+                  <div className="text-xs text-ink-3">{m.from}</div>
+                  <p className="mt-1 text-ink-2">{m.snippet}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <details className="pt-4">
           <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">More: company research, interview prep, full job description</summary>
           <div className="mt-4 space-y-6">

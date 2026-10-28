@@ -37,6 +37,8 @@ export default defineSchema({
     lastSeenAt: v.optional(v.number()),
     /** Private code the Gmail script sends with recruiting emails (inbox.ts). */
     inboxToken: v.optional(v.string()),
+    /** When the Gmail script last checked in, so the app can say it's connected. */
+    inboxAt: v.optional(v.number()),
     /** When the Gmail script last emailed you the morning summary. */
     digestAt: v.optional(v.number()),
     prevSeenAt: v.optional(v.number()),
@@ -120,6 +122,17 @@ export default defineSchema({
   roleSightings: defineTable({ key: v.string(), firstSeen: v.number(), reposts: v.number(), lastClosedAt: v.optional(v.number()) }).index("by_key", ["key"]),
 
   /** Gmail messages already read, so the hourly script never counts one twice. */
+  /** Every recruiting email the Gmail script matched to a job, so the job page shows the whole conversation. */
+  jobEmails: defineTable({
+    userId: v.id("users"),
+    jobId: v.id("jobs"),
+    from: v.string(),
+    subject: v.string(),
+    snippet: v.string(),
+    at: v.number(),
+    stage: v.string(),
+  }).index("by_jobId_and_at", ["jobId", "at"]),
+
   inboxSeen: defineTable({ userId: v.id("users"), messageId: v.string() }).index("by_userId_and_messageId", ["userId", "messageId"]),
 
   /** A careers-board role's description, kept apart so searching the titles stays light. */

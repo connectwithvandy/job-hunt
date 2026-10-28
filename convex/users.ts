@@ -50,6 +50,8 @@ export const me = query({
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],
       lastAutopilot: profile?.lastAutopilot ?? null,
+      /** When the Gmail script last checked in; null when it was never set up. */
+      inboxAt: profile?.inboxAt ?? null,
       lessons: profile?.lessons ?? null,
       prevSeenAt: profile?.prevSeenAt ?? null,
       // Names only: every page loads this, and only the CVs page needs the full text (`resumes` below).
