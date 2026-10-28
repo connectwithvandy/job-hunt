@@ -179,8 +179,8 @@ export function TailorButton({
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
 
-  const write = async () => {
-    await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined, anyway });
+  const write = async (letterOnly?: boolean) => {
+    await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined, anyway, letterOnly });
     setFeedback("");
     setQuestions(null);
     setAnswers([]);
@@ -239,7 +239,7 @@ export function TailorButton({
             {busy && <Spinner />}
             {busy ? "Writing… about a minute" : redo ? "Rewrite it" : "Write it"}
           </button>
-          <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => (redo ? setQuestions(null) : run(write))}>
+          <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => (redo ? setQuestions(null) : run(() => write()))}>
             {redo ? "Not now" : "Skip questions"}
           </button>
           <LeftToday kind="cvsLeft" label="tailored CVs" />
@@ -286,6 +286,9 @@ export function TailorButton({
               : anyway
                 ? "Write it anyway"
                 : "Write my CV and cover letter"}
+      </button>
+      <button type="button" className="btn btn-ghost btn-sm" disabled={busy || asking || !resumeId} onClick={() => run(() => write(true))}>
+        {redo ? "Rewrite just the cover letter" : "Just the cover letter"}
       </button>
       {redo && (
         <button

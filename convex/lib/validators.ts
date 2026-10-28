@@ -98,6 +98,8 @@ export const packV = v.object({
   fit: v.optional(v.array(v.object({ ask: v.string(), proof: v.string() }))),
   /** Numbers in the tailored CV that don't appear in the master CV. Should be empty. */
   unverified: v.array(v.string()),
+  /** Only the cover letter was written: the CV is your master CV, not tailored to this job. */
+  letterOnly: v.optional(v.boolean()),
 });
 
 /** The CV and cover letter as they were when you applied. Later rewrites leave this copy alone, so you know what they read. */

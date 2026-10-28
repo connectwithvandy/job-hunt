@@ -227,6 +227,7 @@ export default function JobPage() {
                     <Link className="underline" href={`/jobs/${job._id}/letter?sent=1`}>cover letter</Link>
                   </p>
                 )}
+                {job.pack.letterOnly && <p className="text-xs text-ink-3">Only the cover letter was written for this job. Your CV is your master CV as it is.</p>}
                 {job.pack.feedback && <p className="text-xs text-ink-3">Written with your changes: &quot;{job.pack.feedback}&quot;</p>}
                 {!!job.pack.fit?.length && (
                   <div>

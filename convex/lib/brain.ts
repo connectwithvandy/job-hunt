@@ -233,6 +233,9 @@ const PackSchema = z.strictObject({
     .describe("From the change requests, any that are general preferences for all applications, not specific to this job, rewritten as short rules. Empty if none."),
 });
 
+/** How the cover letter is built, shared by the full pack and the letter on its own. */
+const LETTER_RULES = `The cover letter: open with this company's specific need, read from the posting. Prove the top 2 or 3 must-haves with real numbers. Address the biggest gap honestly only if the facts give a real angle on it; otherwise leave it out. Close with a concrete ask.`;
+
 export type Fact = { question: string; answer: string };
 
 /** What the candidate told the AI in their own words, used like CV facts. */
@@ -270,7 +273,7 @@ export async function buildPack(
     schema: PackSchema,
     system: `You tailor a sales leader's CV and cover letter to one specific job${track ? ', using one positioning ("track")' : ""}, and write the short messages that go with it. ${HONESTY}
 ${facts.length ? "The candidate has also answered questions in their own words. Treat those answers as part of the master CV: true, and usable like any CV fact, numbers included.\n" : ""}How to read the posting: first its must-haves, then its nice-to-haves, and note the exact words it uses for each. Lead each recent role with bullets that prove the must-haves, in the posting's words, wherever the CV or the candidate's facts back them: applicant tracking systems match those words, and a hiring manager skims for them in 10 seconds. Then cover the nice-to-haves the candidate genuinely has. Never stuff in a keyword the CV and facts don't back.
-The cover letter: open with this company's specific need, read from the posting. Prove the top 2 or 3 must-haves with real numbers. Address the biggest gap honestly only if the facts give a real angle on it; otherwise leave it out. Close with a concrete ask.
+${LETTER_RULES}
 Tailoring is mostly the experience, not the summary. Read the posting for what it really needs (the must-haves, the motion, the buyer, the deal size, the market), then rewrite each role's bullets so a hiring manager skimming for 10 seconds sees those things proven, with numbers, in their language. Change what each bullet leads with and which details it keeps; keep titles, employers and dates exactly as they are. Write at the candidate's level: a senior leader is hired for what they owned and decided, so bullets show scope (team size, region, quota, revenue, P&L), the call they made and the business result. Leader verbs like built, owned, led, turned around, never assisted, supported, helped or was responsible for. No bullet should read like a task list a junior rep could also claim.
 ${MESSAGE_RULES}${
       notes.length
@@ -336,6 +339,34 @@ ${notes.map((n, i) => `${i + 1}. ${n}`).join("\n")}`
     ),
   };
   return { pack, standingRules: notes.length ? out.standingRules : [] };
+}
+
+// ---------- Cover letter on its own ----------
+
+const LetterSchema = z.strictObject({
+  coverLetter: z.string().describe("Under 220 words. Three short paragraphs. No address block, start with 'Hi <team or name>,'."),
+});
+
+/** Just the cover letter, from the CV as it is, for when you don't want the CV tailored. `notes` are the changes asked for so far. */
+export async function buildLetter(job: Job, resume: Resume, track: Track | null, voice?: Voice, facts: Fact[] = [], notes: string[] = [], previous?: string) {
+  const asks = notes.filter((n) => n.trim());
+  const out = await askJSON({
+    tier: "standard",
+    schema: LetterSchema,
+    system: `You write one cover letter for one specific job${track ? ', using one positioning ("track")' : ""}. ${HONESTY}
+${facts.length ? "The candidate has also answered questions in their own words. Treat those answers as part of the master CV: true, and usable like any CV fact, numbers included.\n" : ""}${LETTER_RULES}
+${MESSAGE_RULES}${asks.length ? " The candidate has reviewed earlier versions and asked for changes: make every one of them, unless a change would break the rules above." : ""}`,
+    prompt: `${angle(track)}
+
+Master CV:
+${resumeText(resume)}
+
+Job:
+${jobText(job)}${factsBlock(facts)}${previous ? `\n\nLast version's cover letter:\n${previous}` : ""}${
+      asks.length ? `\n\nChange requests so far, oldest first; all still apply unless a later one overrides an earlier one:\n${asks.map((n, i) => `${i + 1}. ${n}`).join("\n")}` : ""
+    }${voiceBlock(voice)}`,
+  });
+  return out.coverLetter;
 }
 
 // ---------- Claim check ----------

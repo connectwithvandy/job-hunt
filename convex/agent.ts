@@ -11,7 +11,8 @@ import { streamChat } from "./lib/ai";
 import type Anthropic from "@anthropic-ai/sdk";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
-import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
+import { unverifiedNumbers } from "./lib/facts";
+import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
@@ -488,7 +489,7 @@ export const autopilotFor = internalAction({
 // ---------- Applying ----------
 
 export const tailor = action({
-  args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")), feedback: v.optional(v.string()), anyway: v.optional(v.boolean()) },
+  args: { jobId: v.id("jobs"), trackKey: v.optional(v.string()), resumeId: v.optional(v.id("resumes")), feedback: v.optional(v.string()), anyway: v.optional(v.boolean()), letterOnly: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<null> => await tailorFor(ctx, await setup(ctx), args),
 });
 
@@ -512,7 +513,7 @@ export const tailorQuestions = action({
 async function tailorFor(
   ctx: ActionCtx,
   { userId, resume, resumes, resumeFor, tracks, voice, facts }: Context,
-  { jobId, trackKey, resumeId, feedback, anyway }: { jobId: Id<"jobs">; trackKey?: string; resumeId?: Id<"resumes">; feedback?: string; anyway?: boolean },
+  { jobId, trackKey, resumeId, feedback, anyway, letterOnly }: { jobId: Id<"jobs">; trackKey?: string; resumeId?: Id<"resumes">; feedback?: string; anyway?: boolean; letterOnly?: boolean },
 ): Promise<null> {
     const saved = (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">;
     // Before the most expensive step, make sure it's worth it: still open, nothing ruling you out, a fit above the line.
@@ -527,11 +528,29 @@ async function tailorFor(
     const chosen = resumeId ? resumes.find((r) => r._id === resumeId)?.resume : undefined;
     if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
     const cv = await withLogos(ctx, userId, resumes, requireResume(chosen ?? (track ? resumeFor[track.key] : resume)));
-    await spend(ctx, userId, "tailor");
     // Every change asked for on this job so far, oldest first, so a rewrite never drops an earlier one.
     const note = feedback?.trim().slice(0, 2000);
     const earlier = job.pack?.notes ?? (job.pack?.feedback ? [job.pack.feedback] : []);
     const allNotes = [...earlier, ...(note ? [note] : [])].slice(-20);
+    if (letterOnly) {
+      // Just the letter: a CV already written for this job stays as it is; with none, your CV goes out untailored.
+      await spend(ctx, userId, "notes");
+      const coverLetter = await buildLetter(job, cv, track, voice, facts, allNotes, job.pack?.coverLetter);
+      const base = job.pack ?? { createdAt: 0, resume: cv, coverLetter: "", hiringManagerTitles: [], unverified: [], letterOnly: true };
+      const r = base.resume;
+      const texts = [r.headline, r.summary, ...r.experience.flatMap((e) => e.bullets), coverLetter, base.directNote ?? "", base.email ?? ""];
+      const pack = {
+        ...base,
+        createdAt: Date.now(),
+        coverLetter,
+        feedback: note ?? base.feedback,
+        notes: allNotes.length ? allNotes : undefined,
+        unverified: unverifiedNumbers(cv, texts, facts.map((f) => f.answer)),
+      };
+      await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
+      return null;
+    }
+    await spend(ctx, userId, "tailor");
     const { pack, standingRules } = await buildPack(job, cv, track, allNotes.length ? { notes: allNotes, previous: job.pack } : undefined, voice, facts);
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
     // Requests that hold for every application (like "never call me a hunter") become your writing rules.
