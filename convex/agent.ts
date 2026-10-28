@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { ConvexError, v, type Infer } from "convex/values";
 import mammoth from "mammoth";
-import { extractText, getDocumentProxy } from "unpdf";
+import { getDocumentProxy } from "unpdf";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, env, internalAction, type ActionCtx } from "./_generated/server";
@@ -15,6 +15,7 @@ import { buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftRefer
 import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
+import { pdfText } from "./lib/pdfText";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
@@ -67,7 +68,7 @@ async function fileText(blob: Blob, fileName: string) {
   const name = fileName.toLowerCase();
   if (name.endsWith(".pdf")) {
     const pdf = await getDocumentProxy(bytes);
-    const { text } = await extractText(pdf, { mergePages: true });
+    const text = await pdfText(pdf);
     // Links like "LinkedIn Profile" are clickable text, so the URL only lives in the PDF's link annotations.
     const links = new Set<string>();
     for (let i = 1; i <= pdf.numPages; i++) {
