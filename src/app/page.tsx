@@ -325,6 +325,7 @@ const SOURCE_LABELS: Record<string, string> = {
   jsearch: "Google Jobs",
   adzuna: "Adzuna",
   himalayas: "Himalayas",
+  hn: "Hacker News",
   linkedin: "LinkedIn jobs",
   link: "Added by you",
   pasted: "Added by you",

@@ -175,7 +175,7 @@ export const jobFields = {
   externalId: v.string(),
   /** Company plus title, so the same role from another board or a later search isn't added twice. */
   roleKey: v.optional(v.string()),
-  source: v.union(v.literal("dreamwork"), v.literal("jsearch"), v.literal("adzuna"), v.literal("himalayas"), v.literal("careers"), v.literal("linkedin"), v.literal("link"), v.literal("pasted"), v.literal("post")),
+  source: v.union(v.literal("dreamwork"), v.literal("jsearch"), v.literal("adzuna"), v.literal("himalayas"), v.literal("hn"), v.literal("careers"), v.literal("linkedin"), v.literal("link"), v.literal("pasted"), v.literal("post")),
   url: v.string(),
   sourceUrl: v.optional(v.string()),
   title: v.string(),

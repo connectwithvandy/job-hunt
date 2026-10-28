@@ -1,14 +1,14 @@
 "use node";
 
 // Job boards searched beside Dreamwork. Each one switches on when its key is set
-// on the deployment (npx convex env set NAME value). Himalayas needs no key.
+// on the deployment (npx convex env set NAME value). Himalayas and Hacker News need no key.
 
 import { titleMatches } from "./salesRoles";
 
 export { titleMatches };
 
 export type Found = {
-  source: "jsearch" | "adzuna" | "himalayas" | "careers" | "linkedin";
+  source: "jsearch" | "adzuna" | "himalayas" | "hn" | "careers" | "linkedin";
   id: string;
   title: string;
   company: string;
@@ -159,6 +159,58 @@ async function himalayas(title: string, place: Place): Promise<Found[]> {
     }));
 }
 
+// ---------- Hacker News "Who is hiring?" (monthly thread, no key) ----------
+
+type HnItem = { id: number; author?: string | null; text?: string | null; created_at?: string; children?: HnItem[] };
+
+// The thread is about 500 KB and the same for every track and user, so one copy is kept for six hours.
+let hnThread: { at: number; posts: HnItem[] } | undefined;
+
+async function hnPosts() {
+  if (hnThread && Date.now() - hnThread.at < 6 * 3_600_000) return hnThread.posts;
+  const found = await getJson<{ hits: { objectID: string; title: string }[] }>(
+    "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=5",
+  );
+  const story = found.hits.find((h) => /who is hiring/i.test(h.title));
+  if (!story) return [];
+  const thread = await getJson<HnItem>(`https://hn.algolia.com/api/v1/items/${story.objectID}`);
+  hnThread = { at: Date.now(), posts: (thread.children ?? []).filter((c) => c.text) };
+  return hnThread.posts;
+}
+
+const hnText = (html: string) =>
+  htmlToText(html.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d))));
+
+/**
+ * Each top-level post starts with a header line like "Company | Role, Role | Location | REMOTE".
+ * A post is kept when one header part holds the searched title and the header names a place open to the search.
+ */
+async function hackerNews(title: string, place: Place): Promise<Found[]> {
+  const monthAgo = Date.now() - 31 * 86_400_000;
+  return (await hnPosts()).flatMap((p): Found[] => {
+    if (p.created_at && Date.parse(p.created_at) < monthAgo) return [];
+    // HN opens paragraphs with <p> and never closes them, so the header is everything before the first one.
+    const header = hnText((p.text ?? "").split(/<p>/i)[0]).replace(/\s+/g, " ");
+    const parts = header.split(/\s+[|—–]\s+|\s*\|\s*/).map((s) => s.trim()).filter(Boolean);
+    // One part often lists several roles: "Senior Java Engineer, Account Executive" or "Head of Sales / GTM".
+    const role = parts.slice(1).flatMap((s) => s.split(/\s*[,/;]\s*(?![^(]*\))/)).find((s) => titleMatches(title, s));
+    if (!role || !openTo(place, header)) return [];
+    const text = hnText(p.text ?? "");
+    const remote = /\bremote\b/i.test(header);
+    return [{
+      source: "hn",
+      id: String(p.id),
+      title: role,
+      company: parts[0].replace(/\s*https?:\S+/g, "").slice(0, 80),
+      location: parts.slice(1).filter((s) => !s.includes(role)).join(" | ").slice(0, 200),
+      workSetting: remote ? "remote" : undefined,
+      postedAt: p.created_at,
+      url: `https://news.ycombinator.com/item?id=${p.id}`,
+      description: cut(text),
+    }];
+  });
+}
+
 /** True when a role in this free-text location (or its title) is open to someone searching this place. */
 export function openTo(place: Place, location: string, workSetting?: string, title = "") {
   if (place.kind === "anywhere") return true;
@@ -187,8 +239,9 @@ export async function searchOtherSources(titles: string[], location: string, goo
   const calls = [
     ...turn(googleTitles).map((t) => jsearch(t, place)),
     ...turn(4).map((t) => adzuna(t, place)),
-    // Dreamwork and Himalayas are free, so they search every title; Google and Adzuna have quotas.
+    // Dreamwork, Himalayas and Hacker News are free, so they search every title; Google and Adzuna have quotas.
     ...titles.slice(0, 16).map((t) => himalayas(t, place)),
+    ...titles.slice(0, 16).map((t) => hackerNews(t, place)),
   ];
   const settled = await Promise.allSettled(calls);
   for (const r of settled) if (r.status === "rejected") console.warn("Job source failed:", String(r.reason));
