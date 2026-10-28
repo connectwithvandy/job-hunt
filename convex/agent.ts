@@ -180,23 +180,40 @@ async function careerMatches(ctx: ActionCtx, titles: string[], location: string)
   return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 300));
 }
 
-/** "Senior Sales Development Manager" also written as "Manager Sales Development", the way "Sr Manager, Sales Development" reads once commas drop out. */
-function flipped(title: string) {
-  const words = title.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter((w) => w && !/^(senior|sr|junior|jr)$/i.test(w));
-  const last = words.at(-1)?.toLowerCase();
-  return words.length >= 3 && (last === "manager" || last === "director" || last === "lead") ? [`${words.at(-1)} ${words.slice(0, -1).join(" ")}`] : [];
+const SENIORITY = new Set(["senior", "sr", "junior", "jr", "associate", "assistant", "principal"]);
+const LEADS = new Set(["manager", "director", "head", "lead", "leader"]);
+
+/**
+ * Every way a company might word a title, as phrases LinkedIn can match. LinkedIn matches exact phrases inside a title,
+ * with commas ignored, so "Manager Sales Development" also finds "Sr Manager, Sales Development" and "Senior Manager,
+ * Sales Development". So seniority words and a trailing region ("- APAC") are left off, and a leader title is tried in
+ * all three orders: "Sales Development Manager", "Manager Sales Development", "Manager of Sales Development".
+ */
+export function phrasings(title: string) {
+  const core = title.split(/\s[-–(]\s?|\(/)[0];
+  const words = core.replace(/[^A-Za-z0-9' ]/g, " ").split(/\s+/).filter((w) => w && !SENIORITY.has(w.toLowerCase()));
+  const lead = words.find((w) => LEADS.has(w.toLowerCase()));
+  const rest = words.filter((w) => w !== lead && w.toLowerCase() !== "of").join(" ");
+  if (!lead || !rest) return [words.join(" ")].filter(Boolean);
+  // Nobody writes "Manager of SDR".
+  if (/^[A-Z]{2,5}$/.test(rest)) return [`${rest} ${lead}`];
+  return [`${rest} ${lead}`, `${lead} ${rest}`, `${lead} of ${rest}`];
 }
 
 /**
  * LinkedIn's own job listings for a track's titles: the place itself, plus remote roles open to the country.
- * Titles go four to a search, so one busy title ("Sales Manager") can't use up the results the others need.
+ * Wordings go eight to a search, so one busy title ("Sales Manager") can't use up the results the others need.
  */
 async function linkedInMatches(titles: string[], location: string, since: "24h" | "week"): Promise<Found[]> {
   const place = readPlace(location);
-  // LinkedIn matches each title as an exact phrase, and big companies often write it the other way round:
-  // "Sr Manager, Sales Development", not "Senior Sales Development Manager". Both are searched, six to a search, so the cost stays the same.
-  const list = [...new Set(titles.slice(0, 16).flatMap((t) => [t, ...flipped(t)]))].slice(0, 24);
-  const groups = Array.from({ length: Math.ceil(list.length / 6) }, (_, i) => list.slice(i * 6, i * 6 + 6).map((t) => `"${t.replace(/"/g, "")}"`).join(" OR "));
+  // Every wording of every title, eight to a search: as many searches as before, so the cost stays the same.
+  const wordings = new Map<string, string>();
+  for (const p of titles.flatMap(phrasings)) if (!wordings.has(p.toLowerCase())) wordings.set(p.toLowerCase(), p);
+  // A wording that holds a shorter one adds nothing: "Account Executive" already finds "Enterprise Account Executive".
+  const all = [...wordings.values()];
+  const holds = (long: string, short: string) => long !== short && ` ${long.toLowerCase()} `.includes(` ${short.toLowerCase()} `);
+  const list = all.filter((p) => !all.some((q) => holds(p, q))).slice(0, 32);
+  const groups = Array.from({ length: Math.ceil(list.length / 8) }, (_, i) => list.slice(i * 8, i * 8 + 8).map((t) => `"${t.replace(/"/g, "")}"`).join(" OR "));
   const perQuery = since === "24h" ? 50 : 100;
   const places: [string | undefined, boolean][] = place.kind === "remote" ? [["India", true]] : place.kind === "anywhere" ? [[undefined, false]] : [[place.name, false]];
   if (place.kind === "place" && place.country === "in") places.push(["India", true]);
