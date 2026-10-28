@@ -690,7 +690,7 @@ export function WritingSampleForm({ sample, rules }: { sample: string; rules: st
       className="card p-6"
       onSubmit={async (e) => {
         e.preventDefault();
-        setState(await attempt(async () => (await save({ sample: value, rules: myRules }), "Saved. New letters and messages will use it.")));
+        setState(await attempt(async () => (await save({ sample: value, rules: myRules }), "Saved. New CVs, letters and messages will use it.")));
       }}
     >
       <span className="label block">How you write</span>
@@ -701,13 +701,13 @@ export function WritingSampleForm({ sample, rules }: { sample: string; rules: st
       <textarea className="field mt-3 h-40 text-sm" value={value} maxLength={4000} onChange={(e) => setValue(e.target.value)} placeholder="Hi Priya, thanks for the time today..." />
       <label className="mt-4 block">
         <span className="label">Your rules</span>
-        <span className="mt-1 block text-sm text-ink-2">Anything every letter and message should or shouldn&apos;t do, one per line.</span>
+        <span className="mt-1 block text-sm text-ink-2">Anything every tailored CV, letter and message should or shouldn&apos;t do, one per line.</span>
         <textarea
           className="field mt-2 h-24 text-sm"
           value={myRules}
           maxLength={1500}
           onChange={(e) => setMyRules(e.target.value)}
-          placeholder={"Never mention my notice period\nOpen with a number from my last role\nOne ask only, a 15-minute call"}
+          placeholder={"Never call me an Account Executive\nNever mention my notice period\nOne ask only, a 15-minute call"}
         />
       </label>
       <div className="mt-3 flex items-center gap-3">
