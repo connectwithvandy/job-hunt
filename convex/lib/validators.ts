@@ -91,6 +91,9 @@ export const packV = v.object({
   unverified: v.array(v.string()),
 });
 
+/** The CV and cover letter as they were when you applied. Later rewrites leave this copy alone, so you know what they read. */
+export const sentV = v.object({ at: v.number(), resume: resumeV, coverLetter: v.string() });
+
 /** Someone at the company you plan to contact directly: the hiring manager, HR or a recruiter. */
 export const hiringContactV = v.object({
   id: v.string(),

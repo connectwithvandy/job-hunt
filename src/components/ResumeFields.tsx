@@ -85,7 +85,7 @@ export function MasterEditor({ resumeId, resume }: { resumeId: Id<"resumes">; re
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
   const lines = (text: string, sep: RegExp) => text.split(sep).map((b) => b.trim()).filter(Boolean);
-  const setRole = (i: number, field: "role" | "company" | "start" | "end" | "location", value: string) =>
+  const setRole = (i: number, field: "role" | "company" | "start" | "end" | "location" | "domain", value: string) =>
     setR({ ...r, experience: r.experience.map((e, j) => (j === i ? { ...e, [field]: value } : e)) });
   const setSchool = (i: number, field: "school" | "degree" | "year", value: string) =>
     setR({ ...r, education: r.education.map((e, j) => (j === i ? { ...e, [field]: value } : e)) });
@@ -120,7 +120,8 @@ export function MasterEditor({ resumeId, resume }: { resumeId: Id<"resumes">; re
             {text("Company", e.company, (v) => setRole(i, "company", v))}
             {text("From", e.start, (v) => setRole(i, "start", v))}
             {text("To", e.end, (v) => setRole(i, "end", v))}
-            {text("Location", e.location, (v) => setRole(i, "location", v), true)}
+            {text("Location", e.location, (v) => setRole(i, "location", v))}
+            {text("Website, for the logo (like adityabirla.com)", e.domain ?? "", (v) => setRole(i, "domain", v.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "")))}
           </div>
           <label className="mt-3 block">
             <span className="label">Bullets, one per line</span>

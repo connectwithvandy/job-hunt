@@ -335,7 +335,7 @@ export const checkPosting = action({
 
 // ---------- Scoring ----------
 
-async function withDescription(job: Doc<"jobs">) {
+async function withDescription<J extends Doc<"jobs">>(job: J): Promise<J> {
   if (job.description || job.source !== "dreamwork") return job;
   const l = await getListing(job.externalId);
   // Dreamwork sends null for missing fields; the database wants them left out.
@@ -505,7 +505,7 @@ async function tailorFor(
     if (trackKey && !track) throw new ConvexError("Unknown track.");
     const chosen = resumeId ? resumes.find((r) => r._id === resumeId)?.resume : undefined;
     if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
-    const cv = requireResume(chosen ?? (track ? resumeFor[track.key] : resume));
+    const cv = await withLogos(ctx, userId, resumes, requireResume(chosen ?? (track ? resumeFor[track.key] : resume)));
     await spend(ctx, userId, "tailor");
     const notes = feedback?.trim().slice(0, 2000);
     const pack = await buildPack(job, cv, track, notes ? { notes, previous: job.pack } : undefined, voice);
@@ -708,9 +708,10 @@ export const prep = action({
 });
 
 async function prepFor(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Context, jobId: Id<"jobs">): Promise<null> {
-    const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+    const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs"> & { sent?: Doc<"jobDetails">["sent"] });
     const track = tracks.find((t) => t.key === (job.trackKey ?? job.pack?.trackKey ?? job.foundFor)) ?? null;
-    const cv = requireResume(job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
+    // Prep from the CV they actually read, when one was sent.
+    const cv = requireResume(job.sent?.resume ?? job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
     await spend(ctx, userId, "prep");
     const bank: Doc<"stories">[] = await ctx.runQuery(internal.stories.forAction, { userId });
     const out = await interviewPrep(job, cv, track, job.research, bank);
@@ -1161,18 +1162,35 @@ export const findLogos = action({
     const names = [...new Set(resumes.flatMap((r) => [...r.resume.experience.map((e) => e.company), ...r.resume.education.map((e) => e.school)]))].filter(Boolean);
     if (!names.length) return { found: 0 };
     await spend(ctx, userId, "research");
-    const domains = await findDomains(names.slice(0, 60));
-    for (const r of resumes) {
-      const resume = {
-        ...r.resume,
-        experience: r.resume.experience.map((e) => ({ ...e, domain: e.domain || domains.get(e.company) })),
-        education: r.resume.education.map((e) => ({ ...e, domain: e.domain || domains.get(e.school) })),
-      };
-      await ctx.runMutation(internal.users.saveResumeForAction, { userId, resumeId: r._id, resume });
-    }
-    return { found: domains.size };
+    return { found: (await saveDomains(ctx, userId, resumes, names)).size };
   },
 });
+
+/** Looks up these names' websites and writes them on every CV that lacks one. A website you typed is kept. */
+async function saveDomains(ctx: ActionCtx, userId: Id<"users">, resumes: Context["resumes"], names: string[]) {
+  const domains = await findDomains(names.slice(0, 60));
+  for (const r of resumes) {
+    const resume = {
+      ...r.resume,
+      experience: r.resume.experience.map((e) => ({ ...e, domain: e.domain || domains.get(e.company) })),
+      education: r.resume.education.map((e) => ({ ...e, domain: e.domain || domains.get(e.school) })),
+    };
+    await ctx.runMutation(internal.users.saveResumeForAction, { userId, resumeId: r._id, resume });
+  }
+  return domains;
+}
+
+/** Fills in missing websites before tailoring, so the tailored CV shows every logo. One cheap lookup, then never again. */
+async function withLogos(ctx: ActionCtx, userId: Id<"users">, resumes: Context["resumes"], cv: Resume): Promise<Resume> {
+  const missing = [...new Set([...cv.experience.filter((e) => !e.domain).map((e) => e.company), ...cv.education.filter((e) => !e.domain).map((e) => e.school)])].filter(Boolean);
+  if (!missing.length) return cv;
+  const domains = await saveDomains(ctx, userId, resumes, missing).catch(() => new Map<string, string>());
+  return {
+    ...cv,
+    experience: cv.experience.map((e) => ({ ...e, domain: e.domain || domains.get(e.company) })),
+    education: cv.education.map((e) => ({ ...e, domain: e.domain || domains.get(e.school) })),
+  };
+}
 
 // ---------- Chat tools: what the assistant can do in the app ----------
 

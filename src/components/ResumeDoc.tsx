@@ -8,8 +8,9 @@ export type Resume = Infer<typeof resumeV>;
 /** A company's logo from its website, via Google's public site-icon service. */
 function Logo({ domain }: { domain?: string }) {
   if (!domain) return null;
+  // A site with no icon gets hidden, not shown as a broken picture.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className="logo" src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=256`} alt="" />;
+  return <img className="logo" src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=256`} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />;
 }
 
 /** `logos` maps company or school names to websites, for CVs (like tailored ones) saved before logos existed. */

@@ -19,17 +19,26 @@ async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   return job;
 }
 
-type Details = Partial<Pick<Doc<"jobDetails">, "description" | "pack" | "research" | "prep">>;
+type Details = Partial<Pick<Doc<"jobDetails">, "description" | "pack" | "research" | "prep" | "sent">>;
 
 async function detailsOf(ctx: QueryCtx, jobId: Id<"jobs">) {
   return await ctx.db.query("jobDetails").withIndex("by_jobId", (q) => q.eq("jobId", jobId)).unique();
 }
 
 /** A job with its heavy parts filled in, whether they're still on the job or already in jobDetails. */
-async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs">> {
+async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs"> & Pick<Details, "sent">> {
   const d = await detailsOf(ctx, job._id);
   if (!d) return job;
-  return { ...job, description: d.description ?? job.description, pack: d.pack ?? job.pack, research: d.research ?? job.research, prep: d.prep ?? job.prep };
+  return { ...job, description: d.description ?? job.description, pack: d.pack ?? job.pack, research: d.research ?? job.research, prep: d.prep ?? job.prep, sent: d.sent };
+}
+
+/** The first time a job moves to applied or later, keeps a copy of the CV and cover letter that went out. */
+export async function freezeSent(ctx: MutationCtx, job: Doc<"jobs">, status: string) {
+  if (!["applied", "screening", "interview", "offer"].includes(status)) return;
+  const d = await detailsOf(ctx, job._id);
+  const pack = d?.pack ?? job.pack;
+  if (!pack || d?.sent) return;
+  await saveDetails(ctx, job, { sent: { at: Date.now(), resume: pack.resume, coverLetter: pack.coverLetter } });
 }
 
 const defined = (o: Details) => Object.fromEntries(Object.entries(o).filter(([, val]) => val !== undefined)) as Details;
@@ -109,6 +118,7 @@ export const setStatus = mutation({
       appliedAt: status === "applied" && !job.appliedAt ? Date.now() : job.appliedAt,
       updatedAt: Date.now(),
     });
+    await freezeSent(ctx, job, status);
     return null;
   },
 });
@@ -525,6 +535,7 @@ export const setStatusForAction = internalMutation({
   handler: async (ctx, { userId, jobId, status }) => {
     const job = await ownJob(ctx, userId, jobId);
     await ctx.db.patch("jobs", jobId, { status, appliedAt: status === "applied" && !job.appliedAt ? Date.now() : job.appliedAt, updatedAt: Date.now() });
+    await freezeSent(ctx, job, status);
     return { title: job.title, company: job.company };
   },
 });

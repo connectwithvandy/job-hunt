@@ -3,6 +3,7 @@ import { env, internalMutation, mutation } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { buildDigest, digestDue } from "./lib/digest";
 import { jobFor, nextStatus, stageOf } from "./lib/inbox";
+import { freezeSent } from "./jobs";
 
 /** Your private code for the Gmail script, made the first time you ask. */
 export const token = mutation({
@@ -43,6 +44,7 @@ export const ingest = internalMutation({
       const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage }, updatedAt: Date.now() };
       await ctx.db.patch("jobs", job._id, status ? { ...patch, status, appliedAt: status === "applied" && !job.appliedAt ? at : job.appliedAt } : patch);
       if (status) {
+        await freezeSent(ctx, job, status);
         job.status = status;
         moved++;
       }

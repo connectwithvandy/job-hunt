@@ -2,7 +2,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { chatRowV } from "./lib/chats";
-import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, storyFields } from "./lib/validators";
+import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, sentV, storyFields } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -69,6 +69,7 @@ export default defineSchema({
     pack: v.optional(packV),
     research: v.optional(researchV),
     prep: v.optional(prepV),
+    sent: v.optional(sentV),
   }).index("by_jobId", ["jobId"]),
 
   jobs: defineTable({ userId: v.id("users"), ...jobFields })

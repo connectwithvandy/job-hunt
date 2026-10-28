@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -18,12 +18,15 @@ export default function TailoredResume() {
   const me = useQuery(api.users.me);
   const all = useQuery(api.users.resumes);
   const data = useQuery(api.jobs.get, { jobId: id as Id<"jobs"> });
-  const pack = data?.job.pack;
+  // ?sent=1 shows the copy frozen when you applied, as the company read it.
+  const sent = useSearchParams().get("sent") ? data?.job.sent : undefined;
+  const pack = sent ? { ...data!.job.pack!, resume: sent.resume, unverified: [] } : data?.job.pack;
 
   // The page title becomes the PDF's file name when you choose "Save as PDF".
+  const fileName = pack && data ? `${pack.resume.name} CV ${data.job.company}` : "";
   useEffect(() => {
-    if (pack && data) document.title = `${pack.resume.name} CV ${data.job.company}`;
-  }, [pack, data]);
+    if (fileName) document.title = fileName;
+  }, [fileName]);
 
   if (!me || data === undefined) return <Loading />;
   if (!data || !pack) {
@@ -56,11 +59,15 @@ export default function TailoredResume() {
       <div className="max-w-full overflow-x-auto">
         <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap((all ?? []).map((m) => m.resume))} />
       </div>
+      {sent ? (
+        <p className="no-print w-full max-w-[210mm] text-sm text-ink-2">The CV you sent on {new Date(sent.at).toLocaleDateString()}. It stays as it was when you rewrite this job&apos;s CV.</p>
+      ) : (
       <details className="no-print card w-full max-w-[210mm] p-6">
         <summary className="cursor-pointer font-medium">Edit this CV</summary>
         <p className="mb-4 mt-2 text-sm text-ink-2">Changes show in the CV above, the PDF and the Word file. Numbers are re-checked against your CVs when you save.</p>
         <TailoredEditor key={pack.createdAt} jobId={job._id} resume={pack.resume} />
       </details>
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -14,12 +14,15 @@ import { downloadLetterDocx } from "@/lib/docx";
 export default function CoverLetterDoc() {
   const { id } = useParams<{ id: string }>();
   const data = useQuery(api.jobs.get, { jobId: id as Id<"jobs"> });
-  const pack = data?.job.pack;
+  // ?sent=1 shows the letter frozen when you applied.
+  const sent = useSearchParams().get("sent") ? data?.job.sent : undefined;
+  const pack = sent ? { ...data!.job.pack!, resume: sent.resume, coverLetter: sent.coverLetter } : data?.job.pack;
 
   // The page title becomes the PDF's file name when you choose "Save as PDF".
+  const fileName = pack && data ? `${pack.resume.name} Cover Letter ${data.job.company}` : "";
   useEffect(() => {
-    if (pack && data) document.title = `${pack.resume.name} Cover Letter ${data.job.company}`;
-  }, [pack, data]);
+    if (fileName) document.title = fileName;
+  }, [fileName]);
 
   if (data === undefined) return <Loading />;
   if (!data || !pack) {

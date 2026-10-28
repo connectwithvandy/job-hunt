@@ -217,6 +217,13 @@ export default function JobPage() {
                   </Link>
                   {job.pack.trackKey && trackByKey.get(job.pack.trackKey) && <span className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</span>}
                 </div>
+                {job.sent && (
+                  <p className="text-sm text-ink-2">
+                    What you sent on {new Date(job.sent.at).toLocaleDateString()}, kept for the interview:{" "}
+                    <Link className="underline" href={`/jobs/${job._id}/resume?sent=1`}>CV</Link> ·{" "}
+                    <Link className="underline" href={`/jobs/${job._id}/letter?sent=1`}>cover letter</Link>
+                  </p>
+                )}
                 {job.pack.feedback && <p className="text-xs text-ink-3">Written with your changes: &quot;{job.pack.feedback}&quot;</p>}
                 {!!job.pack.fit?.length && (
                   <div>
