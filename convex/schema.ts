@@ -133,6 +133,20 @@ export default defineSchema({
     stage: v.string(),
   }).index("by_jobId_and_at", ["jobId", "at"]),
 
+  /** Meetings on your Google Calendar that match a job, sent by the Gmail script. Other meetings are never stored. */
+  interviews: defineTable({
+    userId: v.id("users"),
+    jobId: v.id("jobs"),
+    eventId: v.string(),
+    title: v.string(),
+    start: v.number(),
+    end: v.number(),
+    link: v.string(),
+  })
+    .index("by_userId_and_start", ["userId", "start"])
+    .index("by_userId_and_eventId", ["userId", "eventId"])
+    .index("by_jobId_and_start", ["jobId", "start"]),
+
   inboxSeen: defineTable({ userId: v.id("users"), messageId: v.string() }).index("by_userId_and_messageId", ["userId", "messageId"]),
 
   /** A careers-board role's description, kept apart so searching the titles stays light. */

@@ -1,8 +1,9 @@
 import { v } from "convex/values";
-import { env, internalMutation, mutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { env, internalMutation, mutation, query } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { buildDigest, digestDue } from "./lib/digest";
-import { jobFor, nextStatus, stageOf } from "./lib/inbox";
+import { jobFor, jobForEvent, nextStatus, stageOf } from "./lib/inbox";
 import { freezeSent } from "./jobs";
 
 /** Your private code for the Gmail script, made the first time you ask. */
@@ -52,6 +53,59 @@ export const ingest = internalMutation({
       }
     }
     return { ok: true, moved };
+  },
+});
+
+const eventV = v.object({ id: v.string(), title: v.string(), start: v.string(), end: v.string(), description: v.string(), guests: v.array(v.string()), link: v.string() });
+
+/**
+ * Your calendar from yesterday to three weeks ahead, from the Gmail script. Meetings about a job you're
+ * pursuing are kept and move that job to interview; the rest are dropped. A kept meeting that's gone was cancelled.
+ */
+export const calendar = internalMutation({
+  args: { token: v.string(), events: v.array(eventV) },
+  handler: async (ctx, { token, events }) => {
+    const profile = await ctx.db.query("profiles").withIndex("by_inboxToken", (q) => q.eq("inboxToken", token)).unique();
+    if (!profile) return { matched: 0 };
+    const userId = profile.userId;
+    const jobs = (await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500)).filter((j) =>
+      ["applying", "applied", "screening", "interview", "offer"].includes(j.status),
+    );
+    const kept = new Set<string>();
+    for (const e of events.slice(0, 200)) {
+      const job = jobForEvent(e, jobs);
+      const start = Date.parse(e.start);
+      if (!job || !start) continue;
+      kept.add(e.id);
+      const row = { jobId: job._id, title: e.title.slice(0, 200), start, end: Date.parse(e.end) || start + 3_600_000, link: e.link.slice(0, 500) };
+      const old = await ctx.db.query("interviews").withIndex("by_userId_and_eventId", (q) => q.eq("userId", userId).eq("eventId", e.id)).unique();
+      if (old) await ctx.db.patch("interviews", old._id, row);
+      else await ctx.db.insert("interviews", { userId, eventId: e.id, ...row });
+      const status = nextStatus(job.status, "interview");
+      if (status) {
+        await ctx.db.patch("jobs", job._id, { status, updatedAt: Date.now() });
+        await freezeSent(ctx, job, status);
+        job.status = status;
+      }
+    }
+    // The script sends everything from yesterday on, so a kept meeting from then on that's missing now was cancelled.
+    const from = Date.now() - 86_400_000;
+    for (const old of await ctx.db.query("interviews").withIndex("by_userId_and_start", (q) => q.eq("userId", userId).gte("start", from)).take(200)) {
+      if (!kept.has(old.eventId)) await ctx.db.delete("interviews", old._id);
+    }
+    return { matched: kept.size };
+  },
+});
+
+/** Your interviews from today on, soonest first, with the job each one is for. */
+export const upcoming = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const from = new Date().setHours(0, 0, 0, 0);
+    const rows = await ctx.db.query("interviews").withIndex("by_userId_and_start", (q) => q.eq("userId", userId).gte("start", from)).take(20);
+    return await Promise.all(rows.map(async (r) => ({ ...r, job: await ctx.db.get("jobs", r.jobId) })));
   },
 });
 

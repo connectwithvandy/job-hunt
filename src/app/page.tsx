@@ -44,6 +44,7 @@ export default function Today() {
   const prospects = useQuery(api.prospects.list);
   const stories = useQuery(api.stories.list);
   const warm = useQuery(api.contacts.warmCompanies);
+  const interviews = useQuery(api.inbox.upcoming);
   const [now] = useState(() => Date.now());
   const markSeen = useMutation(api.users.markSeen);
   useEffect(() => void markSeen().catch(() => {}), [markSeen]);
@@ -190,6 +191,30 @@ export default function Today() {
           { label: "Follow-ups due", done: 0, goal: followUps.length, left: true },
         ]}
       />
+
+      {!!interviews?.length && (
+        <section className="card mb-8 p-6">
+          <h2 className="display mb-4 text-2xl">Interviews coming up</h2>
+          <ul className="divide-y divide-line text-sm">
+            {interviews.map((i) => (
+              <li key={i._id} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
+                <Link href={`/jobs/${i.jobId}`} className="min-w-0">
+                  <span className="font-medium">{i.job ? `${i.job.company}: ${i.job.title}` : i.title}</span>
+                  <span className="block text-xs text-ink-3">{i.title}</span>
+                </Link>
+                <span className="flex items-center gap-3 text-ink-2">
+                  {new Date(i.start).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                  {i.link.startsWith("https://") && (
+                    <a className="underline" href={i.link} target="_blank" rel="noreferrer">
+                      Join
+                    </a>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Step n={1} title="Answer people who wrote back" items={answer} empty="No one waiting on a reply from you." />
       <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits in the last 24 hours. Run a search on the Jobs page." />

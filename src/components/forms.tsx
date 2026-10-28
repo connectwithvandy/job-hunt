@@ -677,9 +677,30 @@ function gmailScript(token: string, endpoint: string) {
   return `// JobPipe: reads recruiting emails from the last 2 days and moves your jobs along.
 // Only emails mentioning applications, interviews, offers or rejections are sent.
 // Once a day after 9:00 (India time) it also emails you a short summary from JobPipe.
+// It also reads your calendar from yesterday to three weeks ahead. JobPipe keeps only meetings
+// with a company you're applying to, and drops the rest. Set CALENDAR to false to leave it out.
 const TOKEN = "${token}";
 const ENDPOINT = "${endpoint}";
 const DAILY_SUMMARY = true;
+const CALENDAR = true;
+
+function calendarEvents() {
+  const now = Date.now();
+  return CalendarApp.getDefaultCalendar().getEvents(new Date(now - 86400000), new Date(now + 21 * 86400000)).slice(0, 200).map(function (e) {
+    const notes = e.getDescription() || "";
+    const link = (notes.match(/https:\\/\\/(meet\\.google\\.com|[\\w.-]*zoom\\.us|teams\\.microsoft\\.com)\\/[^\\s"<]+/) || [""])[0];
+    return {
+      // A repeating meeting shares one id, so its start time tells the meetings apart.
+      id: e.getId() + "@" + e.getStartTime().getTime(),
+      title: e.getTitle(),
+      start: e.getStartTime().toISOString(),
+      end: e.getEndTime().toISOString(),
+      description: notes.slice(0, 1000),
+      guests: e.getGuestList().map(function (g) { return g.getEmail(); }),
+      link: link || e.getLocation() || "",
+    };
+  });
+}
 
 function sync() {
   const query = 'newer_than:2d -in:sent -category:promotions -category:social ' +
@@ -690,8 +711,9 @@ function sync() {
       messages.push({ id: m.getId(), from: m.getFrom(), subject: m.getSubject(), snippet: m.getPlainBody().slice(0, 1500), date: m.getDate().toISOString() });
     });
   });
-  if (!messages.length && !DAILY_SUMMARY) return;
-  const res = UrlFetchApp.fetch(ENDPOINT, { method: "post", contentType: "application/json", payload: JSON.stringify({ token: TOKEN, messages: messages, digest: DAILY_SUMMARY }), muteHttpExceptions: true });
+  const body = { token: TOKEN, messages: messages, digest: DAILY_SUMMARY };
+  if (CALENDAR) body.events = calendarEvents();
+  const res = UrlFetchApp.fetch(ENDPOINT, { method: "post", contentType: "application/json", payload: JSON.stringify(body), muteHttpExceptions: true });
   let reply = {};
   try { reply = JSON.parse(res.getContentText()); } catch (e) {}
   if (reply.digest) GmailApp.sendEmail(Session.getEffectiveUser().getEmail(), reply.digest.subject, reply.digest.text);
@@ -737,7 +759,12 @@ export function GmailSync() {
       </p>
       <p className="text-ink-2">
         Each morning after 9:00 it also emails you a short summary: replies from companies, strong fits to apply to, and who to follow up with. It comes from
-        your own Gmail to your own Gmail. Already set up the script before? Paste this new one over it and run <b>setup</b> again to get the summary.
+        your own Gmail to your own Gmail.
+      </p>
+      <p className="text-ink-2">
+        It also reads your Google Calendar. A meeting with a company you&apos;re applying to shows on Today and moves that job to interview; every other
+        meeting is dropped and never stored. Already set up the script before? Paste this new one over it and run <b>setup</b> again, and allow
+        Calendar when Google asks.
       </p>
       <ol className="list-decimal space-y-1 pl-5 text-ink-2">
         <li>

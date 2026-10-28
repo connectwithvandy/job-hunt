@@ -106,7 +106,8 @@ export const get = query({
     const seen = await ctx.db.query("roleSightings").withIndex("by_key", (q) => q.eq("key", job.roleKey ?? roleKey(job.company, job.title))).first();
     const sighting = seen ? { firstSeen: seen.firstSeen, reposts: seen.reposts } : null;
     const emails = await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", jobId)).order("desc").take(50);
-    return { job: await withDetails(ctx, job), people, sighting, emails };
+    const interviews = await ctx.db.query("interviews").withIndex("by_jobId_and_start", (q) => q.eq("jobId", jobId)).order("desc").take(10);
+    return { job: await withDetails(ctx, job), people, sighting, emails, interviews };
   },
 });
 

@@ -283,6 +283,27 @@ export default function JobPage() {
             </div>
         </Fold>
 
+        {data.interviews.length > 0 && (
+          <div className="card p-6">
+            <h2 className="display mb-4 text-2xl">Interviews</h2>
+            <ul className="divide-y divide-line text-sm">
+              {data.interviews.map((i) => (
+                <li key={i._id} className="flex flex-wrap justify-between gap-2 py-3">
+                  <span className="font-medium">{i.title}</span>
+                  <span className="flex items-center gap-3 text-ink-2">
+                    {new Date(i.start).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                    {i.link.startsWith("https://") && (
+                      <a className="underline" href={i.link} target="_blank" rel="noreferrer">
+                        Join
+                      </a>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {data.emails.length > 0 && (
           <div className="card p-6">
             <h2 className="display mb-4 text-2xl">Emails from {job.company}</h2>

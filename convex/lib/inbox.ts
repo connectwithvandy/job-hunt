@@ -33,6 +33,22 @@ export function jobFor<J extends { company: string; updatedAt: number }>(m: Inbo
   return hits.sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null;
 }
 
+export type CalendarEvent = { id: string; title: string; start: string; end: string; description: string; guests: string[]; link: string };
+
+// Mail providers say nothing about the company, so their domains don't count.
+const FREE_MAIL = new Set(["gmail", "googlemail", "yahoo", "outlook", "hotmail", "icloud", "live", "proton", "protonmail", "zoho", "google", "calendar"]);
+
+/** The job a calendar meeting is about: its company in the title, the notes, or a guest's email domain. */
+export function jobForEvent<J extends { company: string; updatedAt: number }>(e: CalendarEvent, jobs: J[]): J | null {
+  const domains = e.guests.map((g) => g.match(/@([a-z0-9.-]+)/i)?.[1]?.split(".").slice(-2, -1)[0] ?? "").filter((d) => d && !FREE_MAIL.has(d));
+  const text = companyKey(`${e.title} ${domains.join(" ")} ${e.description}`);
+  const hits = jobs.filter((j) => {
+    const key = companyKey(j.company);
+    return key.length >= 4 && text.includes(key);
+  });
+  return hits.sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null;
+}
+
 const ORDER = ["new", "applying", "applied", "screening", "interview", "offer"];
 
 /** The status to move to, or null to leave the job alone. Statuses only move forward. */
