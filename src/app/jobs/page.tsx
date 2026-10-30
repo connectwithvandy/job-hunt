@@ -72,8 +72,13 @@ function Jobs() {
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
   const isOld = (j: (typeof jobs)[number]) => j.status === "new" && now - (j.postedAt ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000;
   const oldCount = jobs.filter(isOld).length;
+  // Applied and later live on the Tracker, so this list stays jobs you can still apply to.
+  const isApplied = (j: (typeof jobs)[number]) => j.status !== "new" && j.status !== "applying" && j.status !== "dismissed";
+  const appliedCount = jobs.filter(isApplied).length;
   const inView = jobs
-    .filter((j) => (show === "hidden" ? j.status === "dismissed" : show === "old" ? isOld(j) : j.status !== "dismissed" && !isOld(j)))
+    .filter((j) =>
+      show === "hidden" ? j.status === "dismissed" : show === "old" ? isOld(j) : show === "applied" ? isApplied(j) : j.status !== "dismissed" && !isOld(j) && !isApplied(j),
+    )
     // A role shows only jobs whose title matches one of its job titles, ranked by that role's score.
     .filter((j) => !track || (trackByKey.has(track) && inRole(j, trackByKey.get(track)!)));
   // Region counts follow the other filters, so each chip shows what clicking it would leave.
@@ -143,7 +148,7 @@ function Jobs() {
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {chip(hrefWith({ track: null, show: null }), "All roles", !track && show !== "hidden")}
+        {chip(hrefWith({ track: null, show: null }), "All roles", !track && !show)}
         {me.tracks.map((t) =>
           chip(
             hrefWith({ track: t.key, show: null }),
@@ -155,6 +160,7 @@ function Jobs() {
           ),
         )}
         {chip(hrefWith({ track: null, show: "hidden" }), "Not for me", show === "hidden")}
+        {appliedCount > 0 && chip(hrefWith({ track: null, show: "applied" }), `Applied · ${appliedCount}`, show === "applied")}
         {oldCount > 0 && chip(hrefWith({ track: null, show: "old" }), `Older than 45 days · ${oldCount}`, show === "old")}
         <span className="flex-1" />
         {batch.length > 0 && (
@@ -298,12 +304,14 @@ function Jobs() {
                     <div className="flex flex-wrap items-baseline gap-x-2">
                       <span className="font-medium">{j.title}</span>
                       <span className="text-sm text-ink-2">{j.company}</span>
+                      {j.status !== "new" && (
+                        <span className="self-center rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-on-accent">{STATUS_LABELS[j.status]}</span>
+                      )}
                     </div>
                     <div className="mt-0.5 text-xs text-ink-3">
                       {j.location}
                       {j.postedAt ? ` · ${timeAgo(j.postedAt)}` : ""}
                       {j.salary ? ` · ${inInr(j.salary, rates) ?? j.salary}` : ""}
-                      {j.status !== "new" ? ` · ${STATUS_LABELS[j.status]}` : ""}
                       {j.liveCheck?.state === "closed" && <span className="text-bad"> · Looks closed</span>}
                       {j.brief?.blocker && <span className="text-bad"> · Rules you out</span>}
                     </div>
