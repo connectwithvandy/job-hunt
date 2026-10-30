@@ -18,6 +18,8 @@ export type Found = {
   salary?: string;
   postedAt?: string;
   url: string;
+  /** The company's own application page, when the listing (like LinkedIn's) points somewhere else. */
+  applyUrl?: string;
   description?: string;
 };
 
