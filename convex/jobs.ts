@@ -10,7 +10,7 @@ import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
-import { cvWords, quickFit } from "./lib/quickFit";
+import { cvWords, isLender, quickFit } from "./lib/quickFit";
 import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
@@ -304,6 +304,8 @@ export const insertMany = internalMutation({
         lastId = existing._id;
         continue;
       }
+      // Bank and lender sales jobs never fit a tech sales search; one you add yourself is still saved.
+      if (job.source !== "pasted" && job.source !== "link" && job.source !== "email" && isLender(job.title, job.company)) continue;
       const { description, pack, research, prep, ...light } = job;
       lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack, quickFit: light.quickFit ?? fit(job) });
       if (job.source !== "careers") await noteBoard(ctx, job.company, [job.sourceUrl, job.url]);
@@ -376,6 +378,19 @@ export const backfillQuickFit = internalMutation({
       await ctx.db.patch("jobs", job._id, { quickFit: fits.get(job.userId)!({ ...job, description: details?.description ?? job.description }) });
     }
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.backfillQuickFit, { cursor: page.continueCursor, redo });
+    return null;
+  },
+});
+
+/** Moves bank and lender jobs still marked new to "Not for me", a page at a time. */
+export const dismissLenderJobs = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 200 });
+    for (const job of page.page) {
+      if (job.status === "new" && isLender(job.title, job.company)) await ctx.db.patch("jobs", job._id, { status: "dismissed" });
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.dismissLenderJobs, { cursor: page.continueCursor });
     return null;
   },
 });

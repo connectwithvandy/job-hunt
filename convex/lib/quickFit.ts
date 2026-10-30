@@ -61,7 +61,7 @@ export function quickFit(job: { title: string; company?: string; description?: s
   // that never mentions software or SaaS counts for less.
   const desc = job.description ?? "";
   // Banks and lenders often post with no description, so their name or title gives them away.
-  const lender = BANKING.test(`${job.title} ${job.company ?? ""}`.replace(/_/g, " ")) && !TECH.test(job.title);
+  const lender = isLender(job.title, job.company);
   const industry = lender || (desc.length > 400 && !TECH.test(`${job.title} ${desc}`)) ? 0.6 : 1;
   // Any long description shares plenty of CV words, so they count fully only when the title fits too:
   // a bank's "Acquisition Manager" in Bengaluru shouldn't reach the apply list on words and place alone.
@@ -69,7 +69,16 @@ export function quickFit(job: { title: string; company?: string; description?: s
   return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry);
 }
 
-const BANKING = /\b(bank|banking|nbfc|financial services|finance (ltd|limited)|capital|insurance|credit card|loans?|lending|motor finance|mortgage|working capital)\b/i;
+// A bank or lender by name, and lending products by title. A title alone saying "Banking" is often a tech
+// company's team that sells to banks, like Salesforce's "Account Executive, Banking".
+const LENDER_COMPANY = /\b(bank|nbfc|financial services|finance|finserv|lending|loans?|kotak|hdfc|icici|sbi|indusind|idfc|bandhan|rbl|tata capital|aditya birla capital|hdb|lendingkart|protium|muthoot|manappuram|shriram|poonawalla|cholamandalam|aavas|truhome|home first)\b/i;
+const LENDER_TITLE = /\b(loans?|credit cards?|motor finance|mortgages?|working capital|business banking|nbfc|casa)\b/i;
+
+/** A sales job at a bank or lender. */
+export function isLender(title: string, company = "") {
+  const t = title.replace(/_/g, " ");
+  return (LENDER_COMPANY.test(company.replace(/_/g, " ")) || LENDER_TITLE.test(t)) && !TECH.test(t);
+}
 const TECH = /\b(saas|b2b|software|cloud|api|apis|startup|subscription|arr|cybersecurity|devops|martech|fintech|edtech|ai|artificial intelligence|machine learning|tech (company|startup|platform)|technology (company|platform))\b/i;
 
 const LANGUAGE = /\b(spanish|french|german|italian|portuguese|dutch|japanese|korean|mandarin|chinese|cantonese|arabic|turkish|polish|russian|swedish|danish|norwegian|finnish|hebrew|thai|vietnamese|indonesian|bahasa)\b|\b(dach|nordics|benelux)\b/i;
