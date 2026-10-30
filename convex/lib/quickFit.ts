@@ -25,7 +25,7 @@ export function cvWords(cv: Resume) {
  * 0 to 100: title against the track titles (50), CV words found in the job (35), and place (15).
  * `home` is the person's own location, like "Bengaluru, India".
  */
-export function quickFit(job: { title: string; description?: string; location: string; workSetting?: string }, vocab: Set<string>, titles: string[], home: string) {
+export function quickFit(job: { title: string; company?: string; description?: string; location: string; workSetting?: string }, vocab: Set<string>, titles: string[], home: string) {
   const norm = (t: string) => ` ${t.toLowerCase().replace(/[^a-z0-9']+/g, " ").trim()} `;
   const title = norm(job.title);
   const titleShare = Math.max(
@@ -60,13 +60,16 @@ export function quickFit(job: { title: string; description?: string; location: s
   // A sales job at a hotel, bank or builder shares the title but not the work: a full description
   // that never mentions software or SaaS counts for less.
   const desc = job.description ?? "";
-  const industry = desc.length > 400 && !TECH.test(`${job.title} ${desc}`) ? 0.6 : 1;
+  // Banks and lenders often post with no description, so their name or title gives them away.
+  const lender = BANKING.test(`${job.title} ${job.company ?? ""}`.replace(/_/g, " ")) && !TECH.test(job.title);
+  const industry = lender || (desc.length > 400 && !TECH.test(`${job.title} ${desc}`)) ? 0.6 : 1;
   // Any long description shares plenty of CV words, so they count fully only when the title fits too:
   // a bank's "Acquisition Manager" in Bengaluru shouldn't reach the apply list on words and place alone.
   const cvWeight = titleShare >= 0.6 ? 35 : 15;
   return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry);
 }
 
+const BANKING = /\b(bank|banking|nbfc|financial services|finance (ltd|limited)|capital|insurance|credit card|loans?|lending|motor finance|mortgage|working capital)\b/i;
 const TECH = /\b(saas|b2b|software|cloud|api|apis|startup|subscription|arr|cybersecurity|devops|martech|fintech|edtech|ai|artificial intelligence|machine learning|tech (company|startup|platform)|technology (company|platform))\b/i;
 
 const LANGUAGE = /\b(spanish|french|german|italian|portuguese|dutch|japanese|korean|mandarin|chinese|cantonese|arabic|turkish|polish|russian|swedish|danish|norwegian|finnish|hebrew|thai|vietnamese|indonesian|bahasa)\b|\b(dach|nordics|benelux)\b/i;

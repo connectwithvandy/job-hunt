@@ -278,8 +278,9 @@ async function quickFitFor(ctx: MutationCtx, userId: Id<"users">) {
     (await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", userId)).first());
   const tracks = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", userId)).take(50);
   const vocab = resumeDoc ? cvWords(resumeDoc.resume) : new Set<string>();
-  const titles = tracks.flatMap((t) => t.titles);
-  return (job: { title: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "");
+  // A paused role isn't wanted right now, so its titles don't lift a job.
+  const titles = tracks.filter((t) => t.status === "active").flatMap((t) => t.titles);
+  return (job: { title: string; company?: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "");
 }
 
 export const insertMany = internalMutation({
