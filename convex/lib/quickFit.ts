@@ -57,7 +57,13 @@ export function quickFit(job: { title: string; description?: string; location: s
           : 0;
   // A role for speakers of another language says so in the title: "Account Executive - Spanish".
   const language = LANGUAGE.test(job.title) ? 0.4 : 1;
-  return Math.round((titleShare * 50 + cvShare * 35 + place * 15) * language);
+  // A sales job at a hotel, bank or builder shares the title but not the work: a full description
+  // that never mentions software or SaaS counts for less.
+  const desc = job.description ?? "";
+  const industry = desc.length > 400 && !TECH.test(`${job.title} ${desc}`) ? 0.6 : 1;
+  return Math.round((titleShare * 50 + cvShare * 35 + place * 15) * language * industry);
 }
+
+const TECH = /\b(saas|b2b|software|cloud|api|apis|startup|subscription|arr|cybersecurity|devops|martech|fintech|edtech|ai|artificial intelligence|machine learning|tech (company|startup|platform)|technology (company|platform))\b/i;
 
 const LANGUAGE = /\b(spanish|french|german|italian|portuguese|dutch|japanese|korean|mandarin|chinese|cantonese|arabic|turkish|polish|russian|swedish|danish|norwegian|finnish|hebrew|thai|vietnamese|indonesian|bahasa)\b|\b(dach|nordics|benelux)\b/i;
