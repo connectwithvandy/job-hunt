@@ -137,7 +137,8 @@ function fromFound(f: Found, trackKey: string): NewJob {
     externalId: `${f.source}:${f.id}`,
     source: f.source,
     url: f.url,
-    sourceUrl: f.url,
+    // Apply goes straight to the company's form, not via LinkedIn, when the listing gave it.
+    sourceUrl: f.applyUrl ?? f.url,
     title: f.title,
     company: f.company,
     companyLogo: f.companyLogo,
@@ -225,7 +226,7 @@ async function linkedInMatches(titles: string[], location: string, since: "24h" 
   return settled
     .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
     .filter((j) => !seen.has(j.id) && seen.add(j.id) && titles.some((t) => titleMatches(t, j.title)) && openTo(place, j.location, j.workSetting, j.title))
-    .map((j) => ({ source: "linkedin", id: j.id, title: j.title, company: j.company, companyLogo: j.companyLogo, location: j.location, workSetting: j.workSetting, salary: j.salary, postedAt: j.postedAt, url: j.url, description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") }));
+    .map((j) => ({ source: "linkedin", id: j.id, title: j.title, company: j.company, companyLogo: j.companyLogo, location: j.location, workSetting: j.workSetting, salary: j.salary, postedAt: j.postedAt, url: j.url, applyUrl: j.applyUrl, description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") }));
 }
 
 /**
@@ -287,8 +288,7 @@ async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: str
       await spend(ctx, userId, "addJob");
       let text = pasted;
       if (!text) {
-        const res = await fetch(link, { headers: { "user-agent": "Mozilla/5.0 (Macintosh) job-hunt" }, redirect: "follow", signal: AbortSignal.timeout(20_000) }).catch(() => null);
-        text = res?.ok && publicUrl(res.url || link) ? htmlToText((await res.text()).slice(0, 2_000_000)) : "";
+        text = await pageText(link);
         if (text.length < 400) {
           throw new ConvexError("That site didn't let us read the job. Open it, copy the description, and paste it in instead.");
         }
@@ -306,6 +306,12 @@ async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: str
 }
 
 /** Only fetch public sites, never the server's own network. */
+/** A web page's readable text, or "" when the site doesn't answer. */
+async function pageText(link: string) {
+  const res = await fetch(link, { headers: { "user-agent": "Mozilla/5.0 (Macintosh) job-hunt" }, redirect: "follow", signal: AbortSignal.timeout(20_000) }).catch(() => null);
+  return res?.ok && publicUrl(res.url || link) ? htmlToText((await res.text()).slice(0, 2_000_000)) : "";
+}
+
 function publicUrl(link: string) {
   let host: string;
   try {
@@ -366,11 +372,28 @@ export const checkPosting = action({
 
 // ---------- Scoring ----------
 
+/** Below this, a description is a teaser (Adzuna sends only the opening lines), not the posting. */
+const FULL_JD = 800;
+
 async function withDescription<J extends Doc<"jobs">>(job: J): Promise<J> {
   if (job.description || job.source !== "dreamwork") return job;
   const l = await getListing(job.externalId);
   // Dreamwork sends null for missing fields; the database wants them left out.
   return { ...job, description: l.description ?? undefined, companyLogo: l.companyLogoUrl ?? undefined, seniority: l.seniorityLevel ?? undefined };
+}
+
+/**
+ * Tailoring is only as good as the posting it reads, so a missing or teaser description is read
+ * from the posting itself first, and with nothing to read it stops rather than guess from the title.
+ */
+async function withFullDescription<J extends Doc<"jobs">>(job: J): Promise<J> {
+  if ((job.description?.length ?? 0) >= FULL_JD) return job;
+  const link = job.sourceUrl || job.url;
+  const text = link && publicUrl(link) ? await pageText(link) : "";
+  const read = text.length >= 400 ? (await extractJob(text).catch(() => null))?.description : undefined;
+  if (read && read.length > (job.description?.length ?? 0)) return { ...job, description: read };
+  if ((job.description?.length ?? 0) >= 300) return job;
+  throw new ConvexError("We couldn't read this job's description, so the CV would only be a guess. Open the posting, copy the description, and add the job again by pasting it in.");
 }
 
 export const scoreJobs = action({
@@ -546,7 +569,7 @@ async function tailorFor(
     const live = !anyway && !saved.pack && (!saved.liveCheck || Date.now() - saved.liveCheck.at > RECHECK_AFTER) ? await checkAndSave(ctx, userId, saved) : saved.liveCheck;
     const skip = skipReason({ ...saved, liveCheck: live });
     if (skip && !anyway && !saved.pack) throw new ConvexError(`${skip} If you still want to apply, choose "Write it anyway".`);
-    const job = await withDescription(saved);
+    const job = await withFullDescription(await withDescription(saved));
     // No track picked: use the best-scoring one if the job was scored, otherwise pitch straight at the job.
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
     const track = tracks.find((t) => t.key === (trackKey ?? best)) ?? null;
