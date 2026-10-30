@@ -249,7 +249,7 @@ export default function JobPage() {
                 )}
                 <div>
                   <div className="label mb-2">Cover letter</div>
-                  <CoverLetter key={job.pack.createdAt} jobId={job._id} text={job.pack.coverLetter} />
+                  <CoverLetter key={job.pack.createdAt} jobId={job._id} text={job.pack.coverLetter} resume={job.pack.resume} company={job.company} />
                 </div>
               </div>
             )}

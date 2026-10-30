@@ -9,7 +9,7 @@ import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
 import { nextFollowUp } from "../../convex/lib/followups";
-import { downloadDocx } from "@/lib/docx";
+import { downloadDocx, downloadLetterDocx } from "@/lib/docx";
 import { errorMessage } from "@/lib/errors";
 import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
@@ -365,7 +365,7 @@ export function AddJob() {
   );
 }
 
-export function CoverLetter({ jobId, text }: { jobId: Id<"jobs">; text: string }) {
+export function CoverLetter({ jobId, text, resume, company }: { jobId: Id<"jobs">; text: string; resume: Parameters<typeof downloadDocx>[0]; company: string }) {
   const save = useMutation(api.jobs.saveCoverLetter);
   const [value, setValue] = useState(text);
   const [busy, start] = useTransition();
@@ -380,10 +380,15 @@ export function CoverLetter({ jobId, text }: { jobId: Id<"jobs">; text: string }
             {busy ? "Saving…" : "Save edits"}
           </button>
         ) : (
-          // Application forms usually want the letter as a file, so it opens as a page to save as PDF or Word.
-          <Link href={`/jobs/${jobId}/letter`} className="btn btn-ghost btn-sm">
-            Download as PDF or Word
-          </Link>
+          // Application forms usually want the letter as a file: Word right here, PDF from the letter's own page.
+          <>
+            <button className="btn btn-ghost btn-sm" onClick={() => void downloadLetterDocx(resume, text, `${resume.name} Cover Letter ${company}`)}>
+              Download Word
+            </button>
+            <Link href={`/jobs/${jobId}/letter`} className="btn btn-ghost btn-sm">
+              Save as PDF
+            </Link>
+          </>
         )}
         <Feedback state={busy ? null : state} />
       </div>

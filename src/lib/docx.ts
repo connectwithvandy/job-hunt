@@ -74,6 +74,9 @@ function save(blob: Blob, fileName: string) {
   const a = document.createElement("a");
   a.href = url;
   a.download = `${fileName}.docx`;
+  // Safari and Firefox drop a download whose link isn't on the page, or is freed before the file is read.
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
