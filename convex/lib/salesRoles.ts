@@ -139,8 +139,9 @@ export function titleMatches(searched: string, title: string) {
   // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
   const t = fullTitle(title);
   const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
-  // "Account Executive" isn't "Accounting Executive".
-  if (/\baccount(ing|ant)/.test(t) && !/\baccount(ing|ant)/.test(words.join(" "))) return false;
+  // "Account Executive" isn't "Accounting Executive", "Accounts Executive" or "Executive - Accounts Payable".
+  const accounting = /\baccount(ing|ant)|\baccounts (executive|payable|receivable|assistant|officer)|\bexecutive\W+accounts\b/;
+  if (accounting.test(t) && !accounting.test(words.join(" "))) return false;
   // A rep search leaves out the reps' team leads and managers; the leadership role finds those.
   if (!isLeader(words)) return words.every((w) => t.includes(w)) && !(words.includes("representative") && isLeader(t.split(" ")));
   // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and

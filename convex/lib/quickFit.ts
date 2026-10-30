@@ -61,7 +61,10 @@ export function quickFit(job: { title: string; description?: string; location: s
   // that never mentions software or SaaS counts for less.
   const desc = job.description ?? "";
   const industry = desc.length > 400 && !TECH.test(`${job.title} ${desc}`) ? 0.6 : 1;
-  return Math.round((titleShare * 50 + cvShare * 35 + place * 15) * language * industry);
+  // Any long description shares plenty of CV words, so they count fully only when the title fits too:
+  // a bank's "Acquisition Manager" in Bengaluru shouldn't reach the apply list on words and place alone.
+  const cvWeight = titleShare >= 0.6 ? 35 : 15;
+  return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry);
 }
 
 const TECH = /\b(saas|b2b|software|cloud|api|apis|startup|subscription|arr|cybersecurity|devops|martech|fintech|edtech|ai|artificial intelligence|machine learning|tech (company|startup|platform)|technology (company|platform))\b/i;
