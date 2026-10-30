@@ -49,7 +49,7 @@ export const SALES_ROLES = [
     key: "account-executive",
     name: "Account Executive",
     color: "#FB923C",
-    titles: ["Account Executive", "Senior Account Executive", "Enterprise Account Executive", "Mid-Market Account Executive", "SMB Account Executive", "Commercial Account Executive", "Strategic Account Executive", "Sales Executive"],
+    titles: ["Account Executive", "Senior Account Executive", "Enterprise Account Executive", "Mid-Market Account Executive", "SMB Account Executive", "Commercial Account Executive", "Strategic Account Executive", "Full Cycle Account Executive", "Founding Account Executive", "Sales Executive"],
     pitch: "Knows the full cycle from first call to close, and how pipeline is really built.",
   },
   {
