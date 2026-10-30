@@ -119,7 +119,7 @@ export default function Network() {
                   c.funding ? `Raised: ${c.funding}` : null,
                   c.dream ? "On your dream list" : null,
                 ].filter(Boolean);
-                const asked = new Set(job.outreach.map((o) => o.contactId));
+                const asked = new Set([...job.outreach.map((o) => o.contactId), ...job.skipped]);
                 const notAsked = c.people.filter((p) => !asked.has(p._id));
                 return (
                   <div key={c.key}>

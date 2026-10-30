@@ -38,6 +38,18 @@ export const importBatch = mutation({
   },
 });
 
+/** Someone moved on from the company your LinkedIn export lists, so stop suggesting them for referrals there. */
+export const markLeft = mutation({
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, { contactId }) => {
+    const userId = await requireUserId(ctx);
+    const contact = await ctx.db.get("contacts", contactId);
+    if (!contact || contact.userId !== userId) throw new ConvexError("Connection not found.");
+    await ctx.db.patch("contacts", contactId, { left: true });
+    return null;
+  },
+});
+
 /** Delete your connections in chunks; call until it returns false. */
 export const clearBatch = mutation({
   args: {},
@@ -99,7 +111,7 @@ export const warmCompanies = query({
     const prospectByKey = new Map(prospects.map((p) => [companyKey(p.name), p]));
     // Queries can't read the clock, so "now" is your last visit.
     const now = profile?.lastSeenAt ?? 0;
-    const byCompany = new Map<string, { company: string; jobs: { _id: Id<"jobs">; title: string; status: Doc<"jobs">["status"]; outreach: Doc<"jobs">["outreach"]; fit: number }[] }>();
+    const byCompany = new Map<string, { company: string; jobs: { _id: Id<"jobs">; title: string; status: Doc<"jobs">["status"]; outreach: Doc<"jobs">["outreach"]; skipped: Id<"contacts">[]; fit: number }[] }>();
     for (const j of jobs) {
       if (j.status === "dismissed" || j.status === "rejected") continue;
       // A closed posting, or a new one up for over 45 days, is likely filled: not worth asking a friend about.
@@ -110,7 +122,7 @@ export const warmCompanies = query({
       const k = companyKey(j.company);
       // The AI fit score when there is one, else the free first guess.
       const fit = Math.max(...(j.scores ?? []).map((x) => x.score), j.quickFit ?? 0);
-      const job = { _id: j._id, title: j.title, status: j.status, outreach: j.outreach, fit };
+      const job = { _id: j._id, title: j.title, status: j.status, outreach: j.outreach, skipped: j.skipped ?? [], fit };
       const e = byCompany.get(k);
       if (e) e.jobs.push(job);
       else byCompany.set(k, { company: j.company, jobs: [job] });

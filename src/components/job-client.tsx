@@ -756,9 +756,13 @@ function ChatLine({ p }: { p: Pick<ContactWithChat, "chat" | "closeness"> }) {
 
 export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; people: ContactWithChat[]; best: number }) {
   const draft = useAction(api.agent.draftNotes);
+  const markLeft = useMutation(api.contacts.markLeft);
+  const skip = useMutation(api.jobs.skipContact);
   const [picked, setPicked] = useState<Id<"contacts">[]>(people.slice(0, best).map((p) => p._id));
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
+  // Only people still in the list: someone drafted, skipped or marked as gone drops out of it.
+  const ticked = picked.filter((id) => people.some((p) => p._id === id));
   return (
     <div>
       <ul className="divide-y divide-line">
@@ -777,6 +781,26 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
               </a>
               <div className="truncate text-xs text-ink-2">{p.position}</div>
               <ChatLine p={p} />
+              <div className="flex gap-3 text-xs text-ink-3">
+                <button
+                  className="underline hover:text-ink-2"
+                  onClick={() => {
+                    setPicked(picked.filter((x) => x !== p._id));
+                    void skip({ jobId, contactId: p._id }).catch((e) => setState({ error: errorMessage(e) }));
+                  }}
+                >
+                  Skip
+                </button>
+                <button
+                  className="underline hover:text-ink-2"
+                  onClick={() => {
+                    setPicked(picked.filter((x) => x !== p._id));
+                    void markLeft({ contactId: p._id }).catch((e) => setState({ error: errorMessage(e) }));
+                  }}
+                >
+                  Not at {p.company} anymore
+                </button>
+              </div>
             </div>
             {i < best && <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-on-accent">Best to ask</span>}
           </li>
@@ -785,12 +809,12 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
       <div className="mt-3 flex items-center gap-3">
         <button
           className="btn btn-primary btn-sm"
-          disabled={busy || !picked.length}
+          disabled={busy || !ticked.length}
           onClick={() =>
             start(async () =>
               setState(
                 await attempt(async () => {
-                  const { drafted } = await draft({ jobId, contactIds: picked });
+                  const { drafted } = await draft({ jobId, contactIds: ticked });
                   return `Drafted ${drafted} ${drafted === 1 ? "note" : "notes"}.`;
                 }),
               ),
@@ -798,7 +822,7 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
           }
         >
           {busy && <Spinner />}
-          {busy ? "Writing notes…" : !picked.length ? "Tick someone to ask" : `Draft ${picked.length} referral ${picked.length === 1 ? "note" : "notes"}`}
+          {busy ? "Writing notes…" : !ticked.length ? "Tick someone to ask" : `Draft ${ticked.length} referral ${ticked.length === 1 ? "note" : "notes"}`}
         </button>
         <Feedback state={busy ? null : state} />
       </div>

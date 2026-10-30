@@ -216,6 +216,8 @@ export const jobFields = {
   status: jobStatusV,
   /** Starred by you: sorts first in the list, and asks you a few questions before its first CV is written. */
   favorite: v.optional(v.boolean()),
+  /** Connections you chose not to ask about this job. */
+  skipped: v.optional(v.array(v.id("contacts"))),
   /** Older jobs keep these four on the job; newer ones keep them in jobDetails, so job lists stay light. */
   pack: v.optional(packV),
   /** Whether a tailored CV has been written, so lists can show it without loading it. */

@@ -68,14 +68,14 @@ export async function contactsAt(ctx: QueryCtx, userId: Id<"users">, company: st
           q.eq("userId", userId).gte("companyKey", key).lt("companyKey", key + "￿"),
         )
       : ctx.db.query("contacts").withIndex("by_userId_and_companyKey", (q) => q.eq("userId", userId).eq("companyKey", key));
-  for (const c of await longer.take(60)) found.set(c._id, c);
+  for (const c of await longer.take(60)) if (!c.left) found.set(c._id, c);
   for (let n = 6; n < key.length; n++) {
     const prefix = key.slice(0, n);
     for (const c of await ctx.db
       .query("contacts")
       .withIndex("by_userId_and_companyKey", (q) => q.eq("userId", userId).eq("companyKey", prefix))
       .take(20)) {
-      found.set(c._id, c);
+      if (!c.left) found.set(c._id, c);
     }
   }
   return [...found.values()].sort((a, b) => referralRank(b.position) - referralRank(a.position));
@@ -133,6 +133,18 @@ export const setFavorite = mutation({
     const userId = await requireUserId(ctx);
     await ownJob(ctx, userId, jobId);
     await ctx.db.patch("jobs", jobId, { favorite: favorite || undefined });
+    return null;
+  },
+});
+
+/** Don't ask this connection about this job. */
+export const skipContact = mutation({
+  args: { jobId: v.id("jobs"), contactId: v.id("contacts") },
+  handler: async (ctx, { jobId, contactId }) => {
+    const userId = await requireUserId(ctx);
+    const job = await ownJob(ctx, userId, jobId);
+    const skipped = job.skipped ?? [];
+    if (!skipped.includes(contactId)) await ctx.db.patch("jobs", jobId, { skipped: [...skipped, contactId].slice(-50) });
     return null;
   },
 });

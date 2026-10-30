@@ -184,6 +184,8 @@ export default defineSchema({
     companyKey: v.string(),
     position: v.string(),
     connectedOn: v.string(),
+    /** You marked them as no longer at this company, so they aren't suggested for referrals there. */
+    left: v.optional(v.boolean()),
   }).index("by_userId_and_companyKey", ["userId", "companyKey"]),
 
   /** A short summary of your LinkedIn chats with one person, from messages.csv. Kept apart from contacts so reloading connections keeps it. */
