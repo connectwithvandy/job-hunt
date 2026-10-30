@@ -188,7 +188,7 @@ const LEADS = new Set(["manager", "director", "head", "lead", "leader"]);
  * Every way a company might word a title, as phrases LinkedIn can match. LinkedIn matches exact phrases inside a title,
  * with commas ignored, so "Manager Sales Development" also finds "Sr Manager, Sales Development" and "Senior Manager,
  * Sales Development". So seniority words and a trailing region ("- APAC") are left off, and a leader title is tried in
- * all three orders: "Sales Development Manager", "Manager Sales Development", "Manager of Sales Development".
+ * all three orders: "Sales Development Manager", "Manager Sales Development", "Manager of Sales Development", plus "Team Lead Sales Development".
  */
 export function phrasings(title: string) {
   const core = title.split(/\s[-–(]\s?|\(/)[0];
@@ -198,7 +198,8 @@ export function phrasings(title: string) {
   if (!lead || !rest) return [words.join(" ")].filter(Boolean);
   // Nobody writes "Manager of SDR".
   if (/^[A-Z]{2,5}$/.test(rest)) return [`${rest} ${lead}`];
-  return [`${rest} ${lead}`, `${lead} ${rest}`, `${lead} of ${rest}`];
+  // Team leads are often written "Team Lead - Sales Development Representative", which none of the three orders catch.
+  return [`${rest} ${lead}`, `${lead} ${rest}`, `${lead} of ${rest}`, `Team Lead ${rest}`];
 }
 
 /**
