@@ -20,17 +20,46 @@ async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   return job;
 }
 
-type Details = Partial<Pick<Doc<"jobDetails">, "description" | "pack" | "research" | "prep" | "sent">>;
+type Details = Partial<Pick<Doc<"jobDetails">, "description" | "pack" | "research" | "prep" | "sent" | "scoreNotes" | "brief">>;
+type Score = NonNullable<Doc<"jobs">["scores"]>[number];
+type Brief = NonNullable<Doc<"jobs">["brief"]>;
 
 async function detailsOf(ctx: QueryCtx, jobId: Id<"jobs">) {
   return await ctx.db.query("jobDetails").withIndex("by_jobId", (q) => q.eq("jobId", jobId)).unique();
 }
 
+/** Lists show two lines of a score's reason, so the job keeps about that much. */
+const SHORT_REASON = 200;
+const shortReason = (reason: string) => (reason.length > SHORT_REASON ? `${reason.slice(0, SHORT_REASON - 1).trimEnd()}…` : reason);
+
+/** The light scores and brief a job keeps; the full text goes to jobDetails. */
+function slimScores(scores: Score[]) {
+  return scores.map((s) => ({ trackKey: s.trackKey, score: s.score, reason: shortReason(s.reason), gaps: [] }));
+}
+const slimBrief = (brief: Brief): Brief => ({ whatTheyWant: "", watchOuts: "", blocker: brief.blocker });
+
+/** Whether a job still carries a full fit write-up that belongs in jobDetails. */
+const heavyFit = (job: Doc<"jobs">) =>
+  (job.scores ?? []).some((s) => s.gaps.length || s.reason.length > SHORT_REASON) || !!(job.brief?.whatTheyWant || job.brief?.watchOuts);
+
 /** A job with its heavy parts filled in, whether they're still on the job or already in jobDetails. */
 async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs"> & Pick<Details, "sent">> {
   const d = await detailsOf(ctx, job._id);
   if (!d) return job;
-  return { ...job, description: d.description ?? job.description, pack: d.pack ?? job.pack, research: d.research ?? job.research, prep: d.prep ?? job.prep, sent: d.sent };
+  const scores = job.scores?.map((s) => {
+    const note = d.scoreNotes?.find((n) => n.trackKey === s.trackKey);
+    return note ? { ...s, reason: note.reason, gaps: note.gaps } : s;
+  });
+  return {
+    ...job,
+    description: d.description ?? job.description,
+    pack: d.pack ?? job.pack,
+    research: d.research ?? job.research,
+    prep: d.prep ?? job.prep,
+    sent: d.sent,
+    scores,
+    brief: d.brief ?? job.brief,
+  };
 }
 
 /** The first time a job moves to applied or later, keeps a copy of the CV and cover letter that went out. */
@@ -48,13 +77,27 @@ const defined = (o: Details) => Object.fromEntries(Object.entries(o).filter(([, 
 /** Saves heavy parts to jobDetails, moving any still on the job there too, so the job itself stays light. */
 async function saveDetails(ctx: MutationCtx, job: Doc<"jobs">, fields: Details) {
   const d = await detailsOf(ctx, job._id);
-  const onJob = defined({ description: job.description, pack: job.pack, research: job.research, prep: job.prep });
+  const fit = heavyFit(job);
+  const onJob = defined({
+    description: job.description,
+    pack: job.pack,
+    research: job.research,
+    prep: job.prep,
+    ...(fit ? { scoreNotes: job.scores?.map(({ trackKey, reason, gaps }) => ({ trackKey, reason, gaps })), brief: job.brief } : {}),
+  });
   const next = { ...onJob, ...defined(fields) };
   if (d) await ctx.db.patch("jobDetails", d._id, next);
   else if (Object.keys(next).length) await ctx.db.insert("jobDetails", { jobId: job._id, userId: job.userId, ...next });
   const hasPack = !!(next.pack ?? d?.pack);
   if (Object.keys(onJob).length || hasPack !== !!job.hasPack) {
-    await ctx.db.patch("jobs", job._id, { description: undefined, pack: undefined, research: undefined, prep: undefined, hasPack });
+    await ctx.db.patch("jobs", job._id, {
+      description: undefined,
+      pack: undefined,
+      research: undefined,
+      prep: undefined,
+      hasPack,
+      ...(fit ? { scores: job.scores && slimScores(job.scores), brief: job.brief && slimBrief(job.brief) } : {}),
+    });
   }
 }
 
@@ -366,10 +409,14 @@ export const patchForAction = internalMutation({
     liveCheck: v.optional(liveCheckV),
     wroteAnyway: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, jobId, description, pack, ...fields }) => {
+  handler: async (ctx, { userId, jobId, description, pack, scores, brief, ...fields }) => {
     const job = await ownJob(ctx, userId, jobId);
-    if (description !== undefined || pack !== undefined) await saveDetails(ctx, job, { description, pack });
-    const change = Object.fromEntries(Object.entries(fields).filter(([, val]) => val !== undefined));
+    // The full fit write-up goes to jobDetails; the job keeps the scores, a short reason and any blocker.
+    const scoreNotes = scores?.map(({ trackKey, reason, gaps }) => ({ trackKey, reason, gaps }));
+    if (description !== undefined || pack !== undefined || scoreNotes || brief) await saveDetails(ctx, job, { description, pack, scoreNotes, brief });
+    const change = Object.fromEntries(
+      Object.entries({ ...fields, scores: scores && slimScores(scores), brief: brief && slimBrief(brief) }).filter(([, val]) => val !== undefined),
+    );
     await ctx.db.patch("jobs", jobId, {
       ...change,
       ...(pack && job.status === "new" ? { status: "applying" as const } : {}),
@@ -519,8 +566,10 @@ export const noesForAction = internalQuery({
       if (outcome !== "rejected" && outcome !== "silent") continue;
       const best = [...(j.scores ?? [])].sort((a, b) => b.score - a.score)[0];
       const key = j.trackKey ?? best?.trackKey ?? j.foundFor;
-      const s = j.scores?.find((x) => x.trackKey === key) ?? best;
-      rows.push({ title: j.title, company: j.company, outcome, score: s?.score, gaps: s?.gaps ?? [], watchOuts: j.brief?.watchOuts ?? "" });
+      // Gaps and watch-outs live in jobDetails.
+      const full = await withDetails(ctx, j);
+      const s = full.scores?.find((x) => x.trackKey === key) ?? best;
+      rows.push({ title: j.title, company: j.company, outcome, score: s?.score, gaps: s?.gaps ?? [], watchOuts: full.brief?.watchOuts ?? "" });
       if (rows.length >= 40) break;
     }
     return { noes: rows, replies };
@@ -644,7 +693,7 @@ export const moveDetails = internalMutation({
     const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 50 });
     let moved = 0;
     for (const job of page.page) {
-      if (job.description !== undefined || job.pack !== undefined || job.research !== undefined || job.prep !== undefined) {
+      if (job.description !== undefined || job.pack !== undefined || job.research !== undefined || job.prep !== undefined || heavyFit(job)) {
         await saveDetails(ctx, job, {});
         moved++;
       }

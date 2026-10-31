@@ -187,6 +187,9 @@ export const storyFields = {
 
 export const scoreV = v.object({ trackKey: v.string(), score: v.number(), reason: v.string(), gaps: v.array(v.string()) });
 
+/** A score's full reason and gaps, kept in jobDetails; the job itself keeps the score and a short reason. */
+export const scoreNoteV = v.object({ trackKey: v.string(), reason: v.string(), gaps: v.array(v.string()) });
+
 export const jobFields = {
   externalId: v.string(),
   /** Company plus title, so the same role from another board or a later search isn't added twice. */

@@ -3,7 +3,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { reviewValidator } from "./lib/cvReview";
 import { chatRowV } from "./lib/chats";
-import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, sentV, storyFields } from "./lib/validators";
+import { briefV, jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, scoreNoteV, sentV, storyFields } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -128,7 +128,7 @@ export default defineSchema({
 
   tracks: defineTable({ userId: v.id("users"), ...trackFields }).index("by_userId_and_key", ["userId", "key"]),
 
-  /** The heavy parts of a job (full description, tailored CV, research, interview prep), read only when the job is opened. */
+  /** The heavy parts of a job (full description, tailored CV, research, interview prep, fit write-up), read only when the job is opened. */
   jobDetails: defineTable({
     jobId: v.id("jobs"),
     userId: v.id("users"),
@@ -137,6 +137,10 @@ export default defineSchema({
     research: v.optional(researchV),
     prep: v.optional(prepV),
     sent: v.optional(sentV),
+    /** Each score's full reason and gaps. Many queries read every job, so the job keeps only a short reason. */
+    scoreNotes: v.optional(v.array(scoreNoteV)),
+    /** What they want and what to watch for; the job keeps only the blocker. */
+    brief: v.optional(briefV),
   }).index("by_jobId", ["jobId"]),
 
   jobs: defineTable({ userId: v.id("users"), ...jobFields })
