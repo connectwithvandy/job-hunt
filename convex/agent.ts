@@ -636,12 +636,13 @@ async function tailorFor(
     const cv = await withLogos(ctx, userId, resumes, requireResume(chosen ?? (track ? resumeFor[track.key] : resume)));
     // Every change asked for on this job so far, oldest first, so a rewrite never drops an earlier one.
     const note = feedback?.trim().slice(0, 2000);
+    const context = await personalContext(ctx, userId, job, track?.key);
     const earlier = job.pack?.notes ?? (job.pack?.feedback ? [job.pack.feedback] : []);
     const allNotes = [...earlier, ...(note ? [note] : [])].slice(-20);
     if (letterOnly) {
       // Just the letter: a CV already written for this job stays as it is; with none, your CV goes out untailored.
       await spend(ctx, userId, "notes");
-      const coverLetter = await buildLetter(job, cv, track, voice, facts, allNotes, job.pack?.coverLetter);
+      const coverLetter = await buildLetter(job, cv, track, voice, facts, allNotes, job.pack?.coverLetter, context);
       const base = job.pack ?? { createdAt: 0, resume: cv, coverLetter: "", hiringManagerTitles: [], unverified: [], letterOnly: true };
       const r = base.resume;
       const texts = [r.headline, r.summary, ...r.experience.flatMap((e) => e.bullets), coverLetter, base.directNote ?? "", base.email ?? ""];
@@ -657,12 +658,31 @@ async function tailorFor(
       return null;
     }
     await afford(ctx, userId, "tailor");
-    const { pack, standingRules } = await buildPack(job, cv, track, allNotes.length ? { notes: allNotes, previous: job.pack } : undefined, voice, facts);
+    const { pack, standingRules } = await buildPack(job, cv, track, allNotes.length ? { notes: allNotes, previous: job.pack } : undefined, voice, facts, context);
     await spend(ctx, userId, "tailor");
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
     // Requests that hold for every application (like "never call me a hunter") become your writing rules.
     if (standingRules.length) await ctx.runMutation(internal.users.addWritingRulesForAction, { userId, rules: standingRules });
     return null;
+}
+
+/**
+ * What makes the letter and messages about this company: web research (looked up once per job, skipped quietly if the
+ * daily limit is used up or the lookup fails) and the worry the fit check raised for the role being pitched.
+ */
+async function personalContext(ctx: ActionCtx, userId: Id<"users">, job: Doc<"jobs">, trackKey?: string) {
+  let research = job.research ?? null;
+  if (!research) {
+    try {
+      await researchFor(ctx, userId, job._id);
+      research = (await ctx.runQuery(internal.jobs.forAction, { userId, jobId: job._id })).research ?? null;
+    } catch (e) {
+      console.warn("Research before tailoring skipped", e);
+    }
+  }
+  const score = job.scores?.find((s) => s.trackKey === trackKey) ?? [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0];
+  const worry = score && score.score < 75 ? [score.reason, ...score.gaps].filter(Boolean).join(" ") : undefined;
+  return { research, worry };
 }
 
 export const draftNotes = action({
@@ -701,9 +721,9 @@ export const followUp = action({
     if (!job && !p) throw new ConvexError("That job or company is gone.");
     const about = job ? { title: job.title, company: job.company } : { title: "(no role posted)", company: p.name };
     const cvs = resumes.map((r) => r.resume);
-    const write = async (n: number, person: { name: string; title: string }, channel: "linkedin" | "email", first: { subject?: string; text: string }, earlier: string[]) => {
+    const write = async (n: number, person: { name: string; title: string; commonGround?: { point: string; use: string }[] }, channel: "linkedin" | "email", first: { subject?: string; text: string }, earlier: string[]) => {
       await spend(ctx, userId, "notes");
-      const out = await writeFollowUp({ n, channel, person, referral: kind === "referral", job: about, first, earlier, cvs, research: job?.research, voice });
+      const out = await writeFollowUp({ n, channel, person, referral: kind === "referral", job: about, first, earlier, cvs, research: job?.research, commonGround: person.commonGround, voice });
       return { text: out.text, subject: channel === "email" ? out.subject || `Re: ${first.subject ?? about.title}` : undefined, writtenAt: Date.now() };
     };
 
@@ -727,7 +747,7 @@ export const followUp = action({
       channel === "email"
         ? { subject: c.emailSubject ?? pack?.emailSubject, text: c.email2 ?? firstName(pack?.email ?? pack?.directNote ?? "", c.name) }
         : { text: c.note ?? firstName(pack?.directNote ?? "", c.name) };
-    const followUp = await write(sent.length + 1, { name: c.name, title: c.title }, channel, first, sent.map((f) => f.text));
+    const followUp = await write(sent.length + 1, { name: c.name, title: c.title, commonGround: c.commonGround }, channel, first, sent.map((f) => f.text));
     const followUps = [...sent, followUp];
     if (job) await ctx.runMutation(internal.jobs.updateContactForAction, { userId, jobId: job._id, contactId, patch: { followUps } });
     else await ctx.runMutation(internal.prospects.updateContactForAction, { userId, prospectId: p._id, contactId, patch: { followUps } });

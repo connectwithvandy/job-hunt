@@ -58,6 +58,16 @@ const MESSAGE_RULES = `What gets a message answered:
 - Confident, never desperate. The candidate is weighing a fit too, not asking for a favour. No begging or pleading words ("any opportunity", "I would be so grateful", "please consider me", "I know I may not be"), no apologising for writing, no over-thanking, no exclamation marks stacked up. State what they've done as plain fact.
 - One light touch that makes the reader smile: a small, dry, warm line, at most one per message. It can be about them (their post, the job post's own wording, a shared company or city), about the candidate (a light, self-aware line about their own work or habits that still shows strength, never one that undercuts them), or about the moment itself. Build it from something real and specific in the material, so it feels personal, not canned. Never a joke that mocks anyone, never about the company's problems, never sarcasm, puns or emojis. If nothing natural comes, leave it out: a forced joke is worse than none.`;
 
+/**
+ * What makes a letter or message read as written for this one company and reader, not sent to fifty.
+ * Used with MESSAGE_RULES for the cover letter, notes, emails and follow-ups.
+ */
+const PERSONAL_RULES = `Make every letter and message unmistakably about this company and this reader:
+- Each one names at least one specific, true thing about this company or team, taken from the company research or the job post's own words (what they sell and to whom, a market they're entering, a launch, the team's setup, a phrase from the post), and ties it to the proof point. Something that would be false at any other company. No generic praise, nothing invented.
+- When something about the reader is known (their profile, posts or common ground), lead with it. When nothing is known, build the opening from the team's world in the job post instead, never from "Hi, I applied".
+- If the fit check names a worry a hiring manager would have (like a step down in level, a missing market or skill), meet it head on in one plain, confident line in the cover letter and the email, using only facts from the CV and the candidate's answers: what they'd bring because of it, never an apology and never an invented reason or motive. Leave it out of the short LinkedIn note.
+- The note, the email and the cover letter each use a different proof point or angle, so someone who reads two of them doesn't read the same line twice.`;
+
 /** The owner's own rules for outreach that works, used for every user's letters and messages. Filled in by the owner. */
 const PLAYBOOK = "";
 
@@ -242,6 +252,17 @@ const LETTER_RULES = `The cover letter: open with this company's specific need, 
 
 export type Fact = { question: string; answer: string };
 
+export type Research = { summary: string; news: string[]; hiringSignals?: string; india?: string };
+
+/** What web research found about the company, for letters and messages to quote from. */
+function researchBlock(r?: Research | null) {
+  if (!r) return "";
+  return `
+
+About the company, from web research (facts you may use):
+${r.summary}${r.news.length ? `\nRecent news: ${r.news.join("; ")}` : ""}${r.hiringSignals ? `\nWhy they may be hiring now: ${r.hiringSignals}` : ""}${r.india ? `\nIndia: ${r.india}` : ""}`;
+}
+
 /** What the candidate told the AI in their own words, used like CV facts. */
 function factsBlock(facts: Fact[]) {
   if (!facts.length) return "";
@@ -269,6 +290,7 @@ export async function buildPack(
   feedback?: { notes: string[]; previous?: Pack },
   voice?: Voice,
   facts: Fact[] = [],
+  context: { research?: Research | null; worry?: string } = {},
 ): Promise<{ pack: Pack; standingRules: string[] }> {
   const previous = feedback?.previous;
   const notes = feedback?.notes.filter((n) => n.trim()) ?? [];
@@ -280,7 +302,8 @@ ${facts.length ? "The candidate has also answered questions in their own words. 
 ${LETTER_RULES}
 Tailoring is mostly the experience, not the summary. Read the posting for what it really needs (the must-haves, the motion, the buyer, the deal size, the market), then rewrite each role's bullets so a hiring manager skimming for 10 seconds sees those things proven, with numbers, in their language. Change what each bullet leads with and which details it keeps; keep titles, employers and dates exactly as they are. Write at the candidate's level: a senior leader is hired for what they owned and decided, so bullets show scope (team size, region, quota, revenue, P&L), the call they made and the business result. Leader verbs like built, owned, led, turned around, never assisted, supported, helped or was responsible for. No bullet should read like a task list a junior rep could also claim.
 The CV fits on two pages. The summary opens with the candidate's real background from the CV. The strongest numbers sit in the summary and the first bullets of the most recent role, where a reader looks first. No bullet runs past 30 words. No bullet repeats another, and no role keeps a description it doesn't need.
-${MESSAGE_RULES}${
+${MESSAGE_RULES}
+${PERSONAL_RULES}${
       notes.length
         ? " The candidate has reviewed earlier versions and asked for changes: make every one of them, unless a change would break the rules above, in which case keep to the rules."
         : ""
@@ -291,7 +314,7 @@ Master CV:
 ${resumeText(resume)}
 
 Job:
-${jobText(job)}${factsBlock(facts)}${
+${jobText(job)}${researchBlock(context.research)}${context.worry ? `\n\nWhat the fit check says a hiring manager would worry about: ${context.worry}` : ""}${factsBlock(facts)}${
       feedback
         ? `
 
@@ -354,21 +377,31 @@ const LetterSchema = z.strictObject({
 });
 
 /** Just the cover letter, from the CV as it is, for when you don't want the CV tailored. `notes` are the changes asked for so far. */
-export async function buildLetter(job: Job, resume: Resume, track: Track | null, voice?: Voice, facts: Fact[] = [], notes: string[] = [], previous?: string) {
+export async function buildLetter(
+  job: Job,
+  resume: Resume,
+  track: Track | null,
+  voice?: Voice,
+  facts: Fact[] = [],
+  notes: string[] = [],
+  previous?: string,
+  context: { research?: Research | null; worry?: string } = {},
+) {
   const asks = notes.filter((n) => n.trim());
   const out = await askJSON({
     tier: "standard",
     schema: LetterSchema,
     system: `You write one cover letter for one specific job${track ? ', using one positioning ("track")' : ""}. ${HONESTY}
 ${facts.length ? "The candidate has also answered questions in their own words. Treat those answers as part of the master CV: true, and usable like any CV fact, numbers included.\n" : ""}${LETTER_RULES}
-${MESSAGE_RULES}${asks.length ? " The candidate has reviewed earlier versions and asked for changes: make every one of them, unless a change would break the rules above." : ""}`,
+${MESSAGE_RULES}
+${PERSONAL_RULES}${asks.length ? " The candidate has reviewed earlier versions and asked for changes: make every one of them, unless a change would break the rules above." : ""}`,
     prompt: `${angle(track)}
 
 Master CV:
 ${resumeText(resume)}
 
 Job:
-${jobText(job)}${factsBlock(facts)}${previous ? `\n\nLast version's cover letter:\n${previous}` : ""}${
+${jobText(job)}${researchBlock(context.research)}${context.worry ? `\n\nWhat the fit check says a hiring manager would worry about: ${context.worry}` : ""}${factsBlock(facts)}${previous ? `\n\nLast version's cover letter:\n${previous}` : ""}${
       asks.length ? `\n\nChange requests so far, oldest first; all still apply unless a later one overrides an earlier one:\n${asks.map((n, i) => `${i + 1}. ${n}`).join("\n")}` : ""
     }${voiceBlock(voice)}`,
   });
@@ -481,7 +514,8 @@ export async function writeFollowUp(o: {
   first: { subject?: string; text: string };
   earlier: string[];
   cvs: Resume[];
-  research?: { summary: string; news: string[] } | null;
+  research?: Research | null;
+  commonGround?: { point: string; use: string }[];
   voice?: Voice;
 }) {
   return askJSON({
@@ -489,9 +523,10 @@ export async function writeFollowUp(o: {
     schema: FollowUpSchema,
     system: `You write follow-up ${o.n} of 2 to a message a job seeker sent that got no reply. Over half of replies come to a follow-up, so it matters, but it must earn its place. ${HONESTY}
 ${MESSAGE_RULES}
+${PERSONAL_RULES}
 ${
       o.n === 1
-        ? `Follow-up 1, a week after the first message: two to four sentences. Never "just following up", "bumping this" or "circling back", and don't repeat the first message. Give one new reason to reply: a different proof point from the CV than the first message used, or a piece of company news from the material given, tied to what the role needs. Keep the same single ask.`
+        ? `Follow-up 1, a week after the first message: two to four sentences. Never "just following up", "following up on", "bumping this" or "circling back", and don't repeat the first message. Give one new reason to reply, tied to this reader and company. If you're given what the candidate and this person have in common, build it on that. Otherwise use a piece of company news or a company fact from the material given. Link it to a different proof point from the CV than the first message used, and say plainly why that proof matters for this exact role (an individual role is about doing the work, a leadership role about building and running it; never call one the other). A bare number with nothing about them is not enough. Keep the same single ask.`
         : `Follow-up 2, the last one: two sentences at most. Close the loop kindly with an easy out, like "If the timing's off, no problem, I won't keep following up." No guilt, no pressure, no new pitch.`
     }${o.referral ? "\nThis person is a connection asked for a referral: they owe nothing, so keep it lighter still and thank them either way." : ""}
 ${o.channel === "linkedin" ? "It's a LinkedIn message: under 50 words, no subject." : "It's an email reply in the same thread."}`,
@@ -502,7 +537,8 @@ The first message${o.first.subject ? ` (subject "${o.first.subject}")` : ""}:
 """
 ${o.first.text}
 """
-${o.earlier.length ? `\nFollow-ups already sent:\n${o.earlier.map((e) => `"""\n${e}\n"""`).join("\n")}\n` : ""}${o.research ? `\nAbout the company: ${o.research.summary}\nRecent news: ${o.research.news.join("; ")}\n` : ""}
+${o.earlier.length ? `\nFollow-ups already sent:\n${o.earlier.map((e) => `"""\n${e}\n"""`).join("\n")}\n` : ""}${researchBlock(o.research)}${o.commonGround?.length ? `\n\nWhat the candidate and ${o.person.name} have in common:\n${o.commonGround.map((c) => `- ${c.point} (${c.use})`).join("\n")}` : ""}
+
 The candidate's CVs:
 ${o.cvs.map((r, i) => `CV ${i + 1}:\n${resumeText(r)}`).join("\n\n")}${voiceBlock(o.voice)}`,
   });
@@ -764,7 +800,7 @@ ${resumeText(resume)}`,
 
 const PersonalSchema = z.strictObject({
   commonGround: z
-    .array(z.strictObject({ point: z.string().describe("A specific shared fact, e.g. 'You both worked at Rubrik (2024-25)'."), use: z.string().describe("One line on how to mention it naturally.") }))
+    .array(z.strictObject({ point: z.string().describe("A specific shared fact, written to the candidate as 'you' and naming the other person by first name, e.g. 'You and Priya were both at Rubrik (2024-25)' or 'Priya owns the MQL-to-SQL SLA; you kept 90% MQL follow-up at Rubrik'. Never the candidate's own name."), use: z.string().describe("One line on how to mention it naturally.") }))
     .describe("Up to five real overlaps: shared companies, schools, cities, overlapping years, similar teams or problems, or something they posted or said publicly. Empty if none found."),
   note: z.string().describe("A LinkedIn connection note to this person, under 300 characters, opening with the strongest common ground. Starts 'Hi <their first name>,'."),
   emailSubject: z.string().describe("Email subject under 9 words, naming the role; may reference the common ground."),
@@ -784,6 +820,7 @@ export async function personaliseOutreach(
     webSearch: webSearch ? 3 : undefined,
     system: `You help a job seeker write to one specific person at a company: a hiring manager, recruiter or HR partner. Find genuine common ground between the candidate and this person, then write a short, warm message that leads with it. ${HONESTY}
 ${MESSAGE_RULES}
+${PERSONAL_RULES}
 Only use overlaps you can see in the material: never invent a connection or claim to know them. Use professional facts only: never mention family, health, religion, politics, age or where someone lives.${
       webSearch ? " You may search the web for this person's public professional activity, such as talks, podcasts, articles or company posts. Make sure a result is about this same person at this company before using it." : ""
     }
