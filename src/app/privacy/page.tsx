@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { LEGAL, missing } from "@/lib/legal";
+
+export const metadata: Metadata = { title: "Privacy policy", description: "What JobPipe stores, why, and how Gmail and Calendar access is used under Google's Limited Use rules.", alternates: { canonical: "/privacy" } };
 
 export default function Privacy() {
   return (

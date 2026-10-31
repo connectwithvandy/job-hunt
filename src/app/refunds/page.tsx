@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { LEGAL, PLANS, missing } from "@/lib/legal";
+
+export const metadata: Metadata = { title: "Refunds and cancellation", description: "How cancelling and refunds work for a JobPipe subscription.", alternates: { canonical: "/refunds" } };
 
 export default function Refunds() {
   return (

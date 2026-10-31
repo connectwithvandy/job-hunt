@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { PLANS } from "@/lib/legal";
+
+export const metadata: Metadata = { title: "Pricing", description: "One plan with everything: job search, fit scores, tailored CVs, referral notes and interview prep. 7-day free trial; founding members ₹499 a month.", alternates: { canonical: "/pricing" } };
 
 export default function Pricing() {
   return (

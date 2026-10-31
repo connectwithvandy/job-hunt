@@ -29,7 +29,7 @@ export function SignIn() {
     "reset-verification": "That code didn't work, or it's over 15 minutes old. Check it, or ask for a new one. The new password needs 8 or more characters.",
   }[flow];
   const head = {
-    signUp: ["Start your hunt", "Free. Takes two minutes, plus your CV."],
+    signUp: ["Join the waitlist", "Takes a minute. We let people in in small groups and email you when you're in."],
     signIn: ["Welcome back", "Sign in to pick up where you left off."],
     reset: ["Forgot your password?", "Type your email and we'll send you a code to set a new one."],
     "reset-verification": ["Check your email", `We sent an 8-digit code to ${email}. It works for 15 minutes.`],
@@ -37,12 +37,12 @@ export function SignIn() {
   // The line under the headline, fitted to the screen they're on.
   const pitch = {
     signUp:
-      "Built by a sales leader during a real job hunt. Join the waitlist; once you're in, upload your CV, pick the kinds of roles you're after, and let it do the sorting, tailoring and intro hunting.",
+      "Built by a sales leader during a real job hunt. Upload your CV, pick the roles you want, and JobPipe finds the jobs, scores the fit, tailors your CV and finds who can refer you.",
     signIn: "Your search is where you left it: today's new jobs scored against your CV, follow-ups due, and who you know at each company.",
     reset: "Locked out? It happens. We'll email you a code, you pick a new password, and you're back to your search in a minute.",
     "reset-verification": "Locked out? It happens. We'll email you a code, you pick a new password, and you're back to your search in a minute.",
   }[flow];
-  const button = { signUp: "Create account", signIn: "Sign in", reset: "Send me a code", "reset-verification": "Set new password and sign in" }[flow];
+  const button = { signUp: "Join the waitlist", signIn: "Sign in", reset: "Send me a code", "reset-verification": "Set new password and sign in" }[flow];
 
   return (
     <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-12 px-5 py-12 lg:grid-cols-[1.2fr_1fr] lg:px-12">

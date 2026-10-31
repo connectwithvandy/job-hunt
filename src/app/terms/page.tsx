@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { LEGAL, PLANS, missing } from "@/lib/legal";
+
+export const metadata: Metadata = { title: "Terms of service", description: "The terms for using JobPipe.", alternates: { canonical: "/terms" } };
 
 export default function Terms() {
   return (
