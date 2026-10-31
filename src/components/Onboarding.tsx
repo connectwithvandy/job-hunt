@@ -259,7 +259,7 @@ function StepAnswers({
   const setAutopilot = useMutation(api.users.setAutopilot);
   const [busy, setBusy] = useState(false);
   // Their choice; off unless they tick it. They can change it any time on Today.
-  const [morning, setMorning] = useState(false);
+  const [morning, setMorning] = useState(true);
   // What we already know (sign-up, waitlist, CV), so they don't type it again.
   const linkedin = me.waitlist.linkedin;
   const known = [
