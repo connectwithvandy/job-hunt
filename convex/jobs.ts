@@ -90,7 +90,18 @@ export const list = query({
     // Room for a long search across several roles; older roles past this drop off the list.
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
     // Jobs not moved to jobDetails yet still carry their heavy parts; leave them out of the list.
-    return jobs.map((j) => ({ ...j, description: undefined, pack: undefined, research: undefined, prep: undefined, hasPack: !!j.hasPack || !!j.pack }));
+    // Lists show two lines of the score reason and only check the brief for a blocker; the job page loads the rest.
+    // Sending all of it made the list close to 2 MB for 900 jobs and held Today up for seconds.
+    return jobs.map((j) => ({
+      ...j,
+      description: undefined,
+      pack: undefined,
+      research: undefined,
+      prep: undefined,
+      hasPack: !!j.hasPack || !!j.pack,
+      scores: j.scores?.map((s) => ({ ...s, reason: s.reason.slice(0, 240), gaps: [] })),
+      brief: j.brief ? { whatTheyWant: "", watchOuts: "", blocker: j.brief.blocker } : undefined,
+    }));
   },
 });
 

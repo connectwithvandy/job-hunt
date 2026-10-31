@@ -202,9 +202,9 @@ export function TailorButton({
   const run = (fn: () => Promise<string | void>) => start(async () => setState(await attempt(fn)));
 
   const picker = resumes.length > 1 && (
-    <label className="flex items-center gap-2 text-sm text-ink-2">
+    <label className="flex min-w-0 max-w-full items-center gap-2 text-sm text-ink-2">
       From
-      <select className="field !w-auto !py-1.5 text-sm" value={resumeId} onChange={(e) => setResumeId(e.target.value as Id<"resumes">)}>
+      <select className="field !w-auto min-w-0 max-w-full truncate !py-1.5 text-sm" value={resumeId} onChange={(e) => setResumeId(e.target.value as Id<"resumes">)}>
         {resumes.map((r) => (
           <option key={r._id} value={r._id}>
             {r.label}
