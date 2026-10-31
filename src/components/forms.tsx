@@ -750,6 +750,13 @@ const ENDPOINT = "${endpoint}";
 const DAILY_SUMMARY = true;
 const CALENDAR = true;
 
+// First in the file, so Google's Run button runs it. Run it once: it checks every hour from then on.
+function setup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("sync").timeBased().everyHours(1).create();
+  sync();
+}
+
 function calendarEvents() {
   const now = Date.now();
   return CalendarApp.getDefaultCalendar().getEvents(new Date(now - 86400000), new Date(now + 21 * 86400000)).slice(0, 200).map(function (e) {
@@ -787,12 +794,6 @@ function sync() {
   if (reply.digest) GmailApp.sendEmail(Session.getEffectiveUser().getEmail(), reply.digest.subject, reply.digest.text);
 }
 
-// Run this once: it checks every hour from now on.
-function setup() {
-  ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger("sync").timeBased().everyHours(1).create();
-  sync();
-}
 `;
 }
 
@@ -820,65 +821,61 @@ export function GmailSync() {
     );
   }
   return (
-    <div className="card space-y-3 p-5 text-sm">
-      <p className="text-ink-2">
-        Recruiter replies, interview invites, offers and rejections move your jobs along by themselves, checked every hour. The script runs in your own
-        Google account and sends only recruiting emails and LinkedIn message alerts from the last two days. One about a role you don&apos;t have in
-        JobPipe yet (applied somewhere else, or a recruiter reaching out) is read by the AI and added as a job; the rest are thrown away.
-      </p>
-      <p className="text-ink-2">
-        Each morning after 9:00 it also emails you a short summary: replies from companies, strong fits to apply to, and who to follow up with. It comes from
-        your own Gmail to your own Gmail.
-      </p>
-      <p className="text-ink-2">
-        It also reads your Google Calendar. A meeting with a company you&apos;re applying to shows on Today and moves that job to interview; every other
-        meeting is dropped and never stored. Already set up the script before? Paste this new one over it and run <b>setup</b> again, and allow
-        Calendar when Google asks.
-      </p>
-      <ol className="list-decimal space-y-1 pl-5 text-ink-2">
-        <li>
-          Open{" "}
-          <a className="underline" href="https://script.google.com/home/projects/create" target="_blank" rel="noreferrer">
-            a new Google Apps Script
+    <div className="card space-y-4 p-5 text-sm">
+      <div>
+        <div className="font-medium">Get recruiter replies here automatically</div>
+        <p className="text-ink-2">Two minutes, once. It runs inside your own Gmail.</p>
+      </div>
+      <ol className="space-y-3">
+        <li className="flex flex-wrap items-center gap-3">
+          <span className="text-ink-3">1.</span>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={async () => {
+              await navigator.clipboard.writeText(script);
+              setCopied(true);
+            }}
+          >
+            {copied ? "Copied" : "Copy the code"}
+          </button>
+        </li>
+        <li className="flex flex-wrap items-center gap-3">
+          <span className="text-ink-3">2.</span>
+          <a className="btn btn-ghost btn-sm" href="https://script.google.com/home/projects/create" target="_blank" rel="noreferrer">
+            Open Google Script
           </a>
-          , delete what&apos;s there and paste the script below.
+          <span className="text-ink-2">Select everything there, paste, and press Save.</span>
         </li>
-        <li>
-          Pick <b>setup</b> in the menu next to Run, press Run, and allow access when Google asks (it warns because you wrote the script yourself).
-          <details className="mt-1">
-            <summary className="cursor-pointer underline">Google says this app isn&apos;t verified?</summary>
-            <div className="mt-1 space-y-1">
-              <p>
-                That&apos;s normal. Google shows it for any script a person writes for themselves that Google hasn&apos;t reviewed. Here &quot;the app&quot;
-                is your own copy of the script, in your own account.
-              </p>
-              <p>
-                Click <b>Review permissions</b>, pick your Google account, then <b>Advanced</b>, then <b>Go to Untitled project (unsafe)</b> (or whatever you
-                named it), then <b>Allow</b>.
-              </p>
-              <p>
-                You can read every line in the box below. It sends JobPipe only recruiting emails from the last two days, plus your calendar for the next
-                three weeks, where JobPipe keeps only meetings with companies you&apos;re applying to. Turn it off anytime at{" "}
-                <a className="underline" href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer">
-                  myaccount.google.com/permissions
-                </a>{" "}
-                or by deleting the script.
-              </p>
-            </div>
-          </details>
+        <li className="flex flex-wrap items-baseline gap-3">
+          <span className="text-ink-3">3.</span>
+          <span className="text-ink-2">
+            Press <b>Run</b>. Google asks for permission: click <b>Advanced</b>, then <b>Go to Untitled project</b>, then <b>Allow</b>.
+          </span>
         </li>
-        <li>That&apos;s it. Keep this code private: it lets the script update your jobs.</li>
       </ol>
-      <button
-        className="btn btn-primary btn-sm"
-        onClick={async () => {
-          await navigator.clipboard.writeText(script);
-          setCopied(true);
-        }}
-      >
-        {copied ? "Copied" : "Copy the script"}
-      </button>
-      <textarea readOnly className="field h-40 font-mono text-xs" value={script} />
+      <p className="text-ink-2">Done. This page will say &quot;Gmail connected&quot; within a minute.</p>
+      <details className="text-ink-2">
+        <summary className="cursor-pointer underline">What does it read? Is it safe?</summary>
+        <div className="mt-2 space-y-1">
+          <p>
+            Google warns because the code is yours, not an app Google has reviewed. It runs in your own account and sends JobPipe only recruiting emails
+            from the last two days, plus your calendar for the next three weeks, where JobPipe keeps only meetings with companies you&apos;re applying to.
+          </p>
+          <p>Replies and interview invites move your jobs along, and each morning after 9:00 you get a short summary email from yourself.</p>
+          <p>
+            Turn it off anytime at{" "}
+            <a className="underline" href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer">
+              myaccount.google.com/permissions
+            </a>{" "}
+            or by deleting the script.
+          </p>
+        </div>
+      </details>
+      <details className="text-ink-2">
+        <summary className="cursor-pointer underline">See the code</summary>
+        <p className="mt-2">Keep it private: it lets the script update your jobs.</p>
+        <textarea readOnly className="field mt-2 h-40 font-mono text-xs" value={script} />
+      </details>
     </div>
   );
 }
