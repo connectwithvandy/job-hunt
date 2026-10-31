@@ -17,6 +17,7 @@ import type * as careersRefresh from "../careersRefresh.js";
 import type * as chats from "../chats.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
+import type * as feedback from "../feedback.js";
 import type * as http from "../http.js";
 import type * as inbox from "../inbox.js";
 import type * as inboxReader from "../inboxReader.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   chats: typeof chats;
   contacts: typeof contacts;
   crons: typeof crons;
+  feedback: typeof feedback;
   http: typeof http;
   inbox: typeof inbox;
   inboxReader: typeof inboxReader;

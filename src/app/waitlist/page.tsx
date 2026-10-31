@@ -11,6 +11,7 @@ import { ActionButton } from "@/components/ui";
 export default function WaitlistAdmin() {
   const me = useQuery(api.users.me);
   const list = useQuery(api.access.list, me?.isOwner ? {} : "skip");
+  const feedback = useQuery(api.feedback.list, me?.isOwner ? {} : "skip");
   const setApproved = useMutation(api.access.setApproved);
   const approveMany = useMutation(api.access.approveMany);
   const resetPassword = useAction(api.access.resetPassword);
@@ -108,6 +109,21 @@ export default function WaitlistAdmin() {
       {list.waiting.length ? <ul className="mb-10">{list.waiting.map((a) => row(a, true))}</ul> : <p className="mb-10 text-sm text-ink-3">Nobody waiting.</p>}
       <h2 className="mb-2 text-sm font-medium text-ink-2">Let in ({list.approved.length})</h2>
       {list.approved.length ? <ul>{list.approved.map((a) => row(a, false))}</ul> : <p className="text-sm text-ink-3">Nobody yet.</p>}
+      <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Feedback ({feedback?.length ?? 0})</h2>
+      {feedback?.length ? (
+        <ul>
+          {feedback.map((f) => (
+            <li key={f._id} className="border-b border-line py-3 text-sm">
+              <p className="whitespace-pre-wrap">{f.text}</p>
+              <p className="mt-1 text-xs text-ink-3">
+                {f.email} · {f.page} · {new Date(f._creationTime).toLocaleString()}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-ink-3">Nothing yet.</p>
+      )}
     </div>
   );
 }

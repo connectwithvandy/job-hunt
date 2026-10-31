@@ -7,6 +7,9 @@ import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, research
 export default defineSchema({
   ...authTables,
 
+  /** What testers wrote in the Send feedback box, for the owner to read on the waitlist page. */
+  feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
+
   /** The waitlist: everyone who signed up, and whether the owner let them in. */
   access: defineTable({ userId: v.id("users"), email: v.string(), approved: v.boolean(), decidedAt: v.optional(v.number()) })
     .index("by_userId", ["userId"])
