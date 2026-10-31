@@ -1234,7 +1234,7 @@ function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
         )}
         {m.repliedAt ? (
           <>
-            <span className="text-xs text-good">Answered {timeAgo(m.repliedAt)}</span>
+            <span className="text-xs text-good">{m.repliedAt === m.at ? "Automatic note, no answer needed" : `Answered ${timeAgo(m.repliedAt)}`}</span>
             <button className="text-xs text-ink-3 underline" onClick={() => void markReplied({ emailId: m._id, replied: false })}>
               Undo
             </button>

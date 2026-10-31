@@ -24,6 +24,16 @@ const RULES: [Stage, RegExp][] = [
   ["screening", /\b(recruiter|quick (call|chat)|learn more about you|next steps|your profile stood out)\b/i],
 ];
 
+/**
+ * An automatic note that needs no answer: sent from a no-reply address, saying something was received, confirmed or booked
+ * ("Interview availability received", "Your interview is confirmed"). It still moves the job along; it just isn't a reply to write.
+ */
+export function needsNoAnswer(m: Pick<InboxMessage, "from" | "subject" | "snippet">) {
+  const noReply = /(no-?reply|do-?not-?reply|notifications?@|mailer)/i.test(m.from);
+  const automatic = /\b(received|confirmed|confirmation|scheduled|booked|has been (scheduled|confirmed|submitted)|thank(s| you) for (providing|submitting|sharing) your availability|calendar invitation)\b/i;
+  return noReply && automatic.test(`${m.subject}\n${m.snippet.slice(0, 600)}`);
+}
+
 export function stageOf(m: InboxMessage): Stage | null {
   const text = `${m.subject}\n${m.snippet}`;
   return RULES.find(([, re]) => re.test(text))?.[0] ?? null;

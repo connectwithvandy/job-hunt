@@ -5,7 +5,7 @@ import { requireUserId } from "./lib/auth";
 import { buildDigest, digestDue } from "./lib/digest";
 import { internal } from "./_generated/api";
 import { companyKey, roleKey } from "./lib/company";
-import { inboxMessageV, isLinkedInMessage, jobFor, jobForEvent, nextStatus, stageOf, stageV, type InboxMessage } from "./lib/inbox";
+import { inboxMessageV, isLinkedInMessage, jobFor, jobForEvent, needsNoAnswer, nextStatus, stageOf, stageV, type InboxMessage } from "./lib/inbox";
 import { freezeSent } from "./jobs";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
@@ -52,8 +52,10 @@ export const ingest = internalMutation({
       }
       const status = nextStatus(job.status, stage);
       const at = Date.parse(m.date) || Date.now();
-      const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage }, updatedAt: Date.now() };
-      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id });
+      // An automatic confirmation counts as answered, so it never sits on Today waiting for a reply.
+      const answered = needsNoAnswer(m) ? at : undefined;
+      const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage, repliedAt: answered }, updatedAt: Date.now() };
+      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id, repliedAt: answered });
       await ctx.db.patch("jobs", job._id, status ? { ...patch, status, appliedAt: status === "applied" && !job.appliedAt ? at : job.appliedAt } : patch);
       if (status) {
         await freezeSent(ctx, job, status);
@@ -79,7 +81,8 @@ export const saveFromEmails = internalMutation({
       const key = companyKey(company);
       if (key.length < 2) continue;
       const at = Date.parse(m.date) || Date.now();
-      const lastEmail = { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage };
+      const answered = needsNoAnswer(m) ? at : undefined;
+      const lastEmail = { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage, repliedAt: answered };
       // "Axis" in an email and "Axis Communications" on the job are the same company.
       const same = jobs.filter((j) => sameCompany(companyKey(j.company), key)).sort((a, b) => b.updatedAt - a.updatedAt);
       const titled = title && same.find((j) => roleKey(j.company, j.title) === roleKey(company, title));
@@ -110,7 +113,7 @@ export const saveFromEmails = internalMutation({
         jobs.unshift(job);
         added++;
       }
-      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id });
+      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id, repliedAt: answered });
     }
     return { added };
   },
