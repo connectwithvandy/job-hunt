@@ -150,9 +150,9 @@ export function titleMatches(searched: string, title: string) {
   return isLeader(t.split(" ")) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
 }
 
-/** Jobs in another function. "Senior Engineer - Business Operations" holds "business operations" but isn't a GTM role. */
+/** Jobs in another function, technical roles included. "Senior Engineer - Business Operations" holds "business operations" but isn't a GTM role. */
 const OTHER_FUNCTION =
-  /\b(engineer|engineering|developer|programmer|devops|sre|scientist|designer|architect|product manager|product owner|program manager|technical program|qa|tester|recruiter|talent acquisition|accountant|nurse|physician|pharmacist|teacher|lawyer|paralegal|counsel)\b/;
+  /\b(engineer|engineering|developer|programmer|devops|sre|scientist|designer|architect|product manager|product owner|program manager|tech|technical|technology manager|presales|pre sales|pre-sales|solutions consultant|data analyst|qa|tester|recruiter|talent acquisition|accountant|nurse|physician|pharmacist|teacher|lawyer|paralegal|counsel)\b/;
 
 /** Whether a title belongs to another function than the one searched for; "Sales Engineer" still matches a "Sales Engineer" search. */
 export function otherFunction(searched: string, title: string) {
