@@ -46,6 +46,8 @@ export const me = query({
       markets: profile?.markets ?? "",
       writingSample: profile?.writingSample ?? "",
       writingRules: profile?.writingRules ?? "",
+      linkedinPosts: profile?.linkedinPosts ?? "",
+      myMessagesCount: profile?.myMessages ? profile.myMessages.split("\n---\n").length : 0,
       contactsCount: profile?.contactsCount ?? 0,
       chatsCount: profile?.chatsCount ?? 0,
       autopilot: profile?.autopilot ?? false,
@@ -229,7 +231,7 @@ export const context = internalQuery({
       email: user?.email ?? "",
       location: profile?.location ?? "India",
       markets: profile?.markets ?? "",
-      voice: { sample: profile?.writingSample ?? "", rules: profile?.writingRules ?? "" },
+      voice: { sample: profile?.writingSample ?? "", rules: profile?.writingRules ?? "", posts: profile?.linkedinPosts ?? "", messages: profile?.myMessages ?? "" },
       tracks,
       resume: fallback?.resume ?? null,
       resumes: resumes.map((r) => ({ _id: r._id, resume: r.resume })),
@@ -429,11 +431,27 @@ export const setMarkets = mutation({
 });
 
 export const setWritingSample = mutation({
-  args: { sample: v.string(), rules: v.optional(v.string()) },
-  handler: async (ctx, { sample, rules }) => {
+  args: { sample: v.string(), rules: v.optional(v.string()), posts: v.optional(v.string()) },
+  handler: async (ctx, { sample, rules, posts }) => {
     const userId = await requireUserId(ctx);
     const profile = await profileFor(ctx, userId);
-    await ctx.db.patch("profiles", profile._id, { writingSample: sample.trim().slice(0, 4000), ...(rules !== undefined ? { writingRules: rules.trim().slice(0, 1500) } : {}) });
+    await ctx.db.patch("profiles", profile._id, {
+      writingSample: sample.trim().slice(0, 4000),
+      ...(rules !== undefined ? { writingRules: rules.trim().slice(0, 1500) } : {}),
+      ...(posts !== undefined ? { linkedinPosts: posts.trim().slice(0, 6000) } : {}),
+    });
+    return null;
+  },
+});
+
+/** Your own longer LinkedIn messages, picked from messages.csv in the browser, so notes sound like your DMs. */
+export const setMyMessages = mutation({
+  args: { messages: v.array(v.string()) },
+  handler: async (ctx, { messages }) => {
+    const userId = await requireUserId(ctx);
+    const profile = await profileFor(ctx, userId);
+    const kept = messages.map((m) => m.trim().slice(0, 600)).filter(Boolean).slice(0, 15);
+    await ctx.db.patch("profiles", profile._id, { myMessages: kept.join("\n---\n").slice(0, 6000) || undefined });
     return null;
   },
 });

@@ -7,7 +7,7 @@ import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { LOCATION_CHOICES, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { autofillBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
-import { parseMessagesCsv } from "@/lib/linkedinMessages";
+import { myOwnMessages, parseMessagesCsv } from "@/lib/linkedinMessages";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
 import { timeAgo } from "./bits";
@@ -65,6 +65,7 @@ export function ImportConnections() {
 export function ImportChats() {
   const clear = useMutation(api.contacts.clearChats);
   const importChats = useMutation(api.contacts.importChats);
+  const setMyMessages = useMutation(api.users.setMyMessages);
   const [busy, setBusy] = useState("");
   const [state, setState] = useState<ActionState>(null);
   return (
@@ -76,7 +77,8 @@ export function ImportChats() {
         setState(
           await attempt(async () => {
             if (!file?.size) throw new Error("Choose your messages.csv file.");
-            const rows = parseMessagesCsv(await file.text());
+            const text = await file.text();
+            const rows = parseMessagesCsv(text);
             setBusy("Replacing your old chats…");
             while (await clear()) {
               // keep deleting until the old chats are gone
@@ -89,7 +91,9 @@ export function ImportChats() {
                 throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} people loaded: ${errorMessage(err)} Load the file again to finish.`);
               }
             }
-            return `Loaded your chats with ${rows.length.toLocaleString()} people.`;
+            // A few longer messages you wrote yourself, so letters and notes sound like you.
+            await setMyMessages({ messages: myOwnMessages(text) });
+            return `Loaded your chats with ${rows.length.toLocaleString()} people. Your messages will now sound like the ones you send.`;
           }),
         );
         setBusy("");
@@ -699,17 +703,18 @@ export function AutofillLink({ answers }: { answers: { question: string; answer:
 }
 
 /** A few things you wrote yourself, so cover letters and messages sound like you. */
-export function WritingSampleForm({ sample, rules }: { sample: string; rules: string }) {
+export function WritingSampleForm({ sample, rules, posts, myMessagesCount }: { sample: string; rules: string; posts: string; myMessagesCount: number }) {
   const save = useMutation(api.users.setWritingSample);
   const [value, setValue] = useState(sample);
   const [myRules, setMyRules] = useState(rules);
+  const [myPosts, setMyPosts] = useState(posts);
   const [state, setState] = useState<ActionState>(null);
   return (
     <form
       className="card p-6"
       onSubmit={async (e) => {
         e.preventDefault();
-        setState(await attempt(async () => (await save({ sample: value, rules: myRules }), "Saved. New CVs, letters and messages will use it.")));
+        setState(await attempt(async () => (await save({ sample: value, rules: myRules, posts: myPosts }), "Saved. New CVs, letters and messages will use it.")));
       }}
     >
       <span className="label block">How you write</span>
@@ -718,6 +723,22 @@ export function WritingSampleForm({ sample, rules }: { sample: string; rules: st
         emails will copy your style. Only your style is used; facts still come from your CV.
       </p>
       <textarea className="field mt-3 h-40 text-sm" value={value} maxLength={4000} onChange={(e) => setValue(e.target.value)} placeholder="Hi Priya, thanks for the time today..." />
+      <label className="mt-4 block">
+        <span className="label">Your LinkedIn posts</span>
+        <span className="mt-1 block text-sm text-ink-2">
+          Paste three or four posts you wrote. Notes and emails pick up your personality from them: your energy, your humour, the way you make a point.
+          {myMessagesCount > 0
+            ? ` They also use ${myMessagesCount} messages you sent on LinkedIn, from your chats file.`
+            : " Loading your LinkedIn chats under People adds the messages you send too."}
+        </span>
+        <textarea
+          className="field mt-2 h-40 text-sm"
+          value={myPosts}
+          maxLength={6000}
+          onChange={(e) => setMyPosts(e.target.value)}
+          placeholder="Hiring an SDR is easy. Keeping one past month three is the real job..."
+        />
+      </label>
       <label className="mt-4 block">
         <span className="label">Your rules</span>
         <span className="mt-1 block text-sm text-ink-2">Anything every tailored CV, letter and message should or shouldn&apos;t do, one per line.</span>

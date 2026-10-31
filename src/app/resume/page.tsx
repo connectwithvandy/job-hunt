@@ -106,7 +106,7 @@ export default function Cvs() {
             <FactsForm key={me.facts.map((f) => f.at).join()} facts={me.facts} />
             <AnswersForm answers={me.answers} location={me.location} />
             {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
-            <WritingSampleForm sample={me.writingSample} rules={me.writingRules} />
+            <WritingSampleForm sample={me.writingSample} rules={me.writingRules} posts={me.linkedinPosts} myMessagesCount={me.myMessagesCount} />
             <details className="card p-6">
               <summary className="cursor-pointer font-medium">Fix something by hand</summary>
               <p className="mt-2 mb-4 text-sm text-ink-2">Change any line of this CV, then save. Tailored CVs for new jobs use the saved version.</p>

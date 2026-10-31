@@ -23,7 +23,9 @@ export default function Privacy() {
       </p>
       <p>
         <b>What you add:</b> the CVs you upload, the roles and locations you pick, jobs you save and their notes, drafts we write for you, your saved
-        application-form answers, your writing sample, and LinkedIn connections or messages you choose to upload.
+        application-form answers, your writing sample and any LinkedIn posts you paste, and LinkedIn connections or messages you choose to upload. From
+        your messages file we keep a short summary per person, their last few lines, and up to 15 longer messages you wrote yourself, used only so
+        drafts sound like you.
       </p>
       <p>
         <b>Google user data:</b> only if you click Connect Gmail. The section below lists exactly what is read and kept.

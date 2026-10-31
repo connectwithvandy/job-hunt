@@ -56,6 +56,10 @@ export default defineSchema({
     markets: v.optional(v.string()),
     /** A few things you wrote yourself, so letters and messages sound like you. */
     writingSample: v.optional(v.string()),
+    /** A few of your own LinkedIn posts, pasted, so messages carry your personality. */
+    linkedinPosts: v.optional(v.string()),
+    /** Longer LinkedIn messages you wrote yourself, kept from messages.csv, so notes sound like your DMs. */
+    myMessages: v.optional(v.string()),
     /** Your own rules for letters and messages, like "never mention my notice period". */
     writingRules: v.optional(v.string()),
     onboarded: v.boolean(),

@@ -17,12 +17,8 @@ const plain = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/**
- * Read LinkedIn's messages.csv (Get a copy of your data > Messages) into one short summary per person
- * you've had a one-to-one chat with. The full chats stay in the browser; only the summary and the
- * last few lines are sent to the app.
- */
-export function parseMessagesCsv(text: string): ChatRow[] {
+/** Rows of LinkedIn's messages.csv, and which profile is yours. */
+function readMessages(text: string) {
   const { data } = Papa.parse<Record<string, string>>(text.replace(/^﻿/, ""), { header: true, skipEmptyLines: true });
   if (!data.length || !("SENDER PROFILE URL" in data[0]) || !("CONTENT" in data[0])) {
     throw new Error("This doesn't look like LinkedIn's messages.csv. Its header should have \"SENDER PROFILE URL\" and \"CONTENT\".");
@@ -44,7 +40,16 @@ export function parseMessagesCsv(text: string): ChatRow[] {
   for (const r of rows) for (const k of new Set([r.from, ...r.to])) seen.set(k, (seen.get(k) ?? 0) + 1);
   const me = [...seen.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   if (!me) throw new Error("No one-to-one chats found in this file.");
+  return { rows, me };
+}
 
+/**
+ * Read LinkedIn's messages.csv (Get a copy of your data > Messages) into one short summary per person
+ * you've had a one-to-one chat with. The full chats stay in the browser; only the summary and the
+ * last few lines are sent to the app.
+ */
+export function parseMessagesCsv(text: string): ChatRow[] {
+  const { rows, me } = readMessages(text);
   const people = new Map<string, ChatRow>();
   for (const r of rows.sort((a, b) => a.at - b.at)) {
     const others = [...new Set([r.from, ...r.to])].filter((k) => k !== me);
@@ -62,3 +67,24 @@ export function parseMessagesCsv(text: string): ChatRow[] {
   }
   return [...people.values()];
 }
+
+/**
+ * The longer one-to-one messages you wrote yourself, newest first, so letters and notes can sound like you.
+ * Repeated templates (the same opening sent to many people) are skipped: they show a script, not your voice.
+ */
+export function myOwnMessages(text: string, max = 15): string[] {
+  const { rows, me } = readMessages(text);
+  const mine = rows.filter((r) => r.from === me && r.to.length === 1 && r.text.length >= 120).sort((a, b) => b.at - a.at);
+  // The words after "Hi <name>", so the same message sent to many people counts as one template.
+  const opening = (t: string) => t.toLowerCase().split(/\s+/).slice(2, 12).join(" ");
+  const openings = new Map<string, number>();
+  for (const r of mine) openings.set(opening(r.text), (openings.get(opening(r.text)) ?? 0) + 1);
+  const picked: string[] = [];
+  for (const r of mine) {
+    if ((openings.get(opening(r.text)) ?? 0) > 1 || /https?:\/\//.test(r.text)) continue;
+    picked.push(r.text.slice(0, 600));
+    if (picked.length >= max) break;
+  }
+  return picked;
+}
+
