@@ -198,6 +198,8 @@ export const finish = internalAction({
       refreshToken: await lock(body.refresh_token),
       calendar: body.scope.includes("calendar.readonly"),
     });
+    // Check the inbox now, so replies show up straight away instead of at the next hourly run.
+    await ctx.scheduler.runAfter(0, internal.google.syncOne, { userId });
     return `${appUrl()}/tracker?gmail=connected`;
   },
 });
