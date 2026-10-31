@@ -173,17 +173,6 @@ export function SignIn() {
             <li>✓ No spam applying</li>
             <li>✓ Open source</li>
           </ul>
-          <a
-            href={LEGAL.founderLinkedIn}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-8 inline-flex items-center gap-3 rounded-full border border-line bg-card/60 py-1.5 pl-1.5 pr-4 text-sm text-ink-2 hover:border-accent"
-          >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-semibold text-on-accent">{LEGAL.founder[0]}</span>
-            <span>
-              Built by <span className="text-ink">{LEGAL.founder}</span>, a sales leader · <span className="text-ink underline decoration-accent underline-offset-4">LinkedIn</span>
-            </span>
-          </a>
         </section>
 
         <form
@@ -425,6 +414,20 @@ export function SignIn() {
           Join the waitlist
         </button>
       </section>
+
+      <div className="flex justify-center py-6">
+      <a
+        href={LEGAL.founderLinkedIn}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-3 rounded-full border border-line bg-card/60 py-1.5 pl-1.5 pr-4 text-sm text-ink-2 hover:border-accent"
+      >
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-semibold text-on-accent">{LEGAL.founder[0]}</span>
+        <span>
+          Built by <span className="text-ink">{LEGAL.founder}</span>, a sales leader · <span className="text-ink underline decoration-accent underline-offset-4">LinkedIn</span>
+        </span>
+      </a>
+      </div>
 
       <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line py-8 text-xs text-ink-3">
         <span>
