@@ -76,13 +76,11 @@ export function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const resetting = flow === "reset" || flow === "reset-verification";
-  // The form lives in a window over the page; the welcome email's sign-in link opens it straight away.
-  const [shown, setOpen] = useState<boolean | null>(null);
-  const open = shown ?? !!query.get("signin");
+  // Switch the form beside the headline and bring it into view.
   const start = (f: "signUp" | "signIn") => {
     setFlow(f);
     setError("");
-    setOpen(true);
+    document.getElementById("join")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const failText = {
@@ -154,39 +152,169 @@ export function SignIn() {
         </nav>
       </header>
 
-      <section className="mx-auto max-w-5xl pb-14 pt-14 text-center md:pt-24">
-        <p className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs text-ink-2">
+      <div className="grid items-center gap-10 pb-16 pt-8 md:pt-14 lg:grid-cols-[1.15fr_1fr] lg:gap-14 lg:pb-24">
+        <section>
+        <p className="rise inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs text-ink-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           For sales and GTM people · India, US, APAC, EMEA
         </p>
-        <h1 className="display mt-7 text-balance text-[40px] leading-[1.04] md:text-[52px] lg:text-[58px]">
-          <span className="block lg:whitespace-nowrap">
+        <h1 style={{ animationDelay: "80ms" }} className="rise display mt-6 text-balance text-[38px] leading-[1.04] md:text-[52px]">
+          <span className="block">
             You&apos;re not looking for <span className="text-accent">a</span> job.
           </span>
-          <span className="block text-ink-2 lg:whitespace-nowrap">You&apos;re running several searches at once.</span>
+          <span className="block text-ink-2">You&apos;re running several searches at once.</span>
         </h1>
-        <p className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-ink-2">{pitch}</p>
-        <div className="mt-9 flex flex-wrap justify-center gap-3">
-          <button type="button" className="btn btn-primary px-6 py-3 text-base" onClick={() => start("signUp")}>
-            Join the waitlist
-          </button>
-          <Link href="/cv-review" className="btn btn-ghost px-6 py-3 text-base">
-            Free CV review
-          </Link>
-        </div>
-        <p className="mt-6 text-sm text-ink-3">Never invents facts · No spam applying · Open source</p>
-      </section>
+        <p style={{ animationDelay: "160ms" }} className="rise mt-6 max-w-xl text-lg leading-relaxed text-ink-2">{pitch}</p>
+        <Link href="/cv-review" style={{ animationDelay: "240ms" }} className="rise mt-6 inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline">
+          Not ready to join? Get a free CV review for sales roles →
+        </Link>
+        <p style={{ animationDelay: "300ms" }} className="rise mt-6 text-sm text-ink-3">Never invents facts · No spam applying · Open source</p>
+        </section>
+          <form
+            id="join"
+            key={flow}
+            style={{ animationDelay: "200ms" }}
+            className="rise card relative scroll-mt-24 p-7"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setBusy(true);
+              setError("");
+              const data = new FormData(e.currentTarget);
+              signIn("password", data)
+                .then(() => {
+                  if (flow === "reset") {
+                    setEmail(String(data.get("email") ?? ""));
+                    setFlow("reset-verification");
+                  }
+                })
+                .catch(() => setError(failText))
+                .finally(() => setBusy(false));
+            }}
+          >
+            <h2 className="display text-2xl">{head[0]}</h2>
+            <p className="mt-1 mb-6 text-sm text-ink-2">{head[1]}</p>
+            {flow === "reset-verification" ? (
+              <>
+                <input name="email" type="hidden" value={email} />
+                <label className="block">
+                  <span className="label">Code</span>
+                  <input
+                    name="code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    required
+                    pattern="[0-9]{8}"
+                    maxLength={8}
+                    className="field mt-1"
+                  />
+                </label>
+                <label className="mt-4 block">
+                  <span className="label">New password</span>
+                  <input
+                    name="newPassword"
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="field mt-1"
+                  />
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="block">
+                  <span className="label">Email</span>
+                  <input
+                    key={email}
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    defaultValue={email}
+                    className="field mt-1"
+                  />
+                </label>
+                {flow !== "reset" && (
+                  <label className="mt-4 block">
+                    <span className="label">Password</span>
+                    <input
+                      name="password"
+                      type="password"
+                      required
+                      minLength={8}
+                      autoComplete={
+                        flow === "signUp" ? "new-password" : "current-password"
+                      }
+                      className="field mt-1"
+                    />
+                  </label>
+                )}
+              </>
+            )}
+            <input name="flow" type="hidden" value={flow} />
+            {error && <p className="mt-4 text-sm text-bad">{error}</p>}
+            <button
+              className="btn btn-primary mt-6 w-full justify-center"
+              disabled={busy}
+            >
+              {busy && <Spinner />}
+              {button}
+            </button>
+            {flow === "signIn" && (
+              <button
+                type="button"
+                className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
+                onClick={() => setFlow("reset")}
+              >
+                Forgot password?
+              </button>
+            )}
+            {flow === "reset-verification" && (
+              <button
+                type="button"
+                className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
+                onClick={() => setFlow("reset")}
+              >
+                Didn&apos;t get it? Send a new code
+              </button>
+            )}
+            <button
+              type="button"
+              className="mt-2 w-full text-center text-sm text-ink-3 hover:text-ink"
+              onClick={() =>
+                setFlow(
+                  resetting ? "signIn" : flow === "signUp" ? "signIn" : "signUp",
+                )
+              }
+            >
+              {resetting
+                ? "Back to sign in"
+                : flow === "signUp"
+                  ? "Already have an account? Sign in"
+                  : "New here? Join the waitlist"}
+            </button>
+            {flow === "signUp" && (
+              <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
+                {PLANS.trialDays}-day free trial once you&apos;re in, then ₹
+                {PLANS.full}/month (₹{PLANS.founding} for the first{" "}
+                {PLANS.foundingSeats} members). No card needed to join. Your CV is
+                used only to run your search; we don&apos;t sell your data or use
+                it for ads.
+              </p>
+            )}
+          </form>
+      </div>
 
       {/* A picture of the app, so people see what they get before signing up. */}
       <div className="mx-auto max-w-5xl pb-24">
-        <div className="overflow-hidden rounded-2xl border border-line bg-card shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)]">
+        <div style={{ animationDelay: "380ms" }} className="rise tilt overflow-hidden rounded-2xl border border-line bg-card shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)]">
           <div className="flex items-center gap-2 border-b border-line px-4 py-3">
             <span className="h-2.5 w-2.5 rounded-full bg-line" />
             <span className="h-2.5 w-2.5 rounded-full bg-line" />
             <span className="h-2.5 w-2.5 rounded-full bg-line" />
             <span className="mx-auto rounded-md bg-soft px-3 py-0.5 text-xs text-ink-3">jobpipe.in</span>
           </div>
-          <div className="grid text-left md:grid-cols-[180px_1fr]">
+          <div className="grid grid-cols-[minmax(0,1fr)] text-left md:grid-cols-[180px_minmax(0,1fr)]">
             <aside className="hidden border-r border-line p-5 text-sm md:block">
               <p className="display text-sm uppercase tracking-wide">
                 JobPipe<span className="text-accent">.</span>
@@ -201,14 +329,14 @@ export function SignIn() {
             <div className="p-5 md:p-8">
               <p className="text-xs text-ink-3">Monday morning</p>
               <p className="display mt-1 text-2xl">Good morning, Priya</p>
-              <div className="mt-5 grid grid-cols-3 gap-3">
+              <div className="mt-5 grid grid-cols-3 gap-2 md:gap-3">
                 {[
                   ["Companies asked", "3", "/ 10"],
                   ["Applications", "2", "/ 5"],
                   ["Follow-ups due", "1", ""],
                 ].map(([label, n, of]) => (
-                  <div key={label} className="rounded-xl border border-line p-3">
-                    <p className="text-[11px] text-ink-3">{label}</p>
+                  <div key={label} className="min-w-0 rounded-xl border border-line p-3">
+                    <p className="truncate text-[11px] text-ink-3">{label}</p>
                     <p className="display mt-1 text-xl">
                       {n}
                       <span className="text-sm text-ink-3"> {of}</span>
@@ -244,153 +372,13 @@ export function SignIn() {
         <p className="mt-4 text-center text-xs text-ink-3">An example morning. Every score comes with the reasons behind it.</p>
       </div>
 
-      {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/70 px-4 py-10 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="relative w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <button type="button" aria-label="Close" className="absolute right-4 top-4 z-10 text-xl leading-none text-ink-3 hover:text-ink" onClick={() => setOpen(false)}>
-              ×
-            </button>
-            <form
-              key={flow}
-              className="card relative p-7"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setBusy(true);
-                setError("");
-                const data = new FormData(e.currentTarget);
-                signIn("password", data)
-                  .then(() => {
-                    if (flow === "reset") {
-                      setEmail(String(data.get("email") ?? ""));
-                      setFlow("reset-verification");
-                    }
-                  })
-                  .catch(() => setError(failText))
-                  .finally(() => setBusy(false));
-              }}
-            >
-              <h2 className="display text-2xl">{head[0]}</h2>
-              <p className="mt-1 mb-6 text-sm text-ink-2">{head[1]}</p>
-              {flow === "reset-verification" ? (
-                <>
-                  <input name="email" type="hidden" value={email} />
-                  <label className="block">
-                    <span className="label">Code</span>
-                    <input
-                      name="code"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      required
-                      pattern="[0-9]{8}"
-                      maxLength={8}
-                      className="field mt-1"
-                    />
-                  </label>
-                  <label className="mt-4 block">
-                    <span className="label">New password</span>
-                    <input
-                      name="newPassword"
-                      type="password"
-                      required
-                      minLength={8}
-                      autoComplete="new-password"
-                      className="field mt-1"
-                    />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <label className="block">
-                    <span className="label">Email</span>
-                    <input
-                      key={email}
-                      name="email"
-                      type="email"
-                      required
-                      autoComplete="email"
-                      defaultValue={email}
-                      className="field mt-1"
-                    />
-                  </label>
-                  {flow !== "reset" && (
-                    <label className="mt-4 block">
-                      <span className="label">Password</span>
-                      <input
-                        name="password"
-                        type="password"
-                        required
-                        minLength={8}
-                        autoComplete={
-                          flow === "signUp" ? "new-password" : "current-password"
-                        }
-                        className="field mt-1"
-                      />
-                    </label>
-                  )}
-                </>
-              )}
-              <input name="flow" type="hidden" value={flow} />
-              {error && <p className="mt-4 text-sm text-bad">{error}</p>}
-              <button
-                className="btn btn-primary mt-6 w-full justify-center"
-                disabled={busy}
-              >
-                {busy && <Spinner />}
-                {button}
-              </button>
-              {flow === "signIn" && (
-                <button
-                  type="button"
-                  className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
-                  onClick={() => setFlow("reset")}
-                >
-                  Forgot password?
-                </button>
-              )}
-              {flow === "reset-verification" && (
-                <button
-                  type="button"
-                  className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
-                  onClick={() => setFlow("reset")}
-                >
-                  Didn&apos;t get it? Send a new code
-                </button>
-              )}
-              <button
-                type="button"
-                className="mt-2 w-full text-center text-sm text-ink-3 hover:text-ink"
-                onClick={() =>
-                  setFlow(
-                    resetting ? "signIn" : flow === "signUp" ? "signIn" : "signUp",
-                  )
-                }
-              >
-                {resetting
-                  ? "Back to sign in"
-                  : flow === "signUp"
-                    ? "Already have an account? Sign in"
-                    : "New here? Join the waitlist"}
-              </button>
-              {flow === "signUp" && (
-                <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
-                  {PLANS.trialDays}-day free trial once you&apos;re in, then ₹
-                  {PLANS.full}/month (₹{PLANS.founding} for the first{" "}
-                  {PLANS.foundingSeats} members). No card needed to join. Your CV is
-                  used only to run your search; we don&apos;t sell your data or use
-                  it for ads.
-                </p>
-              )}
-            </form>
-          </div>
-        </div>
-      )}
 
       <section className="border-t border-line py-20">
         <p className="label text-accent">Why it works</p>
         <h2 className="display mt-3 max-w-2xl text-4xl leading-tight">Built for how sales people actually job hunt</h2>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2">
           {POINTS.map(([icon, title, text]) => (
-            <li key={title} className="card p-6 transition-colors hover:border-accent/40">
+            <li key={title} className="card p-6 transition duration-300 hover:-translate-y-1 hover:border-accent/40">
               <Icon name={icon} />
               <h3 className="mt-5 text-lg font-medium">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-ink-2">{text}</p>

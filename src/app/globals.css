@@ -181,3 +181,18 @@ select.field option { background: var(--card); }
   .resume { box-shadow: none; }
   .no-print { display: none !important; }
 }
+
+/* Landing page motion: things rise into place on load, and the app picture tilts flat as you reach it. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.rise { animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (min-width: 768px) {
+  .tilt { transform: perspective(1800px) rotateX(9deg) scale(0.96); transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .tilt:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+  .tilt, .tilt:hover { transform: none; transition: none; }
+}
