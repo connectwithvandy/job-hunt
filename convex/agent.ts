@@ -324,10 +324,37 @@ async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: str
 }
 
 /** Only fetch public sites, never the server's own network. */
-/** A web page's readable text, or "" when the site doesn't answer. */
+/**
+ * A web page's readable text, or "" when the site doesn't answer. Sites that build the page with
+ * JavaScript (Workday, some Lever and Ashby pages) come back nearly empty; those are read once more
+ * through Firecrawl, which runs a real browser and is paid per page, so it's only the fallback.
+ */
 async function pageText(link: string) {
   const res = await fetch(link, { headers: { "user-agent": "Mozilla/5.0 (Macintosh) job-hunt" }, redirect: "follow", signal: AbortSignal.timeout(20_000) }).catch(() => null);
-  return res?.ok && publicUrl(res.url || link) ? htmlToText((await res.text()).slice(0, 2_000_000)) : "";
+  const text = res?.ok && publicUrl(res.url || link) ? htmlToText((await res.text()).slice(0, 2_000_000)) : "";
+  if (text.length >= 400 || !env.FIRECRAWL_API_KEY) return text;
+  return (await firecrawlText(link, env.FIRECRAWL_API_KEY)) || text;
+}
+
+/** The page's main text through Firecrawl, or "" when it fails. */
+async function firecrawlText(link: string, key: string) {
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({ url: link, formats: ["markdown"], onlyMainContent: true, timeout: 30_000 }),
+      signal: AbortSignal.timeout(40_000),
+    });
+    if (!res.ok) {
+      console.warn("Firecrawl failed:", res.status, link);
+      return "";
+    }
+    const body = (await res.json()) as { success?: boolean; data?: { markdown?: string } };
+    return body.success ? (body.data?.markdown ?? "").slice(0, 200_000) : "";
+  } catch (err) {
+    console.warn("Firecrawl failed:", String(err), link);
+    return "";
+  }
 }
 
 function publicUrl(link: string) {

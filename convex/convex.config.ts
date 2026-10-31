@@ -16,6 +16,8 @@ const app = defineApp({
     APIFY_TOKEN: v.optional(v.string()),
     /** Google Jobs through RapidAPI (lib/sources.ts). Off when missing. */
     JSEARCH_API_KEY: v.optional(v.string()),
+    /** Reads job pages built with JavaScript (Workday and others) when a plain fetch gets nothing. Off when missing. */
+    FIRECRAWL_API_KEY: v.optional(v.string()),
     /** Google Jobs searches the whole app may use a month, split between everyone; defaults to 190 (the free plan is 200). */
     JSEARCH_MONTHLY: v.optional(v.string()),
   },
