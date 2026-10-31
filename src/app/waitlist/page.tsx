@@ -133,7 +133,7 @@ function welcomeEmail(to: string[]) {
   const subject = "You're in: JobPipe";
   const body = `Hi,
 
-You're off the JobPipe waitlist. Sign in at https://myjobpipe.vercel.app with ${to.length === 1 ? to[0] : "the email you signed up with"} and you'll go straight in.
+You're off the JobPipe waitlist. Sign in at https://jobpipe.in with ${to.length === 1 ? to[0] : "the email you signed up with"} and you'll go straight in.
 
 Upload your CV, pick the roles you want, and it'll find and score jobs for you.
 `;
@@ -148,7 +148,7 @@ function passwordEmail(to: string, password: string) {
 
 Here's a new password for JobPipe: ${password}
 
-Sign in at https://myjobpipe.vercel.app with ${to} and this password.
+Sign in at https://jobpipe.in with ${to} and this password.
 `;
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

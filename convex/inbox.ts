@@ -175,7 +175,7 @@ export const digest = internalMutation({
     const jobs = (await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(500)).filter((j) => j.status !== "dismissed");
     const dreams = await ctx.db.query("prospects").withIndex("by_userId_and_dream", (q) => q.eq("userId", userId).eq("dream", true)).take(80);
     const since = profile.digestAt ?? now - 86_400_000;
-    const out = buildDigest({ jobs, dreams, run: profile.lastAutopilot ?? null, since, now, appUrl: (env.APP_URL ?? "https://myjobpipe.vercel.app").replace(/\/$/, "") });
+    const out = buildDigest({ jobs, dreams, run: profile.lastAutopilot ?? null, since, now, appUrl: (env.APP_URL ?? "https://jobpipe.in").replace(/\/$/, "") });
     // Marked even when there's nothing to say, so a quiet day isn't re-checked every hour.
     await ctx.db.patch("profiles", profile._id, { digestAt: now });
     return out;

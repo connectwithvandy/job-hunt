@@ -5,11 +5,11 @@ export const LEGAL = {
   product: "JobPipe",
   /** Your name, or a business name if you register one. */
   owner: "",
-  email: "connectwithvandanaa@gmail.com",
+  email: "hello@jobpipe.in",
   phone: "",
   /** City and state is enough for now; Razorpay may ask for a full address. */
   address: "Bengaluru, Karnataka, India",
-  site: "https://myjobpipe.vercel.app",
+  site: "https://jobpipe.in",
   updated: "31 October 2026",
 };
 

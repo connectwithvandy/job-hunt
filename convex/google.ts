@@ -31,7 +31,7 @@ const LINKEDIN =
 
 const redirectUri = () => `${process.env.CONVEX_SITE_URL}/google/callback`;
 const appUrl = () =>
-  (env.APP_URL ?? "https://myjobpipe.vercel.app").replace(/\/$/, "");
+  (env.APP_URL ?? "https://jobpipe.in").replace(/\/$/, "");
 
 // ---------- Tokens are kept encrypted ----------
 

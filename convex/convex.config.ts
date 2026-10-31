@@ -10,7 +10,7 @@ const app = defineApp({
     OWNER_EMAILS: v.optional(v.string()),
     /** Claude model id; defaults to claude-opus-5-5. */
     JOBHUNT_MODEL: v.optional(v.string()),
-    /** Where the app lives, for links in the morning email; defaults to https://myjobpipe.vercel.app. */
+    /** Where the app lives, for links in the morning email; defaults to https://jobpipe.in. */
     APP_URL: v.optional(v.string()),
     /** Reads LinkedIn posts through Apify (lib/apify.ts). The owner's account only, for now. */
     APIFY_TOKEN: v.optional(v.string()),
