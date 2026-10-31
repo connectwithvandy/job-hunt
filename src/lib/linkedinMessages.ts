@@ -85,6 +85,7 @@ export function myOwnMessages(text: string, max = 15): string[] {
     picked.push(r.text.slice(0, 600));
     if (picked.length >= max) break;
   }
-  return picked;
+  // Two or three lines can't show a voice; better none than a misleading one.
+  return picked.length >= 3 ? picked : [];
 }
 
