@@ -18,6 +18,13 @@ export const PLANS = {
   full: 999,
   founding: 499,
   foundingSeats: 50,
+  /** The Job Hunt Pass: one UPI payment for 3 months, no auto-renewal. */
+  passMonths: 3,
+  pass: 2499,
+  foundingPass: 1299,
+  /** Group seats for sales communities, bootcamps and outplacement, per seat per month. */
+  seat: 599,
+  minSeats: 10,
 };
 
 /** Shown in place of a detail that hasn't been filled in yet. */

@@ -7,7 +7,7 @@ export const TITLE = "JobPipe: job search for sales and GTM roles in India";
 export const DESCRIPTION =
   "Job search for sales and GTM roles in India, APAC and EMEA. Every job scored against your CV, a tailored CV for each one, and who you know there to refer you.";
 
-export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, scores each job against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in waitlist beta: ${PLANS.trialDays}-day free trial, then ₹${PLANS.full}/month (₹${PLANS.founding} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
+export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, scores each job against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in waitlist beta: ${PLANS.trialDays}-day free trial, then ₹${PLANS.full}/month or ₹${PLANS.pass.toLocaleString("en-IN")} for a ${PLANS.passMonths}-month pass (₹${PLANS.founding}/month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
 
 export const STEPS = [
   "Upload your CV and pick the sales roles you want.",
@@ -31,7 +31,7 @@ export const FAQ: [string, string][] = [
   ],
   [
     "How much does JobPipe cost?",
-    `JobPipe costs ₹${PLANS.full} a month after a ${PLANS.trialDays}-day free trial. The first ${PLANS.foundingSeats} founding members pay ₹${PLANS.founding} a month instead. Access is by waitlist during the beta: you create an account, answer three short questions, and we let people in by hand in small groups. Payments are not switched on yet.`,
+    `JobPipe costs ₹${PLANS.full} a month after a ${PLANS.trialDays}-day free trial, or ₹${PLANS.pass.toLocaleString("en-IN")} once for a ${PLANS.passMonths}-month Job Hunt Pass with no auto-renewal. The first ${PLANS.foundingSeats} founding members pay ₹${PLANS.founding} a month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the pass. Access is by waitlist during the beta, and payments are not switched on yet.`,
   ],
   [
     "Who is JobPipe for?",
@@ -65,6 +65,7 @@ export function landingJsonLd() {
       offers: [
         { "@type": "Offer", name: "Founding member", price: PLANS.founding, priceCurrency: "INR" },
         { "@type": "Offer", name: "Full", price: PLANS.full, priceCurrency: "INR" },
+        { "@type": "Offer", name: "Job Hunt Pass (3 months)", price: PLANS.pass, priceCurrency: "INR" },
       ],
     },
     {
