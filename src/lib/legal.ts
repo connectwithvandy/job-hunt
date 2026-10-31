@@ -4,7 +4,7 @@
 export const LEGAL = {
   product: "JobPipe",
   /** Your name, or a business name if you register one. */
-  owner: "",
+  owner: "Vandana Agarwal",
   email: "hello@jobpipe.in",
   phone: "",
   /** City and state is enough for now; Razorpay may ask for a full address. */
