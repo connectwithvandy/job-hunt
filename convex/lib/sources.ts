@@ -258,7 +258,7 @@ function openToIndianCity(name: string, where: string, remote: boolean, title: s
   // Nothing said, or only "India" / "Remote, India" / "Pan India": open to the whole country.
   if (!where.trim() || where === "not listed") return /\b(india|saarc)\b/.test(title) || !title;
   const rest = where.replace(ANY_INDIA, "").replace(/[^a-z]+/g, "");
-  if (!rest && (/\bindia\b/.test(where) || remote)) return /\bindia\b/.test(where) || /\b(india|saarc)\b/.test(title);
+  if (!rest && (/\bindia\b/.test(where) || remote)) return /\bindia\b/.test(where) || /\b(india|saarc|apac|apj|asia|worldwide|global)\b/.test(title);
   if (/\bsaarc\b/.test(text)) return true;
   return remote && /\b(worldwide|global|apac|apj|asia)\b/.test(text);
 }
