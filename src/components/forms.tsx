@@ -538,14 +538,27 @@ function presetAnswers(location: string): Record<string, string> {
 }
 
 /** Your standard answers for application forms, written once and copied in one click. */
-export function AnswersForm({ answers, location }: { answers: { question: string; answer: string }[]; location: string }) {
+export function AnswersForm({
+  answers,
+  location,
+  onChange,
+}: {
+  answers: { question: string; answer: string }[];
+  location: string;
+  /** Hears every edit, so onboarding can save answers typed but not yet saved. */
+  onChange?: (rows: { question: string; answer: string }[]) => void;
+}) {
   const save = useMutation(api.users.saveAnswers);
   const draft = useAction(api.agent.draftAnswers);
   const [drafting, setDrafting] = useState(false);
-  const [rows, setRows] = useState(() => {
+  const [rows, setRowsState] = useState(() => {
     const have = new Set(answers.map((a) => a.question));
     return [...answers, ...STARTER_QUESTIONS.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: presetAnswers(location)[q] ?? "" }))];
   });
+  const setRows = (next: { question: string; answer: string }[]) => {
+    setRowsState(next);
+    onChange?.(next);
+  };
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
   const set = (i: number, k: "question" | "answer", val: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)));

@@ -8,7 +8,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { CUSTOM_COLORS, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
-import { LocationPicker } from "./forms";
+import { AnswersForm, AutofillLink, LocationPicker } from "./forms";
 import { Spinner } from "./ui";
 
 type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
@@ -18,7 +18,7 @@ const fileClass =
   "mt-2 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line";
 
 export function Onboarding({ me }: { me: Me }) {
-  const [step, setStep] = useState<1 | 2 | 3>(me.resume ? 2 : 1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(me.resume ? 2 : 1);
   const [chosen, setChosen] = useState<Choice[]>([]);
   const [location, setLocation] = useState(me.location || "India");
 
@@ -28,13 +28,14 @@ export function Onboarding({ me }: { me: Me }) {
         JobPipe<span className="text-accent">.</span>
       </p>
       <ol className="mt-8 flex gap-2" aria-label="Progress">
-        {[1, 2, 3].map((n) => (
+        {[1, 2, 3, 4].map((n) => (
           <li key={n} className={`h-1 flex-1 rounded-full ${n <= step ? "bg-accent" : "bg-line"}`} />
         ))}
       </ol>
       {step === 1 && <StepCv me={me} onDone={() => setStep(2)} />}
       {step === 2 && <StepRoles chosen={chosen} setChosen={setChosen} onBack={() => setStep(1)} onDone={() => setStep(3)} />}
-      {step === 3 && <StepWhere location={location} setLocation={setLocation} chosen={chosen} onBack={() => setStep(2)} />}
+      {step === 3 && <StepWhere location={location} setLocation={setLocation} onBack={() => setStep(2)} onDone={() => setStep(4)} />}
+      {step === 4 && <StepAnswers me={me} location={location} chosen={chosen} onBack={() => setStep(3)} />}
     </div>
   );
 }
@@ -199,18 +200,45 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
   );
 }
 
-function StepWhere({ location, setLocation, chosen, onBack }: { location: string; setLocation: (l: string) => void; chosen: Choice[]; onBack: () => void }) {
-  const complete = useMutation(api.users.completeOnboarding);
-  const findJobs = useAction(api.agent.findJobs);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
+function StepWhere({ location, setLocation, onBack, onDone }: { location: string; setLocation: (l: string) => void; onBack: () => void; onDone: () => void }) {
   return (
     <div className="mt-10">
       <h1 className="display text-4xl md:text-5xl">Where do you want to work?</h1>
       <p className="mt-3 text-ink-2">Pick one, or type a city or country.</p>
       <div className="mt-8">
         <LocationPicker value={location} onChange={setLocation} />
+      </div>
+      <div className="mt-8 flex items-center gap-4">
+        <button className="btn btn-primary" onClick={onDone}>
+          Next
+        </button>
+        <button type="button" className="text-sm text-ink-3 hover:text-ink" onClick={onBack}>
+          Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StepAnswers({ me, location, chosen, onBack }: { me: Me; location: string; chosen: Choice[]; onBack: () => void }) {
+  const complete = useMutation(api.users.completeOnboarding);
+  const saveAnswers = useMutation(api.users.saveAnswers);
+  const findJobs = useAction(api.agent.findJobs);
+  // Answers typed here but not saved yet; saved on the way out so nothing is lost.
+  const [rows, setRows] = useState<{ question: string; answer: string }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  return (
+    <div className="mt-10">
+      <h1 className="display text-4xl md:text-5xl">The questions every form asks.</h1>
+      <p className="mt-3 text-ink-2">
+        Notice period, expected pay, LinkedIn. Answer them once and the autofill bookmark fills them into application forms for you. Skip any you&apos;d
+        rather not answer; you can change them later on the CVs page.
+      </p>
+      <div className="mt-8 space-y-6">
+        <AnswersForm answers={me.answers} location={location} onChange={setRows} />
+        {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
       </div>
       {error && <p className="mt-4 text-sm text-bad">{error}</p>}
       <div className="mt-8 flex items-center gap-4">
@@ -221,6 +249,8 @@ function StepWhere({ location, setLocation, chosen, onBack }: { location: string
             setBusy(true);
             setError("");
             try {
+              const filled = rows?.filter((r) => r.question.trim() && r.answer.trim());
+              if (filled?.length) await saveAnswers({ answers: filled });
               await complete({ tracks: chosen.map((c) => ({ ...c, status: "active" as const })), location });
               // Start the first searches; results stream into the Jobs page as they land, and Today says so meanwhile.
               try {
