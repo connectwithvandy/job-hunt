@@ -143,7 +143,7 @@ export function UploadResume({ replace, onAdded }: { replace?: { _id: Id<"resume
     >
       <h2 className="display mb-1 text-2xl">{replace ? `Replace "${replace.label}"` : "Add another CV"}</h2>
       <p className="mb-5 text-sm text-ink-2">
-        PDF or Word. Claude reads it in, keeping every role, bullet and number.
+        PDF or Word. JobPipe reads it in, keeping every role, bullet and number.
         {replace ? " This replaces the CV below." : " Keep one per angle, like an SDR Leader CV and a GTM CV, and pick which role uses which."}
       </p>
       {!replace && (

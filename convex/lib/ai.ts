@@ -59,8 +59,8 @@ export async function askJSON<T extends z.ZodType>(opts: { system: string; promp
   // One line per call in the Convex logs, to see what each task costs.
   const u = response.usage;
   console.log(`AI ${model}: ${u.input_tokens} in, ${u.cache_read_input_tokens ?? 0} cached, ${u.cache_creation_input_tokens ?? 0} stored, ${u.output_tokens} out`);
-  if (response.stop_reason === "refusal") throw new ConvexError("Claude declined this request. Try rewording the job text.");
-  if (response.stop_reason === "max_tokens") throw new ConvexError("Claude's answer was cut off. Try again.");
+  if (response.stop_reason === "refusal") throw new ConvexError("The AI declined this request. Try rewording the job text.");
+  if (response.stop_reason === "max_tokens") throw new ConvexError("The answer was cut off. Try again.");
   if (response.stop_reason === "pause_turn") throw new ConvexError("The web search took too long. Try again.");
   // With web search, the answer is the text after the last search result.
   const lastTool = response.content.findLastIndex((b) => b.type !== "text");

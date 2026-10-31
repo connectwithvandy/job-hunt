@@ -103,7 +103,7 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
     >
       <h1 className="display text-4xl md:text-5xl">First, your CV.</h1>
       <p className="mt-3 text-ink-2">
-        PDF or Word. Claude reads it into a master CV with every role, bullet and number. Each job later gets a tailored copy, and nothing gets invented.
+        PDF or Word. JobPipe reads it into a master CV with every role, bullet and number. Each job later gets a tailored copy, and nothing gets invented.
       </p>
       <div className="card mt-8 grid gap-6 p-6 sm:grid-cols-2">
         <label className="block">
