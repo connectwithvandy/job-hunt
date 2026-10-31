@@ -63,8 +63,14 @@ export function Spinner() {
   return <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />;
 }
 
-/** Copy a message, then open the person's LinkedIn profile so it can be pasted and sent by hand. */
-export function CopyAndOpen({ text, url, label = "Copy note & open LinkedIn" }: { text: string; url: string; label?: string }) {
+/** LinkedIn's new-message page with the message already typed in; you pick the person in "To". */
+export const linkedinCompose = (text: string) => `https://www.linkedin.com/messaging/compose/?body=${encodeURIComponent(text)}`;
+
+/**
+ * Copy a message, then open LinkedIn so it can be sent by hand. With `compose` (people you're already connected to),
+ * LinkedIn opens a new message with the text filled in, and you type their name in "To". Otherwise it opens their profile to paste into.
+ */
+export function CopyAndOpen({ text, url, label = "Copy note & open LinkedIn", compose }: { text: string; url: string; label?: string; compose?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -73,11 +79,12 @@ export function CopyAndOpen({ text, url, label = "Copy note & open LinkedIn" }: 
       onClick={async () => {
         await navigator.clipboard.writeText(text);
         setCopied(true);
-        if (url) window.open(url, "_blank", "noopener");
-        setTimeout(() => setCopied(false), 2500);
+        if (compose) window.open(linkedinCompose(text), "_blank", "noopener");
+        else if (url) window.open(url, "_blank", "noopener");
+        setTimeout(() => setCopied(false), compose ? 6000 : 2500);
       }}
     >
-      {copied ? "Copied. Paste it in LinkedIn" : label}
+      {copied ? (compose ? `Message ready. Type ${compose} in "To" and send` : "Copied. Paste it in LinkedIn") : label}
     </button>
   );
 }

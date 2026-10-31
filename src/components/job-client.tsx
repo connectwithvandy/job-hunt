@@ -687,12 +687,15 @@ export function FollowUpBox({
   url,
   write,
   markSent,
+  name = "",
 }: {
   thread: { sentAt?: number; replied: boolean; followUps?: FollowUp[] };
   channel: "linkedin" | "email";
   url: string;
   write: { jobId?: Id<"jobs">; prospectId?: Id<"prospects">; contactId: string; kind: "hiring" | "referral" };
   markSent: (index: number, text: string) => Promise<void>;
+  /** Their name, so LinkedIn's "To" box can be named in the hint. */
+  name?: string;
 }) {
   const run = useAction(api.agent.followUp);
   const [now] = useState(() => Date.now());
@@ -732,7 +735,16 @@ export function FollowUpBox({
           {draft.subject && <p className="mb-1 text-xs text-ink-3">Subject: {draft.subject}</p>}
           <textarea className="field h-28 text-sm leading-relaxed" value={text} onChange={(e) => setText(e.target.value)} />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {url ? <CopyAndOpen text={text} url={url} label={channel === "email" ? "Copy & open email" : "Copy & open LinkedIn"} /> : <CopyButton text={text} />}
+            {url ? (
+              <CopyAndOpen
+                text={text}
+                url={url}
+                label={channel === "email" ? "Copy & open email" : write.kind === "referral" ? "Open LinkedIn with message ready" : "Copy & open LinkedIn"}
+                compose={channel !== "email" && write.kind === "referral" ? name.split(" ")[0] || "their name" : undefined}
+              />
+            ) : (
+              <CopyButton text={text} />
+            )}
             <button className="btn btn-ghost btn-sm" onClick={() => start(async () => setState(await attempt(async () => void (await markSent(index, text)))))}>
               Mark sent
             </button>
@@ -864,7 +876,7 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
       />
       {cvName && <p className="mt-1 text-xs text-ink-3">Attach {cvName} in LinkedIn before you send.</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <CopyAndOpen text={message} url={o.url} />
+        <CopyAndOpen text={message} url={o.url} label="Open LinkedIn with message ready" compose={o.name.split(" ")[0]} />
         {message !== o.message && (
           <button
             className="btn btn-ghost btn-sm"
@@ -896,6 +908,7 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
           channel="linkedin"
           url={o.url}
           write={{ jobId, contactId: o.contactId, kind: "referral" }}
+          name={o.name}
           markSent={async (index, text) => void (await sendFollowUp({ jobId, contactId: o.contactId, index, text }))}
         />
       )}
