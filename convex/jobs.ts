@@ -10,7 +10,7 @@ import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
-import { cvWords, isLender, quickFit } from "./lib/quickFit";
+import { cvSenior, cvWords, isLender, quickFit } from "./lib/quickFit";
 import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
@@ -292,7 +292,8 @@ async function quickFitFor(ctx: MutationCtx, userId: Id<"users">) {
   const vocab = resumeDoc ? cvWords(resumeDoc.resume) : new Set<string>();
   // A paused role isn't wanted right now, so its titles don't lift a job.
   const titles = tracks.filter((t) => t.status === "active").flatMap((t) => t.titles);
-  return (job: { title: string; company?: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "");
+  const senior = resumeDoc ? cvSenior(resumeDoc.resume) : false;
+  return (job: { title: string; company?: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "", senior);
 }
 
 export const insertMany = internalMutation({

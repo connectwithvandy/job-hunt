@@ -121,7 +121,7 @@ export const warmCompanies = query({
       if (stale && !j.outreach.length) continue;
       const k = companyKey(j.company);
       // The AI fit score when there is one, else the free first guess.
-      const fit = Math.max(...(j.scores ?? []).map((x) => x.score), j.quickFit ?? 0);
+      const fit = j.scores?.length ? Math.max(...j.scores.map((x) => x.score)) : (j.quickFit ?? 0);
       const job = { _id: j._id, title: j.title, status: j.status, outreach: j.outreach, skipped: j.skipped ?? [], fit };
       const e = byCompany.get(k);
       if (e) e.jobs.push(job);

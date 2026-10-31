@@ -22,10 +22,36 @@ export function cvWords(cv: Resume) {
 }
 
 /**
+ * True when the CV shows a senior career: a manager, lead or senior title, or five years and more of work.
+ * Years come from the experience dates, like "Jan 2017" to "Present".
+ */
+export function cvSenior(cv: Resume, year = new Date().getFullYear()) {
+  if (cv.experience.some((e) => SENIOR_ROLE.test(e.role))) return true;
+  const years = (t: string) => (/present|current|now/i.test(t) ? [year] : (t.match(/\b(19|20)\d{2}\b/g) ?? []).map(Number));
+  const starts = cv.experience.flatMap((e) => years(e.start));
+  const ends = cv.experience.flatMap((e) => years(e.end));
+  return starts.length > 0 && ends.length > 0 && Math.max(...ends) - Math.min(...starts) >= 5;
+}
+// "Lead generation" is an entry job, not a lead's.
+const SENIOR_ROLE = /\b(senior|sr|manager|lead(?!\s*gen)|leader|head|director|vp|vice president|principal|chief)\b/i;
+
+/** A job meant for someone starting out: "Fresher", "Apprentice", "Intern", "Entry level", "0-1 years". */
+export function juniorTitle(title: string) {
+  return JUNIOR_TITLE.test(title.replace(/_/g, " ")) || /\b0\s*(-|–|to)\s*[12]\+?\s*(years?|yrs?)\b/i.test(title);
+}
+const JUNIOR_TITLE = /\b(freshers?|apprentices?|apprenticeship|interns?|internship|trainees?|graduates?|entry[\s-]level|junior|jr)\b/i;
+
+/**
  * 0 to 100: title against the track titles (50), CV words found in the job (35), and place (15).
  * `home` is the person's own location, like "Bengaluru, India".
  */
-export function quickFit(job: { title: string; company?: string; description?: string; location: string; workSetting?: string }, vocab: Set<string>, titles: string[], home: string) {
+export function quickFit(
+  job: { title: string; company?: string; description?: string; location: string; workSetting?: string },
+  vocab: Set<string>,
+  titles: string[],
+  home: string,
+  senior = false,
+) {
   const norm = (t: string) => ` ${t.toLowerCase().replace(/[^a-z0-9']+/g, " ").trim()} `;
   const title = norm(job.title);
   const titleShare = Math.max(
@@ -68,7 +94,9 @@ export function quickFit(job: { title: string; company?: string; description?: s
   // Any long description shares plenty of CV words, so they count fully only when the title fits too:
   // a bank's "Acquisition Manager" in Bengaluru shouldn't reach the apply list on words and place alone.
   const cvWeight = titleShare >= 0.6 ? 35 : 15;
-  return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry);
+  // A fresher or apprentice job shares the title but not the level: for someone years in, it's a poor fit.
+  const level = senior && juniorTitle(job.title) ? 0.5 : 1;
+  return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry * level);
 }
 
 // A bank or lender by name, and lending products by title. A title alone saying "Banking" is often a tech

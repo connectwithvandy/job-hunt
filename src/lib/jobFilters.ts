@@ -1,5 +1,6 @@
 // Filters for the Jobs list, modelled on Dreamwork's: each reads one URL parameter.
 
+import { SKIP_BELOW } from "../../convex/lib/posting";
 import { titleMatches } from "../../convex/lib/salesRoles";
 
 type FilterableJob = {
@@ -20,6 +21,12 @@ const postedWithin = (days: number) => (j: FilterableJob) => !!j.postedAt && Dat
 /** The fit score for one role when a role is picked, else the best across roles. -1 when not scored. */
 export const fitFor = (j: Pick<FilterableJob, "scores">, role: string | null) =>
   role ? (j.scores?.find((s) => s.trackKey === role)?.score ?? -1) : Math.max(-1, ...(j.scores ?? []).map((s) => s.score));
+
+/**
+ * Where a job sorts by fit, from its AI score (-1 when not scored): AI scores at the line or above first,
+ * then jobs with only a first guess, then AI scores below the line. A first guess never outranks a good AI score.
+ */
+export const fitTier = (aiScore: number) => (aiScore < 0 ? 1 : aiScore >= SKIP_BELOW ? 2 : 0);
 
 /** Seniority read from the title, since most boards don't send it. */
 export function seniorityOf(title: string) {

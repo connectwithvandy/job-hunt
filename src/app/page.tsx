@@ -12,6 +12,7 @@ import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { fitTier } from "@/lib/jobFilters";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
 
@@ -152,20 +153,27 @@ export default function Today() {
     .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j) && recent(j))
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || fit(b) - fit(a));
   const freshIds = new Set(fresh.map((j) => j._id));
-  const freshUnscored = fresh.filter((j) => !j.scores?.length).length;
-  const apply: Todo[] = [
-    // The free first guess is rough, so scoring comes before applying.
-    ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} new ${freshUnscored === 1 ? "job" : "jobs"} first`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
-    ...fresh.slice(0, 8).map((j) => ({
+  const freshScored = fresh.filter((j) => j.scores?.length);
+  const freshGuessed = fresh.filter((j) => !j.scores?.length);
+  const freshUnscored = freshGuessed.length;
+  // Older strong fits fill in when there's little new that the AI has scored.
+  const older = strong.filter((j) => !freshIds.has(j._id)).slice(0, Math.max(0, APPLIES_A_DAY - freshScored.length));
+  const applyNew = (list: Doc<"jobs">[]) =>
+    list.map((j) => ({
       key: `n${j._id}`,
       verb: "Apply",
       main: `${j.title} at ${j.company}`,
       // Found today isn't posted today: a role up for weeks may be filled.
       sub: [j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : `Found ${timeAgo(new Date(j._creationTime).toISOString())}`, bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ${j.quickFit ?? 0}, not scored yet`].join(" · "),
       href: `/jobs/${j._id}`,
-    })),
-    // Older strong fits fill in when there's little new.
-    ...strong.filter((j) => !freshIds.has(j._id)).slice(0, Math.max(0, APPLIES_A_DAY - fresh.length)).map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
+    }));
+  const apply: Todo[] = [
+    // The free first guess is rough, so scoring comes before applying.
+    ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} new ${freshUnscored === 1 ? "job" : "jobs"} first`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
+    // AI-scored jobs first, new then older; first guesses after them, never ahead of a real score.
+    ...applyNew(freshScored.slice(0, 8)),
+    ...older.map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
+    ...applyNew(freshGuessed.slice(0, Math.max(0, 8 - freshScored.length))),
     ...(unscored.length > freshUnscored ? [{ key: "score", verb: "Score", main: `${unscored.length - freshUnscored} older ${unscored.length - freshUnscored === 1 ? "job" : "jobs"} not scored yet`, sub: "See which ones are worth your time", href: "/jobs?sort=added" }] : []),
   ];
 
@@ -568,7 +576,8 @@ function NewSinceVisit({ since, jobs, prospects, tracks }: { since: number; jobs
   const fresh = jobs
     .filter((j) => j._creationTime > since && j.status === "new")
     .map((j) => ({ j, dream: dreams.has(companyKey(j.company)) }))
-    .sort((a, b) => Number(b.dream) - Number(a.dream) || fit(b.j) - fit(a.j));
+    // AI scores at the line or above rank above first guesses, which run high.
+    .sort((a, b) => Number(b.dream) - Number(a.dream) || fitTier(bestScore(b.j)?.score ?? -1) - fitTier(bestScore(a.j)?.score ?? -1) || fit(b.j) - fit(a.j));
   if (!fresh.length) return null;
   const atDreams = fresh.filter((f) => f.dream).length;
   return (

@@ -12,7 +12,7 @@ import { CompanyMark, PageHead, QuickFitPill, ScorePill, TrackTag, bestScore, jo
 import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
-import { applyFilters, FILTERS, fitFor, inRole } from "@/lib/jobFilters";
+import { applyFilters, FILTERS, fitFor, fitTier, inRole } from "@/lib/jobFilters";
 import { inInr, payPerYearInr, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
 
@@ -27,7 +27,12 @@ const fitOrQuick = (j: ListJob, role: string | null) => {
 };
 
 const SORTS = {
-  fit: { label: "Best fit", compare: (role: string | null) => (a: ListJob, b: ListJob) => fitOrQuick(b, role) - fitOrQuick(a, role) || b._creationTime - a._creationTime },
+  // AI-scored jobs at the line or above come first, then first guesses, which run high.
+  fit: {
+    label: "Best fit",
+    compare: (role: string | null) => (a: ListJob, b: ListJob) =>
+      fitTier(fitFor(b, role)) - fitTier(fitFor(a, role)) || fitOrQuick(b, role) - fitOrQuick(a, role) || b._creationTime - a._creationTime,
+  },
   pay: {
     label: "Highest pay",
     compare: (role: string | null, rates: Record<string, number>) => (a: ListJob, b: ListJob) =>
