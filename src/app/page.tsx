@@ -29,6 +29,21 @@ function msSince(when: number) {
   return Date.now() - when;
 }
 
+/** Whether it's still before 8:00 in India (02:30 UTC), when the morning autopilot runs. */
+function beforeEightInIndia() {
+  const now = new Date();
+  return now.getUTCHours() * 60 + now.getUTCMinutes() < 2 * 60 + 30;
+}
+
+/** Why a first search from onboarding failed, if one did. */
+function firstSearchError() {
+  try {
+    return sessionStorage.getItem("firstSearchError") ?? "";
+  } catch {
+    return "";
+  }
+}
+
 /** Whether onboarding started the first searches in the last five minutes. */
 function startedFirstSearch() {
   try {
@@ -41,6 +56,7 @@ function startedFirstSearch() {
 export default function Today() {
   const me = useQuery(api.users.me);
   const [searching] = useState(startedFirstSearch);
+  const [searchError] = useState(firstSearchError);
   const jobs = useQuery(api.jobs.list);
   const prospects = useQuery(api.prospects.list);
   const stories = useQuery(api.stories.list);
@@ -187,7 +203,7 @@ export default function Today() {
         <section className="card mb-8 p-6">
           <h2 className="display mb-4 text-2xl">Next steps</h2>
           <ol className="grid gap-3 md:grid-cols-2">
-            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? `${jobs.length} found. Score them to see which fit.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."} />
+            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? `${jobs.length} found. Score them to see which fit.` : searchError ? `The first search didn't work: ${searchError} Try again on the Jobs page.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."} />
             <Setup done={me.contactsCount > 0} n={2} href="/network" title="Load your LinkedIn connections" text="So every job shows who you know there." />
           </ol>
         </section>
@@ -228,7 +244,12 @@ export default function Today() {
       <Step n={1} title="Answer people who wrote back" items={answer} empty="No one waiting on a reply from you." />
       <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits in the last 24 hours. Run a search on the Jobs page." />
       <Step n={3} title="Follow up" items={chase} empty="No follow-ups due today." />
-      <Step n={4} title="Open up new companies" items={reach} empty="You've asked at every company on your top 50 list." />
+      <Step
+        n={4}
+        title="Open up new companies"
+        items={reach}
+        empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections on the Your network page to see who you know at each company."}
+      />
 
       <Autopilot on={me.autopilot} last={me.lastAutopilot} />
 
@@ -580,7 +601,7 @@ function Autopilot({ on, last }: { on: boolean; last: { at: number; added: numbe
             ? "Turn it on and every morning at 8 the app searches all your roles and scores what's new, so you start with a ranked list."
             : last
               ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"}${last.funded ? `, ${last.funded} newly funded ${last.funded === 1 ? "company" : "companies"}` : ""}.`
-              : "First run is tomorrow at 8 in the morning, India time."}
+              : `First run is ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning, India time.`}
         </p>
         {on && last?.failed?.length ? (
           <p className="mt-1 text-sm text-warn">

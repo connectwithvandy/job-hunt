@@ -25,7 +25,7 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
   readCv: "CV uploads",
   score: "job scores",
   tailor: "tailored CVs",
-  notes: "notes and messages (referral notes, Find & write note, Personalise)",
+  notes: "notes and quick writing (referral notes, messages, questions before a CV, Fill from my CV)",
   addJob: "added jobs",
   research: "company lookups",
   prep: "interview preps",
@@ -33,17 +33,22 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
   search: "job searches",
 };
 
-/** Spend `count` of today's allowance, or throw a friendly error. The owner has no limit. */
+/**
+ * Spend `count` of today's allowance, or throw a friendly error. The owner has no limit.
+ * With `checkOnly`, only makes sure it's there, so slow AI work can spend it after it succeeds.
+ */
 export const consume = internalMutation({
   args: {
     userId: v.id("users"),
     kind: v.union(v.literal("readCv"), v.literal("score"), v.literal("tailor"), v.literal("notes"), v.literal("addJob"), v.literal("research"), v.literal("prep"), v.literal("chat"), v.literal("search")),
     count: v.optional(v.number()),
+    checkOnly: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, kind, count }) => {
+  handler: async (ctx, { userId, kind, count, checkOnly }) => {
     const user = await ctx.db.get("users", userId);
     if (isOwnerEmail(user?.email)) return null;
-    const { ok, retryAfter } = await rateLimiter.limit(ctx, kind, { key: userId, count: count ?? 1 });
+    const args = { key: userId, count: count ?? 1 };
+    const { ok, retryAfter } = checkOnly ? await rateLimiter.check(ctx, kind, args) : await rateLimiter.limit(ctx, kind, args);
     if (!ok) {
       const hours = Math.max(1, Math.ceil(retryAfter / HOUR));
       throw new ConvexError(`You've used today's ${DAILY_LIMITS[kind]} ${LABELS[kind]}. More in about ${hours} ${hours === 1 ? "hour" : "hours"}.`);
@@ -68,7 +73,9 @@ export const reserveGoogle = internalMutation({
     const used = rows.reduce((n, r) => n + r.count, 0);
     const mine = rows.find((r) => r.userId === userId);
     const user = await ctx.db.get("users", userId);
-    const people = (await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(500)).length + 1;
+    // Everyone let in, plus the owner, who never needs a waitlist row (counted once even if they have one).
+    const approved = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(500);
+    const people = approved.filter((a) => !isOwnerEmail(a.email)).length + 1;
     const share = isOwnerEmail(user?.email) ? budget : Math.floor(budget / people);
     const granted = Math.max(0, Math.min(want, budget - used, share - (mine?.count ?? 0)));
     if (!granted) return 0;

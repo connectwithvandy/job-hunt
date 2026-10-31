@@ -46,8 +46,15 @@ type Context = {
   tracks: Doc<"tracks">[];
 };
 
-async function spend(ctx: ActionCtx, userId: Id<"users">, kind: "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep" | "chat" | "search", count = 1) {
+type Allowance = "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep" | "chat" | "search";
+
+async function spend(ctx: ActionCtx, userId: Id<"users">, kind: Allowance, count = 1) {
   await ctx.runMutation(internal.limits.consume, { userId, kind, count });
+}
+
+/** Makes sure today's allowance is there without spending it; spend after the AI work succeeds, so a failure costs nothing. */
+async function afford(ctx: ActionCtx, userId: Id<"users">, kind: Allowance, count = 1) {
+  await ctx.runMutation(internal.limits.consume, { userId, kind, count, checkOnly: true });
 }
 
 async function setup(ctx: ActionCtx): Promise<Context> {
@@ -98,8 +105,9 @@ export const readCv = action({
       if (text.length < 200) {
         throw new ConvexError("Couldn't read text from that file. If it's a scanned image, export it from Canva or Word as a text PDF.");
       }
-      await spend(ctx, userId, "readCv");
+      await afford(ctx, userId, "readCv");
       const resume = await parseResume(text);
+      await spend(ctx, userId, "readCv");
       const resumeId: Id<"resumes"> = await ctx.runMutation(internal.users.storeParsedResume, { userId, resume, replaceId, label });
       return { roles: resume.experience.length, resumeId };
     } finally {
@@ -411,8 +419,10 @@ export const scoreJobs = action({
   handler: async (ctx, { jobIds }): Promise<{ scored: number; failed: number }> => {
     const me = await setup(ctx);
     const ids = jobIds.slice(0, 12);
-    await spend(ctx, me.userId, "score", ids.length);
+    await afford(ctx, me.userId, "score", ids.length);
     const { scored, failed, lastError } = await scoreIds(ctx, me, ids);
+    // Only the jobs that got a score count against today's allowance.
+    if (scored) await spend(ctx, me.userId, "score", scored);
     if (failed === ids.length) throw new ConvexError(lastError);
     return { scored, failed };
   },
@@ -613,8 +623,9 @@ async function tailorFor(
       await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
       return null;
     }
-    await spend(ctx, userId, "tailor");
+    await afford(ctx, userId, "tailor");
     const { pack, standingRules } = await buildPack(job, cv, track, allNotes.length ? { notes: allNotes, previous: job.pack } : undefined, voice, facts);
+    await spend(ctx, userId, "tailor");
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
     // Requests that hold for every application (like "never call me a hunter") become your writing rules.
     if (standingRules.length) await ctx.runMutation(internal.users.addWritingRulesForAction, { userId, rules: standingRules });

@@ -559,6 +559,12 @@ export function AnswersForm({
     setRowsState(next);
     onChange?.(next);
   };
+  // The starting rows (pre-filled answers included) count as typed, even if never touched.
+  useEffect(() => {
+    onChange?.(rows);
+    // Once, on mount: later changes go through setRows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
   const set = (i: number, k: "question" | "answer", val: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)));

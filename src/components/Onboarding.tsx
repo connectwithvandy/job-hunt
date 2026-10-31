@@ -12,6 +12,7 @@ import { AnswersForm, AutofillLink, LocationPicker } from "./forms";
 import { Spinner } from "./ui";
 
 type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
+const MAX_ROLES = 8;
 type Choice = { key: string; name: string; color: string; titles: string[]; pitch: string };
 
 const fileClass =
@@ -21,6 +22,8 @@ export function Onboarding({ me }: { me: Me }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(me.resume ? 2 : 1);
   const [chosen, setChosen] = useState<Choice[]>([]);
   const [location, setLocation] = useState(me.location || "India");
+  // Application answers typed on step 4, kept here so Back and Next don't lose them.
+  const [answers, setAnswers] = useState<{ question: string; answer: string }[] | null>(null);
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-12 md:py-20">
@@ -35,7 +38,7 @@ export function Onboarding({ me }: { me: Me }) {
       {step === 1 && <StepCv me={me} onDone={() => setStep(2)} />}
       {step === 2 && <StepRoles chosen={chosen} setChosen={setChosen} onBack={() => setStep(1)} onDone={() => setStep(3)} />}
       {step === 3 && <StepWhere location={location} setLocation={setLocation} onBack={() => setStep(2)} onDone={() => setStep(4)} />}
-      {step === 4 && <StepAnswers me={me} location={location} chosen={chosen} onBack={() => setStep(3)} />}
+      {step === 4 && <StepAnswers me={me} location={location} chosen={chosen} rows={answers} setRows={setAnswers} onBack={() => setStep(3)} />}
     </div>
   );
 }
@@ -128,7 +131,12 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
   const [name, setName] = useState("");
   const [titles, setTitles] = useState("");
   const custom = chosen.filter((c) => !PRESET_TRACKS.some((p) => p.key === c.key));
-  const toggle = (c: Choice) => setChosen(chosen.some((x) => x.key === c.key) ? chosen.filter((x) => x.key !== c.key) : [...chosen, c]);
+  // The server keeps up to eight roles, so a ninth can't be picked.
+  const full = chosen.length >= MAX_ROLES;
+  const toggle = (c: Choice) => {
+    if (chosen.some((x) => x.key === c.key)) setChosen(chosen.filter((x) => x.key !== c.key));
+    else if (!full) setChosen([...chosen, c]);
+  };
 
   return (
     <div className="mt-10">
@@ -175,7 +183,7 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
           <button
             type="button"
             className="btn btn-ghost"
-            disabled={!name.trim() || !titles.trim()}
+            disabled={!name.trim() || !titles.trim() || full}
             onClick={() => {
               const t = titles.split(",").map((s) => s.trim()).filter(Boolean);
               setChosen([...chosen, { key: `${slug(name)}-${Math.random().toString(36).slice(2, 8)}`, name: name.trim(), color: CUSTOM_COLORS[custom.length % CUSTOM_COLORS.length], titles: t, pitch: "" }]);
@@ -189,6 +197,7 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
       </div>
 
       <div className="mt-8 flex items-center gap-4">
+        {full && <span className="text-sm text-ink-3">Eight is the most. Untick one to pick another.</span>}
         <button className="btn btn-primary" disabled={!chosen.length} onClick={onDone}>
           Continue with {chosen.length || "no"} {chosen.length === 1 ? "role" : "roles"}
         </button>
@@ -220,13 +229,27 @@ function StepWhere({ location, setLocation, onBack, onDone }: { location: string
   );
 }
 
-function StepAnswers({ me, location, chosen, onBack }: { me: Me; location: string; chosen: Choice[]; onBack: () => void }) {
+function StepAnswers({
+  me,
+  location,
+  chosen,
+  rows,
+  setRows,
+  onBack,
+}: {
+  me: Me;
+  location: string;
+  chosen: Choice[];
+  rows: { question: string; answer: string }[] | null;
+  setRows: (rows: { question: string; answer: string }[]) => void;
+  onBack: () => void;
+}) {
   const complete = useMutation(api.users.completeOnboarding);
   const saveAnswers = useMutation(api.users.saveAnswers);
   const findJobs = useAction(api.agent.findJobs);
-  // Answers typed here but not saved yet; saved on the way out so nothing is lost.
-  const [rows, setRows] = useState<{ question: string; answer: string }[] | null>(null);
   const [busy, setBusy] = useState(false);
+  // What the bookmark carries: the answers on screen, saved or not.
+  const filled = (rows ?? me.answers).filter((r) => r.question.trim() && r.answer.trim());
   const [error, setError] = useState("");
 
   return (
@@ -237,8 +260,8 @@ function StepAnswers({ me, location, chosen, onBack }: { me: Me; location: strin
         rather not answer; you can change them later on the CVs page.
       </p>
       <div className="mt-8 space-y-6">
-        <AnswersForm answers={me.answers} location={location} onChange={setRows} />
-        {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
+        <AnswersForm answers={rows ?? me.answers} location={location} onChange={setRows} />
+        {filled.length > 0 && <AutofillLink answers={filled} />}
       </div>
       {error && <p className="mt-4 text-sm text-bad">{error}</p>}
       <div className="mt-8 flex items-center gap-4">
@@ -249,14 +272,20 @@ function StepAnswers({ me, location, chosen, onBack }: { me: Me; location: strin
             setBusy(true);
             setError("");
             try {
-              const filled = rows?.filter((r) => r.question.trim() && r.answer.trim());
-              if (filled?.length) await saveAnswers({ answers: filled });
+              if (rows && filled.length) await saveAnswers({ answers: filled });
               await complete({ tracks: chosen.map((c) => ({ ...c, status: "active" as const })), location });
               // Start the first searches; results stream into the Jobs page as they land, and Today says so meanwhile.
               try {
                 sessionStorage.setItem("firstSearchAt", String(Date.now()));
+                sessionStorage.removeItem("firstSearchError");
               } catch {}
-              for (const c of chosen) void findJobs({ trackKey: c.key }).catch(() => {});
+              // Today shows a failure instead of "finding your first jobs" forever.
+              for (const c of chosen)
+                void findJobs({ trackKey: c.key }).catch((err) => {
+                  try {
+                    sessionStorage.setItem("firstSearchError", errorMessage(err));
+                  } catch {}
+                });
             } catch (err) {
               setError(errorMessage(err));
               setBusy(false);
