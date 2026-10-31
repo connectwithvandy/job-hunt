@@ -79,6 +79,17 @@ export function payText(salary: string | null | undefined, rates: Record<string,
   const top = nums.length ? Math.max(...nums) : 0;
   const rupees = /₹|inr|rs\.?/i.test(salary);
   // A year's pay in rupees runs to lakhs; in other currencies to thousands.
-  if (yearly && top > 0 && top < (rupees || !/[$€£]|usd|eur|gbp|aud|sgd|cad/i.test(salary) ? 100_000 : 1000)) return null;
+  const foreign = /[$€£]|usd|eur|gbp|aud|sgd|cad/i.test(salary);
+  if (yearly && top > 0 && top < (rupees || !foreign ? 100_000 : 1000)) return null;
+  // Long rupee figures read better in lakhs: "400000 per month" becomes "₹4 L/month". A bare monthly
+  // figure that big can only be rupees; a bare yearly one could be dollars, so it stays as written.
+  const monthly = /month|mo\b/.test(s);
+  if ((rupees || (!foreign && monthly)) && top >= 100_000 && !/lpa|lakhs?|\bl\b|cr\b|crore/.test(s)) {
+    const big = nums.filter((n) => n >= 10_000);
+    const l = (n: number) => +(n / 100_000).toFixed(n < 1_000_000 ? 1 : 0);
+    const [lo, hi] = [l(Math.min(...big)), l(Math.max(...big))];
+    const unit = monthly ? "month" : /week|day|hour|hr\b/.test(s) ? null : "yr";
+    if (unit) return `₹${lo === hi ? lo : `${lo}–${hi}`} L/${unit}${/est/.test(s) ? " (est.)" : ""}`;
+  }
   return salary;
 }

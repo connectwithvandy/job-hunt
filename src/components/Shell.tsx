@@ -26,7 +26,8 @@ const noSubscribe = () => () => {};
 export function Shell({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const access = useQuery(api.access.status, isAuthenticated ? {} : "skip");
-  const me = useQuery(api.users.me, access?.approved ? {} : "skip");
+  // Asked alongside access, not after it, so the app opens one round trip sooner. It only returns your own profile.
+  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
   const path = usePathname();
   // The server can't see sign-ins, so it renders the landing page. That way search engines and AI crawlers
   // that don't run JavaScript read the real page, not a spinner. Returning visitors get the spinner instead.
