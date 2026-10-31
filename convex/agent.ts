@@ -171,7 +171,37 @@ export const findJobs = action({
     const track = tracks.find((t) => t.key === trackKey);
     if (!track) throw new ConvexError("Unknown track.");
     await spend(ctx, userId, "search");
-    return { ...(await searchTrack(ctx, userId, track, location, 2, ownerLinkedIn(email))), trackName: track.name };
+    const found = await searchTrack(ctx, userId, track, location, 2, ownerLinkedIn(email));
+    // A first list of jobs with only rough guesses hides what the app is for, so the best few get a real score
+    // straight away. Later, other roles' searches finish too; the wait lets them land so the pick covers all of them.
+    if (found.added) await ctx.scheduler.runAfter(FIRST_SCORING_WAIT, internal.agent.scoreFirstJobs, { userId });
+    return { ...found, trackName: track.name };
+  },
+});
+
+const FIRST_SCORING_WAIT = 20_000;
+/** How many jobs the first scoring after sign-up does: one batch, from the day's allowance. */
+export const FIRST_SCORES = 12;
+
+/** Once per person, after their first search: AI-scores the best first guesses. */
+export const scoreFirstJobs = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const first: boolean = await ctx.runMutation(internal.jobs.claimFirstScoring, { userId });
+    if (!first) return null;
+    const me = await contextFor(ctx, userId);
+    if (!me.resume) return null;
+    const ids: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit: FIRST_SCORES });
+    if (!ids.length) return null;
+    try {
+      await spend(ctx, userId, "score", ids.length);
+    } catch (err) {
+      console.warn("First scoring skipped", String(err));
+      return null;
+    }
+    const { failed, lastError } = await scoreIds(ctx, me, ids);
+    if (failed) console.warn("First scoring failed for some jobs", failed, lastError);
+    return null;
   },
 });
 

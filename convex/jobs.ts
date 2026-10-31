@@ -448,6 +448,21 @@ export const toCheckLive = internalQuery({
   },
 });
 
+/**
+ * Claims the one-time first scoring after sign-up. True only once per person, and only while none of their
+ * jobs has an AI score yet: several roles search at once, and each asks.
+ */
+export const claimFirstScoring = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!profile || profile.firstScoredAt) return false;
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).take(300);
+    await ctx.db.patch("profiles", profile._id, { firstScoredAt: Date.now() });
+    return !recent.some((j) => j.scores?.length);
+  },
+});
+
 /** Newest jobs not scored yet, for the morning run. */
 export const unscoredIds = internalQuery({
   args: { userId: v.id("users"), limit: v.number() },

@@ -212,7 +212,7 @@ export default function Today() {
         <section className="card mb-8 p-6">
           <h2 className="display mb-4 text-2xl">Next steps</h2>
           <ol className="grid gap-3 md:grid-cols-2">
-            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? `${jobs.length} found. Score them to see which fit.` : searchError ? `The first search didn't work: ${searchError} Try again on the Jobs page.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."} />
+            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? firstFound(jobs, searching) : searchError ? `The first search didn't work: ${searchError} Try again on the Jobs page.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."} />
             <Setup done={me.contactsCount > 0} n={2} href="/network" title="Load your LinkedIn connections" text="So every job shows who you know there." />
           </ol>
         </section>
@@ -676,4 +676,14 @@ function JustRaised({ prospects }: { prospects: Doc<"prospects">[] }) {
       </ul>
     </section>
   );
+}
+
+/** The first-steps line once jobs are in: right after sign-up the best few are being scored by themselves. */
+function firstFound(jobs: Doc<"jobs">[], searching: boolean) {
+  const scored = jobs.filter((j) => j.scores?.length);
+  const good = scored.filter((j) => (bestScore(j)?.score ?? 0) >= SKIP_BELOW).length;
+  if (good) return `${jobs.length} found, ${good} worth applying to. Open Jobs to see why each one fits.`;
+  if (scored.length)
+    return `${jobs.length} found. The AI scored the ${scored.length} likeliest and none fits well yet: add another role on Setup, or check back after tomorrow's search.`;
+  return searching ? `${jobs.length} found. Scoring the best ones now, about a minute.` : `${jobs.length} found. Score them to see which fit.`;
 }

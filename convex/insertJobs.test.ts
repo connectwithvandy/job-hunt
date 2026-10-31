@@ -34,3 +34,23 @@ test("searched jobs posted over 45 days ago aren't saved; fresh ones and ones yo
   const titles = await t.run(async (ctx) => (await ctx.db.query("jobs").collect()).map((j) => j.title).sort());
   expect(titles).toEqual(["Enterprise Account Executive", "Founding Account Executive", "Senior Account Executive"]);
 });
+
+test("the first scoring after sign-up runs once, and never for someone who already has scores", async () => {
+  const t = convexTest(schema, modules);
+  rateLimiter.register(t);
+  const fresh = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { email: "new@example.com" });
+    await ctx.db.insert("profiles", { userId, location: "Bengaluru", onboarded: true });
+    return userId;
+  });
+  expect(await t.mutation(internal.jobs.claimFirstScoring, { userId: fresh })).toBe(true);
+  expect(await t.mutation(internal.jobs.claimFirstScoring, { userId: fresh })).toBe(false);
+
+  const seasoned = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { email: "old@example.com" });
+    await ctx.db.insert("profiles", { userId, location: "Bengaluru", onboarded: true });
+    await ctx.db.insert("jobs", { userId, ...job("x", "Account Executive", undefined), scores: [{ trackKey: "ae", score: 80, reason: "", gaps: [] }] });
+    return userId;
+  });
+  expect(await t.mutation(internal.jobs.claimFirstScoring, { userId: seasoned })).toBe(false);
+});

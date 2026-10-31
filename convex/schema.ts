@@ -76,6 +76,8 @@ export default defineSchema({
     facts: v.optional(v.array(v.object({ question: v.string(), answer: v.string(), at: v.number() }))),
     /** Search and score every morning without being asked. */
     autopilot: v.optional(v.boolean()),
+    /** When the first AI scoring after sign-up started, so it runs once even with several roles searching at once. */
+    firstScoredAt: v.optional(v.number()),
     /** When you last opened the app, and the visit before, for "New since your last visit". */
     lastSeenAt: v.optional(v.number()),
     /** Private code the Gmail script sends with recruiting emails (inbox.ts). */
