@@ -34,6 +34,14 @@ export function SignIn() {
     reset: ["Forgot your password?", "Type your email and we'll send you a code to set a new one."],
     "reset-verification": ["Check your email", `We sent an 8-digit code to ${email}. It works for 15 minutes.`],
   }[flow];
+  // The line under the headline, fitted to the screen they're on.
+  const pitch = {
+    signUp:
+      "Built by a sales leader during a real job hunt. Join the waitlist; once you're in, upload your CV, pick the kinds of roles you're after, and let it do the sorting, tailoring and intro hunting.",
+    signIn: "Your search is where you left it: today's new jobs scored against your CV, follow-ups due, and who you know at each company.",
+    reset: "Locked out? It happens. We'll email you a code, you pick a new password, and you're back to your search in a minute.",
+    "reset-verification": "Locked out? It happens. We'll email you a code, you pick a new password, and you're back to your search in a minute.",
+  }[flow];
   const button = { signUp: "Create account", signIn: "Sign in", reset: "Send me a code", "reset-verification": "Set new password and sign in" }[flow];
 
   return (
@@ -47,10 +55,7 @@ export function SignIn() {
           <br />
           You&apos;re running several searches at once.
         </h1>
-        <p className="mt-5 max-w-xl text-lg text-ink-2">
-          Built by a sales leader during a real job hunt, now letting people in from a waitlist. Upload your CV, pick the kinds of roles you&apos;re after, and let it do the
-          sorting, tailoring and intro hunting.
-        </p>
+        <p className="mt-5 max-w-xl text-lg text-ink-2">{pitch}</p>
         <ul className="mt-10 grid gap-5 sm:grid-cols-2">
           {POINTS.map(([title, text]) => (
             <li key={title} className="border-l-2 border-accent pl-4">
