@@ -2,12 +2,12 @@
 // One copy, used by the landing page, its structured data and /llms.txt, so they never disagree.
 import { LEGAL, PLANS } from "./legal";
 
-export const TITLE = "JobPipe: job search for sales and GTM roles in India";
+export const TITLE = "JobPipe: job search for sales and GTM roles, India and US";
 
 export const DESCRIPTION =
-  "Job search for sales and GTM roles in India, APAC and EMEA. Every job scored against your CV, a tailored CV for each one, and who you know there to refer you.";
+  "Job search for sales and GTM roles in India, the US, APAC and EMEA. Every job scored against your CV, a tailored CV for each one, and who you know there.";
 
-export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, scores each job against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in waitlist beta: ${PLANS.trialDays}-day free trial, then ₹${PLANS.full}/month or ₹${PLANS.pass.toLocaleString("en-IN")} for a ${PLANS.passMonths}-month pass (₹${PLANS.founding}/month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
+export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, the US, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, scores each job against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in waitlist beta: ${PLANS.trialDays}-day free trial, then ₹${PLANS.full}/month or ₹${PLANS.pass.toLocaleString("en-IN")} for a ${PLANS.passMonths}-month pass (₹${PLANS.founding}/month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
 
 export const STEPS = [
   "Upload your CV and pick the sales roles you want.",
@@ -43,7 +43,7 @@ export const FAQ: [string, string][] = [
   ],
   [
     "Which locations does JobPipe cover?",
-    "JobPipe is built mainly for jobs in India, especially Bengaluru, and for remote roles across APAC and EMEA. If you live in an Indian city, it shows jobs in that city, anywhere in India, and remote roles open to India or APAC. Every job is scored against your roles, so ones that don't fit sink to the bottom.",
+    "JobPipe covers sales jobs in India and the US, and remote roles across APAC and EMEA. Set your city and it searches there: in an Indian city it shows that city, anywhere in India and remote roles open to India or APAC; in a US city, US roles. Every job is scored against your roles, so ones that don't fit sink to the bottom.",
   ],
   [
     "What does JobPipe do each day?",

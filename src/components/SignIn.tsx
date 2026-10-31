@@ -153,7 +153,7 @@ export function SignIn() {
         <section>
           <p className="inline-flex items-center gap-2 rounded-full border border-line bg-card/60 px-3 py-1 text-xs text-ink-2">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            For sales and GTM people · India, APAC, EMEA
+            For sales and GTM people · India, US, APAC, EMEA
           </p>
           <h1 className="display mt-6 text-4xl leading-[1.02] md:text-[64px]">
             You&apos;re not looking for <span className="text-accent">a</span>{" "}

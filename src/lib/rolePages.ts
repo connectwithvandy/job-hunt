@@ -102,6 +102,24 @@ export const ROLE_PAGES: RolePage[] = [
     ],
   },
   {
+    slug: "sales-jobs-usa",
+    title: "SDR, Account Executive and sales leadership jobs in the US",
+    description: "SDR, BDR, Account Executive and sales manager jobs in the US, scored against your CV with a reason. JobPipe tailors your CV and shows who can refer you.",
+    intro:
+      "The US has the largest market for B2B sales jobs, from SDR and BDR roles to Account Executives and sales leadership. Many are in-office or hybrid in hubs like New York, San Francisco, Austin and Boston; remote roles are often limited to US residents.",
+    looksFor: [
+      "Quota attainment as numbers, ideally over several quarters, and your rank on the team.",
+      "Pipeline, deal size and sales cycle, and the segment you sold to.",
+      "The CRM and sales tools you used, such as Salesforce, HubSpot, Outreach and Gong.",
+      "Work authorisation and location, since many US roles require both.",
+    ],
+    faq: [
+      ["Does JobPipe search US sales jobs?", "Yes. Set a US city and JobPipe searches job boards and company careers pages there every morning, then scores each job against the roles you want with a reason."],
+      ["Are US remote sales jobs open to people outside the US?", "Usually not. Most US remote sales roles require US residence or work authorisation. JobPipe reads the location and job description and flags roles that rule you out."],
+      ["How should a CV for a US sales job look?", "One page if you have under 10 years of experience, results first, and numbers in every bullet: quota, attainment, pipeline and deal size. JobPipe reorders your real facts for each job and never invents numbers."],
+    ],
+  },
+  {
     slug: "remote-sales-jobs-apac",
     title: "Remote sales jobs for India, APAC and EMEA",
     description: "Remote SDR, AE and sales leadership jobs open to India, APAC and EMEA. JobPipe filters out roles you can't take and scores the rest against your CV.",
