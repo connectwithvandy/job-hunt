@@ -129,6 +129,8 @@ export const hiringContactV = v.object({
   followUps: v.optional(v.array(followUpV)),
   /** Their latest LinkedIn posts, read through Apify, so a message can mention something they actually said. */
   recentPosts: v.optional(v.array(v.object({ text: v.string(), url: v.string(), at: v.optional(v.number()) }))),
+  /** The email Hunter.io found for them and how sure it is, so the card can say "verified" or "likely". */
+  emailLookup: v.optional(v.object({ email: v.string(), score: v.number(), verified: v.boolean(), at: v.number() })),
 });
 
 /** What the web says about the company, gathered when you ask. */

@@ -20,6 +20,7 @@ import { pdfText } from "./lib/pdfText";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
+import { cvMatch } from "./lib/cvMatch";
 import { withCompanyLinks } from "./lib/directLink";
 import { htmlToText, openTo, readPlace, searchOtherSources, titleMatches, type Found } from "./lib/sources";
 import type { jobV, liveCheckV, resumeV } from "./lib/validators";
@@ -658,7 +659,7 @@ async function tailorFor(
       return null;
     }
     await afford(ctx, userId, "tailor");
-    const { pack, standingRules } = await buildPack(job, cv, track, allNotes.length ? { notes: allNotes, previous: job.pack } : undefined, voice, facts, context);
+    const { pack, standingRules } = await buildPack(job, cv, track, allNotes.length ? { notes: allNotes, previous: job.pack } : undefined, voice, facts, { ...context, keepTerms: termsToKeep(job.description, cv, job.company) });
     await spend(ctx, userId, "tailor");
     await ctx.runMutation(internal.jobs.patchForAction, { userId, jobId, description: job.description, pack, trackKey: track?.key, ...(skip && anyway ? { wroteAnyway: true } : {}) });
     // Requests that hold for every application (like "never call me a hunter") become your writing rules.
@@ -683,6 +684,11 @@ async function personalContext(ctx: ActionCtx, userId: Id<"users">, job: Doc<"jo
   const score = job.scores?.find((s) => s.trackKey === trackKey) ?? [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0];
   const worry = score && score.score < 75 ? [score.reason, ...score.gaps].filter(Boolean).join(" ") : undefined;
   return { research, worry };
+}
+
+/** The posting's terms your CV already covers, so tailoring keeps them (see lib/cvMatch.ts). */
+function termsToKeep(description: string | undefined, cv: Resume, company: string) {
+  return description ? (cvMatch(description, cv, company)?.covered.map((t) => t.label) ?? []) : [];
 }
 
 export const draftNotes = action({
@@ -956,40 +962,6 @@ export const learnFromNoes = action({
       lessons: { at: Date.now(), basedOn: noes.length, summary: out.summary, items: out.items.slice(0, 3).map((i) => ({ ...i, seen: Math.max(0, Math.round(i.seen)) })) },
     });
     return null;
-  },
-});
-
-// ---------- Contact lookup ----------
-
-/** Whether the email finder is switched on, so the page only shows the button when it works. */
-export const canFindEmails = action({
-  args: {},
-  handler: async (): Promise<boolean> => !!process.env.HUNTER_API_KEY,
-});
-
-/** Looks up a contact's work email with Hunter.io from their name and company. */
-export const findEmail = action({
-  args: { jobId: v.id("jobs"), contactId: v.string() },
-  handler: async (ctx, { jobId, contactId }): Promise<{ email: string; confidence: number }> => {
-    const key = process.env.HUNTER_API_KEY;
-    if (!key) throw new ConvexError("Email lookup isn't switched on: add a Hunter.io key first.");
-    const userId = await requireUserId(ctx);
-    const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId });
-    const person = job.hiringContacts?.find((c) => c.id === contactId);
-    if (!person) throw new ConvexError("That person isn't on this job any more.");
-    const [first, ...rest] = person.name.trim().split(/\s+/);
-    if (!rest.length) throw new ConvexError("Add their full name first, so the lookup can match them.");
-    await spend(ctx, userId, "research");
-    const params = new URLSearchParams({ company: job.company, first_name: first, last_name: rest.join(" "), api_key: key });
-    const res = await fetch(`https://api.hunter.io/v2/email-finder?${params}`, { signal: AbortSignal.timeout(20_000) });
-    const body = (await res.json()) as { data?: { email: string | null; score: number | null; phone_number?: string | null }; errors?: { details: string }[] };
-    if (!res.ok) throw new ConvexError(`Hunter.io: ${body.errors?.[0]?.details ?? `answered ${res.status}`}`);
-    if (!body.data?.email) throw new ConvexError(`No email found for ${person.name} at ${job.company}.`);
-    await ctx.runMutation(internal.jobs.updateContactForAction, {
-      userId, jobId, contactId,
-      patch: { email: body.data.email, ...(person.phone || !body.data.phone_number ? {} : { phone: body.data.phone_number }) },
-    });
-    return { email: body.data.email, confidence: body.data.score ?? 0 };
   },
 });
 

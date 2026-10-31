@@ -27,6 +27,10 @@ const app = defineApp({
     JSEARCH_MONTHLY: v.optional(v.string()),
     /** Sends the "you're in" and forgot-password emails through Resend (lib/email.ts). Off when missing. */
     RESEND_API_KEY: v.optional(v.string()),
+    /** Finds a hiring contact's work email (convex/emailFinder.ts). Off when missing. */
+    HUNTER_API_KEY: v.optional(v.string()),
+    /** Emails the whole app may find with Hunter.io a month; defaults to 25 (the free plan has 50 credits). */
+    HUNTER_MONTHLY: v.optional(v.string()),
   },
 });
 app.use(rateLimiter);

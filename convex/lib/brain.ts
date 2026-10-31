@@ -297,7 +297,7 @@ export async function buildPack(
   feedback?: { notes: string[]; previous?: Pack },
   voice?: Voice,
   facts: Fact[] = [],
-  context: { research?: Research | null; worry?: string } = {},
+  context: { research?: Research | null; worry?: string; keepTerms?: string[] } = {},
 ): Promise<{ pack: Pack; standingRules: string[] }> {
   const previous = feedback?.previous;
   const notes = feedback?.notes.filter((n) => n.trim()) ?? [];
@@ -321,7 +321,11 @@ Master CV:
 ${resumeText(resume)}
 
 Job:
-${jobText(job)}${researchBlock(context.research)}${context.worry ? `\n\nWhat the fit check says a hiring manager would worry about: ${context.worry}` : ""}${factsBlock(facts)}${
+${jobText(job)}${researchBlock(context.research)}${context.worry ? `\n\nWhat the fit check says a hiring manager would worry about: ${context.worry}` : ""}${
+      context.keepTerms?.length
+        ? `\n\nThe posting's own terms that the master CV already backs. Keep every one of them, in the posting's wording, somewhere in the tailored CV (summary, bullets or skills), so the tailored CV never matches the posting less than the master does: ${context.keepTerms.join(", ")}`
+        : ""
+    }${factsBlock(facts)}${
       feedback
         ? `
 

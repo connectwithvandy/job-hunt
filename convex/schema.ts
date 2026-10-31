@@ -11,6 +11,9 @@ export default defineSchema({
   /** Google Jobs (JSearch) searches used per person per month, so everyone shares the free monthly quota. */
   googleUsage: defineTable({ month: v.string(), userId: v.id("users"), count: v.number() }).index("by_month_userId", ["month", "userId"]),
 
+  /** Emails found with Hunter.io each month ("2026-10"), for the whole app, so it stays inside the free plan. */
+  hunterUsage: defineTable({ month: v.string(), count: v.number() }).index("by_month", ["month"]),
+
   /** Gmail and Calendar read permission from Connect Gmail (convex/google.ts). The token is stored encrypted. */
   googleConnections: defineTable({ userId: v.id("users"), email: v.string(), refreshToken: v.string(), calendar: v.boolean(), connectedAt: v.number() }).index(
     "by_userId",

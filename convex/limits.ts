@@ -19,6 +19,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   prep: { kind: "fixed window", rate: DAILY_LIMITS.prep, period: DAY },
   chat: { kind: "fixed window", rate: DAILY_LIMITS.chat, period: DAY },
   search: { kind: "fixed window", rate: DAILY_LIMITS.search, period: DAY },
+  findEmail: { kind: "fixed window", rate: DAILY_LIMITS.findEmail, period: DAY },
   // The free CV review on /cv-review, for everyone together: caps what strangers can spend on AI in a day.
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
 });
@@ -33,6 +34,7 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
   prep: "interview preps",
   chat: "chat messages",
   search: "job searches",
+  findEmail: "email lookups",
 };
 
 /**
@@ -42,7 +44,7 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
 export const consume = internalMutation({
   args: {
     userId: v.id("users"),
-    kind: v.union(v.literal("readCv"), v.literal("score"), v.literal("tailor"), v.literal("notes"), v.literal("addJob"), v.literal("research"), v.literal("prep"), v.literal("chat"), v.literal("search")),
+    kind: v.union(v.literal("readCv"), v.literal("score"), v.literal("tailor"), v.literal("notes"), v.literal("addJob"), v.literal("research"), v.literal("prep"), v.literal("chat"), v.literal("search"), v.literal("findEmail")),
     count: v.optional(v.number()),
     checkOnly: v.optional(v.boolean()),
   },
@@ -84,6 +86,42 @@ export const reserveGoogle = internalMutation({
     if (mine) await ctx.db.patch("googleUsage", mine._id, { count: mine.count + granted });
     else await ctx.db.insert("googleUsage", { month, userId, count: granted });
     return granted;
+  },
+});
+
+// ---------- Hunter.io: one free monthly quota for everyone ----------
+
+/** The most emails the whole app may find with Hunter.io this month; defaults to 25 (the free plan has 50 credits). */
+export function hunterBudget() {
+  const n = Number(env.HUNTER_MONTHLY ?? 25);
+  return Number.isFinite(n) && n >= 0 ? n : 25;
+}
+
+/**
+ * Holds one of this month's Hunter.io lookups before searching, so two people can't both take the last one.
+ * Returns false when they're used up. Hand it back with releaseHunter if nothing was found (that costs Hunter nothing).
+ * Applies to the owner too: it's the free plan's limit, not a per-person one.
+ */
+export const reserveHunter = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const month = new Date().toISOString().slice(0, 7);
+    const row = await ctx.db.query("hunterUsage").withIndex("by_month", (q) => q.eq("month", month)).unique();
+    if ((row?.count ?? 0) >= hunterBudget()) return false;
+    if (row) await ctx.db.patch("hunterUsage", row._id, { count: row.count + 1 });
+    else await ctx.db.insert("hunterUsage", { month, count: 1 });
+    return true;
+  },
+});
+
+/** Gives back a held lookup that found nothing. */
+export const releaseHunter = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const month = new Date().toISOString().slice(0, 7);
+    const row = await ctx.db.query("hunterUsage").withIndex("by_month", (q) => q.eq("month", month)).unique();
+    if (row && row.count > 0) await ctx.db.patch("hunterUsage", row._id, { count: row.count - 1 });
+    return null;
   },
 });
 

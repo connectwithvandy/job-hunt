@@ -37,6 +37,8 @@ type Env = {
   readonly GOOGLE_CLIENT_ID: string | undefined;
   readonly GOOGLE_CLIENT_SECRET: string | undefined;
   readonly GOOGLE_REDIRECT_URI: string | undefined;
+  readonly HUNTER_API_KEY: string | undefined;
+  readonly HUNTER_MONTHLY: string | undefined;
   readonly JOBHUNT_MODEL: string | undefined;
   readonly JSEARCH_API_KEY: string | undefined;
   readonly JSEARCH_MONTHLY: string | undefined;

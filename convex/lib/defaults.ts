@@ -39,6 +39,8 @@ export const DAILY_LIMITS = {
   prep: 5,
   chat: 60,
   search: 20,
+  /** Hunter.io's free plan is about 50 emails a month for the whole app, so each person gets a few a day. */
+  findEmail: 3,
 } as const;
 
 /** Quick picks for where to search. "Remote" and "Anywhere" aren't places, so the search maps them to filters. */

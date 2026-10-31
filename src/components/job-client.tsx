@@ -459,15 +459,32 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
   const saveForJob = useMutation(api.jobs.saveHiringContacts);
   const saveForProspect = useMutation(api.prospects.saveContacts);
   const jobId = "jobId" in owner ? owner.jobId : null;
-  const findEmail = useAction(api.agent.findEmail);
-  const canFind = useAction(api.agent.canFindEmails);
+  const findEmail = useAction(api.emailFinder.find);
+  const finder = useQuery(api.emailFinder.status);
   // Reading LinkedIn posts is on the owner's account only, for now.
   const isOwner = useQuery(api.users.me)?.isOwner ?? false;
-  const [finderOn, setFinderOn] = useState(false);
   const [finding, setFinding] = useState("");
-  useEffect(() => {
-    canFind({}).then(setFinderOn, () => {});
-  }, [canFind]);
+  // The person whose company website we need typed in, and the one Hunter.io couldn't use, if any.
+  const [askSite, setAskSite] = useState<{ id: string; tried: string } | null>(null);
+  const lookUp = async (c: HiringContact, domain?: string) => {
+    if (!jobId) return;
+    if (!finder?.on) return setState({ error: "Find email isn't switched on yet." });
+    setFinding(c.id);
+    setState(
+      await attempt(async () => {
+        const out = await findEmail({ jobId, contactId: c.id, domain });
+        if (out.status === "needDomain") {
+          setAskSite({ id: c.id, tried: out.tried });
+          return;
+        }
+        setAskSite(null);
+        if (out.status === "none") return `No email found for ${c.name} at ${out.domain}. Message them on LinkedIn instead.`;
+        const sure = out.verified ? "verified" : `likely, score ${out.score}%`;
+        return out.saved ? `Found ${out.email} (${sure}).` : `Found ${out.email} (${sure}). Not saved: they already have an email.`;
+      }),
+    );
+    setFinding("");
+  };
   const [editing, setEditing] = useState<HiringContact | null>(null);
   const [state, setState] = useState<ActionState>(null);
   const store = async (next: HiringContact[]) =>
@@ -508,24 +525,40 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
                     Email {c.email} ↗
                   </a>
                 )}
+                {c.email && c.emailLookup?.email === c.email && (
+                  <span className="self-center text-xs text-ink-3" title="Found with Hunter.io">
+                    {c.emailLookup.verified ? "verified" : `likely (score ${c.emailLookup.score}%)`}
+                  </span>
+                )}
                 {c.phone && <CopyButton text={c.phone} label={`Copy ${c.phone}`} />}
-                {!c.email && finderOn && jobId && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    disabled={!!finding}
-                    onClick={async () => {
-                      setFinding(c.id);
-                      setState(await attempt(async () => {
-                        const { email: found, confidence } = await findEmail({ jobId, contactId: c.id });
-                        return `Found ${found} (${confidence}% sure).`;
-                      }));
-                      setFinding("");
-                    }}
-                  >
+                {!c.email && jobId && finder && (finder.usedUp ? (
+                  <span className="self-center text-xs text-ink-3">This month&apos;s free email lookups are used up</span>
+                ) : (
+                  <button className="btn btn-ghost btn-sm" disabled={!!finding} onClick={() => void lookUp(c)}>
                     {finding === c.id ? "Looking up…" : "Find email"}
                   </button>
-                )}
+                ))}
               </div>
+              {askSite?.id === c.id && !c.email && (
+                <form
+                  className="mt-2 flex flex-wrap items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void lookUp(c, String(new FormData(e.currentTarget).get("site")));
+                  }}
+                >
+                  <span className="text-xs text-ink-2">
+                    {askSite.tried ? `Hunter.io can't use ${askSite.tried}. Add the company website:` : "Add the company website:"}
+                  </span>
+                  <input name="site" className="field text-sm" placeholder="acme.com" required autoFocus />
+                  <button className="btn btn-ghost btn-sm" disabled={!!finding}>
+                    {finding === c.id ? "Looking up…" : "Find email"}
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAskSite(null)}>
+                    Cancel
+                  </button>
+                </form>
+              )}
               <SendTracking contact={c} note={note} email={email} save={(patch) => store(contacts.map((x) => (x.id === c.id ? { ...x, ...patch } : x)))} />
               {c.sentAt && (
                 <FollowUpBox
