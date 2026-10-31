@@ -3,7 +3,7 @@
 
 import type { Infer } from "convex/values";
 import { inBengaluru, remoteForIndia } from "./places";
-import { titleMatches } from "./salesRoles";
+import { otherFunction, titleMatches } from "./salesRoles";
 import type { resumeV } from "./validators";
 
 type Resume = Infer<typeof resumeV>;
@@ -31,6 +31,8 @@ export function quickFit(job: { title: string; company?: string; description?: s
   const titleShare = Math.max(
     0,
     ...titles.map((t) => {
+      // An engineer or product manager job doesn't fit a sales role, whatever words they share.
+      if (otherFunction(t, job.title)) return 0;
       const want = norm(t);
       // The whole phrase ("business operations") counts fully; the words scattered about count less.
       if (title.includes(want)) return 1;

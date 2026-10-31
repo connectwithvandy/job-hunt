@@ -136,6 +136,7 @@ export function fullTitle(title: string) {
 
 /** True when the job title holds every word searched for. Loose boards also match descriptions. */
 export function titleMatches(searched: string, title: string) {
+  if (otherFunction(searched, title)) return false;
   // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
   const t = fullTitle(title);
   const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
@@ -147,6 +148,17 @@ export function titleMatches(searched: string, title: string) {
   // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and
   // "Director, Sales Development". Leaders run the reps, so their titles rarely say "representative".
   return isLeader(t.split(" ")) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
+}
+
+/** Jobs in another function. "Senior Engineer - Business Operations" holds "business operations" but isn't a GTM role. */
+const OTHER_FUNCTION =
+  /\b(engineer|engineering|developer|programmer|devops|sre|scientist|designer|architect|product manager|product owner|program manager|technical program|qa|tester|recruiter|talent acquisition|accountant|nurse|physician|pharmacist|teacher|lawyer|paralegal|counsel)\b/;
+
+/** Whether a title belongs to another function than the one searched for; "Sales Engineer" still matches a "Sales Engineer" search. */
+export function otherFunction(searched: string, title: string) {
+  const s = searched.toLowerCase();
+  const found = title.toLowerCase().match(new RegExp(OTHER_FUNCTION.source, "g")) ?? [];
+  return found.some((f) => !s.includes(f));
 }
 
 const FILLER = new Set(["of", "the", "and", "for", "&"]);
