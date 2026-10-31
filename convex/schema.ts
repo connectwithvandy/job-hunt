@@ -31,6 +31,8 @@ export default defineSchema({
     name: v.optional(v.string()),
     linkedin: v.optional(v.string()),
     role: v.optional(v.string()),
+    // When the "you're in" email went out, so letting someone in twice doesn't send it twice.
+    welcomedAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"]),

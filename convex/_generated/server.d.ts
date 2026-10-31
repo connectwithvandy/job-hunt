@@ -40,6 +40,7 @@ type Env = {
   readonly JSEARCH_API_KEY: string | undefined;
   readonly JSEARCH_MONTHLY: string | undefined;
   readonly OWNER_EMAILS: string | undefined;
+  readonly RESEND_API_KEY: string | undefined;
 };
 
 /**

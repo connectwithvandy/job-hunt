@@ -13,9 +13,25 @@ const POINTS = [
 
 export function SignIn() {
   const { signIn } = useAuthActions();
-  const [flow, setFlow] = useState<"signUp" | "signIn">("signUp");
+  const [flow, setFlow] = useState<"signUp" | "signIn" | "reset" | "reset-verification">("signUp");
+  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const resetting = flow === "reset" || flow === "reset-verification";
+
+  const failText = {
+    signUp: "Couldn't create the account. The password needs 8 or more characters, or the email may already have an account.",
+    signIn: "That email and password don't match. Use \"Forgot password?\" below to set a new one.",
+    reset: "Couldn't send the code. Check the email, or write to hello@jobpipe.in and we'll reset it for you.",
+    "reset-verification": "That code didn't work, or it's over 15 minutes old. Check it, or ask for a new one. The new password needs 8 or more characters.",
+  }[flow];
+  const head = {
+    signUp: ["Start your hunt", "Free. Takes two minutes, plus your CV."],
+    signIn: ["Welcome back", "Sign in to pick up where you left off."],
+    reset: ["Forgot your password?", "Type your email and we'll send you a code to set a new one."],
+    "reset-verification": ["Check your email", `We sent an 8-digit code to ${email}. It works for 15 minutes.`],
+  }[flow];
+  const button = { signUp: "Create account", signIn: "Sign in", reset: "Send me a code", "reset-verification": "Set new password and sign in" }[flow];
 
   return (
     <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-12 px-5 py-12 lg:grid-cols-[1.2fr_1fr] lg:px-12">
@@ -53,40 +69,74 @@ export function SignIn() {
       </section>
 
       <form
+        key={flow}
         className="card p-7"
         onSubmit={(e) => {
           e.preventDefault();
           setBusy(true);
           setError("");
-          signIn("password", new FormData(e.currentTarget))
-            .catch(() =>
-              setError(
-                flow === "signUp"
-                  ? "Couldn't create the account. The password needs 8 or more characters, or the email may already have an account."
-                  : "That email and password don't match. Forgot your password? Reply to your JobPipe welcome email and you'll get a new one.",
-              ),
-            )
+          const data = new FormData(e.currentTarget);
+          signIn("password", data)
+            .then(() => {
+              if (flow === "reset") {
+                setEmail(String(data.get("email") ?? ""));
+                setFlow("reset-verification");
+              }
+            })
+            .catch(() => setError(failText))
             .finally(() => setBusy(false));
         }}
       >
-        <h2 className="display text-2xl">{flow === "signUp" ? "Start your hunt" : "Welcome back"}</h2>
-        <p className="mt-1 mb-6 text-sm text-ink-2">{flow === "signUp" ? "Free. Takes two minutes, plus your CV." : "Sign in to pick up where you left off."}</p>
-        <label className="block">
-          <span className="label">Email</span>
-          <input name="email" type="email" required autoComplete="email" className="field mt-1" />
-        </label>
-        <label className="mt-4 block">
-          <span className="label">Password</span>
-          <input name="password" type="password" required minLength={8} autoComplete={flow === "signUp" ? "new-password" : "current-password"} className="field mt-1" />
-        </label>
+        <h2 className="display text-2xl">{head[0]}</h2>
+        <p className="mt-1 mb-6 text-sm text-ink-2">{head[1]}</p>
+        {flow === "reset-verification" ? (
+          <>
+            <input name="email" type="hidden" value={email} />
+            <label className="block">
+              <span className="label">Code</span>
+              <input name="code" inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{8}" maxLength={8} className="field mt-1" />
+            </label>
+            <label className="mt-4 block">
+              <span className="label">New password</span>
+              <input name="newPassword" type="password" required minLength={8} autoComplete="new-password" className="field mt-1" />
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="block">
+              <span className="label">Email</span>
+              <input name="email" type="email" required autoComplete="email" defaultValue={email} className="field mt-1" />
+            </label>
+            {flow !== "reset" && (
+              <label className="mt-4 block">
+                <span className="label">Password</span>
+                <input name="password" type="password" required minLength={8} autoComplete={flow === "signUp" ? "new-password" : "current-password"} className="field mt-1" />
+              </label>
+            )}
+          </>
+        )}
         <input name="flow" type="hidden" value={flow} />
         {error && <p className="mt-4 text-sm text-bad">{error}</p>}
         <button className="btn btn-primary mt-6 w-full justify-center" disabled={busy}>
           {busy && <Spinner />}
-          {flow === "signUp" ? "Create account" : "Sign in"}
+          {button}
         </button>
-        <button type="button" className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink" onClick={() => setFlow(flow === "signUp" ? "signIn" : "signUp")}>
-          {flow === "signUp" ? "Already have an account? Sign in" : "New here? Create an account"}
+        {flow === "signIn" && (
+          <button type="button" className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink" onClick={() => setFlow("reset")}>
+            Forgot password?
+          </button>
+        )}
+        {flow === "reset-verification" && (
+          <button type="button" className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink" onClick={() => setFlow("reset")}>
+            Didn&apos;t get it? Send a new code
+          </button>
+        )}
+        <button
+          type="button"
+          className="mt-2 w-full text-center text-sm text-ink-3 hover:text-ink"
+          onClick={() => setFlow(resetting ? "signIn" : flow === "signUp" ? "signIn" : "signUp")}
+        >
+          {resetting ? "Back to sign in" : flow === "signUp" ? "Already have an account? Sign in" : "New here? Create an account"}
         </button>
       </form>
     </div>

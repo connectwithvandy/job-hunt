@@ -1,8 +1,10 @@
 import { getAuthUserId, invalidateSessions, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { action, internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { hasAccess, isOwnerEmail } from "./lib/auth";
+import { emailOn, sendEmail, welcomeEmail } from "./lib/email";
 
 async function requireOwner(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
@@ -66,7 +68,42 @@ export const list = query({
     await requireOwner(ctx);
     const waiting = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", false)).order("desc").take(200);
     const approved = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).order("desc").take(200);
-    return { waiting, approved };
+    return { waiting, approved, emailOn: emailOn() };
+  },
+});
+
+/** Queue the "you're in" email, once per person. Does nothing when email is off. */
+async function queueWelcome(ctx: MutationCtx, accessId: Id<"access">) {
+  if (!emailOn()) return;
+  await ctx.scheduler.runAfter(0, internal.access.sendWelcome, { accessId });
+}
+
+export const welcomeTarget = internalQuery({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    const row = await ctx.db.get("access", accessId);
+    if (!row?.email || !row.approved || row.welcomedAt) return null;
+    return { email: row.email, name: row.name, role: row.role };
+  },
+});
+
+export const markWelcomed = internalMutation({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    await ctx.db.patch("access", accessId, { welcomedAt: Date.now() });
+    return null;
+  },
+});
+
+/** Sends the personal "you're in" email: their first name, the role they asked for, and how to start. */
+export const sendWelcome = internalAction({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    const target = await ctx.runQuery(internal.access.welcomeTarget, { accessId });
+    if (!target) return null;
+    await sendEmail({ to: target.email, ...welcomeEmail(target) });
+    await ctx.runMutation(internal.access.markWelcomed, { accessId });
+    return null;
   },
 });
 
@@ -77,6 +114,7 @@ export const setApproved = mutation({
     const row = await ctx.db.get("access", accessId);
     if (!row) throw new ConvexError("That person isn't on the waitlist any more.");
     await ctx.db.patch("access", accessId, { approved, decidedAt: Date.now() });
+    if (approved) await queueWelcome(ctx, accessId);
     // Taken off the app: stop their morning searches too.
     if (!approved) {
       const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
@@ -97,6 +135,7 @@ export const approveMany = mutation({
       const row = await ctx.db.get("access", id);
       if (!row || row.approved) continue;
       await ctx.db.patch("access", id, { approved: true, decidedAt: now });
+      await queueWelcome(ctx, id);
       if (row.email) emails.push(row.email);
     }
     return emails;
@@ -116,7 +155,7 @@ export const resetTarget = internalQuery({
 
 /**
  * A new temporary password for someone who forgot theirs, shown to the owner to pass on. Owner only.
- * JobPipe can't send email yet, so this stands in for a "forgot password" link. It also signs them out everywhere.
+ * For when the emailed reset code doesn't reach them (or email is off). It also signs them out everywhere.
  */
 export const resetPassword = action({
   args: { accessId: v.id("access") },

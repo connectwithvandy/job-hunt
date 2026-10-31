@@ -23,6 +23,8 @@ const app = defineApp({
     FIRECRAWL_API_KEY: v.optional(v.string()),
     /** Google Jobs searches the whole app may use a month, split between everyone; defaults to 190 (the free plan is 200). */
     JSEARCH_MONTHLY: v.optional(v.string()),
+    /** Sends the "you're in" and forgot-password emails through Resend (lib/email.ts). Off when missing. */
+    RESEND_API_KEY: v.optional(v.string()),
   },
 });
 app.use(rateLimiter);

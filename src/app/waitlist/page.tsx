@@ -40,7 +40,9 @@ export default function WaitlistAdmin() {
         <div>
           <div className="font-medium">{a.name ? `${a.name} · ${a.email}` : a.email || "No email"}</div>
           <div className="text-xs text-ink-3">
-            {[a.role, `Signed up ${new Date(a._creationTime).toLocaleDateString()}`].filter(Boolean).join(" · ")}
+            {[a.role, `Signed up ${new Date(a._creationTime).toLocaleDateString()}`, !approve && (a.welcomedAt ? "Welcome email sent" : list.emailOn ? "Welcome email not sent yet" : "")]
+              .filter(Boolean)
+              .join(" · ")}
             {a.linkedin && (
               <>
                 {" · "}
@@ -62,8 +64,8 @@ export default function WaitlistAdmin() {
       <ActionButton size="sm" variant={approve ? "primary" : "ghost"} run={async () => {
           if (!approve && !window.confirm(`Remove ${a.email}'s access? Their saved jobs stay, but they can't use JobPipe.`)) return;
           await setApproved({ accessId: a._id, approved: approve });
-          // JobPipe can't send email itself, so open yours with the note ready to send.
-          if (approve && a.email) window.location.href = welcomeEmail([a.email]);
+          // With email on, JobPipe sends the welcome itself. Without it, open your email app with the note ready.
+          if (approve && a.email && !list.emailOn) window.location.href = welcomeEmail([a.email]);
         }}>
         {approve ? "Let in" : "Remove access"}
       </ActionButton>
@@ -73,7 +75,14 @@ export default function WaitlistAdmin() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHead title="Waitlist" sub="People who signed up. They can't use JobPipe, or spend your AI credits, until you let them in. Letting someone in opens your email app with a note to tell them." />
+      <PageHead
+        title="Waitlist"
+        sub={`People who signed up. They can't use JobPipe, or spend your AI credits, until you let them in. ${
+          list.emailOn
+            ? "Letting someone in sends them a personal \"you're in\" email from hello@jobpipe.in."
+            : "Letting someone in opens your email app with a note to tell them. (Automatic email is off until RESEND_API_KEY is set.)"
+        }`}
+      />
       {reset && (
         <div className="card mb-6 space-y-2 p-5 text-sm">
           <p>
@@ -108,8 +117,8 @@ export default function WaitlistAdmin() {
             run={async () => {
               const emails = await approveMany({ accessIds: [...picked] });
               setPicked(new Set());
-              // One note to everyone, each hidden from the others.
-              if (emails.length) window.location.href = welcomeEmail(emails);
+              // Without email on: one note to everyone, each hidden from the others.
+              if (emails.length && !list.emailOn) window.location.href = welcomeEmail(emails);
             }}
           >
             Let in {picked.size} {picked.size === 1 ? "person" : "people"}
