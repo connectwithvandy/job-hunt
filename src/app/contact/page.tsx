@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { LEGAL, missing } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Contact", description: "Reach JobPipe at hello@jobpipe.in.", alternates: { canonical: "/contact" } };
+export const metadata: Metadata = { title: "Contact", description: "Write to hello@jobpipe.in about access, billing, bugs or deleting your data.", alternates: { canonical: "/contact" } };
 
 export default function Contact() {
   return (

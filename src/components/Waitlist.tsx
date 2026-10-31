@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 
-const ROLES = ["Account Executive", "SDR / BDR", "Sales leadership", "GTM / RevOps", "Founder's Office", "Other"];
+const ROLES = ["Account Executive", "SDR / BDR", "Sales leadership", "GTM strategy / AI GTM", "Founder's Office", "Other"];
 
 /** Signed up but not let in yet. A few questions help the owner let the right people in first. */
 export function Waitlist({ email, onWaitlist, answered }: { email: string; onWaitlist: boolean; answered: boolean }) {
@@ -48,7 +48,7 @@ export function Waitlist({ email, onWaitlist, answered }: { email: string; onWai
             setBusy(false);
           }}
         >
-          <p className="text-lg text-ink-2">Three quick questions, so we can let you in sooner.</p>
+          <p className="text-lg text-ink-2">Three quick questions, so we let the right people in first.</p>
           <label className="block">
             <span className="label">Your name</span>
             <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
@@ -75,7 +75,7 @@ export function Waitlist({ email, onWaitlist, answered }: { email: string; onWai
           </div>
           {error && <p className="text-sm text-bad">{error}</p>}
           <button className="btn btn-primary" disabled={busy || !name.trim()}>
-            {busy ? "Saving…" : "Done"}
+            {busy ? "Saving…" : "Save"}
           </button>
         </form>
       )}

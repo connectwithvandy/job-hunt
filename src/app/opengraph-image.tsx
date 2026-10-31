@@ -18,7 +18,7 @@ export default function OpengraphImage() {
           </div>
           <div>You&apos;re running several searches at once.</div>
         </div>
-        <div style={{ display: "flex", fontSize: 30, color: "#a1a1aa" }}>Jobs scored against your CV · tailored CVs · warm referral notes · jobpipe.in</div>
+        <div style={{ display: "flex", fontSize: 30, color: "#a1a1aa" }}>Jobs scored against your CV · tailored CVs · warm intros · jobpipe.in</div>
       </div>
     ),
     size,

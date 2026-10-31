@@ -32,17 +32,17 @@ export function welcomeEmail(p: { name?: string; role?: string; email: string })
   const role = p.role?.trim();
   const steps = [
     `Sign in with ${p.email} and the password you picked: ${link}`,
-    "Upload your CV. A PDF is fine, Canva ones too.",
-    role ? `Add "${role}" as your first role (you told us that's what you're after). Add more if you're open to others.` : "Pick the roles you're after. You can add more than one.",
+    "Upload your CV. Any PDF works, Canva ones too.",
+    role ? `Add "${role}" as your first role. Add more if you're open to others.` : "Pick the roles you're after. You can add more than one.",
     "Open Today each morning: new jobs scored against your CV, follow-ups due, and who you know at each company.",
   ];
   const subject = first ? `${first}, you're in: JobPipe` : "You're in: JobPipe";
   const hello = first ? `Hi ${first},` : "Hi,";
   const intro = role
-    ? `You're off the waitlist. JobPipe is ready to start hunting ${role} roles for you.`
-    : "You're off the waitlist. JobPipe is ready to start hunting for you.";
+    ? `You're off the waitlist. JobPipe is ready to start finding ${role} roles for you.`
+    : "You're off the waitlist. JobPipe is ready to start your search.";
   const outro =
-    "You're one of the first people in, so things will break now and then. Tell me when they do: reply to this email or use \"Send feedback\" in the app. I read every one.";
+    "You're one of the first in, so things will break now and then. When they do, reply to this email or use \"Send feedback\" in the app. Every message gets read.";
   const text = `${hello}
 
 ${intro}
