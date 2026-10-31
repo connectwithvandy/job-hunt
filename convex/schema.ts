@@ -10,6 +10,14 @@ export default defineSchema({
   /** Google Jobs (JSearch) searches used per person per month, so everyone shares the free monthly quota. */
   googleUsage: defineTable({ month: v.string(), userId: v.id("users"), count: v.number() }).index("by_month_userId", ["month", "userId"]),
 
+  /** Gmail and Calendar read permission from Connect Gmail (convex/google.ts). The token is stored encrypted. */
+  googleConnections: defineTable({ userId: v.id("users"), email: v.string(), refreshToken: v.string(), calendar: v.boolean(), connectedAt: v.number() }).index(
+    "by_userId",
+    ["userId"],
+  ),
+  /** One-time codes tying Google's answer back to the person who clicked Connect Gmail. */
+  googleStates: defineTable({ userId: v.id("users"), state: v.string() }).index("by_state", ["state"]),
+
   /** What testers wrote in the Send feedback box, for the owner to read on the waitlist page. */
   feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
 

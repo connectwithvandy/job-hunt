@@ -797,6 +797,77 @@ function sync() {
 `;
 }
 
+/** One button to Google's permission page; after that JobPipe reads recruiting emails and meetings every hour. */
+function ConnectGmail({ connected, email, inboxAt, onScript }: { connected: boolean; email: string; inboxAt: number | null; onScript: () => void }) {
+  const start = useMutation(api.google.start);
+  const disconnect = useAction(api.google.disconnect);
+  const [busy, setBusy] = useState(false);
+  // Google sends people back here with ?gmail=connected or ?gmail=error.
+  const [failed] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("gmail") === "error");
+  if (connected) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="text-good">
+          Gmail connected{email ? ` (${email})` : ""}
+          {inboxAt ? `, last checked ${timeAgo(inboxAt)}` : ", checking now"}
+        </span>
+        <button
+          className="btn btn-ghost btn-sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await disconnect({}).catch(() => {});
+            setBusy(false);
+          }}
+        >
+          Disconnect
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="card space-y-3 p-5 text-sm">
+      <div>
+        <div className="font-medium">Get recruiter replies here automatically</div>
+        <p className="text-ink-2">Replies and interview invites move your jobs along by themselves, checked every hour.</p>
+      </div>
+      {failed && <p className="text-bad">That didn&apos;t connect. Try again, and tick both boxes on Google&apos;s page.</p>}
+      <button
+        className="btn btn-primary"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          window.location.href = await start({});
+        }}
+      >
+        {busy ? "Opening Google…" : "Connect Gmail"}
+      </button>
+      <p className="text-ink-3">
+        Google may say it hasn&apos;t checked JobPipe yet: click <b>Advanced</b>, then <b>Go to JobPipe</b>, then <b>Allow</b>.
+      </p>
+      <details className="text-ink-2">
+        <summary className="cursor-pointer underline">What does it read? Is it safe?</summary>
+        <div className="mt-2 space-y-1">
+          <p>
+            JobPipe only reads. It looks at recruiting emails and LinkedIn message alerts from the last two days, and your calendar for the next three weeks,
+            keeping only meetings with companies you&apos;re applying to. It can&apos;t send, delete or change anything.
+          </p>
+          <p>
+            Disconnect here anytime, or at{" "}
+            <a className="underline" href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer">
+              myaccount.google.com/permissions
+            </a>
+            .
+          </p>
+        </div>
+      </details>
+      <button type="button" className="text-ink-3 underline" onClick={onScript}>
+        Use a Google Script instead
+      </button>
+    </div>
+  );
+}
+
 /** Sets up the Gmail script that moves jobs along when recruiters write back. */
 export function GmailSync() {
   const getToken = useMutation(api.inbox.token);
@@ -808,6 +879,11 @@ export function GmailSync() {
   const [now] = useState(() => Date.now());
   const inboxAt = me?.inboxAt ?? null;
   const live = inboxAt !== null && now - inboxAt < 3 * 3_600_000;
+  const google = useQuery(api.google.status);
+  // With Connect Gmail set up, that's the way in; the script stays for whoever already uses it.
+  if (google?.available && !script) {
+    return <ConnectGmail connected={google.connected} email={google.email} inboxAt={inboxAt} onScript={async () => setScript(gmailScript((await getToken()) ?? "", endpoint))} />;
+  }
   if (!script) {
     return (
       <div className="flex flex-wrap items-center gap-3">

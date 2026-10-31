@@ -138,7 +138,7 @@ export default function Today() {
     ),
     // Without Gmail, replies can't show up here, so "Done" would be a guess.
     ...(!me.inboxAt || msSince(me.inboxAt) > DAY
-      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Takes 2 minutes on the Applications page.", href: "/tracker" }]
+      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once on the Applications page.", href: "/tracker" }]
       : []),
     ...(interviewing.length && stories?.length === 0
       ? [{ key: "stories", verb: "Prepare", main: "Your interview stories", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six stories cover most questions.`, href: "/stories" }]

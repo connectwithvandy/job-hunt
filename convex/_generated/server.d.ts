@@ -34,6 +34,8 @@ type Env = {
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
+  readonly GOOGLE_CLIENT_ID: string | undefined;
+  readonly GOOGLE_CLIENT_SECRET: string | undefined;
   readonly JOBHUNT_MODEL: string | undefined;
   readonly JSEARCH_API_KEY: string | undefined;
   readonly JSEARCH_MONTHLY: string | undefined;

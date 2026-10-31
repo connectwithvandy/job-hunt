@@ -45,4 +45,15 @@ http.route({
   }),
 });
 
+/** Google's answer after someone clicks Connect Gmail and allows access. */
+http.route({
+  path: "/google/callback",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+    const next: string = await ctx.runAction(internal.google.finish, { code: url.searchParams.get("code") ?? "", state: url.searchParams.get("state") ?? "" });
+    return new Response(null, { status: 302, headers: { Location: next } });
+  }),
+});
+
 export default http;
