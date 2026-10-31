@@ -25,7 +25,9 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 
 /** The "you're in" email, built from what they told us on the waitlist. */
 export function welcomeEmail(p: { name?: string; role?: string; email: string }) {
-  const first = p.name?.trim().split(/\s+/)[0];
+  const word = p.name?.trim().split(/\s+/)[0];
+  // People type their name in lower case often enough; start it with a capital.
+  const first = word && word[0].toUpperCase() + word.slice(1);
   const url = appUrl();
   // Opens the sign-in form (not "create account") with their email filled in.
   const link = `${url}/?signin=1&email=${encodeURIComponent(p.email)}`;

@@ -9,6 +9,10 @@ test("welcome email uses their first name and the role they asked for", () => {
   expect(m.text).toContain("/?signin=1&email=priya%40example.com");
 });
 
+test("welcome email capitalises a name typed in lower case", () => {
+  expect(welcomeEmail({ name: "vandy", email: "a@example.com" }).subject).toBe("Vandy, you're in: JobPipe");
+});
+
 test("welcome email still reads well with no name or role", () => {
   const m = welcomeEmail({ email: "a@example.com" });
   expect(m.subject).toBe("You're in: JobPipe");
