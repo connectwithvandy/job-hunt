@@ -279,7 +279,7 @@ function StepAnswers({
         rather not answer; you can change them later on the CVs page.
       </p>
       <div className="mt-8 space-y-6">
-        <AnswersForm answers={rows ?? (me.answers.length ? me.answers : known)} location={location} onChange={setRows} />
+        <AnswersForm answers={rows ?? (me.answers.length ? me.answers : known)} location={location} onChange={setRows} firstFew={6} />
         {filled.length > 0 && <AutofillLink answers={filled} />}
       </div>
       <label className="card mt-8 flex cursor-pointer items-start gap-3 p-5">

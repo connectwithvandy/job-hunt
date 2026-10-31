@@ -490,6 +490,8 @@ export function LocationForm({ location, markets }: { location: string; markets:
   );
 }
 
+const FIRST_ASKED = ["Phone", "Notice period", "Expected CTC", "Current CTC (fixed + variable)", "Current location"];
+
 const STARTER_QUESTIONS = [
   // Contact
   "Full name",
@@ -546,18 +548,23 @@ export function AnswersForm({
   answers,
   location,
   onChange,
+  firstFew,
 }: {
   answers: { question: string; answer: string }[];
   location: string;
   /** Hears every edit, so onboarding can save answers typed but not yet saved. */
   onChange?: (rows: { question: string; answer: string }[]) => void;
+  /** Show only this many rows at first (more if more are filled in); the rest open on a click. Onboarding uses it. */
+  firstFew?: number;
 }) {
   const save = useMutation(api.users.saveAnswers);
   const draft = useAction(api.agent.draftAnswers);
   const [drafting, setDrafting] = useState(false);
   const [rows, setRowsState] = useState(() => {
     const have = new Set(answers.map((a) => a.question));
-    return [...answers, ...STARTER_QUESTIONS.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: presetAnswers(location)[q] ?? "" }))];
+    // With only a few showing, the ones nearly every form asks come first.
+    const order = firstFew ? [...FIRST_ASKED, ...STARTER_QUESTIONS.filter((q) => !FIRST_ASKED.includes(q))] : STARTER_QUESTIONS;
+    return [...answers, ...order.filter((q) => !have.has(q)).map((q) => ({ question: q, answer: presetAnswers(location)[q] ?? "" }))];
   });
   const setRows = (next: { question: string; answer: string }[]) => {
     setRowsState(next);
@@ -572,12 +579,18 @@ export function AnswersForm({
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
   const set = (i: number, k: "question" | "answer", val: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)));
+  const [all, setAll] = useState(!firstFew);
+  const showing = all ? rows.length : Math.max(firstFew ?? 0, rows.filter((r) => r.answer.trim()).length);
   return (
     <div className="card p-6">
-      <h2 className="display mb-1 text-2xl">Application answers</h2>
-      <p className="mb-4 text-sm text-ink-2">The questions every form asks. Write them once; each job&apos;s Apply step and the chat use them.</p>
+      {!firstFew && (
+        <>
+          <h2 className="display mb-1 text-2xl">Application answers</h2>
+          <p className="mb-4 text-sm text-ink-2">The questions every form asks. Write them once; each job&apos;s Apply step and the chat use them.</p>
+        </>
+      )}
       <div className="space-y-3">
-        {rows.map((r, i) => (
+        {rows.slice(0, showing).map((r, i) => (
           <div key={i} className="grid gap-2 sm:grid-cols-[14rem_1fr_auto]">
             <input className="field text-sm" value={r.question} onChange={(e) => set(i, "question", e.target.value)} placeholder="Question" />
             <textarea className="field min-h-[42px] text-sm" rows={r.answer.length > 80 ? 3 : 1} value={r.answer} onChange={(e) => set(i, "answer", e.target.value)} placeholder="Your answer" />
@@ -587,8 +600,13 @@ export function AnswersForm({
           </div>
         ))}
       </div>
+      {rows.length > showing && (
+        <button type="button" className="mt-3 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(true)}>
+          Show {rows.length - showing} more questions
+        </button>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRows([...rows, { question: "", answer: "" }])}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => (setAll(true), setRows([...rows, { question: "", answer: "" }]))}>
           + Add a question
         </button>
         <button

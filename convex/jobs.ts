@@ -297,6 +297,9 @@ async function quickFitFor(ctx: MutationCtx, userId: Id<"users">) {
   return (job: { title: string; company?: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "", senior);
 }
 
+// Matches the Jobs page, which moves new jobs older than this to "Older than 45 days".
+const STALE_AFTER = 45 * 86_400_000;
+
 export const insertMany = internalMutation({
   args: { userId: v.id("users"), jobs: v.array(v.object(jobFields)) },
   handler: async (ctx, { userId, jobs }) => {
@@ -321,7 +324,12 @@ export const insertMany = internalMutation({
         continue;
       }
       // Bank and lender sales jobs never fit a tech sales search; one you add yourself is still saved.
-      if (job.source !== "pasted" && job.source !== "link" && job.source !== "email" && (isLender(job.title, job.company) || backOffice(job.title))) continue;
+      const searched = job.source !== "pasted" && job.source !== "link" && job.source !== "email";
+      if (searched && (isLender(job.title, job.company) || backOffice(job.title))) continue;
+      // Some boards return roles posted months ago. The Jobs list hides anything over 45 days old as likely
+      // filled, so saving them only inflated "N found".
+      const posted = job.postedAt ? Date.parse(job.postedAt) : NaN;
+      if (searched && !Number.isNaN(posted) && Date.now() - posted > STALE_AFTER) continue;
       const { description, pack, research, prep, ...light } = job;
       lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack, quickFit: light.quickFit ?? fit(job) });
       if (job.source !== "careers") await noteBoard(ctx, job.company, [job.sourceUrl, job.url]);
