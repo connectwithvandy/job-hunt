@@ -95,14 +95,15 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
               setState(
                 await attempt(async () => {
                   if (trackKey !== "all") {
-                    const { added, trackName } = await findJobs({ trackKey });
-                    return added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} for ${trackName}. Score them to see which fit.` : "No new jobs since last time.";
+                    const { added, trackName, failed } = await findJobs({ trackKey });
+                    return (added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} for ${trackName}. Score them to see which fit.` : "No new jobs since last time.") + boardsDown(failed);
                   }
                   const results = await Promise.allSettled(active.map((t) => findJobs({ trackKey: t.key })));
                   const failed = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
                   if (failed.length === results.length) throw failed[0].reason;
                   const added = results.reduce((n, r) => n + (r.status === "fulfilled" ? r.value.added : 0), 0);
-                  const note = failed.length ? ` ${failed.length} ${failed.length === 1 ? "role" : "roles"} didn't finish; try again.` : "";
+                  const down = results.flatMap((r) => (r.status === "fulfilled" ? r.value.failed : []));
+                  const note = (failed.length ? ` ${failed.length} ${failed.length === 1 ? "role" : "roles"} didn't finish; try again.` : "") + boardsDown(down);
                   return (added ? `Found ${added} new ${added === 1 ? "job" : "jobs"} across your roles. Score them to see which fit.` : "No new jobs since last time.") + note;
                 }),
               ),
@@ -1145,4 +1146,10 @@ function hostOf(u: string) {
   } catch {
     return u.slice(0, 40);
   }
+}
+
+/** A note naming the job boards that didn't answer, or nothing when they all did. */
+function boardsDown(failed: string[]) {
+  const names = [...new Set(failed)];
+  return names.length ? ` ${names.join(", ")} didn't answer, so there may be more; try again later.` : "";
 }

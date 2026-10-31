@@ -560,7 +560,7 @@ function NewSinceVisit({ since, jobs, prospects, tracks }: { since: number; jobs
 }
 
 /** The morning search-and-score switch, and what the last run found. */
-function Autopilot({ on, last }: { on: boolean; last: { at: number; added: number; scored: number; strong: number; funded?: number } | null }) {
+function Autopilot({ on, last }: { on: boolean; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
   return (
     <section className="card mb-10 flex flex-wrap items-center gap-4 p-5">
@@ -573,6 +573,11 @@ function Autopilot({ on, last }: { on: boolean; last: { at: number; added: numbe
               ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"}${last.funded ? `, ${last.funded} newly funded ${last.funded === 1 ? "company" : "companies"}` : ""}.`
               : "First run is tomorrow at 8 in the morning, India time."}
         </p>
+        {on && last?.failed?.length ? (
+          <p className="mt-1 text-sm text-warn">
+            {last.failed.join(", ")} didn&apos;t answer this run, so there may be fewer new jobs than usual. The next run tries again.
+          </p>
+        ) : null}
       </div>
       {on && last && last.strong > 0 && (
         <Link href="/jobs?fit=strong" className="btn btn-ghost btn-sm">

@@ -156,12 +156,12 @@ function fromFound(f: Found, trackKey: string): NewJob {
 
 export const findJobs = action({
   args: { trackKey: v.string() },
-  handler: async (ctx, { trackKey }): Promise<{ added: number; trackName: string }> => {
+  handler: async (ctx, { trackKey }): Promise<{ added: number; trackName: string; failed: string[] }> => {
     const { userId, tracks, location, email } = await setup(ctx);
     const track = tracks.find((t) => t.key === trackKey);
     if (!track) throw new ConvexError("Unknown track.");
     await spend(ctx, userId, "search");
-    return { added: await searchTrack(ctx, userId, track, location, 2, ownerLinkedIn(email)), trackName: track.name };
+    return { ...(await searchTrack(ctx, userId, track, location, 2, ownerLinkedIn(email))), trackName: track.name };
   },
 });
 
@@ -206,7 +206,7 @@ export function phrasings(title: string) {
  * LinkedIn's own job listings for a track's titles: the place itself, plus remote roles open to the country.
  * Wordings go eight to a search, so one busy title ("Sales Manager") can't use up the results the others need.
  */
-async function linkedInMatches(titles: string[], location: string, since: "24h" | "week"): Promise<Found[]> {
+async function linkedInMatches(titles: string[], location: string, since: "24h" | "week"): Promise<{ jobs: Found[]; failed: boolean }> {
   const place = readPlace(location);
   // Every wording of every title, eight to a search: as many searches as before, so the cost stays the same.
   const wordings = new Map<string, string>();
@@ -224,28 +224,29 @@ async function linkedInMatches(titles: string[], location: string, since: "24h" 
   const settled = await Promise.allSettled(places.flatMap(([where, remote]) => groups.map((q) => searchJobs([q], where, remote, since, perQuery, maxUsd))));
   for (const r of settled) if (r.status === "rejected") console.warn("LinkedIn job search failed:", String(r.reason));
   const seen = new Set<string>();
-  return settled
+  const jobs: Found[] = settled
     .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
     .filter((j) => !seen.has(j.id) && seen.add(j.id) && titles.some((t) => titleMatches(t, j.title)) && openTo(place, j.location, j.workSetting, j.title))
-    .map((j) => ({ source: "linkedin", id: j.id, title: j.title, company: j.company, companyLogo: j.companyLogo, location: j.location, workSetting: j.workSetting, salary: j.salary, postedAt: j.postedAt, url: j.url, applyUrl: j.applyUrl, description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") }));
+    .map((j) => ({ source: "linkedin" as const, id: j.id, title: j.title, company: j.company, companyLogo: j.companyLogo, location: j.location, workSetting: j.workSetting, salary: j.salary, postedAt: j.postedAt, url: j.url, applyUrl: j.applyUrl, description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") }));
+  return { jobs, failed: settled.some((r) => r.status === "rejected") };
 }
 
 /**
- * Searches every board for one track and saves the new roles. Returns how many were new.
+ * Searches every board for one track and saves the new roles. Returns how many were new, and which boards didn't answer.
  * `linkedin` also reads LinkedIn's listings from that far back; only the owner's account pays for it.
  */
-async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2, linkedin?: "24h" | "week"): Promise<number> {
-    const [settled, others] = await Promise.all([
+async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2, linkedin?: "24h" | "week"): Promise<{ added: number; failed: string[] }> {
+    const [settled, [others, otherFailed]] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
         : Promise.allSettled(track.titles.slice(0, 16).map((title) => searchListings(title, location, 25, 4))),
       track.company
-        ? Promise.resolve([])
+        ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
             searchOtherSources(track.titles, location, googleTitles),
             careerMatches(ctx, track.titles, location),
-            linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, location, linkedin) : Promise.resolve([]),
-          ]).then((r) => r.flat()),
+            linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, location, linkedin) : Promise.resolve({ jobs: [], failed: false }),
+          ]).then(([other, careers, li]): [Found[], string[]] => [[...other.jobs, ...careers, ...li.jobs], [...other.failed, ...(li.failed ? ["LinkedIn"] : [])]]),
     ]);
     // Dreamwork also matches company names, so keep only titles holding the searched words.
     const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
@@ -258,7 +259,8 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const all = [...listings.map((l) => fromListing(l, track.key)), ...others.map((f) => fromFound(f, track.key))];
     const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()];
     const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique });
-    return added;
+    const failed = settled.some((r) => r.status === "rejected") ? ["Dreamwork", ...otherFailed] : otherFailed;
+    return { added, failed };
 }
 
 export const addJob = action({
@@ -464,12 +466,16 @@ export const autopilotFor = internalAction({
       if (!allowed) return null;
       const me = await contextFor(ctx, userId);
       let added = 0;
+      const failed = new Set<string>();
       // One Google Jobs title per track keeps a month of mornings inside JSearch's free 200 searches.
       for (const track of me.tracks.filter((t) => t.status === "active")) {
         try {
-          added += await searchTrack(ctx, userId, track, me.location, 1, isOwnerEmail(me.email) ? "24h" : undefined);
+          const found = await searchTrack(ctx, userId, track, me.location, 1, isOwnerEmail(me.email) ? "24h" : undefined);
+          added += found.added;
+          for (const f of found.failed) failed.add(f);
         } catch (err) {
           console.warn("Autopilot search failed", track.key, String(err));
+          failed.add("Dreamwork");
         }
       }
       let scored = 0;
@@ -528,7 +534,7 @@ export const autopilotFor = internalAction({
         );
       }
       const strong: number = await ctx.runQuery(internal.jobs.strongSince, { userId, since: Date.now() - 86_400_000 });
-      await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded });
+      await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded, failed: [...failed] });
     } catch (err) {
       console.error("Autopilot failed for a user", String(err));
     }
@@ -1347,10 +1353,15 @@ async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Rec
       const active = me.tracks.filter((t) => t.status === "active" && (!str("role_key") || t.key === str("role_key")));
       await spend(ctx, me.userId, "search", Math.max(1, active.length));
       let added = 0;
-      for (const t of active) added += await searchTrack(ctx, me.userId, t, me.location, 2, ownerLinkedIn(me.email));
+      const failed = new Set<string>();
+      for (const t of active) {
+        const found = await searchTrack(ctx, me.userId, t, me.location, 2, ownerLinkedIn(me.email));
+        added += found.added;
+        for (const f of found.failed) failed.add(f);
+      }
       // Name the new unscored jobs, so the assistant can score them next.
       const fresh: Id<"jobs">[] = added ? await ctx.runQuery(internal.jobs.unscoredIds, { userId: me.userId, limit: Math.min(added, 12) }) : [];
-      return `Searched ${active.map((t) => t.name).join(", ")}: ${added} new ${added === 1 ? "job" : "jobs"}${fresh.length ? ` (unscored ids: ${fresh.join(", ")})` : ""}.`;
+      return `Searched ${active.map((t) => t.name).join(", ")}: ${added} new ${added === 1 ? "job" : "jobs"}${fresh.length ? ` (unscored ids: ${fresh.join(", ")})` : ""}.${failed.size ? ` These boards didn't answer, so there may be fewer than usual: ${[...failed].join(", ")}.` : ""}`;
     }
     case "score_jobs": {
       const ids = ((input.job_ids as string[]) ?? []).slice(0, 12) as Id<"jobs">[];

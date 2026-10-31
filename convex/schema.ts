@@ -44,7 +44,7 @@ export default defineSchema({
     /** When the Gmail script last emailed you the morning summary. */
     digestAt: v.optional(v.number()),
     prevSeenAt: v.optional(v.number()),
-    lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()) })),
+    lastAutopilot: v.optional(v.object({ at: v.number(), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()), failed: v.optional(v.array(v.string())) })),
     /** What keeps costing you, read from your rejections and silences (agent.learnFromNoes). */
     lessons: v.optional(
       v.object({

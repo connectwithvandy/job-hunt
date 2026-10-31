@@ -232,20 +232,26 @@ export function openTo(place: Place, location: string, workSetting?: string, tit
 }
 
 /** Searches every extra source for these titles. A source that fails is skipped, not fatal. */
-export async function searchOtherSources(titles: string[], location: string, googleTitles = 2) {
+/** Jobs from the other boards, and the names of any board that didn't answer. */
+export async function searchOtherSources(titles: string[], location: string, googleTitles = 2): Promise<{ jobs: Found[]; failed: string[] }> {
   const place = readPlace(location);
   // JSearch's free plan is about 200 searches a month and Adzuna's about 2,500, so they take a few titles a day,
   // a different few each day, and every title gets its turn within the week.
   const day = Math.floor(Date.now() / 86_400_000);
   const turn = (n: number) => (titles.length <= n ? titles : Array.from({ length: n }, (_, i) => titles[(day * n + i) % titles.length]));
-  const calls = [
-    ...turn(googleTitles).map((t) => jsearch(t, place)),
-    ...turn(4).map((t) => adzuna(t, place)),
+  const calls: [string, Promise<Found[]>][] = [
+    ...turn(googleTitles).map((t): [string, Promise<Found[]>] => ["Google Jobs", jsearch(t, place)]),
+    ...turn(4).map((t): [string, Promise<Found[]>] => ["Adzuna", adzuna(t, place)]),
     // Dreamwork, Himalayas and Hacker News are free, so they search every title; Google and Adzuna have quotas.
-    ...titles.slice(0, 16).map((t) => himalayas(t, place)),
-    ...titles.slice(0, 16).map((t) => hackerNews(t, place)),
+    ...titles.slice(0, 16).map((t): [string, Promise<Found[]>] => ["Himalayas", himalayas(t, place)]),
+    ...titles.slice(0, 16).map((t): [string, Promise<Found[]>] => ["Hacker News", hackerNews(t, place)]),
   ];
-  const settled = await Promise.allSettled(calls);
-  for (const r of settled) if (r.status === "rejected") console.warn("Job source failed:", String(r.reason));
-  return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  const settled = await Promise.allSettled(calls.map(([, call]) => call));
+  const failed = new Set<string>();
+  settled.forEach((r, i) => {
+    if (r.status !== "rejected") return;
+    console.warn("Job source failed:", calls[i][0], String(r.reason));
+    failed.add(calls[i][0]);
+  });
+  return { jobs: settled.flatMap((r) => (r.status === "fulfilled" ? r.value : [])), failed: [...failed] };
 }
