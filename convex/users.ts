@@ -37,6 +37,7 @@ export const me = query({
     const tracks = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", userId)).take(20);
     const resumes = await listResumes(ctx, userId);
     const defaultResume = resumes.find((r) => r._id === profile?.defaultResumeId) ?? resumes[0] ?? null;
+    const waitlist = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     return {
       isOwner: isOwnerEmail(user?.email),
       email: user?.email ?? "",
@@ -62,6 +63,8 @@ export const me = query({
       resume: defaultResume?.resume ?? null,
       photoUrl: profile?.photo ? await ctx.storage.getUrl(profile.photo) : null,
       tracks,
+      /** What they told us on the waitlist, so onboarding can start from it. */
+      waitlist: { name: waitlist?.name ?? "", linkedin: waitlist?.linkedin ?? "", role: waitlist?.role ?? "" },
     };
   },
 });

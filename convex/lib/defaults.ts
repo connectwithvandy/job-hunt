@@ -45,6 +45,7 @@ export const DAILY_LIMITS = {
 export const LOCATION_CHOICES = [
   { value: "Bengaluru", hint: "Jobs in Bengaluru, plus remote jobs open to India" },
   { value: "India", hint: "Jobs in India, plus remote jobs open to India" },
+  { value: "United States", hint: "Jobs in the US, plus remote jobs open to the US" },
   { value: "Remote", hint: "Remote jobs in any country" },
   { value: "Anywhere", hint: "Any job, any country" },
 ];

@@ -30,7 +30,7 @@ export function Waitlist({ email, onWaitlist, answered }: { email: string; onWai
       <h1 className="display mt-6 text-4xl leading-[1.05] md:text-5xl">You&apos;re on the waitlist.</h1>
       {answered || !onWaitlist ? (
         <p className="mt-5 text-lg text-ink-2">
-          Thanks. JobPipe is letting people in a few at a time. Leave this page open or come back later: once you&apos;re let in, it opens by itself.
+          Thanks. We let people in a few at a time and email you when it&apos;s your turn. Leave this page open and it opens by itself, or come back after the email.
           Sign in with {email || "the same email"} next time.
         </p>
       ) : (

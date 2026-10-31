@@ -15,12 +15,21 @@ type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
 const MAX_ROLES = 8;
 type Choice = { key: string; name: string; color: string; titles: string[]; pitch: string };
 
+/** The role they picked on the waitlist, as the preset it matches. */
+const WAITLIST_ROLE: Record<string, string> = {
+  "Account Executive": "account-executive",
+  "SDR / BDR": "sdr",
+  "Sales leadership": "sales-leadership",
+  "GTM strategy / AI GTM": "gtm-strategy",
+};
+
 const fileClass =
   "mt-2 block w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line";
 
 export function Onboarding({ me }: { me: Me }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(me.resume ? 2 : 1);
-  const [chosen, setChosen] = useState<Choice[]>([]);
+  // Starts with the role they named on the waitlist already ticked.
+  const [chosen, setChosen] = useState<Choice[]>(() => PRESET_TRACKS.filter((p) => p.key === WAITLIST_ROLE[me.waitlist.role]));
   const [location, setLocation] = useState(me.location || "India");
   // Application answers typed on step 4, kept here so Back and Next don't lose them.
   const [answers, setAnswers] = useState<{ question: string; answer: string }[] | null>(null);
@@ -248,8 +257,15 @@ function StepAnswers({
   const saveAnswers = useMutation(api.users.saveAnswers);
   const findJobs = useAction(api.agent.findJobs);
   const [busy, setBusy] = useState(false);
+  // What we already know (sign-up, waitlist, CV), so they don't type it again.
+  const linkedin = me.waitlist.linkedin;
+  const known = [
+    { question: "Full name", answer: me.waitlist.name || me.resume?.name || "" },
+    { question: "Email", answer: me.email },
+    { question: "LinkedIn profile", answer: linkedin && !linkedin.startsWith("http") ? `https://${linkedin}` : linkedin },
+  ].filter((r) => r.answer);
   // What the bookmark carries: the answers on screen, saved or not.
-  const filled = (rows ?? me.answers).filter((r) => r.question.trim() && r.answer.trim());
+  const filled = (rows ?? (me.answers.length ? me.answers : known)).filter((r) => r.question.trim() && r.answer.trim());
   const [error, setError] = useState("");
 
   return (
@@ -260,7 +276,7 @@ function StepAnswers({
         rather not answer; you can change them later on the CVs page.
       </p>
       <div className="mt-8 space-y-6">
-        <AnswersForm answers={rows ?? me.answers} location={location} onChange={setRows} />
+        <AnswersForm answers={rows ?? (me.answers.length ? me.answers : known)} location={location} onChange={setRows} />
         {filled.length > 0 && <AutofillLink answers={filled} />}
       </div>
       {error && <p className="mt-4 text-sm text-bad">{error}</p>}

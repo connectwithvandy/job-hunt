@@ -138,7 +138,7 @@ export default function Today() {
     ),
     // Without Gmail, replies can't show up here, so "Done" would be a guess.
     ...(!me.inboxAt || msSince(me.inboxAt) > DAY
-      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once on the Applications page.", href: "/tracker" }]
+      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once under Jobs → Applications.", href: "/tracker" }]
       : []),
     ...(interviewing.length && stories?.length === 0
       ? [{ key: "stories", verb: "Prepare", main: "Your interview stories", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six stories cover most questions.`, href: "/stories" }]
@@ -248,7 +248,8 @@ export default function Today() {
         n={4}
         title="Open up new companies"
         items={reach}
-        empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections on the Your network page to see who you know at each company."}
+        blocked={!me.contactsCount}
+        empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections under People to see who you know at each company."}
       />
 
       <Autopilot on={me.autopilot} last={me.lastAutopilot} />
@@ -325,14 +326,18 @@ function TodayProgress({ items }: { items: { label: string; done: number; goal: 
 const STAGE_WORDS: Record<string, string> = { screening: "Recruiter wrote", interview: "Interview invite", offer: "Offer" };
 
 /** One step of the daily routine, with how many things are in it. */
-function Step({ n, title, items, empty }: { n: number; title: string; items: Todo[]; empty: string }) {
+function Step({ n, title, items, empty, blocked }: { n: number; title: string; items: Todo[]; empty: string; blocked?: boolean }) {
+  // Setup prompts ("Connect Gmail", "Score the new jobs") aren't things to do today, so they don't count,
+  // and a step that can't start yet isn't "Done".
+  const real = items.filter((i) => i.verb !== "Connect" && i.verb !== "Score").length;
+  const label = real || (items.length || blocked ? "" : "Done");
   return (
     <section className="mb-8">
       <h2 className="mb-3 flex items-baseline gap-3">
         <span className="display text-3xl">
           {n}. {title}
         </span>
-        <span className="text-sm text-ink-3">{items.length || "Done"}</span>
+        <span className="text-sm text-ink-3">{label}</span>
       </h2>
       {items.length ? <TodoList items={items} /> : <div className="card p-5 text-sm text-ink-2">{empty}</div>}
     </section>
