@@ -40,6 +40,20 @@ const COUNTRIES: Record<string, string> = {
   uae: "ae", dubai: "ae", "united arab emirates": "ae",
 };
 const INDIA_CITIES = ["bengaluru", "bangalore", "mumbai", "delhi", "new delhi", "gurugram", "gurgaon", "noida", "pune", "hyderabad", "chennai", "kolkata", "ahmedabad", "jaipur", "kochi"];
+/** Other names a listing may use for the same Indian city. */
+const CITY_ALIASES: Record<string, string[]> = {
+  bengaluru: ["bangalore", "karnataka"],
+  bangalore: ["bengaluru", "karnataka"],
+  gurugram: ["gurgaon", "delhi ncr", "ncr"],
+  gurgaon: ["gurugram", "delhi ncr", "ncr"],
+  delhi: ["new delhi", "delhi ncr", "ncr"],
+  "new delhi": ["delhi", "delhi ncr", "ncr"],
+  noida: ["delhi ncr", "ncr"],
+  mumbai: ["bombay", "navi mumbai"],
+  kochi: ["cochin"],
+};
+/** Words a listing uses for "anywhere in India" rather than one city. */
+const ANY_INDIA = /\b(india|in|pan|anywhere|remote|hybrid|across|all|multiple|locations?|wfh|work from home)\b/g;
 
 /** "Remote", "Anywhere", or a place with its two-letter country code when we can tell it. */
 export function readPlace(location: string) {
@@ -220,6 +234,7 @@ export function openTo(place: Place, location: string, workSetting?: string, tit
   // Some companies (Cloudflare) say "Distributed" for remote.
   const remote = workSetting === "remote" || /remote|distributed/.test(where);
   if (place.kind === "remote") return remote;
+  if (place.country === "in" && !/^india$/i.test(place.name.trim())) return openToIndianCity(place.name, where, remote, title.toLowerCase());
   const country = place.country && COUNTRY_NAMES[place.country];
   const names = [...place.name.toLowerCase().split(",").map((p) => p.trim()), country, ...(place.country === "in" ? INDIA_CITIES : [])].filter((n): n is string => !!n);
   // Whole words, so "Indianapolis" isn't India. The place is often in the title: "Account Executive - India", "BDR - SAARC".
@@ -231,7 +246,23 @@ export function openTo(place: Place, location: string, workSetting?: string, tit
   return remote && /\b(worldwide|global|apac|apj|asia)\b/.test(where);
 }
 
-/** Searches every extra source for these titles. A source that fails is skipped, not fatal. */
+/**
+ * For someone in one Indian city: that city, anywhere-in-India and India-open remote roles count,
+ * but a role in another Indian city doesn't ("Indore, Madhya Pradesh, India" isn't Bengaluru).
+ */
+function openToIndianCity(name: string, where: string, remote: boolean, title: string) {
+  const cities = name.toLowerCase().split(",").map((p) => p.trim()).filter(Boolean);
+  const names = [...cities, ...cities.flatMap((c) => CITY_ALIASES[c] ?? [])];
+  const text = `${where} ${title}`;
+  if (names.some((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text))) return true;
+  // Nothing said, or only "India" / "Remote, India" / "Pan India": open to the whole country.
+  if (!where.trim() || where === "not listed") return /\b(india|saarc)\b/.test(title) || !title;
+  const rest = where.replace(ANY_INDIA, "").replace(/[^a-z]+/g, "");
+  if (!rest && (/\bindia\b/.test(where) || remote)) return /\bindia\b/.test(where) || /\b(india|saarc)\b/.test(title);
+  if (/\bsaarc\b/.test(text)) return true;
+  return remote && /\b(worldwide|global|apac|apj|asia)\b/.test(text);
+}
+
 /** Jobs from the other boards, and the names of any board that didn't answer. */
 export async function searchOtherSources(titles: string[], location: string, googleTitles = 2): Promise<{ jobs: Found[]; failed: string[] }> {
   const place = readPlace(location);

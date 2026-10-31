@@ -259,7 +259,11 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     // The same role often shows up on several boards; keep the first copy, Dreamwork's when there is one.
     const sameRole = (j: NewJob) => `${j.company}|${j.title}`.toLowerCase().replace(/[^a-z0-9|]/g, "");
     const all = [...listings.map((l) => fromListing(l, track.key)), ...others.map((f) => fromFound(f, track.key))];
-    const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()];
+    // Every board's results meet the same place rule, so a role in another city or country doesn't slip in.
+    const place = readPlace(location);
+    const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()].filter(
+      (j) => !!track.company || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title),
+    );
     const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique });
     const failed = settled.some((r) => r.status === "rejected") ? ["Dreamwork", ...otherFailed] : [...otherFailed];
     if (!track.company && env.JSEARCH_API_KEY && google < Math.min(googleTitles, track.titles.length)) failed.push("Google Jobs (this month's free searches are used up)");

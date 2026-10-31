@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
 import { nextFollowUp, replyTiming } from "../../convex/lib/followups";
 import { SKIP_BELOW } from "../../convex/lib/posting";
+import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
@@ -61,9 +62,13 @@ export default function Today() {
   });
 
   const unscored = jobs.filter((j) => j.status === "new" && !j.scores?.length);
+  // Found today isn't new: a role posted months ago is likely filled, and one in another city isn't for you.
+  const place = readPlace(me.location);
+  const nearby = (j: Doc<"jobs">) => j.source === "pasted" || j.source === "link" || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title);
+  const recent = (j: Doc<"jobs">) => !j.postedAt || !(msSince(Date.parse(j.postedAt)) > 30 * DAY);
   const strong = jobs
     // A closed posting or one that rules you out isn't worth the evening.
-    .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker)
+    .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j))
     .sort((a, b) => bestScore(b)!.score - bestScore(a)!.score)
     .slice(0, 5);
   const replies = jobs.filter((j) => j.lastEmail && msSince(j.lastEmail.at) < 3 * DAY && ["screening", "interview", "offer"].includes(j.status));
@@ -115,6 +120,10 @@ export default function Today() {
         .filter((c) => c.repliedAt && msSince(c.repliedAt) < 7 * DAY && stillChasing(j.status) && !["interview", "offer"].includes(j.status))
         .map((c) => ({ key: `h${j._id}${c.name}`, verb: "Reply", main: c.name, sub: `Wrote back ${timeAgo(new Date(c.repliedAt!).toISOString())} about ${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
     ),
+    // Without Gmail, replies can't show up here, so "Done" would be a guess.
+    ...(!me.inboxAt || msSince(me.inboxAt) > DAY
+      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Takes 2 minutes on the Applications page.", href: "/tracker" }]
+      : []),
     ...(interviewing.length && stories?.length === 0
       ? [{ key: "stories", verb: "Prepare", main: "Your interview stories", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six stories cover most questions.`, href: "/stories" }]
       : []),
@@ -124,7 +133,7 @@ export default function Today() {
   // AI-scored jobs rank above first guesses, which run high.
   const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
   const fresh = jobs
-    .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker)
+    .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j) && recent(j))
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || fit(b) - fit(a));
   const freshIds = new Set(fresh.map((j) => j._id));
   const freshUnscored = fresh.filter((j) => !j.scores?.length).length;
