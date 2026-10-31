@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import { type ChatRow, nameKey, profileKey } from "../../convex/lib/chats";
+import { type ChatRow, nameKey, pickOwnMessages, profileKey } from "../../convex/lib/chats";
 
 /** "2024-05-06 10:22:10 UTC" as a timestamp, or NaN. */
 function when(date: string) {
@@ -68,24 +68,8 @@ export function parseMessagesCsv(text: string): ChatRow[] {
   return [...people.values()];
 }
 
-/**
- * The longer one-to-one messages you wrote yourself, newest first, so letters and notes can sound like you.
- * Repeated templates (the same opening sent to many people) are skipped: they show a script, not your voice.
- */
+/** The longer messages you wrote yourself, for your voice (see pickOwnMessages). */
 export function myOwnMessages(text: string, max = 15): string[] {
   const { rows, me } = readMessages(text);
-  const mine = rows.filter((r) => r.from === me && r.to.length === 1 && r.text.length >= 120).sort((a, b) => b.at - a.at);
-  // The words after "Hi <name>", so the same message sent to many people counts as one template.
-  const opening = (t: string) => t.toLowerCase().split(/\s+/).slice(2, 12).join(" ");
-  const openings = new Map<string, number>();
-  for (const r of mine) openings.set(opening(r.text), (openings.get(opening(r.text)) ?? 0) + 1);
-  const picked: string[] = [];
-  for (const r of mine) {
-    if ((openings.get(opening(r.text)) ?? 0) > 1 || /https?:\/\//.test(r.text)) continue;
-    picked.push(r.text.slice(0, 600));
-    if (picked.length >= max) break;
-  }
-  // Two or three lines can't show a voice; better none than a misleading one.
-  return picked.length >= 3 ? picked : [];
+  return pickOwnMessages(rows.filter((r) => r.from === me && r.to.length === 1), max);
 }
-

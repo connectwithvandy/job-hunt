@@ -19,10 +19,10 @@ describe("jobFor", () => {
 
 describe("needsNoAnswer", () => {
   it("skips automatic confirmations from no-reply senders", () => {
-    expect(needsNoAnswer({ from: "Rippling <no-reply@ats.rippling.com>", subject: "Interview availability received - Rippling", snippet: "Thank you for providing us with your interview availability!" })).toBe(true);
+    expect(needsNoAnswer({ from: "Acme <no-reply@ats.example.com>", subject: "Interview availability received", snippet: "Thanks for sharing your availability." })).toBe(true);
   });
   it("keeps real requests and people writing", () => {
-    expect(needsNoAnswer({ from: "Saniya <scheduling@ats.rippling.com>", subject: "Interview Availability Request - Rippling", snippet: "Please share your availability" })).toBe(false);
-    expect(needsNoAnswer({ from: "Priya <priya@axis.com>", subject: "Interview confirmed", snippet: "See you Tuesday" })).toBe(false);
+    expect(needsNoAnswer({ from: "Sam <scheduling@ats.example.com>", subject: "Interview availability request", snippet: "Please share your availability" })).toBe(false);
+    expect(needsNoAnswer({ from: "Lee <lee@acme.com>", subject: "Interview confirmed", snippet: "See you Tuesday" })).toBe(false);
   });
 });

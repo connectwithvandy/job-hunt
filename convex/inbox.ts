@@ -57,6 +57,7 @@ export const ingest = internalMutation({
       const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage, repliedAt: answered }, updatedAt: Date.now() };
       await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id, repliedAt: answered });
       await ctx.db.patch("jobs", job._id, status ? { ...patch, status, appliedAt: status === "applied" && !job.appliedAt ? at : job.appliedAt } : patch);
+      if (answered) await answerEarlier(ctx, job._id, at);
       if (status) {
         await freezeSent(ctx, job, status);
         job.status = status;
@@ -114,6 +115,7 @@ export const saveFromEmails = internalMutation({
         added++;
       }
       await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id, repliedAt: answered });
+      if (answered) await answerEarlier(ctx, job._id, at);
     }
     return { added };
   },
@@ -251,3 +253,30 @@ async function mine(ctx: MutationCtx, userId: Id<"users">, emailId: Id<"jobEmail
 function sameCompany(a: string, b: string) {
   return a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
 }
+
+/**
+ * A confirmation ("availability received", "interview booked") means you already answered what came before it,
+ * often through a link rather than a reply, so earlier emails on that job stop waiting.
+ */
+async function answerEarlier(ctx: MutationCtx, jobId: Id<"jobs">, at: number) {
+  const earlier = await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", jobId).lt("at", at)).order("desc").take(20);
+  for (const e of earlier) if (!e.repliedAt) await ctx.db.patch("jobEmails", e._id, { repliedAt: at });
+}
+
+/** Applies the no-answer rule to emails saved before it existed, for everyone, a page at a time. */
+export const backfillAnswered = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobEmails").paginate({ cursor: cursor ?? null, numItems: 200 });
+    for (const e of page.page) {
+      if (e.repliedAt || !needsNoAnswer(e)) continue;
+      await ctx.db.patch("jobEmails", e._id, { repliedAt: e.at });
+      await answerEarlier(ctx, e.jobId, e.at);
+      // Today reads the job's latest email: once that one is answered, the job leaves "people who wrote back".
+      const job = await ctx.db.get("jobs", e.jobId);
+      if (job?.lastEmail && !job.lastEmail.repliedAt && job.lastEmail.at <= e.at) await ctx.db.patch("jobs", job._id, { lastEmail: { ...job.lastEmail, repliedAt: e.at } });
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.inbox.backfillAnswered, { cursor: page.continueCursor });
+    return null;
+  },
+});

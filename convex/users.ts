@@ -4,6 +4,8 @@ import { internalMutation, internalQuery, mutation, query, type MutationCtx, typ
 import type { Doc, Id } from "./_generated/dataModel";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { resumeV, trackFields } from "./lib/validators";
+import { internal } from "./_generated/api";
+import { pickOwnMessages } from "./lib/chats";
 
 async function findProfile(ctx: QueryCtx, userId: Id<"users">) {
   return await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
@@ -462,6 +464,45 @@ export const savePayForAction = internalMutation({
     const track = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", trackKey)).unique();
     if (!track) throw new ConvexError("That role is gone.");
     await ctx.db.patch("tracks", track._id, { pay });
+    return null;
+  },
+});
+
+// ---------- Your voice from chats you already loaded ----------
+
+const ownLineV = v.object({ text: v.string(), at: v.number() });
+
+/** Collects the longer lines you wrote from your saved chats, a page at a time, then keeps your voice from them. */
+export const voiceFromChats = internalMutation({
+  args: { userId: v.id("users"), cursor: v.optional(v.union(v.string(), v.null())), found: v.array(ownLineV) },
+  handler: async (ctx, { userId, cursor, found }) => {
+    const page = await ctx.db
+      .query("linkedinChats")
+      .withIndex("by_userId_and_profileKey", (q) => q.eq("userId", userId))
+      .paginate({ cursor: cursor ?? null, numItems: 500 });
+    const lines = [...found, ...page.page.flatMap((c) => c.recent.filter((m) => m.fromMe && m.text.length >= 120).map((m) => ({ text: m.text, at: m.at })))]
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 300);
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.users.voiceFromChats, { userId, cursor: page.continueCursor, found: lines });
+      return null;
+    }
+    const picked = pickOwnMessages(lines);
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (profile && !profile.myMessages && picked.length) await ctx.db.patch("profiles", profile._id, { myMessages: picked.join("\n---\n").slice(0, 6000) });
+    return null;
+  },
+});
+
+/** For everyone who loaded chats before voices were kept: finds their voice from what's already saved. */
+export const backfillVoice = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("profiles").paginate({ cursor: cursor ?? null, numItems: 100 });
+    for (const p of page.page) {
+      if ((p.chatsCount ?? 0) > 0 && !p.myMessages) await ctx.scheduler.runAfter(0, internal.users.voiceFromChats, { userId: p.userId, found: [] });
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.users.backfillVoice, { cursor: page.continueCursor });
     return null;
   },
 });

@@ -80,3 +80,18 @@ export async function withChats(ctx: QueryCtx, userId: Id<"users">, people: Doc<
 }
 
 export type ContactWithChat = Awaited<ReturnType<typeof withChats>>[number];
+
+/**
+ * The longer one-to-one messages you wrote yourself, newest first, so letters and notes can sound like you.
+ * Templates (the same words sent to more than one person) and link drops are skipped: they show a script, not a voice.
+ * Fewer than three left can't show a tone, so none are returned.
+ */
+export function pickOwnMessages(mine: { text: string; at: number }[], max = 15): string[] {
+  const long = mine.filter((m) => m.text.length >= 120).sort((a, b) => b.at - a.at);
+  // The words after "Hi <name>", so the same message sent to many people counts as one template.
+  const opening = (t: string) => t.toLowerCase().split(/\s+/).slice(2, 12).join(" ");
+  const counts = new Map<string, number>();
+  for (const m of long) counts.set(opening(m.text), (counts.get(opening(m.text)) ?? 0) + 1);
+  const picked = long.filter((m) => (counts.get(opening(m.text)) ?? 0) === 1 && !/https?:\/\//.test(m.text)).slice(0, max).map((m) => m.text.slice(0, 600));
+  return picked.length >= 3 ? picked : [];
+}
