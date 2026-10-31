@@ -27,9 +27,11 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 export function welcomeEmail(p: { name?: string; role?: string; email: string }) {
   const first = p.name?.trim().split(/\s+/)[0];
   const url = appUrl();
+  // Opens the sign-in form (not "create account") with their email filled in.
+  const link = `${url}/?signin=1&email=${encodeURIComponent(p.email)}`;
   const role = p.role?.trim();
   const steps = [
-    `Sign in at ${url} with ${p.email} and the password you picked.`,
+    `Sign in with ${p.email} and the password you picked: ${link}`,
     "Upload your CV. A PDF is fine, Canva ones too.",
     role ? `Add "${role}" as your first role (you told us that's what you're after). Add more if you're open to others.` : "Pick the roles you're after. You can add more than one.",
     "Open Today each morning: new jobs scored against your CV, follow-ups due, and who you know at each company.",
@@ -58,7 +60,7 @@ ${url}
 <p>${esc(intro)}</p>
 <p><b>Getting started takes about 5 minutes:</b></p>
 <ol style="padding-left:20px">${steps.map((s) => `<li style="margin-bottom:6px">${esc(s)}</li>`).join("")}</ol>
-<p style="margin:24px 0"><a href="${url}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Open JobPipe</a></p>
+<p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Open JobPipe</a></p>
 <p>${esc(outro)}</p>
 <p style="color:#666">JobPipe<br><a href="${url}" style="color:#666">${esc(url.replace(/^https?:\/\//, ""))}</a></p>
 </div>`;

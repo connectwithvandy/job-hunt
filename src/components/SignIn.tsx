@@ -13,8 +13,11 @@ const POINTS = [
 
 export function SignIn() {
   const { signIn } = useAuthActions();
-  const [flow, setFlow] = useState<"signUp" | "signIn" | "reset" | "reset-verification">("signUp");
-  const [email, setEmail] = useState("");
+  // The "you're in" email links to /?signin=1&email=… so they land on sign in, not "create account".
+  // Only rendered in the browser (Shell shows a loader first), so reading the address bar here is safe.
+  const [query] = useState(() => new URLSearchParams(typeof window === "undefined" ? "" : window.location.search));
+  const [flow, setFlow] = useState<"signUp" | "signIn" | "reset" | "reset-verification">(query.get("signin") ? "signIn" : "signUp");
+  const [email, setEmail] = useState(query.get("email") ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const resetting = flow === "reset" || flow === "reset-verification";

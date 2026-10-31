@@ -6,7 +6,7 @@ test("welcome email uses their first name and the role they asked for", () => {
   expect(m.subject).toBe("Priya, you're in: JobPipe");
   expect(m.text).toContain("Hi Priya,");
   expect(m.text).toContain('Add "Account Executive" as your first role');
-  expect(m.text).toContain("priya@example.com");
+  expect(m.text).toContain("/?signin=1&email=priya%40example.com");
 });
 
 test("welcome email still reads well with no name or role", () => {
