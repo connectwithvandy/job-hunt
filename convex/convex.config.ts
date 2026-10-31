@@ -31,6 +31,11 @@ const app = defineApp({
     HUNTER_API_KEY: v.optional(v.string()),
     /** Emails the whole app may find with Hunter.io a month; defaults to 25 (the free plan has 50 credits). */
     HUNTER_MONTHLY: v.optional(v.string()),
+    /** Razorpay checkout (convex/payments.ts): API key id and secret, test or live. Payments are off when missing. */
+    RAZORPAY_KEY_ID: v.optional(v.string()),
+    RAZORPAY_KEY_SECRET: v.optional(v.string()),
+    /** Checks that calls to /razorpay/webhook really come from Razorpay. Set the same secret on Razorpay's Webhooks page. */
+    RAZORPAY_WEBHOOK_SECRET: v.optional(v.string()),
   },
 });
 app.use(rateLimiter);

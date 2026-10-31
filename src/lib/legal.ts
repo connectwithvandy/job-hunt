@@ -16,19 +16,7 @@ export const LEGAL = {
   updated: "31 October 2026",
 };
 
-export const PLANS = {
-  trialDays: 7,
-  full: 999,
-  founding: 499,
-  foundingSeats: 50,
-  /** The Job Hunt Pass: one UPI payment for 3 months, no auto-renewal. */
-  passMonths: 3,
-  pass: 2499,
-  foundingPass: 1299,
-  /** Group seats for sales communities, bootcamps and outplacement, per seat per month. */
-  seat: 599,
-  minSeats: 10,
-};
+export { PLANS } from "../../convex/lib/plans";
 
 /** Shown in place of a detail that hasn't been filled in yet. */
 export const missing = (v: string) => v || "[to be added]";

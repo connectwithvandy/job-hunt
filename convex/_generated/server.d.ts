@@ -43,6 +43,9 @@ type Env = {
   readonly JSEARCH_API_KEY: string | undefined;
   readonly JSEARCH_MONTHLY: string | undefined;
   readonly OWNER_EMAILS: string | undefined;
+  readonly RAZORPAY_KEY_ID: string | undefined;
+  readonly RAZORPAY_KEY_SECRET: string | undefined;
+  readonly RAZORPAY_WEBHOOK_SECRET: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
 };
 

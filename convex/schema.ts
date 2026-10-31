@@ -45,9 +45,29 @@ export default defineSchema({
     role: v.optional(v.string()),
     // When the "you're in" email went out, so letting someone in twice doesn't send it twice.
     welcomedAt: v.optional(v.number()),
+    /** Paid up to this time, from the latest payment. Missing for testers and anyone who hasn't paid. */
+    paidUntil: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"]),
+
+  /** One Razorpay order each: created when someone presses Pay, marked paid once Razorpay confirms it. */
+  payments: defineTable({
+    userId: v.id("users"),
+    orderId: v.string(),
+    plan: v.union(v.literal("month"), v.literal("pass")),
+    /** In paise, as Razorpay counts it. */
+    amount: v.number(),
+    founding: v.boolean(),
+    status: v.union(v.literal("created"), v.literal("paid")),
+    paymentId: v.optional(v.string()),
+    paidAt: v.optional(v.number()),
+    /** The paid period this payment added, so a receipt can show it. */
+    until: v.optional(v.number()),
+  })
+    .index("by_orderId", ["orderId"])
+    .index("by_userId", ["userId"])
+    .index("by_status_and_founding", ["status", "founding"]),
 
   profiles: defineTable({
     userId: v.id("users"),

@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
-import { httpAction } from "./_generated/server";
+import { env, httpAction } from "./_generated/server";
+import { webhookGenuine } from "./lib/razorpay";
 import { auth } from "./auth";
 
 const http = httpRouter();
@@ -53,6 +54,25 @@ http.route({
     const url = new URL(req.url);
     const next: string = await ctx.runAction(internal.google.finish, { code: url.searchParams.get("code") ?? "", state: url.searchParams.get("state") ?? "" });
     return new Response(null, { status: 302, headers: { Location: next } });
+  }),
+});
+
+/** Razorpay's own word that a payment went through, in case the payer closed the page before it confirmed. */
+http.route({
+  path: "/razorpay/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const secret = env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) return new Response("Not set up", { status: 503 });
+    const body = await req.text();
+    if (!(await webhookGenuine(secret, body, req.headers.get("x-razorpay-signature") ?? ""))) return new Response("Bad signature", { status: 401 });
+    const event = JSON.parse(body) as { event?: unknown; payload?: { payment?: { entity?: { id?: unknown; order_id?: unknown; amount?: unknown } } } };
+    const p = event.payload?.payment?.entity;
+    if ((event.event === "payment.captured" || event.event === "order.paid") && typeof p?.id === "string" && typeof p.order_id === "string") {
+      await ctx.runMutation(internal.payments.markPaid, { orderId: p.order_id, paymentId: p.id, amount: typeof p.amount === "number" ? p.amount : undefined });
+    }
+    // Anything else is acknowledged, so Razorpay doesn't keep retrying it.
+    return new Response("ok", { status: 200 });
   }),
 });
 

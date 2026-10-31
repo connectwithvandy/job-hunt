@@ -41,7 +41,7 @@ export default function WaitlistAdmin() {
         <div>
           <div className="font-medium">{a.name ? `${a.name} · ${a.email}` : a.email || "No email"}</div>
           <div className="text-xs text-ink-3">
-            {[a.role, `Signed up ${new Date(a._creationTime).toLocaleDateString()}`, !approve && (a.welcomedAt ? "Welcome email sent" : list.emailOn ? "Welcome email not sent yet" : "")]
+            {[a.role, `Signed up ${new Date(a._creationTime).toLocaleDateString()}`, !approve && (a.welcomedAt ? "Welcome email sent" : list.emailOn ? "Welcome email not sent yet" : ""), !approve && (a.paidUntil ? `Paid until ${new Date(a.paidUntil).toLocaleDateString()}` : "Not paid")]
               .filter(Boolean)
               .join(" · ")}
             {a.linkedin && (
