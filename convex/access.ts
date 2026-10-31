@@ -23,7 +23,7 @@ export const status = query({
     if (!userId) return null;
     const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     const user = await ctx.db.get("users", userId);
-    return { approved: await hasAccess(ctx, userId), onWaitlist: !!row, email: user?.email ?? "" };
+    return { approved: await hasAccess(ctx, userId), onWaitlist: !!row, answered: !!row?.name, email: user?.email ?? "" };
   },
 });
 
@@ -37,6 +37,24 @@ export const join = mutation({
     if (existing) return null;
     const user = await ctx.db.get("users", userId);
     await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
+    return null;
+  },
+});
+
+/** A few words about you while you wait: name, LinkedIn and the role you're after. */
+export const describe = mutation({
+  args: { name: v.string(), linkedin: v.string(), role: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in again.");
+    const name = args.name.trim().slice(0, 100);
+    const linkedin = args.linkedin.trim().slice(0, 300);
+    const role = args.role.trim().slice(0, 60);
+    if (!name) throw new ConvexError("Add your name.");
+    if (linkedin && !/^(https?:\/\/)?([a-z]+\.)?linkedin\.com\//i.test(linkedin)) throw new ConvexError("That doesn't look like a LinkedIn profile link.");
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!row) throw new ConvexError("Join the waitlist first.");
+    await ctx.db.patch("access", row._id, { name, linkedin: linkedin || undefined, role: role || undefined });
     return null;
   },
 });

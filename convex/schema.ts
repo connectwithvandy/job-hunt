@@ -22,7 +22,16 @@ export default defineSchema({
   feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
 
   /** The waitlist: everyone who signed up, and whether the owner let them in. */
-  access: defineTable({ userId: v.id("users"), email: v.string(), approved: v.boolean(), decidedAt: v.optional(v.number()) })
+  access: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    approved: v.boolean(),
+    decidedAt: v.optional(v.number()),
+    // What they told us while waiting, so the owner can decide quickly.
+    name: v.optional(v.string()),
+    linkedin: v.optional(v.string()),
+    role: v.optional(v.string()),
+  })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"]),
 

@@ -38,8 +38,18 @@ export default function WaitlistAdmin() {
           />
         )}
         <div>
-          <div className="font-medium">{a.email || "No email"}</div>
-          <div className="text-xs text-ink-3">Signed up {new Date(a._creationTime).toLocaleDateString()}</div>
+          <div className="font-medium">{a.name ? `${a.name} · ${a.email}` : a.email || "No email"}</div>
+          <div className="text-xs text-ink-3">
+            {[a.role, `Signed up ${new Date(a._creationTime).toLocaleDateString()}`].filter(Boolean).join(" · ")}
+            {a.linkedin && (
+              <>
+                {" · "}
+                <a className="underline" href={a.linkedin.startsWith("http") ? a.linkedin : `https://${a.linkedin}`} target="_blank" rel="noreferrer">
+                  LinkedIn
+                </a>
+              </>
+            )}
+          </div>
         </div>
       </label>
       <div className="flex flex-wrap items-center gap-2">

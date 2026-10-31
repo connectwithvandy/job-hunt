@@ -28,7 +28,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     );
   }
   if (!isAuthenticated || !access) return <SignIn />;
-  if (!access.approved) return <Waitlist email={access.email} onWaitlist={access.onWaitlist} />;
+  if (!access.approved) return <Waitlist email={access.email} onWaitlist={access.onWaitlist} answered={access.answered} />;
   if (!me) return <SignIn />;
   if (!me.onboarded) return <Onboarding me={me} />;
 
