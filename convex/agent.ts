@@ -73,7 +73,7 @@ function requireResume<T>(resume: T | null): T {
 
 // ---------- CV ----------
 
-async function fileText(blob: Blob, fileName: string) {
+export async function fileText(blob: Blob, fileName: string) {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const name = fileName.toLowerCase();
   if (name.endsWith(".pdf")) {

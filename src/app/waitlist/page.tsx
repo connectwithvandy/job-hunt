@@ -12,6 +12,7 @@ export default function WaitlistAdmin() {
   const me = useQuery(api.users.me);
   const list = useQuery(api.access.list, me?.isOwner ? {} : "skip");
   const feedback = useQuery(api.feedback.list, me?.isOwner ? {} : "skip");
+  const reviews = useQuery(api.cvReviews.list, me?.isOwner ? {} : "skip");
   const setApproved = useMutation(api.access.setApproved);
   const approveMany = useMutation(api.access.approveMany);
   const resetPassword = useAction(api.access.resetPassword);
@@ -128,6 +129,18 @@ export default function WaitlistAdmin() {
       {list.waiting.length ? <ul className="mb-10">{list.waiting.map((a) => row(a, true))}</ul> : <p className="mb-10 text-sm text-ink-3">Nobody waiting.</p>}
       <h2 className="mb-2 text-sm font-medium text-ink-2">Let in ({list.approved.length})</h2>
       {list.approved.length ? <ul>{list.approved.map((a) => row(a, false))}</ul> : <p className="text-sm text-ink-3">Nobody yet.</p>}
+      <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Free CV reviews ({reviews?.length ?? 0})</h2>
+      {reviews?.length ? (
+        <ul className="mb-10">
+          {reviews.map((r) => (
+            <li key={r._id} className="border-b border-line py-2 text-sm">
+              {r.email} · {r.role} · <b>{r.score}</b>/100 · <span className="text-ink-3">{new Date(r._creationTime).toLocaleString()}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mb-10 text-sm text-ink-3">Nobody yet. They come from jobpipe.in/cv-review.</p>
+      )}
       <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Feedback ({feedback?.length ?? 0})</h2>
       {feedback?.length ? (
         <ul>

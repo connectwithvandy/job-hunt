@@ -10,6 +10,10 @@ export default function Privacy() {
       <p>Last updated {LEGAL.updated}. This explains what {LEGAL.product} keeps about you and why.</p>
       <h2 className="display text-xl text-ink">What we keep</h2>
       <p>Your email and login, the CVs you upload, the roles you pick, jobs you save and their notes, drafts we write for you, LinkedIn connections you choose to upload, and your saved form answers and writing sample.</p>
+      <p>
+        The free CV review at /cv-review works without an account. The CV you upload is read once, sent to our AI provider to write the review, and not stored. We keep
+        your email, the role you picked and the review, so each email gets one free review.
+      </p>
       <h2 className="display text-xl text-ink">Gmail and Google Calendar (only if you connect them)</h2>
       <p>
         Connecting Gmail is optional. When you click Connect Gmail, you give {LEGAL.product} read-only access to your Gmail

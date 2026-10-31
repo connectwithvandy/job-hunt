@@ -17,6 +17,7 @@ ${FAQ.map(([q, a]) => `### ${q}\n${a}`).join("\n\n")}
 
 ## Pages
 - [Home](${LEGAL.site}/)
+- [Free CV review for sales jobs](${LEGAL.site}/cv-review)
 - [Pricing](${LEGAL.site}/pricing)
 - [Privacy policy](${LEGAL.site}/privacy)
 - [Terms](${LEGAL.site}/terms)

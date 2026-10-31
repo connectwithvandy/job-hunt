@@ -1,28 +1,57 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { PLANS } from "@/lib/legal";
-import { FAQ, STEPS, landingJsonLd } from "@/lib/marketing";
+import { FAQ, landingJsonLd } from "@/lib/marketing";
 import { Spinner } from "./ui";
 
 const noSubscribe = () => () => {};
 
+// Small line icons for the feature cards.
+const ICONS: Record<string, React.ReactNode> = {
+  intro: <path d="M16 11a4 4 0 1 0-8 0M4 20a8 8 0 0 1 16 0M12 7V3m-4 2 1 1m7-1-1 1" />,
+  score: <path d="M4 19h16M7 16V9m5 7V5m5 11v-4" />,
+  fact: <path d="m5 12 4 4L19 6M5 20h14" />,
+  roles: <path d="M4 6h16M4 12h10M4 18h6m8-6 3 3-3 3" />,
+};
+function Icon({ name }: { name: string }) {
+  return (
+    <span className="grid h-10 w-10 place-items-center rounded-xl border border-accent/30 bg-accent/10 text-accent">
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        {ICONS[name]}
+      </svg>
+    </span>
+  );
+}
+
+// A made-up morning, to show what the Today page looks like. Labelled as an example on the page.
+const EXAMPLE_JOBS = [
+  { co: "Northwind AI", title: "Enterprise Account Executive, India", where: "Bengaluru", score: 91, why: "Enterprise SaaS, quota size matches yours", warm: 2 },
+  { co: "Kitebird", title: "Head of Sales Development, APAC", where: "Remote · APAC", score: 84, why: "You've built SDR teams; they want an outbound playbook", warm: 1 },
+  { co: "Lumen Cloud", title: "GTM Strategy Lead", where: "Bengaluru · hybrid", score: 58, why: "Strong on GTM, but they want a fintech background", warm: 0 },
+];
+
 // In order of what a sales job-seeker cares about most.
 const POINTS = [
   [
+    "intro",
     "Warm intros first",
     "See who you know at each company and get a referral note drafted for the best person to ask.",
   ],
   [
+    "score",
     "A score with a reason",
     "Every job is scored against every role you want. A misleading title costs you ten seconds, not an evening.",
   ],
   [
+    "fact",
     "Tailored, never invented",
     "Your real facts, reordered and trimmed for each job. A fact check flags any number that isn't yours.",
   ],
   [
+    "roles",
     "Several roles, several searches",
     "SDR leader and GTM strategist? Each role gets its own search, CV and pipeline.",
   ],
@@ -92,37 +121,69 @@ export function SignIn() {
   }[flow];
 
   return (
+    <div className="relative isolate overflow-hidden">
+      {/* A soft glow and a faint grid behind the top of the page. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[900px]">
+        <div className="absolute left-1/2 top-[-300px] h-[700px] w-[1100px] -translate-x-1/2 rounded-full bg-accent/10 blur-[140px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--line)_1px,transparent_1px),linear-gradient(to_bottom,var(--line)_1px,transparent_1px)] bg-[size:56px_56px] opacity-40 [mask-image:radial-gradient(ellipse_at_top,black_20%,transparent_70%)]" />
+      </div>
     <div className="mx-auto max-w-6xl px-5 lg:px-12">
       {/* What the app is, how it works and the FAQ, for Google and AI answer tools. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(landingJsonLd()) }}
       />
-      <div className="grid min-h-screen items-center gap-12 py-12 lg:grid-cols-[1.2fr_1fr]">
+      <header className="flex items-center justify-between py-6">
+        <span className="display text-lg uppercase tracking-wide">
+          JobPipe<span className="text-accent">.</span>
+        </span>
+        <nav className="flex items-center gap-6 text-sm text-ink-2">
+          <a href="#faq" className="hidden hover:text-ink md:inline">FAQ</a>
+          <Link href="/pricing" className="hidden hover:text-ink sm:inline">Pricing</Link>
+          <Link href="/cv-review" className="hidden hover:text-ink sm:inline">Free CV review</Link>
+          <button
+            type="button"
+            onClick={() => {
+              setFlow("signIn");
+              document.getElementById("join")?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
+            className="rounded-full border border-line px-4 py-1.5 text-ink hover:border-accent"
+          >
+            Sign in
+          </button>
+        </nav>
+      </header>
+
+      <div className="grid items-center gap-12 pb-20 pt-10 lg:min-h-[calc(100vh-88px)] lg:grid-cols-[1.2fr_1fr] lg:pt-0">
         <section>
-          <p className="display text-sm uppercase tracking-wide">
-            JobPipe<span className="text-accent">.</span>
+          <p className="inline-flex items-center gap-2 rounded-full border border-line bg-card/60 px-3 py-1 text-xs text-ink-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            For sales and GTM people · India, APAC, EMEA
           </p>
-          <h1 className="display mt-6 text-4xl leading-[1.05] md:text-6xl">
+          <h1 className="display mt-6 text-4xl leading-[1.02] md:text-[64px]">
             You&apos;re not looking for <span className="text-accent">a</span>{" "}
             job.
             <br />
             You&apos;re running several searches at once.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-ink-2">{pitch}</p>
-          <ul className="mt-10 grid gap-5 sm:grid-cols-2">
-            {POINTS.map(([title, text]) => (
-              <li key={title} className="border-l-2 border-accent pl-4">
-                <div className="font-medium">{title}</div>
-                <p className="mt-1 text-sm text-ink-2">{text}</p>
-              </li>
-            ))}
+          <Link
+            href="/cv-review"
+            className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline"
+          >
+            Not ready to join? Get a free CV review for sales roles →
+          </Link>
+          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-3">
+            <li>✓ Never invents facts</li>
+            <li>✓ No spam applying</li>
+            <li>✓ Open source</li>
           </ul>
         </section>
 
         <form
+          id="join"
           key={flow}
-          className="card p-7"
+          className="card relative p-7 shadow-[0_0_0_1px_rgba(198,255,61,0.08),0_30px_80px_-20px_rgba(198,255,61,0.18)]"
           onSubmit={(e) => {
             e.preventDefault();
             setBusy(true);
@@ -253,34 +314,120 @@ export function SignIn() {
         </form>
       </div>
 
-      <section className="border-t border-line py-16">
-        <h2 className="display text-3xl">How JobPipe works</h2>
-        <ol className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, i) => (
-            <li key={step} className="border-l-2 border-accent pl-4">
-              <div className="display text-accent">{i + 1}</div>
-              <p className="mt-1 text-sm text-ink-2">{step}</p>
+      <section className="border-t border-line py-20">
+        <p className="label text-accent">Why it works</p>
+        <h2 className="display mt-3 max-w-2xl text-4xl leading-tight">Built for how sales people actually job hunt</h2>
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+          {POINTS.map(([icon, title, text]) => (
+            <li key={title} className="card p-6 transition-colors hover:border-accent/40">
+              <Icon name={icon} />
+              <h3 className="mt-5 text-lg font-medium">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-2">{text}</p>
             </li>
           ))}
-        </ol>
+        </ul>
       </section>
 
-      <section className="border-t border-line py-16">
-        <h2 className="display text-3xl">Questions people ask</h2>
-        <div className="mt-8 grid gap-x-12 gap-y-8 md:grid-cols-2">
-          {FAQ.map(([q, a]) => (
-            <div key={q}>
-              <h3 className="font-medium">{q}</h3>
-              <p className="mt-2 text-sm text-ink-2">{a}</p>
-            </div>
+      <section className="border-t border-line py-20">
+        <p className="label text-accent">Your morning</p>
+        <h2 className="display mt-3 max-w-2xl text-4xl leading-tight">Open Today. Know exactly what to do.</h2>
+        <div className="card mt-10 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-line px-6 py-4 text-sm">
+            <span className="font-medium">Today · 3 new jobs worth applying to</span>
+            <span className="rounded-full border border-line px-2.5 py-0.5 text-xs text-ink-3">Example</span>
+          </div>
+          <ul>
+            {EXAMPLE_JOBS.map((j) => (
+              <li key={j.co} className="flex flex-wrap items-center gap-4 border-b border-line px-6 py-5 last:border-0">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-soft text-sm font-semibold text-ink-2">
+                  {j.co.split(" ").map((w) => w[0]).join("")}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{j.title}</p>
+                  <p className="text-sm text-ink-3">
+                    {j.co} · {j.where}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-2">{j.why}</p>
+                </div>
+                {j.warm > 0 && (
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs text-accent">
+                    {j.warm} warm {j.warm === 1 ? "intro" : "intros"}
+                  </span>
+                )}
+                <span className={`display w-14 text-right text-3xl ${j.score >= 75 ? "text-accent" : "text-ink-3"}`}>{j.score}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+
+      {/* Answers stay in the page when closed, so search engines and AI tools still read them. */}
+      <section id="faq" className="grid gap-10 border-t border-line py-20 lg:grid-cols-[1fr_1.6fr]">
+        <div>
+          <p className="label text-accent">FAQ</p>
+          <h2 className="display mt-3 text-4xl leading-tight">
+            Questions people ask
+          </h2>
+          <p className="mt-4 text-sm text-ink-2">
+            Something else?{" "}
+            <a
+              href="mailto:hello@jobpipe.in"
+              className="text-ink underline decoration-accent underline-offset-4"
+            >
+              hello@jobpipe.in
+            </a>
+          </p>
+        </div>
+        <div className="border-t border-line">
+          {FAQ.map(([q, a], i) => (
+            <details
+              key={q}
+              className="group border-b border-line"
+              open={i === 0}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 [&::-webkit-details-marker]:hidden">
+                <h3 className="text-base font-medium transition-colors group-hover:text-accent md:text-lg">
+                  {q}
+                </h3>
+                <span
+                  aria-hidden
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line text-lg text-ink-2 transition-transform duration-200 group-open:rotate-45 group-open:border-accent group-open:text-accent"
+                >
+                  +
+                </span>
+              </summary>
+              <p className="max-w-2xl pb-6 pr-12 text-sm leading-relaxed text-ink-2">
+                {a}
+              </p>
+            </details>
           ))}
         </div>
+      </section>
+
+      <section className="relative my-10 overflow-hidden rounded-3xl border border-accent/20 bg-card px-8 py-14 text-center">
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-64 w-[700px] -translate-x-1/2 rounded-full bg-accent/10 blur-[100px]" />
+        <h2 className="display relative mx-auto max-w-2xl text-3xl leading-tight md:text-4xl">Your next role is probably already posted.</h2>
+        <p className="relative mx-auto mt-3 max-w-xl text-ink-2">Let JobPipe find it, score it and show you who can get you in.</p>
+        <button
+          type="button"
+          className="btn btn-primary relative mt-8"
+          onClick={() => {
+            setFlow("signUp");
+            document.getElementById("join")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        >
+          Join the waitlist
+        </button>
       </section>
 
       <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line py-8 text-xs text-ink-3">
         <span>
           JobPipe<span className="text-accent">.</span>
         </span>
+        <Link href="/cv-review" className="hover:text-ink">
+          Free CV review
+        </Link>
         <a href="/pricing" className="hover:text-ink">
           Pricing
         </a>
@@ -305,6 +452,7 @@ export function SignIn() {
           Open source on GitHub
         </a>
       </footer>
+    </div>
     </div>
   );
 }

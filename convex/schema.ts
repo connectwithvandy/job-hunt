@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { reviewValidator } from "./lib/cvReview";
 import { chatRowV } from "./lib/chats";
 import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, sentV, storyFields } from "./lib/validators";
 
@@ -22,6 +23,14 @@ export default defineSchema({
   feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
 
   /** The waitlist: everyone who signed up, and whether the owner let them in. */
+  // Free CV reviews from the public /cv-review page: one per email. The CV itself isn't kept.
+  cvReviews: defineTable({
+    email: v.string(),
+    role: v.string(),
+    score: v.number(),
+    review: reviewValidator,
+  }).index("by_email", ["email"]),
+
   access: defineTable({
     userId: v.id("users"),
     email: v.string(),
