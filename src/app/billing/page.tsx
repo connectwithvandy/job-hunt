@@ -86,7 +86,7 @@ export default function Billing() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHead title="Billing" sub="Pay by UPI, card or net banking through Razorpay. Every plan has every feature." />
+      <PageHead title="Plan & billing" sub="Pay by UPI, card or net banking through Razorpay. Every plan has every feature." />
 
       <section className="card mb-6 p-6">
         <div className="label mb-1">Your plan</div>

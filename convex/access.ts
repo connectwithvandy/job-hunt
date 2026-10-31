@@ -1,4 +1,4 @@
-import { getAuthUserId, invalidateSessions, modifyAccountCredentials } from "@convex-dev/auth/server";
+import { getAuthUserId, invalidateSessions, modifyAccountCredentials, retrieveAccount } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -169,3 +169,66 @@ export const resetPassword = action({
     return { email, password };
   },
 });
+
+/** Your account at a glance, for the menu and the Account page: name, email, LinkedIn and paid time. */
+export const mine = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const user = await ctx.db.get("users", userId);
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    const resume = profile?.defaultResumeId ? await ctx.db.get("resumes", profile.defaultResumeId) : null;
+    return {
+      email: user?.email ?? "",
+      name: row?.name || resume?.resume.name || "",
+      linkedin: row?.linkedin ?? "",
+      paidUntil: row?.paidUntil ?? null,
+      isOwner: isOwnerEmail(user?.email),
+      // The owner has no waitlist row, so there's nowhere to keep an edited name.
+      canEdit: !!row,
+    };
+  },
+});
+
+/** Change your name and LinkedIn link. */
+export const updateProfile = mutation({
+  args: { name: v.string(), linkedin: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in again.");
+    const name = args.name.trim().slice(0, 100);
+    const linkedin = args.linkedin.trim().slice(0, 300);
+    if (!name) throw new ConvexError("Add your name.");
+    if (linkedin && !/^(https?:\/\/)?([a-z]+\.)?linkedin\.com\//i.test(linkedin)) throw new ConvexError("That doesn't look like a LinkedIn profile link.");
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!row) throw new ConvexError("Your name comes from your CV.");
+    await ctx.db.patch("access", row._id, { name, linkedin: linkedin || undefined });
+    return null;
+  },
+});
+
+export const emailOf = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => (await ctx.db.get("users", userId))?.email ?? "",
+});
+
+/** Change your password: the current one first, so someone at an unlocked laptop can't. */
+export const changePassword = action({
+  args: { current: v.string(), next: v.string() },
+  handler: async (ctx, { current, next }): Promise<null> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in again.");
+    if (next.length < 8) throw new ConvexError("Use at least 8 characters.");
+    const email: string = await ctx.runQuery(internal.access.emailOf, { userId });
+    try {
+      await retrieveAccount(ctx, { provider: "password", account: { id: email, secret: current } });
+    } catch {
+      throw new ConvexError("That current password isn't right.");
+    }
+    await modifyAccountCredentials(ctx, { provider: "password", account: { id: email, secret: next } });
+    return null;
+  },
+});
+

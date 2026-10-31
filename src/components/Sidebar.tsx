@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -14,15 +14,17 @@ const NAV = [
   { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }, { href: "/tracker", label: "Applications" }] },
   { label: "Companies", pages: [{ href: "/companies", label: "Companies" }] },
   { label: "People", pages: [{ href: "/messages", label: "Messages" }, { href: "/network", label: "Your network" }] },
-  { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }, { href: "/stories", label: "Stories" }, { href: "/billing", label: "Billing" }] },
+  { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }, { href: "/stories", label: "Stories" }] },
 ];
+/** Your own account: reached from your name at the bottom of the menu, not a place in it. */
+const ACCOUNT = { label: "Account", pages: [{ href: "/account", label: "Profile" }, { href: "/billing", label: "Plan & billing" }] };
 
 const isOn = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
 /** Tabs for the other pages in the same place, like Messages and Your network under People. */
 export function SubTabs() {
   const path = usePathname();
-  const group = NAV.find((g) => g.pages.some((p) => isOn(path, p.href)));
+  const group = [...NAV, ACCOUNT].find((g) => g.pages.some((p) => isOn(path, p.href)));
   if (!group || group.pages.length < 2) return null;
   return (
     <div className="no-print mb-6 flex gap-1 border-b border-line text-sm">
@@ -77,12 +79,31 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
       </nav>
       {/* Right under the menu, not at the bottom of a tall screen where nobody finds it. */}
       <div className="ml-auto flex gap-4 md:ml-0 md:flex-col md:gap-3 md:border-t md:border-line md:px-3 md:pt-5">
+        <AccountLink active={ACCOUNT.pages.some((p) => isOn(path, p.href))} />
         {!isOwner && <FeedbackButton />}
         <button type="button" onClick={() => void signOut()} className="text-left text-sm text-ink-2 hover:text-ink">
           Sign out
         </button>
       </div>
     </aside>
+  );
+}
+
+/** Your name and plan, opening the Account page. */
+function AccountLink({ active }: { active: boolean }) {
+  const me = useQuery(api.access.mine);
+  const [now] = useState(() => Date.now());
+  if (!me) return null;
+  const plan = me.isOwner
+    ? "Owner"
+    : me.paidUntil && me.paidUntil > now
+      ? `Paid until ${new Date(me.paidUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+      : "Free beta";
+  return (
+    <Link href="/account" className={`text-left text-sm leading-tight ${active ? "text-accent" : "text-ink-2 hover:text-ink"}`}>
+      <span className="block font-medium">{me.name.split(" ")[0] || "Account"}</span>
+      <span className="hidden text-xs text-ink-3 md:block">{plan}</span>
+    </Link>
   );
 }
 
