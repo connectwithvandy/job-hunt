@@ -236,6 +236,8 @@ async function linkedInMatches(titles: string[], location: string, since: "24h" 
  * `linkedin` also reads LinkedIn's listings from that far back; only the owner's account pays for it.
  */
 async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2, linkedin?: "24h" | "week"): Promise<{ added: number; failed: string[] }> {
+    // Google Jobs has one small free monthly quota for everyone, so take this person's share of it first.
+    const google: number = track.company || !env.JSEARCH_API_KEY ? 0 : await ctx.runMutation(internal.limits.reserveGoogle, { userId, want: Math.min(googleTitles, track.titles.length) });
     const [settled, [others, otherFailed]] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
@@ -243,7 +245,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
-            searchOtherSources(track.titles, location, googleTitles),
+            searchOtherSources(track.titles, location, google),
             careerMatches(ctx, track.titles, location),
             linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, location, linkedin) : Promise.resolve({ jobs: [], failed: false }),
           ]).then(([other, careers, li]): [Found[], string[]] => [[...other.jobs, ...careers, ...li.jobs], [...other.failed, ...(li.failed ? ["LinkedIn"] : [])]]),
@@ -259,7 +261,8 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const all = [...listings.map((l) => fromListing(l, track.key)), ...others.map((f) => fromFound(f, track.key))];
     const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()];
     const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique });
-    const failed = settled.some((r) => r.status === "rejected") ? ["Dreamwork", ...otherFailed] : otherFailed;
+    const failed = settled.some((r) => r.status === "rejected") ? ["Dreamwork", ...otherFailed] : [...otherFailed];
+    if (!track.company && env.JSEARCH_API_KEY && google < Math.min(googleTitles, track.titles.length)) failed.push("Google Jobs (this month's free searches are used up)");
     return { added, failed };
 }
 

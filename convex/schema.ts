@@ -7,6 +7,9 @@ import { jobFields, prospectFields, resumeV, trackFields, packV, prepV, research
 export default defineSchema({
   ...authTables,
 
+  /** Google Jobs (JSearch) searches used per person per month, so everyone shares the free monthly quota. */
+  googleUsage: defineTable({ month: v.string(), userId: v.id("users"), count: v.number() }).index("by_month_userId", ["month", "userId"]),
+
   /** What testers wrote in the Send feedback box, for the owner to read on the waitlist page. */
   feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
 

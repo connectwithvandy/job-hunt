@@ -34,6 +34,8 @@ type Env = {
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
   readonly JOBHUNT_MODEL: string | undefined;
+  readonly JSEARCH_API_KEY: string | undefined;
+  readonly JSEARCH_MONTHLY: string | undefined;
   readonly OWNER_EMAILS: string | undefined;
 };
 

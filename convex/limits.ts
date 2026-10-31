@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { components } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { DataModel } from "./_generated/dataModel";
-import { internalMutation, type QueryCtx } from "./_generated/server";
+import { env, internalMutation, type QueryCtx } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import { DAILY_LIMITS } from "./lib/defaults";
 
@@ -49,6 +49,32 @@ export const consume = internalMutation({
       throw new ConvexError(`You've used today's ${DAILY_LIMITS[kind]} ${LABELS[kind]}. More in about ${hours} ${hours === 1 ? "hour" : "hours"}.`);
     }
     return null;
+  },
+});
+
+// ---------- Google Jobs: one free monthly quota for everyone ----------
+
+/**
+ * Reserve up to `want` Google Jobs searches for this person this month; returns how many they got.
+ * JSearch's free plan is one quota for the whole app (about 200 a month), so it's split evenly between
+ * everyone let in. The owner can use what others leave, up to the total.
+ */
+export const reserveGoogle = internalMutation({
+  args: { userId: v.id("users"), want: v.number() },
+  handler: async (ctx, { userId, want }) => {
+    const budget = Number(env.JSEARCH_MONTHLY ?? 190);
+    const month = new Date().toISOString().slice(0, 7);
+    const rows = await ctx.db.query("googleUsage").withIndex("by_month_userId", (q) => q.eq("month", month)).take(500);
+    const used = rows.reduce((n, r) => n + r.count, 0);
+    const mine = rows.find((r) => r.userId === userId);
+    const user = await ctx.db.get("users", userId);
+    const people = (await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(500)).length + 1;
+    const share = isOwnerEmail(user?.email) ? budget : Math.floor(budget / people);
+    const granted = Math.max(0, Math.min(want, budget - used, share - (mine?.count ?? 0)));
+    if (!granted) return 0;
+    if (mine) await ctx.db.patch("googleUsage", mine._id, { count: mine.count + granted });
+    else await ctx.db.insert("googleUsage", { month, userId, count: granted });
+    return granted;
   },
 });
 
