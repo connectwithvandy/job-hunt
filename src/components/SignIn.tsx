@@ -3,7 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
-import { PLANS } from "@/lib/legal";
+import { LEGAL, PLANS } from "@/lib/legal";
 import { FAQ, landingJsonLd } from "@/lib/marketing";
 import { Spinner } from "./ui";
 
@@ -178,6 +178,17 @@ export function SignIn() {
             <li>✓ No spam applying</li>
             <li>✓ Open source</li>
           </ul>
+          <a
+            href={LEGAL.founderLinkedIn}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-8 inline-flex items-center gap-3 rounded-full border border-line bg-card/60 py-1.5 pl-1.5 pr-4 text-sm text-ink-2 hover:border-accent"
+          >
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-semibold text-on-accent">{LEGAL.founder[0]}</span>
+            <span>
+              Built by <span className="text-ink">{LEGAL.founder}</span>, a sales leader · <span className="text-ink underline decoration-accent underline-offset-4">LinkedIn</span>
+            </span>
+          </a>
         </section>
 
         <form
@@ -427,6 +438,9 @@ export function SignIn() {
         </span>
         <Link href="/cv-review" className="hover:text-ink">
           Free CV review
+        </Link>
+        <Link href="/sales-jobs" className="hover:text-ink">
+          Sales job guides
         </Link>
         <a href="/pricing" className="hover:text-ink">
           Pricing

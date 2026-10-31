@@ -1,5 +1,6 @@
 import { LEGAL } from "@/lib/legal";
 import { DEFINITION, FAQ, STEPS } from "@/lib/marketing";
+import { ROLE_PAGES } from "@/lib/rolePages";
 
 // A plain-text summary for AI tools (the llms.txt convention), built from the same words as the landing page.
 export const dynamic = "force-static";
@@ -18,6 +19,7 @@ ${FAQ.map(([q, a]) => `### ${q}\n${a}`).join("\n\n")}
 ## Pages
 - [Home](${LEGAL.site}/)
 - [Free CV review for sales jobs](${LEGAL.site}/cv-review)
+${ROLE_PAGES.map((r) => `- [${r.title}](${LEGAL.site}/sales-jobs/${r.slug})`).join("\n")}
 - [Pricing](${LEGAL.site}/pricing)
 - [Privacy policy](${LEGAL.site}/privacy)
 - [Terms](${LEGAL.site}/terms)

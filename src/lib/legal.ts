@@ -10,6 +10,9 @@ export const LEGAL = {
   /** City and state is enough for now; Razorpay may ask for a full address. */
   address: "Bengaluru, Karnataka, India",
   site: "https://jobpipe.in",
+  /** The founder, as shown on the landing page and in the welcome email. */
+  founder: "Vandy",
+  founderLinkedIn: "https://www.linkedin.com/in/meet-vandana/",
   updated: "31 October 2026",
 };
 

@@ -75,6 +75,7 @@ export function landingJsonLd() {
       url: LEGAL.site,
       email: LEGAL.email,
       sameAs: ["https://github.com/connectwithvandy/job-hunt"],
+      founder: { "@type": "Person", name: LEGAL.founder, jobTitle: "Sales leader", url: LEGAL.founderLinkedIn, sameAs: [LEGAL.founderLinkedIn] },
     },
     {
       "@context": "https://schema.org",

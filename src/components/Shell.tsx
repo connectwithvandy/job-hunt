@@ -33,7 +33,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const returning = useSyncExternalStore(noSubscribe, hasSession, () => false);
 
   // Pricing and the policy pages are for everyone, signed in or not.
-  if (PUBLIC.includes(path)) return <>{children}</>;
+  if (PUBLIC.includes(path) || path.startsWith("/sales-jobs")) return <>{children}</>;
   if (isLoading && !returning) return <SignIn />;
   if (isLoading || (isAuthenticated && (access === undefined || (access?.approved && me === undefined)))) {
     return (

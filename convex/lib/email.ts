@@ -5,6 +5,7 @@ import { env } from "../_generated/server";
 
 export const FROM = "Vandy from JobPipe <hello@jobpipe.in>";
 export const REPLY_TO = "hello@jobpipe.in";
+const FOUNDER_LINKEDIN = "https://www.linkedin.com/in/meet-vandana/";
 
 export const emailOn = () => !!env.RESEND_API_KEY;
 
@@ -60,6 +61,7 @@ Good luck with the hunt,
 Vandy
 Founder, JobPipe
 ${url}
+LinkedIn: ${FOUNDER_LINKEDIN}
 `;
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
 <p>${esc(hello)}</p>
@@ -68,7 +70,7 @@ ${story.map((t) => `<p>${esc(t)}</p>`).join("\n")}
 <ol style="padding-left:20px">${steps.map((s) => `<li style="margin-bottom:6px">${esc(s)}</li>`).join("")}</ol>
 <p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Open JobPipe</a></p>
 <p>${esc(outro)}</p>
-<p>Good luck with the hunt,<br>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a></span></p>
+<p>Good luck with the hunt,<br>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
 </div>`;
   return { subject, text, html };
 }
