@@ -12,7 +12,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
 import { unverifiedNumbers } from "./lib/facts";
-import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
+import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
 import { MAX_STORIES } from "./lib/defaults";
@@ -709,6 +709,30 @@ export const draftNotes = action({
 // ---------- Follow-ups ----------
 
 const firstName = (text: string, name: string) => text.replace(/<first name>|<name>/gi, name.trim().split(/\s+/)[0] || "there");
+
+/** Drafts your answer to a recruiting email: an interview invite, screening questions, an offer or a no. */
+export const draftEmailReply = action({
+  args: { emailId: v.id("jobEmails"), times: v.optional(v.string()) },
+  handler: async (ctx, { emailId, times }): Promise<null> => {
+    const { userId, resumes, voice } = await setup(ctx);
+    if (!resumes.length) throw new ConvexError("Upload your CV first.");
+    const found = await ctx.runQuery(internal.inbox.emailForAction, { userId, emailId });
+    if (!found) throw new ConvexError("That email isn't here any more.");
+    const job: Doc<"jobs"> = await ctx.runQuery(internal.jobs.forAction, { userId, jobId: found.job._id });
+    await spend(ctx, userId, "notes");
+    const out = await writeEmailReply({
+      job: { title: job.title, company: job.company },
+      email: found.email,
+      earlier: found.earlier,
+      cvs: resumes.map((r) => r.resume),
+      times,
+      research: job.research,
+      voice,
+    });
+    await ctx.runMutation(internal.inbox.saveReply, { userId, emailId, reply: { subject: out.subject.slice(0, 300), text: out.text.slice(0, 5000), at: Date.now() } });
+    return null;
+  },
+});
 
 /** Writes the next follow-up to someone who hasn't replied: a hiring contact on a job or company, or a connection asked for a referral. */
 export const followUp = action({

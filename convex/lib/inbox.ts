@@ -32,14 +32,20 @@ export function stageOf(m: InboxMessage): Stage | null {
 /** The job this email is about: its company named by the sender, their domain or the subject. */
 export function jobFor<J extends { company: string; updatedAt: number }>(m: InboxMessage, jobs: J[]): J | null {
   const domain = m.from.match(/@([a-z0-9.-]+)/i)?.[1]?.split(".").slice(-2, -1)[0] ?? "";
-  const text = companyKey(`${m.from.replace(/<[^>]*>/, " ")} ${domain} ${m.subject}`);
+  const text = companyKey(`${m.from.replace(/<[^>]*>/, " ")} ${HIRING_TOOLS.has(domain.toLowerCase()) ? "" : domain} ${m.subject}`);
   // Very short names ("ADA") would match by accident inside other words.
   const hits = jobs.filter((j) => {
     const key = companyKey(j.company);
     return key.length >= 4 && text.includes(key);
   });
-  return hits.sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null;
+  // A recruiter at axis.com writing about "Axis Communications": the sender's own domain names the company.
+  const own = domain.length >= 4 && !FREE_MAIL.has(domain.toLowerCase()) && !HIRING_TOOLS.has(domain.toLowerCase());
+  const byDomain = own ? jobs.filter((j) => companyKey(j.company).startsWith(domain.toLowerCase())) : [];
+  return (hits.length ? hits : byDomain).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null;
 }
+
+// Applicant tracking systems send emails for many companies, so their domains say nothing about which one.
+const HIRING_TOOLS = new Set(["greenhouse", "lever", "myworkday", "workday", "ashbyhq", "smartrecruiters", "icims", "workable", "jobvite", "successfactors", "taleo", "breezy", "recruitee", "teamtailor", "linkedin", "naukri", "indeed"]);
 
 export type CalendarEvent = { id: string; title: string; start: string; end: string; description: string; guests: string[]; link: string };
 

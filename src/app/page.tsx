@@ -88,7 +88,8 @@ export default function Today() {
     .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j))
     .sort((a, b) => bestScore(b)!.score - bestScore(a)!.score)
     .slice(0, 5);
-  const replies = jobs.filter((j) => j.lastEmail && msSince(j.lastEmail.at) < 3 * DAY && ["screening", "interview", "offer"].includes(j.status));
+  // Unanswered for a week at most: after that it's stale, and the job's follow-ups take over.
+  const replies = jobs.filter((j) => j.lastEmail && !j.lastEmail.repliedAt && msSince(j.lastEmail.at) < 7 * DAY && ["screening", "interview", "offer"].includes(j.status));
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
   // Follow-ups that are due: referral asks and messages to hiring managers that got no reply in a week.
   const followUps = jobs.flatMap((j) => [
@@ -120,7 +121,7 @@ export default function Today() {
   // 1. People who wrote back: companies by email, connections who answered a referral ask, hiring managers.
   const open = (j: Doc<"jobs">) => j.status === "new" || j.status === "applying";
   const answer: Todo[] = [
-    ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}`, href: `/jobs/${j._id}` })),
+    ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}. Draft your answer`, href: `/jobs/${j._id}#emails` })),
     ...jobs.flatMap((j) =>
       j.outreach
         .filter((o) => (o.status === "replied" || o.status === "referred") && open(j))

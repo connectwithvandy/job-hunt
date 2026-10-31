@@ -10,6 +10,7 @@ import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
 import { nextFollowUp } from "../../convex/lib/followups";
 import { downloadDocx, downloadLetterDocx } from "@/lib/docx";
+import { timeAgo } from "./bits";
 import { errorMessage } from "@/lib/errors";
 import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
@@ -1165,4 +1166,134 @@ function hostOf(u: string) {
 function boardsDown(failed: string[]) {
   const names = [...new Set(failed)];
   return names.length ? ` ${names.join(", ")} didn't answer, so there may be more; try again later.` : "";
+}
+
+/** Emails that want an answer: an invite, questions, an offer or a no. Confirmations don't. */
+export const needsAnswer = (e: Pick<Doc<"jobEmails">, "stage" | "repliedAt">) => e.stage !== "applied" && !e.repliedAt;
+
+/** "Priya Nair <priya@axis.com>" as its address, or "" for no-reply senders, who can't be answered. */
+function replyTo(from: string) {
+  const address = (from.match(/<([^>]+)>/)?.[1] ?? from).trim();
+  return /@/.test(address) && !/(no-?reply|do-?not-?reply|notifications?@|mailer-daemon)/i.test(address) ? address : "";
+}
+
+/** Gmail in the account the email came to, opening one email or a new one with the reply typed in. */
+function gmailLink(account: string, path: string) {
+  return `https://mail.google.com/mail/?authuser=${encodeURIComponent(account)}${path}`;
+}
+
+/** The emails from this company, newest first, with a drafted reply you can send from Gmail in two clicks. */
+export function JobEmails({ emails, company, account }: { emails: Doc<"jobEmails">[]; company: string; account: string }) {
+  useEffect(() => {
+    if (window.location.hash === "#emails") document.getElementById("emails")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+  return (
+    <div id="emails" className="card scroll-mt-6 p-6">
+      <h2 className="display mb-4 text-2xl">Emails from {company}</h2>
+      <ul className="divide-y divide-line text-sm">
+        {emails.map((m) => (
+          <EmailItem key={m._id} m={m} account={account} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
+  const draft = useAction(api.agent.draftEmailReply);
+  const edit = useMutation(api.inbox.editReply);
+  const markReplied = useMutation(api.inbox.markReplied);
+  const [times, setTimes] = useState("");
+  const [subject, setSubject] = useState(m.reply?.subject ?? "");
+  const [text, setText] = useState(m.reply?.text ?? "");
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  // A fresh draft replaces what's on screen; your own edits stay until then.
+  const [draftAt, setDraftAt] = useState(m.reply?.at);
+  if (m.reply && m.reply.at !== draftAt) {
+    setDraftAt(m.reply.at);
+    setSubject(m.reply.subject);
+    setText(m.reply.text);
+  }
+  const to = replyTo(m.from);
+  const gaps = text.match(/\[[^\]]+\]/g) ?? [];
+  const invite = m.stage === "interview" || m.stage === "screening";
+  return (
+    <li className="py-4">
+      <div className="flex justify-between gap-3">
+        <span className="font-medium">{m.subject}</span>
+        <span className="shrink-0 text-xs text-ink-3">{timeAgo(m.at)}</span>
+      </div>
+      <div className="text-xs text-ink-3">{m.from}</div>
+      <p className="mt-1 whitespace-pre-line text-ink-2">{m.snippet}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {m.messageId && (
+          <a className="btn btn-ghost btn-sm" href={gmailLink(account, `#all/${m.messageId}`)} target="_blank" rel="noreferrer">
+            Open in Gmail ↗
+          </a>
+        )}
+        {m.repliedAt ? (
+          <>
+            <span className="text-xs text-good">Answered {timeAgo(m.repliedAt)}</span>
+            <button className="text-xs text-ink-3 underline" onClick={() => void markReplied({ emailId: m._id, replied: false })}>
+              Undo
+            </button>
+          </>
+        ) : (
+          needsAnswer(m) && (
+            <button className="text-xs text-ink-3 underline" onClick={() => void markReplied({ emailId: m._id, replied: true })}>
+              Already answered
+            </button>
+          )
+        )}
+      </div>
+      {needsAnswer(m) && (
+        <div className="mt-4 rounded-xl border border-line p-4">
+          {invite && (
+            <label className="mb-3 block">
+              <span className="text-xs text-ink-2">Times that work for you (optional), so the reply can offer them</span>
+              <input className="field mt-1 text-sm" value={times} onChange={(e) => setTimes(e.target.value)} placeholder="Tue or Wed after 3pm IST, Thu morning" />
+            </label>
+          )}
+          {m.reply && (
+            <>
+              <input className="field mb-2 text-sm" value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Subject" />
+              <textarea className="field h-44 text-sm leading-relaxed" value={text} onChange={(e) => setText(e.target.value)} aria-label="Reply" />
+              {gaps.length > 0 && <p className="mt-1 text-xs text-warn">Fill in {gaps.join(", ")} before you send.</p>}
+              {!to && <p className="mt-1 text-xs text-ink-3">This came from a no-reply address: add the recruiter&apos;s email in Gmail&apos;s &quot;To&quot;.</p>}
+            </>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {m.reply && (
+              <a
+                className="btn btn-primary btn-sm"
+                href={gmailLink(account, `&view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`)}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  if (subject !== m.reply?.subject || text !== m.reply?.text) void edit({ emailId: m._id, subject, text });
+                }}
+              >
+                Open in Gmail, ready to send ↗
+              </a>
+            )}
+            <button
+              className={`btn btn-sm ${m.reply ? "btn-ghost" : "btn-primary"}`}
+              disabled={busy}
+              onClick={() => start(async () => setState(await attempt(async () => void (await draft({ emailId: m._id, times: times || undefined })))))}
+            >
+              {busy && <Spinner />}
+              {busy ? "Writing…" : m.reply ? "Write it again" : "Draft my reply"}
+            </button>
+            {m.reply && (
+              <button className="btn btn-ghost btn-sm" onClick={() => void markReplied({ emailId: m._id, replied: true })}>
+                I sent it
+              </button>
+            )}
+            <Feedback state={busy ? null : state} />
+          </div>
+        </div>
+      )}
+    </li>
+  );
 }

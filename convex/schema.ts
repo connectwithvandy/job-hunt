@@ -171,6 +171,12 @@ export default defineSchema({
     snippet: v.string(),
     at: v.number(),
     stage: v.string(),
+    /** Gmail's id for the email, so it can be opened in Gmail. Missing on emails saved before it was kept. */
+    messageId: v.optional(v.string()),
+    /** The reply the AI drafted, which you can edit, then open in Gmail ready to send. */
+    reply: v.optional(v.object({ subject: v.string(), text: v.string(), at: v.number() })),
+    /** When you marked it answered, so it leaves Today. */
+    repliedAt: v.optional(v.number()),
   }).index("by_jobId_and_at", ["jobId", "at"]),
 
   /** Meetings on your Google Calendar that match a job, sent by the Gmail script. Other meetings are never stored. */

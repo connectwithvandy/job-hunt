@@ -9,7 +9,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { RECHECK_AFTER, ghostSigns, skipReason } from "../../../../convex/lib/posting";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
-import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
 import { inInr, payRange, useInrRates } from "@/lib/money";
@@ -19,6 +19,7 @@ export default function JobPage() {
   const jobId = id as Id<"jobs">;
   const me = useQuery(api.users.me);
   const data = useQuery(api.jobs.get, { jobId });
+  const gmail = useQuery(api.google.status);
   const scoreJobs = useAction(api.agent.scoreJobs);
   const setStatus = useMutation(api.jobs.setStatus);
   const checkPosting = useAction(api.agent.checkPosting);
@@ -115,6 +116,9 @@ export default function JobPage() {
     </Fold>
   );
 
+  // An email waiting for your answer goes to the top, above the steps.
+  const answerFirst = data.emails.some(needsAnswer);
+  const account = gmail?.email || me.email;
   return (
     <div className="mx-auto max-w-3xl">
       <Link href={`/chat?job=${job._id}`} className="btn btn-ghost btn-sm float-right">
@@ -162,6 +166,8 @@ export default function JobPage() {
       </header>
 
       <PostingCheck live={job.liveCheck} checking={stale} ghost={ghost} check={async () => void (await checkPosting({ jobId: job._id }))} />
+
+      {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} />}
 
       <NextStep stage={stage} skip={skip} knows={people.length} company={job.company} dismiss={async () => void (await setStatus({ jobId: job._id, status: "dismissed" }))} job={job} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} scoreIt={async () => void (await scoreJobs({ jobIds: [job._id] }))} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
 
@@ -308,23 +314,7 @@ export default function JobPage() {
           </div>
         )}
 
-        {data.emails.length > 0 && (
-          <div className="card p-6">
-            <h2 className="display mb-4 text-2xl">Emails from {job.company}</h2>
-            <ul className="divide-y divide-line text-sm">
-              {data.emails.map((m) => (
-                <li key={m._id} className="py-3">
-                  <div className="flex justify-between gap-3">
-                    <span className="font-medium">{m.subject}</span>
-                    <span className="shrink-0 text-xs text-ink-3">{timeAgo(m.at)}</span>
-                  </div>
-                  <div className="text-xs text-ink-3">{m.from}</div>
-                  <p className="mt-1 text-ink-2">{m.snippet}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {data.emails.length > 0 && !answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} />}
 
         <details className="pt-4">
           <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">More: company research, interview prep, full job description</summary>

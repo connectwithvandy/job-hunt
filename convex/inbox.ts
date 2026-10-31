@@ -1,12 +1,14 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { env, internalMutation, mutation, query } from "./_generated/server";
+import { env, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { buildDigest, digestDue } from "./lib/digest";
 import { internal } from "./_generated/api";
 import { companyKey, roleKey } from "./lib/company";
 import { inboxMessageV, isLinkedInMessage, jobFor, jobForEvent, nextStatus, stageOf, stageV, type InboxMessage } from "./lib/inbox";
 import { freezeSent } from "./jobs";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 
 /** Your private code for the Gmail script, made the first time you ask. */
 export const token = mutation({
@@ -51,7 +53,7 @@ export const ingest = internalMutation({
       const status = nextStatus(job.status, stage);
       const at = Date.parse(m.date) || Date.now();
       const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage }, updatedAt: Date.now() };
-      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage });
+      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id });
       await ctx.db.patch("jobs", job._id, status ? { ...patch, status, appliedAt: status === "applied" && !job.appliedAt ? at : job.appliedAt } : patch);
       if (status) {
         await freezeSent(ctx, job, status);
@@ -78,9 +80,12 @@ export const saveFromEmails = internalMutation({
       if (key.length < 2) continue;
       const at = Date.parse(m.date) || Date.now();
       const lastEmail = { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage };
-      const same = jobs.filter((j) => companyKey(j.company) === key).sort((a, b) => b.updatedAt - a.updatedAt);
+      // "Axis" in an email and "Axis Communications" on the job are the same company.
+      const same = jobs.filter((j) => sameCompany(companyKey(j.company), key)).sort((a, b) => b.updatedAt - a.updatedAt);
       const titled = title && same.find((j) => roleKey(j.company, j.title) === roleKey(company, title));
-      let job = titled || (!title ? same[0] : undefined);
+      // The email names the role its own way ("SDR India"): with one application in motion there, it's that one.
+      const inMotion = same.filter((j) => ["applying", "applied", "screening", "interview", "offer"].includes(j.status));
+      let job = titled || (!title ? same[0] : inMotion.length === 1 ? inMotion[0] : undefined);
       if (job) {
         const status = nextStatus(job.status, stage);
         await ctx.db.patch("jobs", job._id, { lastEmail, updatedAt: Date.now(), ...(status ? { status, appliedAt: job.appliedAt ?? at } : {}) });
@@ -105,7 +110,7 @@ export const saveFromEmails = internalMutation({
         jobs.unshift(job);
         added++;
       }
-      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage });
+      await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id });
     }
     return { added };
   },
@@ -181,3 +186,65 @@ export const digest = internalMutation({
     return out;
   },
 });
+
+// ---------- Answering a recruiting email ----------
+
+/** One of your emails, with its job and the earlier emails from the same company, checked as yours. */
+export const emailForAction = internalQuery({
+  args: { userId: v.id("users"), emailId: v.id("jobEmails") },
+  handler: async (ctx, { userId, emailId }) => {
+    const email = await ctx.db.get("jobEmails", emailId);
+    if (!email || email.userId !== userId) return null;
+    const job = await ctx.db.get("jobs", email.jobId);
+    if (!job) return null;
+    const earlier = (await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", job._id).lt("at", email.at)).order("desc").take(3)).map(
+      (e) => ({ from: e.from, subject: e.subject, snippet: e.snippet }),
+    );
+    return { email, job, earlier };
+  },
+});
+
+export const saveReply = internalMutation({
+  args: { userId: v.id("users"), emailId: v.id("jobEmails"), reply: v.object({ subject: v.string(), text: v.string(), at: v.number() }) },
+  handler: async (ctx, { userId, emailId, reply }) => {
+    await mine(ctx, userId, emailId);
+    await ctx.db.patch("jobEmails", emailId, { reply });
+    return null;
+  },
+});
+
+/** Keeps your edits to a drafted reply. */
+export const editReply = mutation({
+  args: { emailId: v.id("jobEmails"), subject: v.string(), text: v.string() },
+  handler: async (ctx, { emailId, subject, text }) => {
+    const userId = await requireUserId(ctx);
+    await mine(ctx, userId, emailId);
+    await ctx.db.patch("jobEmails", emailId, { reply: { subject: subject.slice(0, 300), text: text.slice(0, 5000), at: Date.now() } });
+    return null;
+  },
+});
+
+/** You answered it (or it needs no answer): it leaves Today's "people who wrote back". */
+export const markReplied = mutation({
+  args: { emailId: v.id("jobEmails"), replied: v.boolean() },
+  handler: async (ctx, { emailId, replied }) => {
+    const userId = await requireUserId(ctx);
+    const email = await mine(ctx, userId, emailId);
+    const repliedAt = replied ? Date.now() : undefined;
+    await ctx.db.patch("jobEmails", emailId, { repliedAt });
+    const job = await ctx.db.get("jobs", email.jobId);
+    if (job?.lastEmail && job.lastEmail.at === email.at) await ctx.db.patch("jobs", job._id, { lastEmail: { ...job.lastEmail, repliedAt } });
+    return null;
+  },
+});
+
+async function mine(ctx: MutationCtx, userId: Id<"users">, emailId: Id<"jobEmails">) {
+  const email = await ctx.db.get("jobEmails", emailId);
+  if (!email || email.userId !== userId) throw new ConvexError("That email isn't here any more.");
+  return email;
+}
+
+/** Two company keys name the same company: equal, or one is the other plus more words ("axis", "axiscommunications"). */
+function sameCompany(a: string, b: string) {
+  return a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+}
