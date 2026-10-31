@@ -11,7 +11,7 @@ import { SKIP_BELOW } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, DAY_STARTS_AT, QuickFitPill, ScorePill, TrackTag, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { fitTier } from "@/lib/jobFilters";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
@@ -107,9 +107,9 @@ export default function Today() {
   const learn = noes >= 3 && (!me.lessons || noes - me.lessons.basedOn >= 3);
   const interviewing = jobs.filter((j) => j.status === "interview");
 
-  // What you've done since midnight, so the day starts fresh each morning.
-  const midnight = new Date(now).setHours(0, 0, 0, 0);
-  const sentToday = (at?: number) => !!at && at >= midnight;
+  // What you've done since the day started (4 AM), so late nights still count and the day starts fresh each morning.
+  const dayBegan = dayStart(now);
+  const sentToday = (at?: number) => !!at && at >= dayBegan;
   const companiesAskedToday = new Set(
     jobs.filter((j) => j.outreach.some((o) => sentToday(o.sentAt)) || (j.hiringContacts ?? []).some((c) => sentToday(c.sentAt))).map((j) => companyKey(j.company)),
   ).size;
@@ -201,7 +201,7 @@ export default function Today() {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="mb-8">
-        <p className="text-sm text-ink-3">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
+        <p className="text-sm text-ink-3">{new Date(dayStart(now)).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
         <h1 className="display mt-1 text-4xl uppercase md:text-5xl">
           {greeting()}
           {firstName ? `, ${firstName}` : ""}
@@ -309,7 +309,7 @@ export default function Today() {
 
 type Todo = { key: string; verb: string; main: string; sub: string; href: string };
 
-/** Today's goals and how far along you are. Counts start again at midnight. */
+/** Today's goals and how far along you are. Counts start again at 4 AM. */
 function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean }[] }) {
   return (
     <section className="card mb-8 grid grid-cols-3 gap-4 p-5">
@@ -384,7 +384,7 @@ function TodoList({ items }: { items: Todo[] }) {
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  return h < DAY_STARTS_AT ? "Good evening" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
 /** Which roles and which fit scores actually get replies, from every application with a known result. */

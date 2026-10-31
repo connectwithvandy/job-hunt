@@ -67,11 +67,20 @@ export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" |
   );
 }
 
+/** The hour a new day starts. Late nights still count toward the day before, so work done at 1 AM isn't wiped. */
+export const DAY_STARTS_AT = 4;
+
+/** When the day containing `t` started: 4 AM local, or 4 AM the day before if it's still the small hours. */
+export function dayStart(t: number) {
+  const d = new Date(t);
+  if (d.getHours() < DAY_STARTS_AT) d.setDate(d.getDate() - 1);
+  return d.setHours(DAY_STARTS_AT, 0, 0, 0);
+}
+
 export function timeAgo(when?: string | number) {
   if (!when) return "";
-  // Calendar days, so "today" means since midnight, same as the Today counters.
-  const day = (t: number) => new Date(t).setHours(0, 0, 0, 0);
-  const days = Math.round((day(Date.now()) - day(new Date(when).getTime())) / 86_400_000);
+  // Days that start at 4 AM, so "today" means the same as the Today counters.
+  const days = Math.round((dayStart(Date.now()) - dayStart(new Date(when).getTime())) / 86_400_000);
   if (days <= 0) return "today";
   if (days === 1) return "yesterday";
   if (days < 30) return `${days}d ago`;
