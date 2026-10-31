@@ -29,7 +29,9 @@ const RECRUITING =
 const LINKEDIN =
   "newer_than:2d from:(messages-noreply@linkedin.com OR inmail-hit-reply@linkedin.com OR hit-reply@linkedin.com)";
 
-const redirectUri = () => `${process.env.CONVEX_SITE_URL}/google/callback`;
+// Google shows this address on its consent screen, so set GOOGLE_REDIRECT_URI=https://jobpipe.in/google/callback
+// (next.config.ts passes it on to the backend) once that address is added to the OAuth client in Google Cloud.
+const redirectUri = () => env.GOOGLE_REDIRECT_URI ?? `${process.env.CONVEX_SITE_URL}/google/callback`;
 const appUrl = () =>
   (env.APP_URL ?? "https://jobpipe.in").replace(/\/$/, "");
 
