@@ -7,9 +7,31 @@ export const metadata: Metadata = { title: "Privacy policy", description: "What 
 export default function Privacy() {
   return (
     <LegalPage title="Privacy policy">
-      <p>Last updated {LEGAL.updated}. This explains what {LEGAL.product} keeps about you and why.</p>
-      <h2 className="display text-xl text-ink">What we keep</h2>
-      <p>Your email and login, the CVs you upload, the roles you pick, jobs you save and their notes, drafts we write for you, LinkedIn connections you choose to upload, and your saved form answers and writing sample.</p>
+      <p>
+        Last updated {LEGAL.updated}. This policy explains what information {LEGAL.product} ({LEGAL.site}) collects, including Google user data, how we use
+        it, who we share it with, how long we keep it, and how you can delete it.
+      </p>
+      <h2 className="display text-xl text-ink">Who we are</h2>
+      <p>
+        {LEGAL.product} is a job search tool for sales and go-to-market professionals, run by {missing(LEGAL.owner)} from {LEGAL.address}. For anything
+        about your data, write to {missing(LEGAL.email)}.
+      </p>
+      <h2 className="display text-xl text-ink">Information we collect</h2>
+      <p>
+        <b>Account details:</b> your email address and password (stored only as a secure hash), and the name, LinkedIn link and target role you give when
+        joining the waitlist.
+      </p>
+      <p>
+        <b>What you add:</b> the CVs you upload, the roles and locations you pick, jobs you save and their notes, drafts we write for you, your saved
+        application-form answers, your writing sample, and LinkedIn connections or messages you choose to upload.
+      </p>
+      <p>
+        <b>Google user data:</b> only if you click Connect Gmail. The section below lists exactly what is read and kept.
+      </p>
+      <p>
+        <b>What we don&apos;t collect:</b> we use no advertising or analytics trackers and no tracking cookies. Your browser stores a sign-in token so you
+        stay signed in.
+      </p>
       <p>
         The free CV review at /cv-review works without an account. The CV you upload is read once, sent to our AI provider to write the review, and not stored. We keep
         your email, the role you picked and the review, so each email gets one free review.
@@ -55,10 +77,40 @@ export default function Privacy() {
         If you use the older Gmail script instead, it runs in your own Google account, sends us the same recruiting emails and meetings, and emails you a
         daily summary from your own Gmail.
       </p>
-      <h2 className="display text-xl text-ink">Who handles it</h2>
-      <p>Your data is stored with Convex (our database host) and the site runs on Vercel. To write drafts and scores, parts of your CV and the job posting are sent to Anthropic&apos;s Claude AI. Payments are handled by Razorpay; we never see your card or UPI details. We don&apos;t sell your data or use it for ads.</p>
+      <h2 className="display text-xl text-ink">How we use your information</h2>
+      <p>
+        Only to run your job search: finding and scoring jobs against your CV, writing tailored CVs, cover letters and messages, tracking your
+        applications, and sending you service emails (your welcome email, sign-in codes, and the morning summary if you turn it on). We don&apos;t sell
+        your information, use it for advertising, or use it to train AI models.
+      </p>
+      <h2 className="display text-xl text-ink">Who we share it with</h2>
+      <p>
+        Only these service providers, and only to run the features above: Convex (database and servers), Vercel (website hosting), Anthropic (Claude AI,
+        which reads parts of your CV, the job posting and, for Gmail, the recruiting emails described above, to write scores and drafts; Anthropic does not
+        use this data to train its models), Resend (sends our emails), and Razorpay (payments; we never see your card or UPI details). We share
+        information with others only if the law requires it.
+      </p>
+      <h2 className="display text-xl text-ink">How we protect it</h2>
+      <p>
+        All traffic to {LEGAL.product} is encrypted (HTTPS). Passwords are stored as secure hashes. Your Google permission is stored encrypted and is never
+        shown to anyone. Only you can see your data in the app; the owner can see waitlist details (name, email, LinkedIn link, target role) to let
+        people in.
+      </p>
+      <h2 className="display text-xl text-ink">How long we keep it</h2>
+      <p>
+        We keep your information while your account is open. Google user data that doesn&apos;t match one of your jobs is discarded straight after it&apos;s
+        checked. When you disconnect Gmail, we delete your stored Google permission and ask Google to cancel it. When you delete your account, we delete
+        your account and everything in it, including any Google user data, within 7 days.
+      </p>
       <h2 className="display text-xl text-ink">Your choices</h2>
-      <p>You can edit or delete your CVs, jobs and connections at any time. To delete your whole account and its data, write to {missing(LEGAL.email)} and we&apos;ll do it within 7 days.</p>
+      <p>
+        You can edit or delete your CVs, jobs and connections at any time, and turn the morning search and Gmail on or off. To delete your whole account
+        and its data, or to ask for a copy of it, write to {missing(LEGAL.email)} and we&apos;ll do it within 7 days.
+      </p>
+      <h2 className="display text-xl text-ink">Children</h2>
+      <p>{LEGAL.product} is for working professionals and isn&apos;t meant for anyone under 18.</p>
+      <h2 className="display text-xl text-ink">Changes to this policy</h2>
+      <p>If we change what we collect or how we use it, we&apos;ll update this page and its date, and email you before any change to how Google user data is used.</p>
       <h2 className="display text-xl text-ink">Contact</h2>
       <p>{missing(LEGAL.owner)}, {LEGAL.address}. {missing(LEGAL.email)}.</p>
     </LegalPage>
