@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { action, env, internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
-import { PLANS, priceOf, type PlanKey } from "./lib/plans";
+import { PLANS, priceOf, wasOf, type PlanKey } from "./lib/plans";
 import { paymentGenuine } from "./lib/razorpay";
 
 const DAY = 86_400_000;
@@ -14,7 +14,7 @@ const planV = v.union(v.literal("month"), v.literal("pass"));
 
 const keys = () => (env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET ? { id: env.RAZORPAY_KEY_ID, secret: env.RAZORPAY_KEY_SECRET } : null);
 
-/** Whether this person pays founding prices: they already did, or fewer than 50 people have. */
+/** Whether this person pays founding prices: they already did, or fewer than PLANS.foundingSeats people have. */
 async function foundingFor(ctx: QueryCtx, userId: Id<"users">) {
   const paid = await ctx.db.query("payments").withIndex("by_status_and_founding", (q) => q.eq("status", "paid").eq("founding", true)).take(500);
   const people = new Set(paid.map((p) => p.userId));
@@ -33,7 +33,7 @@ export const status = query({
       on: !!keys(),
       paidUntil: row?.paidUntil ?? null,
       founding,
-      prices: { month: priceOf("month", founding), pass: priceOf("pass", founding) },
+      prices: { month: { ...priceOf("month", founding), was: wasOf("month", founding) }, pass: { ...priceOf("pass", founding), was: wasOf("pass", founding) } },
       paid: history.filter((p) => p.status === "paid").map((p) => ({ plan: p.plan, amount: p.amount / 100, paidAt: p.paidAt ?? 0, until: p.until ?? 0, paymentId: p.paymentId ?? "" })),
     };
   },

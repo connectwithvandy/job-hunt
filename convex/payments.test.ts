@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
 import { paymentGenuine, webhookGenuine } from "./lib/razorpay";
-import { priceOf } from "./lib/plans";
+import { PLANS, priceOf } from "./lib/plans";
 
 const modules = import.meta.glob("./**/*.ts");
 const DAY = 86_400_000;
@@ -59,10 +59,10 @@ test("a payment adds its days once, on top of time already paid; a short payment
   expect(await t.mutation(internal.payments.markPaid, { orderId: "unknown", paymentId: "pay_x" })).toBeNull();
 });
 
-test("founding prices stop after 50 paying people, but stay for those who already have them", async () => {
+test("founding prices stop after the founding seats fill, but stay for those who already have them", async () => {
   const t = setup();
   const ids = [];
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < PLANS.foundingSeats; i++) {
     const userId = await member(t, `p${i}@example.com`);
     await t.mutation(internal.payments.recordOrder, { userId, orderId: `o${i}`, plan: "month", amount: 49_900, founding: true });
     await t.mutation(internal.payments.markPaid, { orderId: `o${i}`, paymentId: `pay${i}` });

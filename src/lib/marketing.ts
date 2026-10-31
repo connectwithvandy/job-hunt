@@ -31,7 +31,7 @@ export const FAQ: [string, string][] = [
   ],
   [
     "How much does JobPipe cost?",
-    `JobPipe costs ₹${PLANS.full} a month after a ${PLANS.trialDays}-day free trial, or ₹${PLANS.pass.toLocaleString("en-IN")} once for a ${PLANS.passMonths}-month Job Hunt Pass with no auto-renewal. The first ${PLANS.foundingSeats} founding members pay ₹${PLANS.founding} a month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the pass. Access is by waitlist during the beta, and payments are not switched on yet.`,
+    `JobPipe costs ₹${PLANS.full} a month after a ${PLANS.trialDays}-day free trial, or ₹${PLANS.pass.toLocaleString("en-IN")} once for a ${PLANS.passMonths}-month Job Hunt Pass with no auto-renewal. The first ${PLANS.foundingSeats} founding members pay ₹${PLANS.founding} a month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the pass. Access is by waitlist during the beta. Pay by UPI, card or net banking through Razorpay.`,
   ],
   [
     "Who is JobPipe for?",

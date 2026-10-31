@@ -4,7 +4,7 @@ import { useAction, useQuery } from "convex/react";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
-import type { PlanKey } from "../../../convex/lib/plans";
+import { PLANS, type PlanKey } from "../../../convex/lib/plans";
 import { PageHead } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { Feedback, Spinner, type ActionState } from "@/components/ui";
@@ -93,7 +93,6 @@ export default function Billing() {
         <p className="text-lg">
           {covered ? `Paid until ${date(status.paidUntil!)}.` : status.paidUntil ? `Your paid time ended on ${date(status.paidUntil)}.` : "You haven't paid yet."}
         </p>
-        {status.founding && <p className="mt-1 text-sm text-good">You get founding-member prices, kept for as long as you stay.</p>}
       </section>
 
       {!status.on ? (
@@ -105,9 +104,12 @@ export default function Billing() {
             return (
               <section key={key} className="card flex flex-col p-6">
                 <h2 className="display text-2xl">{p.label}</h2>
-                <p className="mt-2">
+                <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
+                  {p.was && <s className="text-xl text-ink-3">₹{p.was.rupees.toLocaleString("en-IN")}</s>}
                   <span className="display text-4xl">₹{p.rupees.toLocaleString("en-IN")}</span>
+                  {p.was && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent">{p.was.percentOff}% off</span>}
                 </p>
+                {status.founding && <p className="mt-1 text-xs text-good">Founding offer for the first {PLANS.foundingSeats} people, kept while you stay.</p>}
                 <p className="mt-2 flex-1 text-sm text-ink-2">{note}</p>
                 <button className="btn btn-primary mt-4" disabled={busy !== null} onClick={() => void pay(key)}>
                   {busy === key && <Spinner />}

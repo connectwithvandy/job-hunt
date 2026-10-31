@@ -19,39 +19,20 @@ export default function Pricing() {
         the morning summary.
       </p>
       <div className="card p-6 text-ink">
-        <div className="label text-accent">
-          Founding members, first {PLANS.foundingSeats} people
-        </div>
-        <div className="display mt-2 text-4xl">
-          ₹{PLANS.founding}
-          <span className="text-base text-ink-2"> / month</span>
-        </div>
+        <div className="label">Monthly</div>
+        <Price now={PLANS.founding} was={PLANS.full} unit="/ month" />
         <p className="mt-2 text-sm text-ink-2">
-          Half price, kept for as long as you stay subscribed.
+          Founding offer: half price for the first {PLANS.foundingSeats} people,
+          kept for as long as you stay. ₹{PLANS.full} a month after that.
         </p>
       </div>
       <div className="card p-6 text-ink">
-        <div className="label">Everyone after that</div>
-        <div className="display mt-2 text-4xl">
-          ₹{PLANS.full}
-          <span className="text-base text-ink-2"> / month</span>
-        </div>
-      </div>
-      <div className="card p-6 text-ink">
-        <div className="label text-accent">
-          Job Hunt Pass, {PLANS.passMonths} months
-        </div>
-        <div className="display mt-2 text-4xl">
-          ₹{PLANS.pass.toLocaleString("en-IN")}
-          <span className="text-base text-ink-2">
-            {" "}
-            once (₹{PLANS.foundingPass.toLocaleString("en-IN")} for founding
-            members)
-          </span>
-        </div>
+        <div className="label">Job Hunt Pass, {PLANS.passMonths} months</div>
+        <Price now={PLANS.foundingPass} was={PLANS.pass} unit="once" />
         <p className="mt-2 text-sm text-ink-2">
-          One UPI payment that covers a typical search. No auto-renewal: when it
-          ends, you choose whether to carry on.
+          One payment that covers a typical search, with no auto-renewal. ₹
+          {PLANS.pass.toLocaleString("en-IN")} after the founding offer, already
+          less than {PLANS.passMonths} months at ₹{PLANS.full}.
         </p>
       </div>
       <div className="card p-6 text-ink">
@@ -70,5 +51,19 @@ export default function Pricing() {
         include all features; GST is added where it applies. Cancel anytime.
       </p>
     </LegalPage>
+  );
+}
+
+/** A price as a discount off the one real price: the full price struck through, then the offer. */
+function Price({ now, was, unit }: { now: number; was: number; unit: string }) {
+  return (
+    <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
+      <s className="text-xl text-ink-3">₹{was.toLocaleString("en-IN")}</s>
+      <span className="display text-4xl">₹{now.toLocaleString("en-IN")}</span>
+      <span className="text-base text-ink-2">{unit}</span>
+      <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent">
+        {Math.round((1 - now / was) * 100)}% off
+      </span>
+    </div>
   );
 }
