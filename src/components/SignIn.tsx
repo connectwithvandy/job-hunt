@@ -76,6 +76,14 @@ export function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const resetting = flow === "reset" || flow === "reset-verification";
+  // The form lives in a window over the page; the welcome email's sign-in link opens it straight away.
+  const [shown, setOpen] = useState<boolean | null>(null);
+  const open = shown ?? !!query.get("signin");
+  const start = (f: "signUp" | "signIn") => {
+    setFlow(f);
+    setError("");
+    setOpen(true);
+  };
 
   const failText = {
     signUp:
@@ -138,10 +146,7 @@ export function SignIn() {
           <Link href="/cv-review" className="hidden hover:text-ink sm:inline">Free CV review</Link>
           <button
             type="button"
-            onClick={() => {
-              setFlow("signIn");
-              document.getElementById("join")?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
+            onClick={() => start("signIn")}
             className="rounded-full border border-line px-4 py-1.5 text-ink hover:border-accent"
           >
             Sign in
@@ -149,165 +154,236 @@ export function SignIn() {
         </nav>
       </header>
 
-      <div className="grid items-center gap-12 pb-20 pt-10 lg:min-h-[calc(100vh-88px)] lg:grid-cols-[1.2fr_1fr] lg:pt-0">
-        <section>
-          <p className="inline-flex items-center gap-2 rounded-full border border-line bg-card/60 px-3 py-1 text-xs text-ink-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            For sales and GTM people · India, US, APAC, EMEA
-          </p>
-          <h1 className="display mt-6 text-4xl leading-[1.02] md:text-[64px]">
-            You&apos;re not looking for <span className="text-accent">a</span>{" "}
-            job.
-            <br />
-            You&apos;re running several searches at once.
-          </h1>
-          <p className="mt-5 max-w-xl text-lg text-ink-2">{pitch}</p>
-          <Link
-            href="/cv-review"
-            className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline"
-          >
-            Not ready to join? Get a free CV review for sales roles →
+      <section className="mx-auto max-w-5xl pb-14 pt-14 text-center md:pt-24">
+        <p className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs text-ink-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+          For sales and GTM people · India, US, APAC, EMEA
+        </p>
+        <h1 className="display mt-7 text-balance text-[40px] leading-[1.04] md:text-[52px] lg:text-[58px]">
+          <span className="block lg:whitespace-nowrap">
+            You&apos;re not looking for <span className="text-accent">a</span> job.
+          </span>
+          <span className="block text-ink-2 lg:whitespace-nowrap">You&apos;re running several searches at once.</span>
+        </h1>
+        <p className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-ink-2">{pitch}</p>
+        <div className="mt-9 flex flex-wrap justify-center gap-3">
+          <button type="button" className="btn btn-primary px-6 py-3 text-base" onClick={() => start("signUp")}>
+            Join the waitlist
+          </button>
+          <Link href="/cv-review" className="btn btn-ghost px-6 py-3 text-base">
+            Free CV review
           </Link>
-          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-3">
-            <li>✓ Never invents facts</li>
-            <li>✓ No spam applying</li>
-            <li>✓ Open source</li>
-          </ul>
-        </section>
+        </div>
+        <p className="mt-6 text-sm text-ink-3">Never invents facts · No spam applying · Open source</p>
+      </section>
 
-        <form
-          id="join"
-          key={flow}
-          className="card relative p-7"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setBusy(true);
-            setError("");
-            const data = new FormData(e.currentTarget);
-            signIn("password", data)
-              .then(() => {
-                if (flow === "reset") {
-                  setEmail(String(data.get("email") ?? ""));
-                  setFlow("reset-verification");
-                }
-              })
-              .catch(() => setError(failText))
-              .finally(() => setBusy(false));
-          }}
-        >
-          <h2 className="display text-2xl">{head[0]}</h2>
-          <p className="mt-1 mb-6 text-sm text-ink-2">{head[1]}</p>
-          {flow === "reset-verification" ? (
-            <>
-              <input name="email" type="hidden" value={email} />
-              <label className="block">
-                <span className="label">Code</span>
-                <input
-                  name="code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  required
-                  pattern="[0-9]{8}"
-                  maxLength={8}
-                  className="field mt-1"
-                />
-              </label>
-              <label className="mt-4 block">
-                <span className="label">New password</span>
-                <input
-                  name="newPassword"
-                  type="password"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                  className="field mt-1"
-                />
-              </label>
-            </>
-          ) : (
-            <>
-              <label className="block">
-                <span className="label">Email</span>
-                <input
-                  key={email}
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  defaultValue={email}
-                  className="field mt-1"
-                />
-              </label>
-              {flow !== "reset" && (
-                <label className="mt-4 block">
-                  <span className="label">Password</span>
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    minLength={8}
-                    autoComplete={
-                      flow === "signUp" ? "new-password" : "current-password"
-                    }
-                    className="field mt-1"
-                  />
-                </label>
-              )}
-            </>
-          )}
-          <input name="flow" type="hidden" value={flow} />
-          {error && <p className="mt-4 text-sm text-bad">{error}</p>}
-          <button
-            className="btn btn-primary mt-6 w-full justify-center"
-            disabled={busy}
-          >
-            {busy && <Spinner />}
-            {button}
-          </button>
-          {flow === "signIn" && (
-            <button
-              type="button"
-              className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
-              onClick={() => setFlow("reset")}
-            >
-              Forgot password?
-            </button>
-          )}
-          {flow === "reset-verification" && (
-            <button
-              type="button"
-              className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
-              onClick={() => setFlow("reset")}
-            >
-              Didn&apos;t get it? Send a new code
-            </button>
-          )}
-          <button
-            type="button"
-            className="mt-2 w-full text-center text-sm text-ink-3 hover:text-ink"
-            onClick={() =>
-              setFlow(
-                resetting ? "signIn" : flow === "signUp" ? "signIn" : "signUp",
-              )
-            }
-          >
-            {resetting
-              ? "Back to sign in"
-              : flow === "signUp"
-                ? "Already have an account? Sign in"
-                : "New here? Join the waitlist"}
-          </button>
-          {flow === "signUp" && (
-            <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
-              {PLANS.trialDays}-day free trial once you&apos;re in, then ₹
-              {PLANS.full}/month (₹{PLANS.founding} for the first{" "}
-              {PLANS.foundingSeats} members). No card needed to join. Your CV is
-              used only to run your search; we don&apos;t sell your data or use
-              it for ads.
-            </p>
-          )}
-        </form>
+      {/* A picture of the app, so people see what they get before signing up. */}
+      <div className="mx-auto max-w-5xl pb-24">
+        <div className="overflow-hidden rounded-2xl border border-line bg-card shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)]">
+          <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-line" />
+            <span className="h-2.5 w-2.5 rounded-full bg-line" />
+            <span className="h-2.5 w-2.5 rounded-full bg-line" />
+            <span className="mx-auto rounded-md bg-soft px-3 py-0.5 text-xs text-ink-3">jobpipe.in</span>
+          </div>
+          <div className="grid text-left md:grid-cols-[180px_1fr]">
+            <aside className="hidden border-r border-line p-5 text-sm md:block">
+              <p className="display text-sm uppercase tracking-wide">
+                JobPipe<span className="text-accent">.</span>
+              </p>
+              <ul className="mt-6 space-y-1 text-ink-3">
+                <li className="rounded-lg bg-soft px-3 py-1.5 font-medium text-accent">Today</li>
+                <li className="px-3 py-1.5">Jobs</li>
+                <li className="px-3 py-1.5">Companies</li>
+                <li className="px-3 py-1.5">People</li>
+              </ul>
+            </aside>
+            <div className="p-5 md:p-8">
+              <p className="text-xs text-ink-3">Monday morning</p>
+              <p className="display mt-1 text-2xl">Good morning, Priya</p>
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                {[
+                  ["Companies asked", "3", "/ 10"],
+                  ["Applications", "2", "/ 5"],
+                  ["Follow-ups due", "1", ""],
+                ].map(([label, n, of]) => (
+                  <div key={label} className="rounded-xl border border-line p-3">
+                    <p className="text-[11px] text-ink-3">{label}</p>
+                    <p className="display mt-1 text-xl">
+                      {n}
+                      <span className="text-sm text-ink-3"> {of}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-7 text-sm font-medium">Apply to new jobs</p>
+              <ul className="mt-3 rounded-xl border border-line">
+                {EXAMPLE_JOBS.map((j) => (
+                  <li key={j.co} className="flex items-center gap-4 border-b border-line px-4 py-4 last:border-0">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-soft text-xs font-semibold text-ink-2">
+                      {j.co.split(" ").map((w) => w[0]).join("")}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{j.title}</p>
+                      <p className="truncate text-xs text-ink-3">
+                        {j.co} · {j.where} · {j.why}
+                      </p>
+                    </div>
+                    {j.warm > 0 && (
+                      <span className="hidden rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-xs text-accent sm:inline">
+                        {j.warm} warm {j.warm === 1 ? "intro" : "intros"}
+                      </span>
+                    )}
+                    <span className={`display w-10 text-right text-2xl ${j.score >= 75 ? "text-accent" : "text-ink-3"}`}>{j.score}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+        <p className="mt-4 text-center text-xs text-ink-3">An example morning. Every score comes with the reasons behind it.</p>
       </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/70 px-4 py-10 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="relative w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <button type="button" aria-label="Close" className="absolute right-4 top-4 z-10 text-xl leading-none text-ink-3 hover:text-ink" onClick={() => setOpen(false)}>
+              ×
+            </button>
+            <form
+              key={flow}
+              className="card relative p-7"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setBusy(true);
+                setError("");
+                const data = new FormData(e.currentTarget);
+                signIn("password", data)
+                  .then(() => {
+                    if (flow === "reset") {
+                      setEmail(String(data.get("email") ?? ""));
+                      setFlow("reset-verification");
+                    }
+                  })
+                  .catch(() => setError(failText))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              <h2 className="display text-2xl">{head[0]}</h2>
+              <p className="mt-1 mb-6 text-sm text-ink-2">{head[1]}</p>
+              {flow === "reset-verification" ? (
+                <>
+                  <input name="email" type="hidden" value={email} />
+                  <label className="block">
+                    <span className="label">Code</span>
+                    <input
+                      name="code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      required
+                      pattern="[0-9]{8}"
+                      maxLength={8}
+                      className="field mt-1"
+                    />
+                  </label>
+                  <label className="mt-4 block">
+                    <span className="label">New password</span>
+                    <input
+                      name="newPassword"
+                      type="password"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      className="field mt-1"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="label">Email</span>
+                    <input
+                      key={email}
+                      name="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      defaultValue={email}
+                      className="field mt-1"
+                    />
+                  </label>
+                  {flow !== "reset" && (
+                    <label className="mt-4 block">
+                      <span className="label">Password</span>
+                      <input
+                        name="password"
+                        type="password"
+                        required
+                        minLength={8}
+                        autoComplete={
+                          flow === "signUp" ? "new-password" : "current-password"
+                        }
+                        className="field mt-1"
+                      />
+                    </label>
+                  )}
+                </>
+              )}
+              <input name="flow" type="hidden" value={flow} />
+              {error && <p className="mt-4 text-sm text-bad">{error}</p>}
+              <button
+                className="btn btn-primary mt-6 w-full justify-center"
+                disabled={busy}
+              >
+                {busy && <Spinner />}
+                {button}
+              </button>
+              {flow === "signIn" && (
+                <button
+                  type="button"
+                  className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
+                  onClick={() => setFlow("reset")}
+                >
+                  Forgot password?
+                </button>
+              )}
+              {flow === "reset-verification" && (
+                <button
+                  type="button"
+                  className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink"
+                  onClick={() => setFlow("reset")}
+                >
+                  Didn&apos;t get it? Send a new code
+                </button>
+              )}
+              <button
+                type="button"
+                className="mt-2 w-full text-center text-sm text-ink-3 hover:text-ink"
+                onClick={() =>
+                  setFlow(
+                    resetting ? "signIn" : flow === "signUp" ? "signIn" : "signUp",
+                  )
+                }
+              >
+                {resetting
+                  ? "Back to sign in"
+                  : flow === "signUp"
+                    ? "Already have an account? Sign in"
+                    : "New here? Join the waitlist"}
+              </button>
+              {flow === "signUp" && (
+                <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
+                  {PLANS.trialDays}-day free trial once you&apos;re in, then ₹
+                  {PLANS.full}/month (₹{PLANS.founding} for the first{" "}
+                  {PLANS.foundingSeats} members). No card needed to join. Your CV is
+                  used only to run your search; we don&apos;t sell your data or use
+                  it for ads.
+                </p>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
 
       <section className="border-t border-line py-20">
         <p className="label text-accent">Why it works</p>
@@ -323,38 +399,6 @@ export function SignIn() {
         </ul>
       </section>
 
-      <section className="border-t border-line py-20">
-        <p className="label text-accent">Your morning</p>
-        <h2 className="display mt-3 max-w-2xl text-4xl leading-tight">Open Today. Know exactly what to do.</h2>
-        <div className="card mt-10 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line px-6 py-4 text-sm">
-            <span className="font-medium">Today · 3 new jobs worth applying to</span>
-            <span className="rounded-full border border-line px-2.5 py-0.5 text-xs text-ink-3">Example</span>
-          </div>
-          <ul>
-            {EXAMPLE_JOBS.map((j) => (
-              <li key={j.co} className="flex flex-wrap items-center gap-4 border-b border-line px-6 py-5 last:border-0">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-soft text-sm font-semibold text-ink-2">
-                  {j.co.split(" ").map((w) => w[0]).join("")}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{j.title}</p>
-                  <p className="text-sm text-ink-3">
-                    {j.co} · {j.where}
-                  </p>
-                  <p className="mt-1 text-sm text-ink-2">{j.why}</p>
-                </div>
-                {j.warm > 0 && (
-                  <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs text-accent">
-                    {j.warm} warm {j.warm === 1 ? "intro" : "intros"}
-                  </span>
-                )}
-                <span className={`display w-14 text-right text-3xl ${j.score >= 75 ? "text-accent" : "text-ink-3"}`}>{j.score}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
 
 
       {/* Answers stay in the page when closed, so search engines and AI tools still read them. */}
@@ -406,10 +450,7 @@ export function SignIn() {
         <button
           type="button"
           className="btn btn-primary relative mt-8"
-          onClick={() => {
-            setFlow("signUp");
-            document.getElementById("join")?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }}
+          onClick={() => start("signUp")}
         >
           Join the waitlist
         </button>
