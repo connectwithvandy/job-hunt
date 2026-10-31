@@ -65,6 +65,14 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 }
 
 const linkIcon = (link: string) => (/github\.com/i.test(link) ? "github" : /substack\.com/i.test(link) ? "substack" : "web");
+// Long profile links broke mid-word in the narrow sidebar; known sites show their name (the link still works),
+// and anything else may wrap only after a slash.
+const linkLabel = (link: string) => {
+  const bare = link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+  if (/github\.com/i.test(bare)) return "GitHub";
+  if (/substack\.com/i.test(bare)) return "Substack";
+  return bare.split("/").flatMap((part, i) => (i ? [<wbr key={i} />, `/${part}`] : [part]));
+};
 
 /** `logos` maps company or school names to websites, for CVs (like tailored ones) saved before logos existed. */
 export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: string | null; logos?: Record<string, string> }) {
@@ -124,7 +132,11 @@ export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: s
           {r.contact.email && (
             <span>
               <Icon name="email" />
-              {r.contact.email}
+              <span>
+                {r.contact.email.replace(/@.*/, "")}
+                <wbr />
+                {r.contact.email.replace(/^[^@]*/, "")}
+              </span>
             </span>
           )}
           {r.contact.location && (
@@ -136,7 +148,7 @@ export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: s
           {r.contact.links?.map((l) => (
             <a key={l} href={/^https?:\/\//.test(l) ? l : `https://${l}`}>
               <Icon name={linkIcon(l)} />
-              {l.replace(/^https?:\/\/(www\.)?/, "")}
+              <span>{linkLabel(l)}</span>
             </a>
           ))}
         </div>
