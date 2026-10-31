@@ -75,9 +75,10 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
           );
         })}
       </nav>
-      <div className="ml-auto flex gap-4 md:mt-auto md:ml-0 md:flex-col md:gap-3 md:px-3">
+      {/* Right under the menu, not at the bottom of a tall screen where nobody finds it. */}
+      <div className="ml-auto flex gap-4 md:ml-0 md:flex-col md:gap-3 md:border-t md:border-line md:px-3 md:pt-5">
         {!isOwner && <FeedbackButton />}
-        <button type="button" onClick={() => void signOut()} className="text-left text-xs text-ink-3 hover:text-ink">
+        <button type="button" onClick={() => void signOut()} className="text-left text-sm text-ink-2 hover:text-ink">
           Sign out
         </button>
       </div>
@@ -95,7 +96,7 @@ function FeedbackButton() {
   const [error, setError] = useState("");
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="text-left text-xs text-ink-3 hover:text-ink">
+      <button type="button" onClick={() => setOpen(true)} className="text-left text-sm text-ink-2 hover:text-ink">
         Send feedback
       </button>
       {open && (

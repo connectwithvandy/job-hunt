@@ -122,11 +122,6 @@ export function SignIn() {
 
   return (
     <div className="relative isolate overflow-hidden">
-      {/* A soft glow and a faint grid behind the top of the page. */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[900px]">
-        <div className="absolute left-1/2 top-[-300px] h-[700px] w-[1100px] -translate-x-1/2 rounded-full bg-accent/10 blur-[140px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--line)_1px,transparent_1px),linear-gradient(to_bottom,var(--line)_1px,transparent_1px)] bg-[size:56px_56px] opacity-40 [mask-image:radial-gradient(ellipse_at_top,black_20%,transparent_70%)]" />
-      </div>
     <div className="mx-auto max-w-6xl px-5 lg:px-12">
       {/* What the app is, how it works and the FAQ, for Google and AI answer tools. */}
       <script
@@ -194,7 +189,7 @@ export function SignIn() {
         <form
           id="join"
           key={flow}
-          className="card relative p-7 shadow-[0_0_0_1px_rgba(198,255,61,0.08),0_30px_80px_-20px_rgba(198,255,61,0.18)]"
+          className="card relative p-7"
           onSubmit={(e) => {
             e.preventDefault();
             setBusy(true);
@@ -416,8 +411,7 @@ export function SignIn() {
         </div>
       </section>
 
-      <section className="relative my-10 overflow-hidden rounded-3xl border border-accent/20 bg-card px-8 py-14 text-center">
-        <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-64 w-[700px] -translate-x-1/2 rounded-full bg-accent/10 blur-[100px]" />
+      <section className="relative my-10 overflow-hidden rounded-3xl border border-line bg-card px-8 py-14 text-center">
         <h2 className="display relative mx-auto max-w-2xl text-3xl leading-tight md:text-4xl">Your next role is probably already posted.</h2>
         <p className="relative mx-auto mt-3 max-w-xl text-ink-2">Let JobPipe find it, score it and show you who can get you in.</p>
         <button
