@@ -63,7 +63,7 @@ export function SignIn() {
               setError(
                 flow === "signUp"
                   ? "Couldn't create the account. The password needs 8 or more characters, or the email may already have an account."
-                  : "That email and password don't match.",
+                  : "That email and password don't match. Forgot your password? Reply to your JobPipe welcome email and you'll get a new one.",
               ),
             )
             .finally(() => setBusy(false));

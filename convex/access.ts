@@ -1,6 +1,7 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getAuthUserId, invalidateSessions, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { action, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { hasAccess, isOwnerEmail } from "./lib/auth";
 
 async function requireOwner(ctx: QueryCtx) {
@@ -81,5 +82,33 @@ export const approveMany = mutation({
       if (row.email) emails.push(row.email);
     }
     return emails;
+  },
+});
+
+/** Who a password reset is for, checked as the owner. */
+export const resetTarget = internalQuery({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    await requireOwner(ctx);
+    const row = await ctx.db.get("access", accessId);
+    if (!row?.email) throw new ConvexError("That person isn't on the waitlist any more.");
+    return { userId: row.userId, email: row.email };
+  },
+});
+
+/**
+ * A new temporary password for someone who forgot theirs, shown to the owner to pass on. Owner only.
+ * JobPipe can't send email yet, so this stands in for a "forgot password" link. It also signs them out everywhere.
+ */
+export const resetPassword = action({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }): Promise<{ email: string; password: string }> => {
+    const { userId, email } = await ctx.runQuery(internal.access.resetTarget, { accessId });
+    // 12 letters and digits, without look-alikes (0/O, 1/l/I), so it's easy to read out or type.
+    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const password = Array.from(crypto.getRandomValues(new Uint32Array(12)), (n) => chars[n % chars.length]).join("");
+    await modifyAccountCredentials(ctx, { provider: "password", account: { id: email, secret: password } });
+    await invalidateSessions(ctx, { userId });
+    return { email, password };
   },
 });
