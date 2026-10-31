@@ -256,7 +256,10 @@ function StepAnswers({
   const complete = useMutation(api.users.completeOnboarding);
   const saveAnswers = useMutation(api.users.saveAnswers);
   const findJobs = useAction(api.agent.findJobs);
+  const setAutopilot = useMutation(api.users.setAutopilot);
   const [busy, setBusy] = useState(false);
+  // Their choice; off unless they tick it. They can change it any time on Today.
+  const [morning, setMorning] = useState(false);
   // What we already know (sign-up, waitlist, CV), so they don't type it again.
   const linkedin = me.waitlist.linkedin;
   const known = [
@@ -279,6 +282,15 @@ function StepAnswers({
         <AnswersForm answers={rows ?? (me.answers.length ? me.answers : known)} location={location} onChange={setRows} />
         {filled.length > 0 && <AutofillLink answers={filled} />}
       </div>
+      <label className="card mt-8 flex cursor-pointer items-start gap-3 p-5">
+        <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={morning} onChange={(e) => setMorning(e.target.checked)} />
+        <span>
+          <span className="font-medium">Search for me every morning</span>
+          <span className="mt-1 block text-sm text-ink-2">
+            At 8 every morning JobPipe searches all your roles and scores what&apos;s new, so you start the day with a ranked list. Turn it on or off any time on Today.
+          </span>
+        </span>
+      </label>
       {error && <p className="mt-4 text-sm text-bad">{error}</p>}
       <div className="mt-8 flex items-center gap-4">
         <button
@@ -290,6 +302,7 @@ function StepAnswers({
             try {
               if (rows && filled.length) await saveAnswers({ answers: filled });
               await complete({ tracks: chosen.map((c) => ({ ...c, status: "active" as const })), location });
+              if (morning) await setAutopilot({ on: true });
               // Start the first searches; results stream into the Jobs page as they land, and Today says so meanwhile.
               try {
                 sessionStorage.setItem("firstSearchAt", String(Date.now()));
