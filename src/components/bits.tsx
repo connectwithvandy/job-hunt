@@ -69,7 +69,9 @@ export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" |
 
 export function timeAgo(when?: string | number) {
   if (!when) return "";
-  const days = Math.floor((Date.now() - new Date(when).getTime()) / 86_400_000);
+  // Calendar days, so "today" means since midnight, same as the Today counters.
+  const day = (t: number) => new Date(t).setHours(0, 0, 0, 0);
+  const days = Math.round((day(Date.now()) - day(new Date(when).getTime())) / 86_400_000);
   if (days <= 0) return "today";
   if (days === 1) return "yesterday";
   if (days < 30) return `${days}d ago`;
