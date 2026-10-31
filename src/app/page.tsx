@@ -11,7 +11,7 @@ import { SKIP_BELOW } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { CompanyMark, DAY_STARTS_AT, QuickFitPill, ScorePill, TrackTag, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, DAY_STARTS_AT, QuickFitPill, likelyScore, ScorePill, TrackTag, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { fitTier } from "@/lib/jobFilters";
 import { Loading } from "@/components/Loading";
 import { ActionButton } from "@/components/ui";
@@ -171,7 +171,7 @@ export default function Today() {
       verb: "Apply",
       main: `${j.title} at ${j.company}`,
       // Found today isn't posted today: a role up for weeks may be filled.
-      sub: [j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : `Found ${timeAgo(new Date(j._creationTime).toISOString())}`, bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ${j.quickFit ?? 0}, not scored yet`].join(" · "),
+      sub: [j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : `Found ${timeAgo(new Date(j._creationTime).toISOString())}`, bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ~${likelyScore(j.quickFit ?? 0)}, not scored yet`].join(" · "),
       href: `/jobs/${j._id}`,
     }));
   const apply: Todo[] = [

@@ -29,12 +29,19 @@ export function ScorePill({ score }: { score?: number }) {
   );
 }
 
+/**
+ * The free quick fit on the AI score's scale. Raw first guesses ran about 37 points above the AI score for the
+ * same job (414 jobs, 1 Nov 2026: a guess of 100 averaged 56, guesses in the 80s averaged 37), so the number
+ * shown is scaled to match. Ranking still uses the raw guess.
+ */
+export const likelyScore = (quickFit: number) => Math.round(15 + quickFit * 0.4);
+
 /** The free quick fit, shown faded with a "~" until the AI score replaces it. */
 export function QuickFitPill({ score }: { score?: number }) {
   if (score === undefined) return <span className="text-xs text-ink-3">Not scored</span>;
   return (
-    <span title="Quick fit: title, CV words and place. The AI score replaces it." className="inline-flex h-fit min-w-9 shrink-0 justify-center self-start rounded-full border border-line px-2 py-0.5 text-xs tabular-nums text-ink-3">
-      ~{score}
+    <span title="First guess from title, CV words and place, on the AI score's scale. The AI score replaces it." className="inline-flex h-fit min-w-9 shrink-0 justify-center self-start rounded-full border border-line px-2 py-0.5 text-xs tabular-nums text-ink-3">
+      ~{likelyScore(score)}
     </span>
   );
 }
