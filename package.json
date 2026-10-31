@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -H 127.0.0.1",
     "lint": "eslint",
-    "backup": "cd data && git add -A && (git diff --cached --quiet || git commit -q -m \"Backup $(date +%Y-%m-%d)\") && git push -q && echo \"Backed up to GitHub\""
+    "backup": "cd data && git add -A && (git diff --cached --quiet || git commit -q -m \"Backup $(date +%Y-%m-%d)\") && git push -q && echo \"Backed up to GitHub\"",
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
@@ -27,14 +28,17 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "convex-test": "^0.0.66",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.12"
   }
 }
