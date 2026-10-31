@@ -837,7 +837,30 @@ export function GmailSync() {
           </a>
           , delete what&apos;s there and paste the script below.
         </li>
-        <li>Pick <b>setup</b> in the menu next to Run, press Run, and allow access when Google asks (it warns because you wrote the script yourself).</li>
+        <li>
+          Pick <b>setup</b> in the menu next to Run, press Run, and allow access when Google asks (it warns because you wrote the script yourself).
+          <details className="mt-1">
+            <summary className="cursor-pointer underline">Google says this app isn&apos;t verified?</summary>
+            <div className="mt-1 space-y-1">
+              <p>
+                That&apos;s normal. Google shows it for any script a person writes for themselves that Google hasn&apos;t reviewed. Here &quot;the app&quot;
+                is your own copy of the script, in your own account.
+              </p>
+              <p>
+                Click <b>Review permissions</b>, pick your Google account, then <b>Advanced</b>, then <b>Go to Untitled project (unsafe)</b> (or whatever you
+                named it), then <b>Allow</b>.
+              </p>
+              <p>
+                You can read every line in the box below. It sends JobPipe only recruiting emails from the last two days, plus your calendar for the next
+                three weeks, where JobPipe keeps only meetings with companies you&apos;re applying to. Turn it off anytime at{" "}
+                <a className="underline" href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer">
+                  myaccount.google.com/permissions
+                </a>{" "}
+                or by deleting the script.
+              </p>
+            </div>
+          </details>
+        </li>
         <li>That&apos;s it. Keep this code private: it lets the script update your jobs.</li>
       </ol>
       <button
