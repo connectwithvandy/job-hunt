@@ -80,7 +80,8 @@ async function getJson<T>(url: string, headers: Record<string, string> = {}): Pr
 type JSearchJob = {
   job_id: string; job_title: string; employer_name: string; employer_logo?: string | null;
   job_location?: string | null; job_city?: string | null; job_state?: string | null; job_country?: string | null; job_is_remote?: boolean;
-  job_apply_link: string; job_description?: string; job_posted_at_datetime_utc?: string | null;
+  job_apply_link: string; job_apply_is_direct?: boolean; apply_options?: { publisher?: string; apply_link: string; is_direct?: boolean }[];
+  job_description?: string; job_posted_at_datetime_utc?: string | null;
   job_min_salary?: number | null; job_max_salary?: number | null; job_salary_currency?: string | null; job_salary_period?: string | null;
 };
 
@@ -107,7 +108,8 @@ async function jsearch(title: string, place: Place): Promise<Found[]> {
     workSetting: j.job_is_remote ? "remote" : undefined,
     salary: j.job_min_salary && j.job_max_salary ? `${j.job_salary_currency ?? ""} ${j.job_min_salary.toLocaleString()} – ${j.job_max_salary.toLocaleString()}${j.job_salary_period ? `/${j.job_salary_period.toLowerCase()}` : ""}`.trim() : undefined,
     postedAt: j.job_posted_at_datetime_utc ?? undefined,
-    url: j.job_apply_link,
+    // Google lists several places to apply; prefer the company's own one.
+    url: (j.job_apply_is_direct ? j.job_apply_link : j.apply_options?.find((o) => o.is_direct)?.apply_link) ?? j.job_apply_link,
     description: cut(j.job_description),
   }));
 }

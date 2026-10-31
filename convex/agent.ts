@@ -20,6 +20,7 @@ import { pdfText } from "./lib/pdfText";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
 import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
+import { withCompanyLinks } from "./lib/directLink";
 import { htmlToText, openTo, readPlace, searchOtherSources, titleMatches, type Found } from "./lib/sources";
 import type { jobV, liveCheckV, resumeV } from "./lib/validators";
 import { prospectV } from "./lib/validators";
@@ -272,7 +273,12 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()].filter(
       (j) => !!track.company || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title),
     );
-    const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: unique });
+    // Only jobs that open the company's own posting are kept (see lib/directLink.ts).
+    const linked = await withCompanyLinks(unique, async (company) => {
+      const rows: CareerRow[] = await ctx.runQuery(internal.careers.forCompany, { company });
+      return rows.map((r) => ({ title: r.title, url: r.url }));
+    });
+    const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: linked });
     const failed = settled.some((r) => r.status === "rejected") ? ["Dreamwork", ...otherFailed] : [...otherFailed];
     if (!track.company && env.JSEARCH_API_KEY && google < Math.min(googleTitles, track.titles.length)) failed.push("Google Jobs (this month's free searches are used up)");
     return { added, failed };
