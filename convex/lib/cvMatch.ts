@@ -155,7 +155,8 @@ const STOP = new Set(
     "able ability strong good great excellent proven solid deep demonstrated track record plus preferred required requirement " +
     "experience year years month months role roles job position candidate candidates team teams work working company " +
     "opportunity opportunities day days week weeks new help ensure make based using use responsible responsibilities " +
-    "skill skills knowledge understanding environment level levels key multiple various other others looking join us"
+    "skill skills knowledge understanding environment level levels key multiple various other others looking join us " +
+    "next step steps fast paced world class ideal ideally wide range"
   ).split(" "),
 );
 

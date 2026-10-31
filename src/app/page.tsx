@@ -220,8 +220,8 @@ export default function Today() {
 
       <TodayProgress
         items={[
-          { label: "Companies asked", done: companiesAskedToday, goal: COMPANIES_A_DAY },
-          { label: "Applications sent", done: appliedToday, goal: APPLIES_A_DAY },
+          { label: "Companies asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY },
+          { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY },
           { label: "Follow-ups due", done: 0, goal: followUps.length, left: true },
         ]}
       />
@@ -250,7 +250,7 @@ export default function Today() {
         </section>
       )}
 
-      <Step n={1} title="Answer people who wrote back" items={answer} empty="No one waiting on a reply from you." />
+      <Step n={1} title={answer.some((t) => t.verb === "Reply" || t.verb === "Apply") ? "Answer people who wrote back" : "Replies and interviews"} items={answer} empty="No one waiting on a reply from you." />
       <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits in the last 24 hours. Run a search on the Jobs page." />
       <Step n={3} title="Follow up" items={chase} empty="No follow-ups due today." />
       <Step
@@ -615,7 +615,7 @@ function Autopilot({ on, last }: { on: boolean; last: { at: number; added: numbe
           {!on
             ? "Turn it on and every morning at 8 the app searches all your roles and scores what's new, so you start with a ranked list."
             : last
-              ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"}${last.funded ? `, ${last.funded} newly funded ${last.funded === 1 ? "company" : "companies"}` : ""}.`
+              ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} new strong ${last.strong === 1 ? "fit" : "fits"} (75+)${last.funded ? `, ${last.funded} newly funded ${last.funded === 1 ? "company" : "companies"}` : ""}.`
               : `First run is ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning, India time.`}
         </p>
         {on && last?.failed?.length ? (

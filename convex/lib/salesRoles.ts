@@ -168,3 +168,12 @@ const LEADER = new Set(["manager", "managers", "head", "director", "lead", "lead
 function isLeader(words: string[]) {
   return words.some((w, i) => LEADER.has(w) && !(w === "lead" && words[i + 1] === "development"));
 }
+
+// Finance and back-office jobs that borrow sales words: in India an "Accounts Executive" keeps the books.
+const BACK_OFFICE =
+  /\b(accounts? (payable|receivable)|accountant|accounting|bookkeep\w*|revenue accounting|f&a|fp&a|taxation|payroll|audit(or)?|(?<!key )(?<!strategic )accounts (executive|assistant|officer|manager))\b|\bexecutive\W+accounts\b|\bfinance executive\b/i;
+
+/** A finance or back-office job whose title only looks like sales: "Executive - Accounts Payable". */
+export function backOffice(title: string) {
+  return BACK_OFFICE.test(title.replace(/_/g, " "));
+}

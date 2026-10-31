@@ -3,7 +3,7 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Fragment, Suspense, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -13,10 +13,15 @@ import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
 import { applyFilters, FILTERS, fitFor, fitTier, inRole } from "@/lib/jobFilters";
-import { inInr, payPerYearInr, useInrRates } from "@/lib/money";
+import { payPerYearInr, payText, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
+import { sameRoleKey } from "../../../convex/lib/company";
 
 type ListJob = FunctionReturnType<typeof api.jobs.list>[number];
+// First guesses this low are almost never worth opening; they fold away under the list.
+const WEAK_GUESS = 40;
+// Rows drawn at first; the rest wait behind "Show more" so a long list opens quickly.
+const PAGE = 60;
 const byTime = (j: ListJob) => (j.postedAt ? Date.parse(j.postedAt) : j._creationTime);
 
 /** Ways to order the list. Jobs without the thing being sorted on go last. */
@@ -68,6 +73,8 @@ function Jobs() {
   const scoresLeft = useLeftToday("scoresLeft");
   const setStatusMany = useMutation(api.jobs.setStatusMany);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [shown, setShown] = useState(PAGE);
+  const [showWeak, setShowWeak] = useState(false);
   if (!me || !jobs) return <Loading />;
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
   const homeIsBlr = /bengaluru|bangalore/i.test(me.location);
@@ -80,7 +87,17 @@ function Jobs() {
   // Applied and later live on the Tracker, so this list stays jobs you can still apply to.
   const isApplied = (j: (typeof jobs)[number]) => j.status !== "new" && j.status !== "applying" && j.status !== "dismissed";
   const appliedCount = jobs.filter(isApplied).length;
+  // One role listed on two boards ("HPE" and "Hewlett Packard Enterprise") shows once: the one furthest along, else the first saved.
+  const seen = new Map<string, ListJob>();
+  const rank = (j: ListJob) => (j.status === "new" ? 0 : j.status === "dismissed" ? -1 : 1) * 10 + (j.scores?.length ? 1 : 0);
+  for (const j of [...jobs].reverse()) {
+    const k = sameRoleKey(j.company, j.title);
+    const had = seen.get(k);
+    if (!had || rank(j) > rank(had)) seen.set(k, j);
+  }
+  const unique = new Set([...seen.values()].map((j) => j._id));
   const inView = jobs
+    .filter((j) => unique.has(j._id))
     .filter((j) =>
       show === "hidden" ? j.status === "dismissed" : show === "old" ? isOld(j) : show === "applied" ? isApplied(j) : j.status !== "dismissed" && !isOld(j) && !isApplied(j),
     )
@@ -90,11 +107,18 @@ function Jobs() {
   const filtered = applyFilters(inView, params);
   const regionCounts = new Map<string, number>();
   for (const j of filtered) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
-  const visible = filtered
+  const sorted = filtered
     .filter((j) => !region || regionsOf(j).includes(region as never))
     .sort(SORTS[sort].compare(track, rates))
     // Favourites first, each group in the order picked.
     .sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite));
+  // Weak first guesses (no AI score, guess under the line) fold away unless a filter asks for them.
+  const isWeak = (j: ListJob) => !j.favorite && fitFor(j, track) < 0 && (j.quickFit ?? 0) < WEAK_GUESS;
+  const weakCount = show ? 0 : sorted.filter(isWeak).length;
+  const visible = showWeak || show ? sorted : sorted.filter((j) => !isWeak(j));
+  // In the fit order, a heading marks where AI scores give way to first guesses, and where low AI scores start.
+  const section = (j: ListJob) => (sort !== "fit" || j.favorite ? null : fitTier(fitFor(j, track)));
+  const SECTION_NAMES = ["Scored below 60 by the AI", "Not scored yet: first guesses from the title and words", "Scored by the AI"];
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
   // Never ask for more scores than today's allowance has left; the owner has no limit.
   const batch = unscored.slice(0, me.isOwner ? 12 : Math.min(12, scoresLeft ?? 12));
@@ -286,10 +310,14 @@ function Jobs() {
         <div className="card p-10 text-center text-ink-2">{inView.length ? "No jobs match these filters." : "No jobs here yet. Search above, or paste a job description you saw."}</div>
       ) : (
         <ul className="card divide-y divide-line overflow-hidden">
-          {visible.map((j) => {
+          {visible.slice(0, shown).map((j, i, rows) => {
             const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
+            const here = section(j);
+            const heading = here !== null && (i === 0 || section(rows[i - 1]) !== here) ? SECTION_NAMES[here] : null;
             return (
-              <li key={j._id} className={`flex items-start ${picked.has(j._id) ? "bg-soft" : ""}`}>
+              <Fragment key={j._id}>
+              {heading && <li className="label bg-soft px-4 py-2">{heading}</li>}
+              <li className={`flex items-start ${picked.has(j._id) ? "bg-soft" : ""}`}>
                 <input
                   type="checkbox"
                   aria-label={`Select ${j.title}`}
@@ -316,7 +344,7 @@ function Jobs() {
                     <div className="mt-0.5 text-xs text-ink-3">
                       {j.location}
                       {j.postedAt ? ` · ${timeAgo(j.postedAt)}` : ""}
-                      {j.salary ? ` · ${inInr(j.salary, rates) ?? j.salary}` : ""}
+                      {payText(j.salary, rates) ? ` · ${payText(j.salary, rates)}` : ""}
                       {j.liveCheck?.state === "closed" && <span className="text-bad"> · Looks closed</span>}
                       {j.brief?.blocker && <span className="text-bad"> · Rules you out</span>}
                     </div>
@@ -328,9 +356,24 @@ function Jobs() {
                   </div>
                 </Link>
               </li>
+              </Fragment>
             );
           })}
         </ul>
+      )}
+      {(visible.length > shown || weakCount > 0) && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+          {visible.length > shown && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setShown(shown + PAGE * 2)}>
+              Show more ({visible.length - shown} left)
+            </button>
+          )}
+          {weakCount > 0 && (
+            <button className="text-ink-3 underline hover:text-ink" onClick={() => setShowWeak(!showWeak)}>
+              {showWeak ? "Hide weak matches" : `Show ${weakCount} weak ${weakCount === 1 ? "match" : "matches"} (first guess under ${WEAK_GUESS})`}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

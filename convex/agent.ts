@@ -1246,7 +1246,7 @@ const GTM_TITLE = /\b(sales|gtm|go[- ]to[- ]market|business development|bdr|sdr|
 async function checkCompanyRoles(ctx: ActionCtx, me: Context, p: Doc<"prospects">): Promise<number> {
   // Bengaluru, or remote and open to India.
   const fitsPlace = (l: { title: string; location?: string | null; workSetting?: string | null }) =>
-    GTM_TITLE.test(l.title) && (inBengaluru(l.location ?? "") || remoteForIndia(l.location ?? "", l.workSetting) || /\b(india|bengaluru|bangalore|saarc)\b/i.test(l.title));
+    GTM_TITLE.test(l.title) && (inBengaluru(l.location ?? "") || remoteForIndia(l.location ?? "", l.workSetting, l.title) || /\b(india|bengaluru|bangalore|saarc)\b/i.test(l.title));
   const active = me.tracks.filter((t) => t.status === "active");
   const trackFor = (title: string) => (active.find((t) => t.titles.some((x) => titleMatches(x, title))) ?? active[0])?.key ?? "";
   // Companies whose careers board we read come from there; the rest from Dreamwork.

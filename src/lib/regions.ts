@@ -31,9 +31,9 @@ const PATTERNS = Object.fromEntries(
 // "Austin, TX" style: a two-letter US state code after a comma.
 const US_STATE = /,\s*(A[LKZR]|C[AOT]|D[EC]|FL|GA|HI|I[DLNA]|K[SY]|LA|M[EDAINSOT]|N[EVHJMYCD]|O[HKR]|PA|RI|S[CD]|T[NX]|UT|V[TA]|W[AVIY])\b/;
 
-export function regionsOf(job: { location: string; workSetting?: string | null }): RegionKey[] {
+export function regionsOf(job: { location: string; workSetting?: string | null; title?: string }): RegionKey[] {
   const found: RegionKey[] = [];
-  if (inBengaluru(job.location) || remoteForIndia(job.location, job.workSetting)) found.push("blr");
+  if (inBengaluru(job.location) || remoteForIndia(job.location, job.workSetting, job.title)) found.push("blr");
   if (job.workSetting === "remote" || /\bremote\b/i.test(job.location)) found.push("remote");
   for (const key of Object.keys(PATTERNS) as (keyof typeof PLACES)[]) {
     if (PATTERNS[key].test(job.location)) found.push(key);

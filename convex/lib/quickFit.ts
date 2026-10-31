@@ -3,7 +3,7 @@
 
 import type { Infer } from "convex/values";
 import { inBengaluru, remoteForIndia } from "./places";
-import { otherFunction, titleMatches } from "./salesRoles";
+import { backOffice, otherFunction, titleMatches } from "./salesRoles";
 import type { resumeV } from "./validators";
 
 type Resume = Infer<typeof resumeV>;
@@ -52,6 +52,8 @@ export function quickFit(
   home: string,
   senior = false,
 ) {
+  // An accounts or payroll job shares words with "Account Executive" but none of the work.
+  if (backOffice(job.title) && !titles.some(backOffice)) return 5;
   const norm = (t: string) => ` ${t.toLowerCase().replace(/[^a-z0-9']+/g, " ").trim()} `;
   const title = norm(job.title);
   const titleShare = Math.max(
@@ -78,7 +80,7 @@ export function quickFit(
   const place =
     (homeCity && where.toLowerCase().includes(homeCity)) || (/bengaluru|bangalore/i.test(home) && inBengaluru(where))
       ? 1
-      : remoteForIndia(job.location, job.workSetting)
+      : remoteForIndia(job.location, job.workSetting, job.title)
         ? 0.9
         : /\bindia\b/i.test(where)
           ? 0.5

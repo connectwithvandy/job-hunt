@@ -13,7 +13,7 @@ import { CvMatch } from "@/components/CvMatch";
 import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
-import { inInr, payRange, useInrRates } from "@/lib/money";
+import { inInr, payRange, payText, useInrRates } from "@/lib/money";
 
 export default function JobPage() {
   const { id } = useParams<{ id: string }>();
@@ -53,7 +53,12 @@ export default function JobPage() {
   // No CV attachment for an internal move: colleagues already know you.
   const cvName = currentTrack?.company ? "" : `${me.resume?.name ?? "Your"} CV ${job.company}.pdf`;
   // Where this job is up to, so the page leads with the one thing to do now.
-  const stage: Stage = !scores.length ? "score" : !job.pack ? "tailor" : job.status === "new" || job.status === "applying" ? "apply" : "reach";
+  const stage: Stage =
+    (job.status as string) === "screening" || job.status === "interview" || job.status === "offer"
+      ? "interview"
+      : job.status === "rejected" || job.status === "dismissed"
+        ? "done"
+        : !scores.length ? "score" : !job.pack ? "tailor" : job.status === "new" || job.status === "applying" ? "apply" : "reach";
   // Once a CV is written the choice is made, so the skip warning goes.
   const skip = job.pack ? null : skipReason(job);
   const ghost = ghostSigns(job, data.sighting, now);
@@ -144,8 +149,8 @@ export default function JobPage() {
           <p className="mt-1 text-ink-2">
             {job.company} · {job.location}
             {job.workSetting && job.workSetting !== "unknown" ? ` · ${job.workSetting}` : ""}
-            {job.salary ? ` · ${job.salary}` : ""}
-            {inInr(job.salary, rates) ? ` (${inInr(job.salary, rates)})` : ""}
+            {payText(job.salary, rates) ? ` · ${job.salary}` : ""}
+            {payText(job.salary, rates) && inInr(job.salary, rates) ? ` (${inInr(job.salary, rates)})` : ""}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
             <TrackTag track={currentTrack} />
@@ -216,9 +221,16 @@ export default function JobPage() {
         </Fold>
 
         <Fold n={1} title="Tailor your CV and cover letter" status={job.pack ? "Done" : "Not written yet"} open={stage === "tailor"}>
+            {/* Before the first draft the Next step box above holds the button, so it isn't shown twice. */}
+            {stage === "tailor" ? (
+              <p className="-mt-2 mb-4 text-sm text-ink-2">Use the Next step button above to write the tailored CV, cover letter, LinkedIn note and email.</p>
+            ) : (
+              <>
             <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter, and a LinkedIn note and email for the hiring manager.</p>
             {skip && <p className="mb-3 rounded-lg bg-warn/10 p-3 text-sm text-warn">{skip}</p>}
             <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} favorite={!!job.favorite} />
+              </>
+            )}
             <CvMatch description={job.description} company={job.company} tailored={job.pack?.resume} resumeId={currentTrack?.resumeId ?? me.defaultResumeId} />
             {job.pack && (
               <div className="mt-5 space-y-4 border-t border-line pt-5">
@@ -318,7 +330,7 @@ export default function JobPage() {
 
         {data.emails.length > 0 && !answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} />}
 
-        <details className="pt-4">
+        <details id="prep" className="pt-4" open={stage === "interview"}>
           <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">More: company research, interview prep, full job description</summary>
           <div className="mt-4 space-y-6">
             <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
@@ -336,7 +348,7 @@ export default function JobPage() {
   );
 }
 
-type Stage = "score" | "tailor" | "apply" | "reach";
+type Stage = "score" | "tailor" | "apply" | "reach" | "interview" | "done";
 
 /** Whether the posting is still up, and any signs it isn't a real opening. */
 function PostingCheck({
@@ -425,7 +437,15 @@ function NextStep({
     reach: knows
       ? ["Ask for a referral", `Applied. You know ${knows} ${knows === 1 ? "person" : "people"} at ${company}: a referral is the strongest way in (step 2). Then message the hiring manager (step 3).`]
       : ["Get noticed", "Applied. Now message the hiring manager (step 2), and follow up in a week if they don't reply."],
+    interview: [
+      job.status === "offer" ? "Weigh the offer" : "Prepare for the interview",
+      job.status === "offer"
+        ? "Check the pay against what you'd ask for, and ask Ask JobPipe to help you negotiate."
+        : "Open the interview prep under More at the bottom: likely questions, your stories that answer them, and research on the company.",
+    ],
+    done: null,
   }[stage];
+  if (!text) return null;
   if (skip && stage === "tailor") {
     return (
       <section className="card mb-6 border-warn p-6">
@@ -451,6 +471,16 @@ function NextStep({
         </ActionButton>
       )}
       {stage === "tailor" && <TailorButton jobId={job._id} resumes={resumes} defaultResumeId={defaultResumeId ?? null} redo={false} favorite={!!job.favorite} />}
+      {stage === "interview" && (
+        <div className="flex flex-wrap items-start gap-3">
+          <Link href={job.status === "offer" ? `/chat?job=${job._id}` : "#prep"} className="btn btn-primary">
+            {job.status === "offer" ? "Ask about the offer" : "Go to interview prep"}
+          </Link>
+          <Link href="/stories" className="btn btn-ghost">
+            Your interview stories
+          </Link>
+        </div>
+      )}
       {stage === "apply" && (
         <div className="flex flex-wrap items-start gap-3">
           <ApplyButton job={job} />

@@ -5,12 +5,13 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { withChats } from "./lib/chats";
-import { companyKey, referralRank, roleKey } from "./lib/company";
+import { cleanCompany, companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
 import { cvSenior, cvWords, isLender, quickFit } from "./lib/quickFit";
+import { backOffice } from "./lib/salesRoles";
 import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
@@ -302,7 +303,9 @@ export const insertMany = internalMutation({
     let added = 0;
     let lastId: Id<"jobs"> | null = null;
     const fit = await quickFitFor(ctx, userId);
-    for (const job of jobs) {
+    for (const found of jobs) {
+      // Boards send "Leading" or "Important Company of the Sector" for hidden employers, and escaped "&".
+      const job = { ...found, company: cleanCompany(found.company) || "Company not named" };
       const key = roleKey(job.company, job.title);
       const existing =
         (await ctx.db
@@ -318,7 +321,7 @@ export const insertMany = internalMutation({
         continue;
       }
       // Bank and lender sales jobs never fit a tech sales search; one you add yourself is still saved.
-      if (job.source !== "pasted" && job.source !== "link" && job.source !== "email" && isLender(job.title, job.company)) continue;
+      if (job.source !== "pasted" && job.source !== "link" && job.source !== "email" && (isLender(job.title, job.company) || backOffice(job.title))) continue;
       const { description, pack, research, prep, ...light } = job;
       lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack, quickFit: light.quickFit ?? fit(job) });
       if (job.source !== "careers") await noteBoard(ctx, job.company, [job.sourceUrl, job.url]);
@@ -404,6 +407,21 @@ export const dismissLenderJobs = internalMutation({
       if (job.status === "new" && isLender(job.title, job.company)) await ctx.db.patch("jobs", job._id, { status: "dismissed" });
     }
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.dismissLenderJobs, { cursor: page.continueCursor });
+    return null;
+  },
+});
+
+/** One-off tidy of saved jobs, a page at a time: escaped and placeholder company names fixed, accounts jobs moved to "Not for me". */
+export const tidyJobs = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 200 });
+    for (const job of page.page) {
+      const company = cleanCompany(job.company) || "Company not named";
+      if (company !== job.company) await ctx.db.patch("jobs", job._id, { company });
+      if (job.status === "new" && backOffice(job.title)) await ctx.db.patch("jobs", job._id, { status: "dismissed" });
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.tidyJobs, { cursor: page.continueCursor });
     return null;
   },
 });

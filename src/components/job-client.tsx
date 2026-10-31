@@ -810,10 +810,13 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
   const [state, setState] = useState<ActionState>(null);
   // Only people still in the list: someone drafted, skipped or marked as gone drops out of it.
   const ticked = picked.filter((id) => people.some((p) => p._id === id));
+  // The best few show first; a big company can mean fifty names.
+  const [all, setAll] = useState(false);
+  const shown = all ? people : people.slice(0, 8);
   return (
     <div>
       <ul className="divide-y divide-line">
-        {people.map((p, i) => (
+        {shown.map((p, i) => (
           <li key={p._id} className="flex items-center gap-3 py-2.5">
             <input
               type="checkbox"
@@ -853,6 +856,11 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
           </li>
         ))}
       </ul>
+      {people.length > shown.length && (
+        <button className="mt-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(true)}>
+          Show all {people.length}
+        </button>
+      )}
       <div className="mt-3 flex items-center gap-3">
         <button
           className="btn btn-primary btn-sm"

@@ -64,3 +64,21 @@ export function payRange(pay: { low: number; high: number; currency: string }) {
     pay.currency === "INR" ? `₹${n >= 1e7 ? `${+(n / 1e7).toFixed(1)}Cr` : `${+(n / 1e5).toFixed(n < 1e6 ? 1 : 0)}L`}` : `${pay.currency === "USD" ? "$" : `${pay.currency} `}${Math.round(n / 1000)}k`;
   return `${one(pay.low)} – ${one(pay.high)} a year`;
 }
+
+/**
+ * A job's pay to show: in rupees when it converts, else as written. Null when the figure can't be a
+ * year's pay, like "USD 45 – 90/year" (really an hourly rate) or "45000-55000 per year" with no currency.
+ */
+export function payText(salary: string | null | undefined, rates: Record<string, number>) {
+  if (!salary) return null;
+  const converted = inInr(salary, rates);
+  if (converted) return converted;
+  const s = salary.toLowerCase();
+  const yearly = !/hour|hr\b|month|mo\b|week|day/.test(s) && !/lpa|lakhs?|\bl\b|cr\b|crore/.test(s);
+  const nums = [...salary.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)\s*([kK])?/g)].map((m) => Number(m[1]) * (m[2] ? 1000 : 1));
+  const top = nums.length ? Math.max(...nums) : 0;
+  const rupees = /₹|inr|rs\.?/i.test(salary);
+  // A year's pay in rupees runs to lakhs; in other currencies to thousands.
+  if (yearly && top > 0 && top < (rupees || !/[$€£]|usd|eur|gbp|aud|sgd|cad/i.test(salary) ? 100_000 : 1000)) return null;
+  return salary;
+}
