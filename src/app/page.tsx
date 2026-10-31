@@ -114,6 +114,12 @@ export default function Today() {
     jobs.filter((j) => j.outreach.some((o) => sentToday(o.sentAt)) || (j.hiringContacts ?? []).some((c) => sentToday(c.sentAt))).map((j) => companyKey(j.company)),
   ).size;
   const appliedToday = jobs.filter((j) => sentToday(j.appliedAt)).length;
+  // Every company you've sent someone a message at; drafts don't count.
+  const askedTotal = new Set(
+    jobs.filter((j) => j.outreach.some((o) => o.sentAt) || (j.hiringContacts ?? []).some((c) => c.sentAt)).map((j) => companyKey(j.company)),
+  ).size;
+  // Every application so far, including ones moved on to interviews or a no.
+  const appliedTotal = jobs.filter((j) => j.appliedAt || ["applied", "screening", "interview", "offer", "rejected"].includes(j.status)).length;
   // The next companies from your top 50 that you haven't asked anyone at yet: a few a day, after the routine.
   const askedAt = new Set(jobs.filter((j) => j.outreach.length || (j.hiringContacts ?? []).some((c) => c.sentAt)).map((j) => companyKey(j.company)));
   const toAsk = (warm ?? []).map((c, rank) => ({ c, rank })).filter(({ c }) => !askedAt.has(c.key)).slice(0, Math.max(0, Math.min(3, COMPANIES_A_DAY - companiesAskedToday)));
@@ -220,8 +226,8 @@ export default function Today() {
 
       <TodayProgress
         items={[
-          { label: "Companies asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY },
-          { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY },
+          { label: "Companies asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY, total: askedTotal },
+          { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY, total: appliedTotal },
           { label: "Follow-ups due", done: 0, goal: followUps.length, left: true },
         ]}
       />
@@ -310,7 +316,7 @@ export default function Today() {
 type Todo = { key: string; verb: string; main: string; sub: string; href: string };
 
 /** Today's goals and how far along you are. Counts start again at 4 AM. */
-function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean }[] }) {
+function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean; total?: number }[] }) {
   return (
     <section className="card mb-8 grid grid-cols-3 gap-4 p-5">
       {items.map((i) => (
@@ -325,6 +331,7 @@ function TodayProgress({ items }: { items: { label: string; done: number; goal: 
               <div className="h-1 rounded-full bg-accent" style={{ width: `${Math.min(100, (i.done / Math.max(1, i.goal)) * 100)}%` }} />
             </div>
           )}
+          {i.total !== undefined && <div className="mt-2 text-xs text-ink-2">{i.total} in total</div>}
           {i.left && <div className="mt-2 text-xs text-ink-2">{i.goal ? "Clear these first" : "All caught up"}</div>}
         </div>
       ))}
