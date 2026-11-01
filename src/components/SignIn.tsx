@@ -312,8 +312,8 @@ export function SignIn() {
       </div>
 
       <div className="mb-14">
-        <p className="mb-4 text-center text-xs uppercase tracking-widest text-ink-3">Every morning it reads</p>
-        <Marquee items={["Company careers pages", "Greenhouse", "Lever", "Ashby", "Workday", "LinkedIn", "Google Jobs", "Adzuna", "Y Combinator", "Himalayas", "Hacker News hiring", "Your Gmail replies"]} />
+        <p className="mb-4 text-center text-xs uppercase tracking-widest text-ink-3">Built for</p>
+        <Marquee items={["Account Executives", "SDRs and BDRs", "SDR Managers", "Heads of Sales", "GTM Leads", "Founder's Office", "Sales Ops and RevOps", "Enterprise AEs", "Partnerships", "Customer Success leaders"]} />
       </div>
 
       {/* A picture of the app, so people see what they get before signing up. */}
