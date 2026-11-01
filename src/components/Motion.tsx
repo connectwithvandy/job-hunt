@@ -63,23 +63,3 @@ export function Rotate({ words, every = 2200 }: { words: string[]; every?: numbe
     </span>
   );
 }
-
-/** A strip of names that drifts sideways forever; doubled so the loop has no seam. */
-export function Marquee({ items }: { items: string[] }) {
-  const row = items.map((s, i) => (
-    <span key={i} className="flex items-center gap-6 whitespace-nowrap text-sm text-ink-3">
-      {s}
-      <span className="h-1 w-1 rounded-full bg-accent/60" />
-    </span>
-  ));
-  return (
-    <div className="marquee overflow-hidden" aria-label={items.join(", ")}>
-      <div className="marquee-track flex w-max gap-6">
-        {row}
-        <span aria-hidden className="flex gap-6">
-          {row}
-        </span>
-      </div>
-    </div>
-  );
-}
