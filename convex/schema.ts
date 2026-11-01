@@ -25,6 +25,15 @@ export default defineSchema({
   /** What testers wrote in the Send feedback box, for the owner to read on the waitlist page. */
   feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
 
+  /** Crashes and unexpected errors people hit in the app, emailed to the owner once an hour (errors.ts). */
+  appErrors: defineTable({
+    userId: v.optional(v.id("users")),
+    email: v.string(),
+    message: v.string(),
+    page: v.string(),
+    emailed: v.boolean(),
+  }).index("by_emailed", ["emailed"]),
+
   /** The waitlist: everyone who signed up, and whether the owner let them in. */
   // Free CV reviews from the public /cv-review page: one per email. The CV itself isn't kept.
   cvReviews: defineTable({

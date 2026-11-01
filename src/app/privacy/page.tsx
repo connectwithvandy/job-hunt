@@ -87,7 +87,7 @@ export default function Privacy() {
       </p>
       <h2 className="display text-xl text-ink">Who we share it with</h2>
       <p>
-        Only these service providers, and only to run the features above: Convex (database and servers), Vercel (website hosting), Anthropic (Claude AI,
+        Only these service providers, and only to run the features above: Convex (database and servers), Vercel (website hosting, and counting page visits without cookies or anything that identifies you), Anthropic (Claude AI,
         which reads parts of your CV, the job posting and, for Gmail, the recruiting emails described above, to write scores and drafts; Anthropic does not
         use this data to train its models), Resend (sends our emails), Hunter.io (only when you click Find email on a hiring contact: we send that
         person&apos;s first and last name and their company&apos;s website to look up their work email, and nothing about you), and Razorpay (payments;

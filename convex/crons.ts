@@ -15,4 +15,7 @@ crons.cron("morning autopilot", "30 2 * * *", internal.agent.dailyRun, {});
 // Every hour: recruiting emails and meetings for everyone who clicked Connect Gmail (google.ts).
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
 
+// Every hour: email the owner any app errors people hit since the last email (errors.ts).
+crons.interval("error alerts", { hours: 1 }, internal.errors.mailOwner, {});
+
 export default crons;

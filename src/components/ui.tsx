@@ -4,7 +4,7 @@ import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import { useQuery } from "convex/react";
 import { useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
-import { errorMessage } from "@/lib/errors";
+import { errorMessage, reportError } from "@/lib/errors";
 
 export type ActionState = { error?: string; message?: string } | null;
 
@@ -14,6 +14,7 @@ export async function attempt(fn: () => Promise<string | void>): Promise<ActionS
     const message = await fn();
     return message ? { message } : null;
   } catch (err) {
+    reportError(err);
     return { error: errorMessage(err) };
   }
 }

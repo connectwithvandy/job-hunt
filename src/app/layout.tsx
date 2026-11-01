@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { Shell } from "@/components/Shell";
@@ -26,6 +27,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ConvexClientProvider>
           <Shell>{children}</Shell>
         </ConvexClientProvider>
+        {/* Page visits only (Vercel Web Analytics, free tier): no cookies, nothing personal. */}
+        <Analytics />
       </body>
     </html>
   );

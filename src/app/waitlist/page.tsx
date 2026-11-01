@@ -1,18 +1,19 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { PageHead } from "@/components/bits";
 import { Loading } from "@/components/Loading";
-import { ActionButton } from "@/components/ui";
+import { ActionButton, attempt, Feedback, type ActionState } from "@/components/ui";
 
 export default function WaitlistAdmin() {
   const me = useQuery(api.users.me);
   const list = useQuery(api.access.list, me?.isOwner ? {} : "skip");
   const feedback = useQuery(api.feedback.list, me?.isOwner ? {} : "skip");
   const reviews = useQuery(api.cvReviews.list, me?.isOwner ? {} : "skip");
+  const errors = useQuery(api.errors.recent, me?.isOwner ? {} : "skip");
   const setApproved = useMutation(api.access.setApproved);
   const approveMany = useMutation(api.access.approveMany);
   const resetPassword = useAction(api.access.resetPassword);
@@ -156,7 +157,53 @@ export default function WaitlistAdmin() {
       ) : (
         <p className="text-sm text-ink-3">Nothing yet.</p>
       )}
+      <Funnel />
+      <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Errors people hit ({errors?.length ?? 0})</h2>
+      <p className="mb-2 text-xs text-ink-3">New ones are emailed to you once an hour.</p>
+      {errors?.length ? (
+        <ul>
+          {errors.map((e) => (
+            <li key={e._id} className="border-b border-line py-3 text-sm">
+              <p className="whitespace-pre-wrap break-words font-mono text-xs">{e.message}</p>
+              <p className="mt-1 text-xs text-ink-3">
+                {e.email || "signed out"} · {e.page} · {new Date(e._creationTime).toLocaleString()}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-ink-3">None.</p>
+      )}
     </div>
+  );
+}
+
+/** How far the people you let in have got. Counted only when you click, because it reads everyone's jobs. */
+function Funnel() {
+  const count = useAction(api.stats.funnel);
+  const [rows, setRows] = useState<{ step: string; people: number }[] | null>(null);
+  const [state, setState] = useState<ActionState>(null);
+  const [pending, start] = useTransition();
+  return (
+    <section className="mt-10">
+      <div className="mb-2 flex items-center gap-3">
+        <h2 className="text-sm font-medium text-ink-2">How far people get</h2>
+        <button className="btn btn-ghost btn-sm" disabled={pending} onClick={() => start(async () => setState(await attempt(async () => setRows(await count({})))))}>
+          {pending ? "Counting…" : rows ? "Count again" : "Count"}
+        </button>
+        <Feedback state={state} />
+      </div>
+      {rows && (
+        <ol className="grid gap-1 text-sm">
+          {rows.map((r) => (
+            <li key={r.step} className="flex max-w-sm justify-between border-b border-line py-1.5">
+              <span>{r.step}</span>
+              <span className="tabular-nums">{r.people}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 

@@ -22,6 +22,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   findEmail: { kind: "fixed window", rate: DAILY_LIMITS.findEmail, period: DAY },
   // The free CV review on /cv-review, for everyone together: caps what strangers can spend on AI in a day.
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
+  // Error reports from browsers: enough to spot a real crash, not enough for a loop to flood the table.
+  appError: { kind: "fixed window", rate: 30, period: DAY },
 });
 
 const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
