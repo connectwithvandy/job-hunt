@@ -14,7 +14,8 @@ function subscribe(fn: () => void) {
   return () => listeners.delete(fn);
 }
 
-export function ThemeToggle({ className = "" }: { className?: string }) {
+/** The sun/moon switch. `labelled` adds the words, for the app menu where an icon alone isn't clear. */
+export function ThemeToggle({ className = "", labelled = false }: { className?: string; labelled?: boolean }) {
   const theme = useSyncExternalStore(subscribe, current, () => "dark");
   const next = theme === "dark" ? "light" : "dark";
   return (
@@ -22,7 +23,11 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       type="button"
       aria-label={`Switch to ${next} mode`}
       title={`Switch to ${next} mode`}
-      className={`grid h-8 w-8 place-items-center rounded-full border border-line text-ink-2 transition hover:border-accent hover:text-ink ${className}`}
+      className={
+        labelled
+          ? `flex items-center gap-2 text-left text-sm text-ink-2 hover:text-ink ${className}`
+          : `grid h-8 w-8 place-items-center rounded-full border border-line text-ink-2 transition hover:border-accent hover:text-ink ${className}`
+      }
       onClick={() => {
         document.documentElement.dataset.theme = next;
         try {
@@ -38,6 +43,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
           <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
         )}
       </svg>
+      {labelled && (next === "light" ? "Light mode" : "Dark mode")}
     </button>
   );
 }

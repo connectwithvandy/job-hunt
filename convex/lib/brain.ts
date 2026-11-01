@@ -56,7 +56,7 @@ const MESSAGE_RULES = `What gets a message answered:
 - Sound like a person talking face to face, not a robot or an AI. Simple everyday words, the way the candidate would say it across a coffee table. Contractions (I'm, you're, it's). Short sentences, some very short. It's fine to start with "So" or "Saw", or to drop a word the way people do in a quick note. Read it aloud: if it sounds like a press release, a cover letter or a chatbot, rewrite it.
 - Never the giveaways of machine writing: "delve", "leverage", "utilize", "spearhead", "align", "resonate", "game-changer", "in today's fast-paced", "I came across", "I wanted to reach out", "I am writing to express", lists of three adjectives, "not only ... but also", rhetorical questions as openers, dashes used as punctuation, every sentence the same length.
 - Confident, never desperate. The candidate is weighing a fit too, not asking for a favour. No begging or pleading words ("any opportunity", "I would be so grateful", "please consider me", "I know I may not be"), no apologising for writing, no over-thanking, no exclamation marks stacked up. State what they've done as plain fact.
-- One light touch that makes the reader smile: a small, dry, warm line, at most one per message. It can be about them (their post, the job post's own wording, a shared company or city), about the candidate (a light, self-aware line about their own work or habits that still shows strength, never one that undercuts them), or about the moment itself. Build it from something real and specific in the material, so it feels personal, not canned. Never a joke that mocks anyone, never about the company's problems, never sarcasm, puns or emojis. If nothing natural comes, leave it out: a forced joke is worse than none.`;
+- One light touch that makes the reader smile: a small, dry, warm line, at most one per message. It can be about them (their post, the job post's own wording, a shared company or city), about the candidate (a light, self-aware line about their own work or habits that still shows strength, never one that undercuts them), or about the moment itself. Build it from something real and specific in the material, so it feels personal, not canned. Never a joke that mocks anyone, never about the company's problems, never a nod to the company's home country or culture (no "fika", "chai", "G'day"), never sarcasm, puns or emojis. If nothing natural comes, leave it out: a forced joke is worse than none.`;
 
 /**
  * What makes a letter or message read as written for this one company and reader, not sent to fifty.
@@ -234,7 +234,7 @@ const PackSchema = z.strictObject({
     .describe(
       "Six to eight, picked from the master CV skills, the tools listed in the CV extras, and the candidate's own facts, using the posting's names for them. Tools and methods the posting names come first when the candidate has them.",
     ),
-  coverLetter: z.string().describe("Under 220 words. Three short paragraphs. No address block, start with 'Hi <team or name>,'."),
+  coverLetter: z.string().describe("Under 220 words. Three short paragraphs. No address block, start with 'Hi <first name>,' when the hiring manager's name is known, else 'Hello <Company> team,' (just the company name, no department)."),
   directNote: z
     .string()
     .describe(
@@ -384,7 +384,7 @@ ${notes.map((n, i) => `${i + 1}. ${n}`).join("\n")}`
 // ---------- Cover letter on its own ----------
 
 const LetterSchema = z.strictObject({
-  coverLetter: z.string().describe("Under 220 words. Three short paragraphs. No address block, start with 'Hi <team or name>,'."),
+  coverLetter: z.string().describe("Under 220 words. Three short paragraphs. No address block, start with 'Hi <first name>,' when the hiring manager's name is known, else 'Hello <Company> team,' (just the company name, no department)."),
 });
 
 /** Just the cover letter, from the CV as it is, for when you don't want the CV tailored. `notes` are the changes asked for so far. */

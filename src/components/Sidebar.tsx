@@ -82,12 +82,10 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
       <div className="ml-auto flex gap-4 md:ml-0 md:flex-col md:gap-3 md:border-t md:border-line md:px-3 md:pt-5">
         <AccountLink active={ACCOUNT.pages.some((p) => isOn(path, p.href))} />
         {!isOwner && <FeedbackButton />}
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => void signOut()} className="text-left text-sm text-ink-2 hover:text-ink">
-            Sign out
-          </button>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle labelled />
+        <button type="button" onClick={() => void signOut()} className="text-left text-sm text-ink-2 hover:text-ink">
+          Sign out
+        </button>
       </div>
     </aside>
   );
