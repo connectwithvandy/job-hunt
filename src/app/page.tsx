@@ -227,7 +227,7 @@ export default function Today() {
       <TodayProgress
         items={[
           { label: "Companies asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY, total: askedTotal },
-          { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY, total: appliedTotal },
+          { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY, total: appliedTotal, bar: "bg-cyan" },
           { label: "Follow-ups due", done: 0, goal: followUps.length, left: true },
         ]}
       />
@@ -316,7 +316,7 @@ export default function Today() {
 type Todo = { key: string; verb: string; main: string; sub: string; href: string };
 
 /** Today's goals and how far along you are. Counts start again at 4 AM. */
-function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean; total?: number }[] }) {
+function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean; total?: number; bar?: string }[] }) {
   return (
     <section className="card mb-8 grid grid-cols-3 gap-4 p-5">
       {items.map((i) => (
@@ -328,7 +328,7 @@ function TodayProgress({ items }: { items: { label: string; done: number; goal: 
           </div>
           {!i.left && (
             <div className="mt-2 h-1 rounded-full bg-soft">
-              <div className="h-1 rounded-full bg-accent" style={{ width: `${Math.min(100, (i.done / Math.max(1, i.goal)) * 100)}%` }} />
+              <div className={`fill h-1 rounded-full ${i.bar ?? "bg-accent"}`} style={{ width: `${Math.min(100, (i.done / Math.max(1, i.goal)) * 100)}%` }} />
             </div>
           )}
           {i.total !== undefined && <div className="mt-2 text-xs text-ink-2">{i.total} in total</div>}
@@ -348,7 +348,8 @@ function Step({ n, title, items, empty, blocked }: { n: number; title: string; i
   const real = items.filter((i) => i.verb !== "Connect" && i.verb !== "Score").length;
   const label = real || (items.length || blocked ? "" : "Done");
   return (
-    <section className="mb-8">
+    // The steps fade up one after another when Today opens.
+    <section className="rise mb-8" style={{ animationDelay: `${n * 90}ms` }}>
       <h2 className="mb-3 flex items-baseline gap-3">
         <span className="display text-3xl">
           {n}. {title}
@@ -360,6 +361,17 @@ function Step({ n, title, items, empty, blocked }: { n: number; title: string; i
   );
 }
 
+/** Each kind of task in its own colour: lime to apply, cyan for replies, violet to follow up, pink to prepare. */
+const VERB_TONE: Record<string, string> = {
+  Apply: "text-accent",
+  Reply: "text-cyan",
+  "Follow up": "text-violet",
+  Send: "text-violet",
+  Score: "text-pink",
+  Prepare: "text-pink",
+  Connect: "text-ink-3",
+};
+
 /** The first eight things to do, the rest one tap away. */
 function TodoList({ items }: { items: Todo[] }) {
   const [all, setAll] = useState(false);
@@ -369,13 +381,13 @@ function TodoList({ items }: { items: Todo[] }) {
       <ul className="divide-y divide-line">
         {shown.map((t) => (
           <li key={t.key}>
-            <Link href={t.href} className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
-              <span className="w-20 shrink-0 text-xs font-medium uppercase tracking-wide text-accent">{t.verb}</span>
+            <Link href={t.href} className="group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
+              <span className={`w-20 shrink-0 text-xs font-medium uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{t.main}</span>
                 <span className="block truncate text-xs text-ink-2">{t.sub}</span>
               </span>
-              <span className="text-ink-3">→</span>
+              <span className="nudge text-ink-3">→</span>
             </Link>
           </li>
         ))}

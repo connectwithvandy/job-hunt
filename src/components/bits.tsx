@@ -16,7 +16,7 @@ export function TrackTag({ track }: { track?: Track }) {
 export function scoreTone(score: number) {
   // 75 is a strong fit everywhere: Today, the Jobs filter and this badge.
   if (score >= 75) return "bg-accent text-on-accent";
-  if (score >= 60) return "bg-warn/15 text-warn";
+  if (score >= 60) return "bg-violet/15 text-violet";
   return "bg-soft text-ink-3";
 }
 

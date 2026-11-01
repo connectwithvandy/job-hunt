@@ -10,6 +10,10 @@
   --soft: #1a1a22;
   --accent: #c6ff3d;
   --on-accent: #0b0b0f;
+  /* Supporting colours beside the lime: each marks one kind of thing, so a glance tells them apart. */
+  --violet: #a78bfa;
+  --cyan: #5eead4;
+  --pink: #ff8fd0;
   --good: #c6ff3d;
   --warn: #fb923c;
   --bad: #f87171;
@@ -28,6 +32,9 @@
   --color-warn: var(--warn);
   --color-bad: var(--bad);
   --color-accent: var(--accent);
+  --color-violet: var(--violet);
+  --color-cyan: var(--cyan);
+  --color-pink: var(--pink);
   --color-on-accent: var(--on-accent);
   --font-sans: var(--font-inter);
   --font-display: var(--font-display-face);
@@ -69,7 +76,7 @@ body {
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.55; cursor: progress; }
 .btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-.btn-primary:hover { box-shadow: 0 0 0 4px rgb(198 255 61 / 0.18); }
+.btn-primary:hover { box-shadow: 0 0 0 4px rgb(198 255 61 / 0.18), 0 6px 20px rgb(198 255 61 / 0.18); transform: translateY(-1px); }
 .btn-ghost { border: 1px solid var(--line); background: var(--card); color: var(--ink); }
 .btn-ghost:hover { background: var(--soft); }
 .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
@@ -207,7 +214,16 @@ select.field option { background: var(--card); }
   .tilt { transform: perspective(1800px) rotateX(9deg) scale(0.96); transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
   .tilt:hover { transform: none; }
 }
+/* In the app: progress bars fill from empty, the logo dot breathes, rows nudge their arrow on hover. */
+@keyframes fill { from { transform: scaleX(0); } }
+.fill { transform-origin: left; animation: fill 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s both; }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.breathe { animation: breathe 3.2s ease-in-out infinite; }
+.nudge { transition: transform 0.2s; }
+.group:hover .nudge { transform: translateX(4px); color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .rise { animation: none; }
+  .fill, .breathe { animation: none; }
+  .nudge, .group:hover .nudge { transition: none; transform: none; }
   .tilt, .tilt:hover { transform: none; transition: none; }
 }

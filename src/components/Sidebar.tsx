@@ -58,7 +58,7 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
   return (
     <aside className="no-print sticky top-0 z-30 bg-paper md:static md:w-56 md:shrink-0 md:min-h-screen border-b md:border-b-0 md:border-r border-line px-4 py-3 md:px-5 md:py-10 flex flex-wrap md:flex-nowrap md:flex-col gap-x-4 gap-y-2 md:gap-6 items-center md:items-stretch">
       <Link href="/" className="display text-lg uppercase leading-none tracking-wide">
-        JobPipe<span className="text-accent">.</span>
+        JobPipe<span className="breathe text-accent">.</span>
       </Link>
       {/* On a phone every page is in view: the links wrap onto a second row instead of scrolling off the side. */}
       <nav className="order-last flex w-full flex-wrap gap-1 text-sm md:order-none md:w-auto md:flex-col">
