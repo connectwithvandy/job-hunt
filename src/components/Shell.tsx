@@ -11,7 +11,7 @@ import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
 import { Waitlist } from "./Waitlist";
 
-const PUBLIC = ["/pricing", "/terms", "/privacy", "/refunds", "/contact", "/cv-review"];
+const PUBLIC = ["/pricing", "/terms", "/privacy", "/refunds", "/contact", "/cv-review", "/compare", "/about"];
 
 /** Whether this browser has signed in before (Convex Auth keeps a refresh token in localStorage). */
 function hasSession() {

@@ -20,6 +20,8 @@ ${FAQ.map(([q, a]) => `### ${q}\n${a}`).join("\n\n")}
 - [Home](${LEGAL.site}/)
 - [Free CV review for sales jobs](${LEGAL.site}/cv-review)
 ${ROLE_PAGES.map((r) => `- [${r.title}](${LEGAL.site}/sales-jobs/${r.slug})`).join("\n")}
+- [JobPipe compared with Teal, Jobscan, Huntr, Naukri and LinkedIn Premium](${LEGAL.site}/compare)
+- [About the founder](${LEGAL.site}/about)
 - [Pricing](${LEGAL.site}/pricing)
 - [Privacy policy](${LEGAL.site}/privacy)
 - [Terms](${LEGAL.site}/terms)

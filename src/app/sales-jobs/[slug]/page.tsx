@@ -1,11 +1,12 @@
 import type { FunctionReturnType } from "convex/server";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { api } from "../../../../convex/_generated/api";
 import { backOffice, titleMatches } from "../../../../convex/lib/salesRoles";
 import { regionsOf } from "@/lib/regions";
 import { LEGAL } from "@/lib/legal";
-import { ROLE_PAGES, type RolePage } from "@/lib/rolePages";
+import { GUIDES_UPDATED, ROLE_PAGES, type RolePage } from "@/lib/rolePages";
 import { RoleLayout } from "../RoleLayout";
 
 export const dynamicParams = false;
@@ -72,6 +73,16 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
     },
     {
       "@context": "https://schema.org",
+      "@type": "Article",
+      headline: page.title,
+      description: page.description,
+      dateModified: GUIDES_UPDATED,
+      author: { "@type": "Person", name: LEGAL.owner, url: `${LEGAL.site}/about`, sameAs: [LEGAL.founderLinkedIn] },
+      publisher: { "@type": "Organization", name: LEGAL.product, url: LEGAL.site },
+      mainEntityOfPage: `${LEGAL.site}/sales-jobs/${page.slug}`,
+    },
+    {
+      "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: LEGAL.product, item: LEGAL.site },
@@ -85,6 +96,13 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="label text-accent">Sales job guide</p>
       <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{page.title}</h1>
+      <p className="mt-3 text-sm text-ink-3">
+        By{" "}
+        <Link href="/about" className="underline decoration-accent underline-offset-4 hover:text-ink">
+          {LEGAL.owner}
+        </Link>
+        , sales development leader · Updated {new Date(GUIDES_UPDATED).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+      </p>
       <p className="mt-5 text-lg text-ink-2">{page.intro}</p>
       {roles.length > 0 && (
         <section className="mt-12">

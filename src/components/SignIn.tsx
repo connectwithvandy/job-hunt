@@ -476,6 +476,12 @@ export function SignIn() {
         <Link href="/sales-jobs" className="hover:text-ink">
           Sales job guides
         </Link>
+        <Link href="/compare" className="hover:text-ink">
+          JobPipe vs other tools
+        </Link>
+        <Link href="/about" className="hover:text-ink">
+          About
+        </Link>
         <a href="/pricing" className="hover:text-ink">
           Pricing
         </a>

@@ -149,3 +149,6 @@ export const ROLE_PAGES: RolePage[] = [
     jobs: { titles: ["Account Executive", "Sales Development Representative", "Sales Manager", "Business Development"], regions: ["apac"], india: false },
   },
 ];
+
+/** When the guide text last changed. Shown on each guide and given to search engines; move it on when you edit a guide. */
+export const GUIDES_UPDATED = "2026-11-01";
