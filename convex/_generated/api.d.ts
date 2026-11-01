@@ -20,6 +20,7 @@ import type * as crons from "../crons.js";
 import type * as cvReview from "../cvReview.js";
 import type * as cvReviews from "../cvReviews.js";
 import type * as emailFinder from "../emailFinder.js";
+import type * as errors from "../errors.js";
 import type * as feedback from "../feedback.js";
 import type * as google from "../google.js";
 import type * as http from "../http.js";
@@ -60,6 +61,7 @@ import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
 import type * as payments from "../payments.js";
 import type * as prospects from "../prospects.js";
+import type * as stats from "../stats.js";
 import type * as stories from "../stories.js";
 import type * as users from "../users.js";
 
@@ -82,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   cvReview: typeof cvReview;
   cvReviews: typeof cvReviews;
   emailFinder: typeof emailFinder;
+  errors: typeof errors;
   feedback: typeof feedback;
   google: typeof google;
   http: typeof http;
@@ -122,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   limits: typeof limits;
   payments: typeof payments;
   prospects: typeof prospects;
+  stats: typeof stats;
   stories: typeof stories;
   users: typeof users;
 }>;
