@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { LEGAL, PLANS } from "@/lib/legal";
 import { FAQ, landingJsonLd } from "@/lib/marketing";
+import { CountUp, Marquee, Reveal, Rotate } from "./Motion";
+import { ThemeToggle } from "./ThemeToggle";
 import { Spinner } from "./ui";
 
 const noSubscribe = () => () => {};
@@ -142,6 +144,7 @@ export function SignIn() {
           <a href="#faq" className="hidden hover:text-ink md:inline">FAQ</a>
           <Link href="/pricing" className="hidden hover:text-ink sm:inline">Pricing</Link>
           <Link href="/cv-review" className="hidden hover:text-ink sm:inline">Free CV review</Link>
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => start("signIn")}
@@ -164,6 +167,9 @@ export function SignIn() {
           </span>
           <span className="block text-ink-2">You&apos;re running several searches at once.</span>
         </h1>
+        <p style={{ animationDelay: "120ms" }} className="rise mt-5 text-lg text-ink-2">
+          Searching for <Rotate words={["Account Executive", "SDR Manager", "Head of Sales", "GTM Lead", "Founder's Office", "BDR"]} />
+        </p>
         <p style={{ animationDelay: "160ms" }} className="rise mt-6 max-w-xl text-lg leading-relaxed text-ink-2">{pitch}</p>
         <Link href="/cv-review" style={{ animationDelay: "240ms" }} className="rise mt-6 inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline">
           Not ready to join? Get a free CV review for sales roles →
@@ -305,8 +311,13 @@ export function SignIn() {
           </form>
       </div>
 
+      <div className="mb-14">
+        <p className="mb-4 text-center text-xs uppercase tracking-widest text-ink-3">Every morning it reads</p>
+        <Marquee items={["Company careers pages", "Greenhouse", "Lever", "Ashby", "Workday", "LinkedIn", "Google Jobs", "Adzuna", "Y Combinator", "Himalayas", "Hacker News hiring", "Your Gmail replies"]} />
+      </div>
+
       {/* A picture of the app, so people see what they get before signing up. */}
-      <div className="mx-auto max-w-5xl pb-24">
+      <div className="float mx-auto max-w-5xl pb-24">
         <div style={{ animationDelay: "380ms" }} className="rise tilt overflow-hidden rounded-2xl border border-line bg-card shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)]">
           <div className="flex items-center gap-2 border-b border-line px-4 py-3">
             <span className="h-2.5 w-2.5 rounded-full bg-line" />
@@ -338,7 +349,7 @@ export function SignIn() {
                   <div key={label} className="min-w-0 rounded-xl border border-line p-3">
                     <p className="truncate text-[11px] text-ink-3">{label}</p>
                     <p className="display mt-1 text-xl">
-                      {n}
+                      <CountUp to={Number(n)} />
                       <span className="text-sm text-ink-3"> {of}</span>
                     </p>
                   </div>
@@ -346,8 +357,8 @@ export function SignIn() {
               </div>
               <p className="mt-7 text-sm font-medium">Apply to new jobs</p>
               <ul className="mt-3 rounded-xl border border-line">
-                {EXAMPLE_JOBS.map((j) => (
-                  <li key={j.co} className="flex items-center gap-4 border-b border-line px-4 py-4 last:border-0">
+                {EXAMPLE_JOBS.map((j, i) => (
+                  <Reveal as="li" delay={300 + i * 160} key={j.co} className="flex items-center gap-4 border-b border-line px-4 py-4 last:border-0">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-soft text-xs font-semibold text-ink-2">
                       {j.co.split(" ").map((w) => w[0]).join("")}
                     </span>
@@ -358,12 +369,14 @@ export function SignIn() {
                       </p>
                     </div>
                     {j.warm > 0 && (
-                      <span className="hidden rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-xs text-accent sm:inline">
+                      <span className="glow hidden rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-xs text-accent sm:inline">
                         {j.warm} warm {j.warm === 1 ? "intro" : "intros"}
                       </span>
                     )}
-                    <span className={`display w-10 text-right text-2xl ${j.score >= 75 ? "text-accent" : "text-ink-3"}`}>{j.score}</span>
-                  </li>
+                    <span className={`display w-10 text-right text-2xl ${j.score >= 75 ? "text-accent" : "text-ink-3"}`}>
+                      <CountUp to={j.score} />
+                    </span>
+                  </Reveal>
                 ))}
               </ul>
             </div>
@@ -377,12 +390,12 @@ export function SignIn() {
         <p className="label text-accent">Why it works</p>
         <h2 className="display mt-3 max-w-2xl text-4xl leading-tight">Built for how sales people actually job hunt</h2>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-          {POINTS.map(([icon, title, text]) => (
-            <li key={title} className="card p-6 transition duration-300 hover:-translate-y-1 hover:border-accent/40">
+          {POINTS.map(([icon, title, text], i) => (
+            <Reveal as="li" delay={i * 110} key={title} className="card p-6 transition duration-300 hover:-translate-y-1 hover:border-accent/40">
               <Icon name={icon} />
               <h3 className="mt-5 text-lg font-medium">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-ink-2">{text}</p>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </section>
@@ -432,7 +445,7 @@ export function SignIn() {
         </div>
       </section>
 
-      <section className="relative my-10 overflow-hidden rounded-3xl border border-line bg-card px-8 py-14 text-center">
+      <Reveal as="section" className="relative my-10 overflow-hidden rounded-3xl border border-line bg-card px-8 py-14 text-center">
         <h2 className="display relative mx-auto max-w-2xl text-3xl leading-tight md:text-4xl">Your next role is probably already posted.</h2>
         <p className="relative mx-auto mt-3 max-w-xl text-ink-2">Let JobPipe find it, score it and show you who can get you in.</p>
         <button
@@ -442,7 +455,7 @@ export function SignIn() {
         >
           Join the waitlist
         </button>
-      </section>
+      </Reveal>
 
       <div className="flex justify-center py-6">
       <a

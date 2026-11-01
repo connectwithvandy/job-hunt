@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { Shell } from "@/components/Shell";
 import { DESCRIPTION as description, TITLE } from "@/lib/marketing";
+import { THEME_SCRIPT } from "@/components/ThemeToggle";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 
@@ -22,7 +23,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${display.variable} antialiased`}>
+    // The theme script below may set data-theme before React loads, so the two can differ on purpose.
+    <html lang="en" className={`${inter.variable} ${display.variable} antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-screen">
         <ConvexClientProvider>
           <Shell>{children}</Shell>

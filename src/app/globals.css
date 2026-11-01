@@ -20,6 +20,29 @@
   color-scheme: dark;
 }
 
+/* Light mode, picked with the sun/moon switch. The lime stays for buttons and highlights; text in lime and the
+   supporting colours goes darker so it reads on white. */
+:root[data-theme="light"] {
+  --paper: #f6f6f1;
+  --card: #ffffff;
+  --ink: #0b0b0f;
+  --ink-2: #52525b;
+  --ink-3: #6b6b74;
+  --line: #e2e2da;
+  --soft: #eeeee7;
+  --on-accent: #0b0b0f;
+  --good: #3f6b0a;
+  --warn: #c2410c;
+  --bad: #dc2626;
+  --violet: #6d28d9;
+  --cyan: #0f766e;
+  --pink: #be185d;
+  color-scheme: light;
+}
+:root[data-theme="light"] .text-accent { color: #3f6b0a; }
+:root[data-theme="light"] .border-accent { border-color: #8ccf1f; }
+:root[data-theme="light"] .tilt { box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.22) !important; }
+
 @theme inline {
   --color-paper: var(--paper);
   --color-card: var(--card);
@@ -214,6 +237,23 @@ select.field option { background: var(--card); }
   .tilt { transform: perspective(1800px) rotateX(9deg) scale(0.96); transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
   .tilt:hover { transform: none; }
 }
+/* Landing: sections fade up as they scroll in (only when scripts run, so nothing stays hidden without them),
+   a word swaps in place, and the job sources drift sideways. */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .reveal.in { opacity: 1; transform: none; }
+}
+@keyframes swap { from { opacity: 0; transform: translateY(0.4em); filter: blur(3px); } }
+.swap { animation: swap 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes drift { to { transform: translateX(-50%); } }
+.marquee { mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+.marquee-track { animation: drift 38s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.float { animation: float 6s ease-in-out infinite; }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgb(198 255 61 / 0); } 50% { box-shadow: 0 0 0 6px rgb(198 255 61 / 0.12); } }
+.glow { animation: glow 2.6s ease-in-out infinite; }
+
 /* In the app: progress bars fill from empty, the logo dot breathes, rows nudge their arrow on hover. */
 @keyframes fill { from { transform: scaleX(0); } }
 .fill { transform-origin: left; animation: fill 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s both; }
@@ -223,7 +263,7 @@ select.field option { background: var(--card); }
 .group:hover .nudge { transform: translateX(4px); color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .rise { animation: none; }
-  .fill, .breathe { animation: none; }
+  .fill, .breathe, .swap, .marquee-track, .float, .glow { animation: none; }
   .nudge, .group:hover .nudge { transition: none; transform: none; }
   .tilt, .tilt:hover { transform: none; transition: none; }
 }
