@@ -75,12 +75,40 @@ const linkLabel = (link: string) => {
 };
 
 /** `logos` maps company or school names to websites, for CVs (like tailored ones) saved before logos existed. */
-export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: string | null; logos?: Record<string, string> }) {
+/** Picks the PDF layout: the two-column design, or one column for online application forms. */
+export function CvLayoutPick({ plain, onChange }: { plain: boolean; onChange: (plain: boolean) => void }) {
   return (
-    <article className="resume">
+    <select className="field !w-auto !py-1.5 text-sm" value={plain ? "plain" : "design"} onChange={(e) => onChange(e.target.value === "plain")} aria-label="PDF layout">
+      <option value="design">Two-column design</option>
+      <option value="plain">One column (safest for application forms)</option>
+    </select>
+  );
+}
+
+/** Contact details as one line of plain text, links written out in full, so hiring software can read every one. */
+function ContactLine({ r }: { r: Resume }) {
+  const bare = (l: string) => l.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+  const parts = [r.contact.phone, r.contact.email, r.contact.location, r.contact.linkedin && bare(r.contact.linkedin), ...(r.contact.links ?? []).map(bare)].filter(Boolean);
+  return <p className="contact-line">{parts.join("  |  ")}</p>;
+}
+
+/**
+ * `plain` is the one-column version for application forms: hiring software reads two-column PDFs side by side
+ * and mixes the columns up (the sidebar's education landed inside the summary when tested), so this one keeps
+ * everything in a single top-to-bottom flow, with no photo or logos.
+ */
+export function ResumeDoc({ r, photoUrl, logos = {}, plain = false }: { r: Resume; photoUrl?: string | null; logos?: Record<string, string>; plain?: boolean }) {
+  if (plain) {
+    photoUrl = null;
+    logos = {};
+    r = { ...r, experience: r.experience.map((e) => ({ ...e, domain: undefined })), education: r.education.map((ed) => ({ ...ed, domain: undefined })) };
+  }
+  return (
+    <article className={plain ? "resume plain" : "resume"}>
       <div className="main">
         <h1>{r.name}</h1>
         <p className="headline">{r.headline}</p>
+        {plain && <ContactLine r={r} />}
         <h2>Executive Summary</h2>
         <p>{r.summary}</p>
         <h2>Experience</h2>
@@ -97,7 +125,7 @@ export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: s
               <div className="dates">
                 {e.start} - {e.end}
                 <br />
-                {e.location}
+                {e.location && <span className="loc">{e.location}</span>}
               </div>
             </div>
             {e.blurb && <p className="blurb">{e.blurb}</p>}
@@ -116,6 +144,7 @@ export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: s
           // eslint-disable-next-line @next/next/no-img-element
           <img className="photo" src={photoUrl} alt="" />
         )}
+        {!plain && (
         <div className="contact">
           {r.contact.phone && (
             <span>
@@ -152,6 +181,7 @@ export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: s
             </a>
           ))}
         </div>
+        )}
         <h2>Education</h2>
         {r.education.map((ed, i) => (
           <div key={i} className="mb-3">
@@ -162,7 +192,8 @@ export function ResumeDoc({ r, photoUrl, logos = {} }: { r: Resume; photoUrl?: s
             <div>{ed.degree}</div>
             <div className="muted flex justify-between">
               <span>{ed.detail}</span>
-              <span>{ed.year}</span>
+              {/* A hard space, so the text reads "Marketing 2018", not "Marketing2018", when copied or parsed. */}
+              <span>{"\u00a0"}{ed.year}</span>
             </div>
             {ed.notes.length > 0 && (
               <ul>

@@ -3,11 +3,11 @@
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
-import { ResumeDoc } from "@/components/ResumeDoc";
+import { CvLayoutPick, ResumeDoc } from "@/components/ResumeDoc";
 import { TailoredEditor } from "@/components/ResumeFields";
 import { PrintButton } from "@/components/ui";
 import { downloadDocx } from "@/lib/docx";
@@ -23,6 +23,7 @@ export default function TailoredResume() {
   const pack = sent ? { ...data!.job.pack!, resume: sent.resume, unverified: [] } : data?.job.pack;
 
   // The page title becomes the PDF's file name when you choose "Save as PDF".
+  const [plain, setPlain] = useState(false);
   const fileName = pack && data ? `${pack.resume.name} CV ${data.job.company}` : "";
   useEffect(() => {
     if (fileName) document.title = fileName;
@@ -45,6 +46,7 @@ export default function TailoredResume() {
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-xs text-ink-3">In the print window, pick &quot;Save as PDF&quot; and turn off headers and footers.</span>
+          <CvLayoutPick plain={plain} onChange={setPlain} />
           <PrintButton />
           <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(pack.resume, `${pack.resume.name} CV ${job.company}`)}>
             Download Word
@@ -57,7 +59,7 @@ export default function TailoredResume() {
         </p>
       )}
       <div className="max-w-full overflow-x-auto">
-        <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap((all ?? []).map((m) => m.resume))} />
+        <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap((all ?? []).map((m) => m.resume))} plain={plain} />
       </div>
       {sent ? (
         <p className="no-print w-full max-w-[210mm] text-sm text-ink-2">The CV you sent on {new Date(sent.at).toLocaleDateString()}. It stays as it was when you rewrite this job&apos;s CV.</p>

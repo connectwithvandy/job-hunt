@@ -8,7 +8,7 @@ import { PageHead } from "@/components/bits";
 import { AnswersForm, AutofillLink, FactsForm, ResumeEditor, UploadResume, WritingSampleForm } from "@/components/forms";
 import { MasterEditor } from "@/components/ResumeFields";
 import { Loading } from "@/components/Loading";
-import { ResumeDoc } from "@/components/ResumeDoc";
+import { CvLayoutPick, ResumeDoc } from "@/components/ResumeDoc";
 import { downloadDocx } from "@/lib/docx";
 import { attempt, PrintButton, type ActionState, Feedback } from "@/components/ui";
 
@@ -21,6 +21,7 @@ export default function Cvs() {
   const remove = useMutation(api.users.deleteResume);
   const findLogos = useAction(api.agent.findLogos);
   const [state, setState] = useState<ActionState>(null);
+  const [plain, setPlain] = useState(false);
   if (!me || !all) return <Loading />;
 
   const current = picked === "new" ? null : (all.find((r) => r._id === picked) ?? all.find((r) => r._id === me.defaultResumeId) ?? all[0]);
@@ -29,6 +30,7 @@ export default function Cvs() {
   return (
     <div>
       <PageHead title="CVs" sub="Your master CVs. Each job gets a tailored copy that rewrites your experience for that role, using only facts from these. So every real number and win belongs here.">
+        {current && <CvLayoutPick plain={plain} onChange={setPlain} />}
         {current && <PrintButton />}
         {current && (
           <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(current.resume, current.label)}>
@@ -99,7 +101,7 @@ export default function Cvs() {
             <Feedback state={state} />
           </div>
           <div className="overflow-x-auto pb-4">
-            <ResumeDoc r={current.resume} photoUrl={me.photoUrl} />
+            <ResumeDoc r={current.resume} photoUrl={me.photoUrl} plain={plain} />
           </div>
           <div className="no-print mt-8 grid max-w-4xl gap-6">
             <UploadResume replace={current} />

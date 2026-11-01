@@ -159,6 +159,20 @@ select.field option { background: var(--card); }
 .resume .side-item-title { color: var(--r-blue); font-size: 10.5pt; }
 .resume .muted { color: var(--r-muted); }
 
+/* One column for application forms: the sidebar's sections follow the experience, styled like the main ones. */
+.resume.plain { display: block; }
+.resume.plain .main { padding-bottom: 0; }
+.resume.plain .side { background: none; padding: 0 7mm 9mm 9mm; }
+.resume.plain .side h2 { color: var(--r-blue); font-size: 15pt; margin-top: 3mm; }
+.resume.plain .side h2::after { display: block; }
+.resume.plain .side li { font-size: inherit; }
+/* Dates under the job title, not off to the right, so they're read with the job they belong to. */
+.resume.plain .role-head { display: block; }
+.resume.plain .dates { text-align: left; }
+.resume.plain .dates br { display: none; }
+.resume.plain .dates .loc::before { content: " · "; }
+.resume .contact-line { font-size: 9pt; color: var(--r-ink); margin: -2mm 0 4mm; overflow-wrap: anywhere; }
+
 /* A cover letter on an A4 sheet, in the CV's font. */
 .letter {
   width: 210mm;
