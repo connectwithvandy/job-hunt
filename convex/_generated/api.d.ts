@@ -57,12 +57,14 @@ import type * as lib_quickFit from "../lib/quickFit.js";
 import type * as lib_razorpay from "../lib/razorpay.js";
 import type * as lib_salesRoles from "../lib/salesRoles.js";
 import type * as lib_sources from "../lib/sources.js";
+import type * as lib_trial from "../lib/trial.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
 import type * as payments from "../payments.js";
 import type * as prospects from "../prospects.js";
 import type * as stats from "../stats.js";
 import type * as stories from "../stories.js";
+import type * as trial from "../trial.js";
 import type * as users from "../users.js";
 
 import type {
@@ -121,12 +123,14 @@ declare const fullApi: ApiFromModules<{
   "lib/razorpay": typeof lib_razorpay;
   "lib/salesRoles": typeof lib_salesRoles;
   "lib/sources": typeof lib_sources;
+  "lib/trial": typeof lib_trial;
   "lib/validators": typeof lib_validators;
   limits: typeof limits;
   payments: typeof payments;
   prospects: typeof prospects;
   stats: typeof stats;
   stories: typeof stories;
+  trial: typeof trial;
   users: typeof users;
 }>;
 

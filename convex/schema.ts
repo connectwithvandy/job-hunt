@@ -58,6 +58,8 @@ export default defineSchema({
     rejected: v.optional(v.boolean()),
     /** Paid up to this time, from the latest payment. Missing for testers and anyone who hasn't paid. */
     paidUntil: v.optional(v.number()),
+    /** When the "your free week ends soon" check-in went out, so it goes once. */
+    trialNoteAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"]),

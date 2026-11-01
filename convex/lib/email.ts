@@ -75,6 +75,65 @@ ${story.map((t) => `<p>${esc(t)}</p>`).join("\n")}
   return { subject, text, html };
 }
 
+/** The check-in two days before someone's free week ends, from the founder: what JobPipe did for them, then the price, no pressure. */
+export function trialEmail(p: {
+  name?: string;
+  endsAt: number;
+  month: number;
+  pass: number;
+  stats: { found: number; strong: number; cvs: number; applied: number; interviews: number };
+}) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const url = appUrl();
+  const ends = new Date(p.endsAt).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" });
+  const { found, strong, cvs, applied, interviews } = p.stats;
+  const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+  const did = [
+    `${n(found, "job", "jobs")} found${strong ? `, ${strong} of them a strong fit` : ""}`,
+    cvs && `${n(cvs, "tailored CV", "tailored CVs")} written`,
+    applied && `${n(applied, "application", "applications")} tracked`,
+    interviews && `${n(interviews, "job", "jobs")} at interview stage`,
+  ].filter((l): l is string => !!l);
+  const rupees = (r: number) => `₹${r.toLocaleString("en-IN")}`;
+
+  const paras: string[] = found
+    ? [
+        `Your free week on JobPipe ends on ${ends}, so I wanted to check in myself.`,
+        "Here's what it did for you so far:",
+        ...(interviews ? ["Good luck with the interviews. That's the part that counts."] : []),
+        ...(!cvs && !applied ? ["One thing worth trying before the week is out: star a job you like and open its tailored CV. That's where it saves the most time."] : []),
+        `If it's saving you time, you can keep going for ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works: ${url}/billing`,
+        "If it isn't, I'd really like to know why. Reply and tell me what's missing. It comes straight to me, and I read every one.",
+      ]
+    : [
+        `Your free week on JobPipe ends on ${ends}, and it looks like it hasn't found you any jobs yet.`,
+        "That usually means something got stuck at the start: the CV upload, the roles or the location. Reply and tell me where it got stuck, and I'll help you set it up.",
+      ];
+  // The list of what it did goes right after "Here's what it did".
+  const listAt = found ? 2 : -1;
+  const subject = first ? `${first}, a quick check-in` : "A quick check-in from JobPipe";
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const textParas = [...paras];
+  if (listAt > 0) textParas.splice(listAt, 0, did.map((l) => `- ${l}`).join("\n"));
+  const text = `${hello}
+
+${textParas.join("\n\n")}
+
+Vandy
+Founder, JobPipe
+LinkedIn: ${FOUNDER_LINKEDIN}
+`;
+  const htmlParas = paras.map((t) => `<p>${esc(t).replace(`${url}/billing`, `<a href="${url}/billing">Plan &amp; billing</a>`)}</p>`);
+  if (listAt > 0) htmlParas.splice(listAt, 0, `<ul style="padding-left:20px">${did.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`);
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(hello)}</p>
+${htmlParas.join("\n")}
+<p>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
+
 /** The forgot-password email with its one-time code. */
 export function resetEmail(code: string) {
   const subject = `${code} is your JobPipe reset code`;

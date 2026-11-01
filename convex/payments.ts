@@ -15,7 +15,7 @@ const planV = v.union(v.literal("month"), v.literal("pass"));
 const keys = () => (env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET ? { id: env.RAZORPAY_KEY_ID, secret: env.RAZORPAY_KEY_SECRET } : null);
 
 /** Whether this person pays founding prices: they already did, or fewer than PLANS.foundingSeats people have. */
-async function foundingFor(ctx: QueryCtx, userId: Id<"users">) {
+export async function foundingFor(ctx: QueryCtx, userId: Id<"users">) {
   const paid = await ctx.db.query("payments").withIndex("by_status_and_founding", (q) => q.eq("status", "paid").eq("founding", true)).take(500);
   const people = new Set(paid.map((p) => p.userId));
   return people.has(userId) || people.size < PLANS.foundingSeats;

@@ -91,6 +91,11 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
   );
 }
 
+const daysLeft = (ms: number) => {
+  const d = Math.ceil(ms / 86_400_000);
+  return d <= 1 ? "last day" : `${d} days left`;
+};
+
 /** Your name and plan, opening the Account page. */
 function AccountLink({ active }: { active: boolean }) {
   const me = useQuery(api.access.mine);
@@ -100,7 +105,9 @@ function AccountLink({ active }: { active: boolean }) {
     ? "Owner"
     : me.paidUntil && me.paidUntil > now
       ? `Paid until ${new Date(me.paidUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
-      : "Free beta";
+      : me.trialEndsAt && me.trialEndsAt > now
+        ? `Free trial · ${daysLeft(me.trialEndsAt - now)}`
+        : "Free beta";
   return (
     <Link href="/account" className={`text-left text-sm leading-tight ${active ? "text-accent" : "text-ink-2 hover:text-ink"}`}>
       <span className="block font-medium">{me.name.split(" ")[0] || "Account"}</span>

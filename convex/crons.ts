@@ -12,6 +12,9 @@ crons.cron("careers boards", "30 1 * * *", internal.careersRefresh.refresh, {});
 // 8:00 in India (02:30 UTC): find and score new jobs before the day starts.
 crons.cron("morning autopilot", "30 2 * * *", internal.agent.dailyRun, {});
 
+// 10:30 in India (05:00 UTC): a personal check-in two days before someone's free week ends (trial.ts).
+crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
+
 // Every hour: recruiting emails and meetings for everyone who clicked Connect Gmail (google.ts).
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
 
