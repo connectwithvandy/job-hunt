@@ -11,6 +11,7 @@ import { SKIP_BELOW } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
+import { useCelebrateNewWins, WIN_WORDS } from "@/components/Celebrate";
 import { CompanyMark, DAY_STARTS_AT, QuickFitPill, likelyScore, ScorePill, TrackTag, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { fitTier } from "@/lib/jobFilters";
 import { Loading } from "@/components/Loading";
@@ -224,6 +225,7 @@ export default function Today() {
         </section>
       )}
 
+      <CelebrateWins jobs={jobs} now={now} />
       <TodayProgress
         items={[
           { label: "Companies asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY, total: askedTotal },
@@ -314,6 +316,21 @@ export default function Today() {
 }
 
 type Todo = { key: string; verb: string; main: string; sub: string; href: string };
+
+/** Steps forward that happened without a click (Gmail moved a job, a recruiter replied), celebrated once each. */
+function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
+  const week = now - 7 * DAY;
+  const wins = jobs.flatMap((j) => [
+    ...((j.status === "screening" || j.status === "interview" || j.status === "offer") && (j.updatedAt ?? j._creationTime) > week
+      ? [{ key: `${j._id}:${j.status}`, message: `${j.company}: ${WIN_WORDS[j.status]}` }]
+      : []),
+    ...(j.hiringContacts ?? [])
+      .filter((c) => c.repliedAt && c.repliedAt > week)
+      .map((c) => ({ key: `${j._id}:reply:${c.name}`, message: `${c.name} replied about ${j.title}. Momentum!` })),
+  ]);
+  useCelebrateNewWins(wins);
+  return null;
+}
 
 /** Today's goals and how far along you are. Counts start again at 4 AM. */
 function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean; total?: number; bar?: string }[] }) {

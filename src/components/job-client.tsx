@@ -4,6 +4,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { useSetStatus } from "./Celebrate";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
@@ -58,7 +59,7 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
 }
 
 export function StatusSelect({ jobId, status }: { jobId: Id<"jobs">; status: JobStatus }) {
-  const setStatus = useMutation(api.jobs.setStatus);
+  const setStatus = useSetStatus();
   return (
     <select className="field !w-auto !py-1.5 text-sm" value={status} onChange={(e) => void setStatus({ jobId, status: e.target.value as JobStatus })}>
       {Object.entries(STATUS_LABELS).map(([k, v]) => (

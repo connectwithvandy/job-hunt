@@ -1,9 +1,10 @@
 "use client";
 
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSetStatus } from "@/components/Celebrate";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch } from "../../../../convex/lib/company";
@@ -22,7 +23,7 @@ export default function JobPage() {
   const data = useQuery(api.jobs.get, { jobId });
   const gmail = useQuery(api.google.status);
   const scoreJobs = useAction(api.agent.scoreJobs);
-  const setStatus = useMutation(api.jobs.setStatus);
+  const setStatus = useSetStatus();
   const checkPosting = useAction(api.agent.checkPosting);
   const rates = useInrRates();
   const [now] = useState(() => Date.now());

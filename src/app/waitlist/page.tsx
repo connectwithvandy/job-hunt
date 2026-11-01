@@ -15,6 +15,7 @@ export default function WaitlistAdmin() {
   const reviews = useQuery(api.cvReviews.list, me?.isOwner ? {} : "skip");
   const errors = useQuery(api.errors.recent, me?.isOwner ? {} : "skip");
   const setApproved = useMutation(api.access.setApproved);
+  const setRejected = useMutation(api.access.setRejected);
   const approveMany = useMutation(api.access.approveMany);
   const resetPassword = useAction(api.access.resetPassword);
   const [reset, setReset] = useState<{ email: string; password: string } | null>(null);
@@ -63,6 +64,14 @@ export default function WaitlistAdmin() {
         }}>
         Reset password
       </ActionButton>
+      {approve && !a.rejected && (
+        <ActionButton size="sm" variant="ghost" run={async () => {
+            if (!window.confirm(`Turn down ${a.email}? They'll see a short "not this round" note. You can let them in later.`)) return;
+            await setRejected({ accessId: a._id, rejected: true });
+          }}>
+          Reject
+        </ActionButton>
+      )}
       <ActionButton size="sm" variant={approve ? "primary" : "ghost"} run={async () => {
           if (!approve && !window.confirm(`Remove ${a.email}'s access? Their saved jobs stay, but they can't use JobPipe.`)) return;
           await setApproved({ accessId: a._id, approved: approve });
@@ -128,6 +137,12 @@ export default function WaitlistAdmin() {
         )}
       </div>
       {list.waiting.length ? <ul className="mb-10">{list.waiting.map((a) => row(a, true))}</ul> : <p className="mb-10 text-sm text-ink-3">Nobody waiting.</p>}
+      {list.rejected.length > 0 && (
+        <>
+          <h2 className="mb-2 text-sm font-medium text-ink-2">Turned down ({list.rejected.length})</h2>
+          <ul className="mb-10">{list.rejected.map((a) => row(a, true))}</ul>
+        </>
+      )}
       <h2 className="mb-2 text-sm font-medium text-ink-2">Let in ({list.approved.length})</h2>
       {list.approved.length ? <ul>{list.approved.map((a) => row(a, false))}</ul> : <p className="text-sm text-ink-3">Nobody yet.</p>}
       <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Free CV reviews ({reviews?.length ?? 0})</h2>

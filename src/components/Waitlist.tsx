@@ -9,7 +9,7 @@ import { errorMessage } from "@/lib/errors";
 const ROLES = ["Account Executive", "SDR / BDR", "Sales leadership", "GTM strategy / AI GTM", "Founder's Office", "Other"];
 
 /** Signed up but not let in yet. A few questions help the owner let the right people in first. */
-export function Waitlist({ email, onWaitlist, answered }: { email: string; onWaitlist: boolean; answered: boolean }) {
+export function Waitlist({ email, onWaitlist, answered, rejected }: { email: string; onWaitlist: boolean; answered: boolean; rejected: boolean }) {
   const { signOut } = useAuthActions();
   const join = useMutation(api.access.join);
   const describe = useMutation(api.access.describe);
@@ -27,8 +27,13 @@ export function Waitlist({ email, onWaitlist, answered }: { email: string; onWai
       <p className="display text-sm uppercase tracking-wide">
         JobPipe<span className="text-accent">.</span>
       </p>
-      <h1 className="display mt-6 text-4xl leading-[1.05] md:text-5xl">You&apos;re on the waitlist.</h1>
-      {answered || !onWaitlist ? (
+      <h1 className="display mt-6 text-4xl leading-[1.05] md:text-5xl">{rejected ? "Not this round." : "You\u2019re on the waitlist."}</h1>
+      {rejected ? (
+        <p className="mt-5 text-lg text-ink-2">
+          JobPipe is open to a small group right now, and we can&apos;t let you in this time. Thank you for your interest. The free CV review at{" "}
+          <a className="underline" href="/cv-review">jobpipe.in/cv-review</a> is open to everyone. Good luck with the search.
+        </p>
+      ) : answered || !onWaitlist ? (
         <p className="mt-5 text-lg text-ink-2">
           Thanks. We let people in a few at a time and email you when it&apos;s your turn. Leave this page open and it opens by itself, or come back after the email.
           Sign in with {email || "the same email"} next time.

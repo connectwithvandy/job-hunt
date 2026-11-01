@@ -25,7 +25,7 @@ export const status = query({
     if (!userId) return null;
     const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     const user = await ctx.db.get("users", userId);
-    return { approved: await hasAccess(ctx, userId), onWaitlist: !!row, answered: !!row?.name, email: user?.email ?? "" };
+    return { approved: await hasAccess(ctx, userId), onWaitlist: !!row, answered: !!row?.name, rejected: !!row?.rejected, email: user?.email ?? "" };
   },
 });
 
@@ -66,9 +66,9 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     await requireOwner(ctx);
-    const waiting = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", false)).order("desc").take(200);
+    const notIn = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", false)).order("desc").take(200);
     const approved = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).order("desc").take(200);
-    return { waiting, approved, emailOn: emailOn() };
+    return { waiting: notIn.filter((a) => !a.rejected), rejected: notIn.filter((a) => a.rejected), approved, emailOn: emailOn() };
   },
 });
 
@@ -113,13 +113,25 @@ export const setApproved = mutation({
     await requireOwner(ctx);
     const row = await ctx.db.get("access", accessId);
     if (!row) throw new ConvexError("That person isn't on the waitlist any more.");
-    await ctx.db.patch("access", accessId, { approved, decidedAt: Date.now() });
+    await ctx.db.patch("access", accessId, { approved, rejected: approved ? false : row.rejected, decidedAt: Date.now() });
     if (approved) await queueWelcome(ctx, accessId);
     // Taken off the app: stop their morning searches too.
     if (!approved) {
       const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
       if (profile?.autopilot) await ctx.db.patch("profiles", profile._id, { autopilot: false });
     }
+    return null;
+  },
+});
+
+/** Turn someone down, or take that back. They're never let in by it; "Let in" undoes it. Owner only. */
+export const setRejected = mutation({
+  args: { accessId: v.id("access"), rejected: v.boolean() },
+  handler: async (ctx, { accessId, rejected }) => {
+    await requireOwner(ctx);
+    const row = await ctx.db.get("access", accessId);
+    if (!row) throw new ConvexError("That person isn't on the waitlist any more.");
+    await ctx.db.patch("access", accessId, { rejected, ...(rejected ? { approved: false } : {}), decidedAt: Date.now() });
     return null;
   },
 });
@@ -134,7 +146,7 @@ export const approveMany = mutation({
     for (const id of accessIds.slice(0, 100)) {
       const row = await ctx.db.get("access", id);
       if (!row || row.approved) continue;
-      await ctx.db.patch("access", id, { approved: true, decidedAt: now });
+      await ctx.db.patch("access", id, { approved: true, rejected: false, decidedAt: now });
       await queueWelcome(ctx, id);
       if (row.email) emails.push(row.email);
     }

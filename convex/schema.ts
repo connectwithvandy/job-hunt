@@ -54,6 +54,8 @@ export default defineSchema({
     role: v.optional(v.string()),
     // When the "you're in" email went out, so letting someone in twice doesn't send it twice.
     welcomedAt: v.optional(v.number()),
+    /** Turned down by the owner: off the waiting list, shown a kind note instead of "you're on the waitlist". */
+    rejected: v.optional(v.boolean()),
     /** Paid up to this time, from the latest payment. Missing for testers and anyone who hasn't paid. */
     paidUntil: v.optional(v.number()),
   })

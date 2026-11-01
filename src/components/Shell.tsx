@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { api } from "../../convex/_generated/api";
 import { Onboarding } from "./Onboarding";
+import { Celebrations } from "./Celebrate";
 import { ChatButton, Sidebar, SubTabs } from "./Sidebar";
 import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
@@ -44,7 +45,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     );
   }
   if (!isAuthenticated || !access) return <SignIn />;
-  if (!access.approved) return <Waitlist email={access.email} onWaitlist={access.onWaitlist} answered={access.answered} />;
+  if (!access.approved) return <Waitlist email={access.email} onWaitlist={access.onWaitlist} answered={access.answered} rejected={access.rejected} />;
   if (!me) return <SignIn />;
   if (!me.onboarded) return <Onboarding me={me} />;
 
@@ -57,6 +58,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       {!bare && <ChatButton />}
+      <Celebrations />
     </div>
   );
 }
