@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { boardFromUrl } from "./lib/boardFromUrl";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { companyKey, roleKey } from "./lib/company";
@@ -166,23 +166,39 @@ export const removeJobs = internalMutation({
 
 const RANK_WORDS = new Set(["manager", "head", "of", "director", "lead", "leader", "team", "senior", "representative", "vice", "president", "chief"]);
 
-/** Roles whose titles best match any of these, closest first. The caller checks the exact words and the place. */
+type CareerRow = { externalId: string; company: string; title: string; location: string; workSetting?: string; salary?: string; postedAt?: string; url: string; india: boolean };
+
+/** Careers-board roles whose titles best match any of these, closest first. Callers check the exact words and the place. */
+async function searchTitles(ctx: QueryCtx, titles: string[], india: boolean, perTerm: number) {
+  const seen = new Map<string, CareerRow>();
+  // Each title as written, written out ("SDR" as "sales development"), and without its rank words, so
+  // "SDR Manager" also reaches "Head of Sales Development".
+  const terms = new Set(titles.flatMap((t) => {
+    const full = fullTitle(t);
+    return [t, full, full.split(" ").filter((w) => !RANK_WORDS.has(w)).join(" ")];
+  }).filter((t) => t.trim()));
+  for (const term of terms) {
+    const rows = await ctx.db.query("careerJobs").withSearchIndex("search_title", (q) => (india ? q.search("title", term).eq("india", true) : q.search("title", term)))
+      .take(perTerm);
+    for (const { _id, _creationTime, ...r } of rows) seen.set(r.externalId, r);
+  }
+  return [...seen.values()];
+}
+
 export const search = internalQuery({
   args: { titles: v.array(v.string()), india: v.boolean() },
+  handler: async (ctx, { titles, india }) => await searchTitles(ctx, titles.slice(0, 16), india, 64),
+});
+
+/**
+ * Open roles for a public sales-jobs guide page. These are public postings from company careers boards, and the
+ * page rebuilds at most once a day, so the read stays small: a few titles, 32 rows per search word.
+ */
+export const forGuide = query({
+  args: { titles: v.array(v.string()), india: v.boolean() },
   handler: async (ctx, { titles, india }) => {
-    const seen = new Map<string, { externalId: string; company: string; title: string; location: string; workSetting?: string; salary?: string; postedAt?: string; url: string; india: boolean }>();
-    // Each title as written, written out ("SDR" as "sales development"), and without its rank words, so
-    // "SDR Manager" also reaches "Head of Sales Development".
-    const terms = new Set(titles.slice(0, 16).flatMap((t) => {
-      const full = fullTitle(t);
-      return [t, full, full.split(" ").filter((w) => !RANK_WORDS.has(w)).join(" ")];
-    }).filter((t) => t.trim()));
-    for (const term of terms) {
-      const rows = await ctx.db.query("careerJobs").withSearchIndex("search_title", (q) => (india ? q.search("title", term).eq("india", true) : q.search("title", term)))
-        .take(64);
-      for (const { _id, _creationTime, ...r } of rows) seen.set(r.externalId, r);
-    }
-    return [...seen.values()];
+    const rows = await searchTitles(ctx, titles.slice(0, 4).map((t) => t.slice(0, 60)), india, 32);
+    return rows.map(({ company, title, location, workSetting, postedAt, url }) => ({ company, title, location, workSetting, postedAt, url }));
   },
 });
 

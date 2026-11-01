@@ -1,4 +1,6 @@
 // Pages for the searches sales people actually type ("SDR jobs India", "account executive jobs Bengaluru").
+import type { RegionKey } from "./regions";
+
 // Each is a real guide to the role plus how JobPipe helps; no made-up salaries or job counts.
 
 export type RolePage = {
@@ -8,6 +10,8 @@ export type RolePage = {
   intro: string;
   looksFor: string[];
   faq: [string, string][];
+  /** Which live roles to list: titles searched the way the app searches them, and the regions that count. */
+  jobs: { titles: string[]; regions: RegionKey[]; india: boolean; exclude?: RegExp };
 };
 
 export const ROLE_PAGES: RolePage[] = [
@@ -28,6 +32,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["Do SDR jobs in India sell to the US?", "Many do. A large share of SDR and BDR roles in Bengaluru and remote India sell into North America or EMEA, often on shifted hours. The job description usually says which region and time zone."],
       ["How does JobPipe help with SDR jobs?", "JobPipe searches job boards and company careers pages every morning, scores each SDR or BDR opening against your CV with a reason, tailors your CV without inventing anything, and shows who you know at the company."],
     ],
+    jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india"], india: true },
   },
   {
     slug: "sdr-manager-jobs",
@@ -46,6 +51,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["Are there remote SDR manager jobs in India?", "Yes. Many companies run sales development from India for the US or EMEA, and some hire the manager remotely. JobPipe shows remote roles open to India or APAC alongside Bengaluru ones."],
       ["Can JobPipe search several leadership titles at once?", "Yes. Each role you pick, such as SDR manager or head of sales development, gets its own search, CV and pipeline, and every job is scored against every role."],
     ],
+    jobs: { titles: ["SDR Manager", "Sales Development Manager", "Head of Sales Development"], exclude: /\bbusiness development\b|\bcustomer development\b/i, regions: ["india", "apac", "europe", "mideast", "remote"], india: false },
   },
   {
     slug: "account-executive-jobs-bengaluru",
@@ -64,6 +70,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["How do I show I'm ready for an enterprise AE role?", "Show deal sizes, cycle length, multi-threading and quota attainment in numbers. JobPipe's tailored CV puts the proof a job asks for first, using only facts from your own CV."],
       ["Does JobPipe apply to AE jobs for me?", "No. JobPipe finds and scores jobs, tailors your CV and drafts referral notes, but you apply yourself. Recruiters are wary of bot applications, so this keeps your applications credible."],
     ],
+    jobs: { titles: ["Account Executive", "Enterprise Account Executive", "Mid Market Account Executive"], regions: ["blr"], india: true },
   },
   {
     slug: "sales-leadership-jobs-india",
@@ -82,6 +89,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["Should my CV be different for a sales manager role?", "Yes. Lead with team results: team size, attainment, growth and people you developed, instead of your own deals. JobPipe tailors the order and wording for each job without inventing facts."],
       ["Does JobPipe cover jobs outside Bengaluru?", "Yes. It shows jobs in your city, anywhere in India and remote roles open to India or APAC, and scores each one against the roles you want."],
     ],
+    jobs: { titles: ["Head of Sales", "Sales Director", "VP Sales", "Regional Sales Manager"], regions: ["india"], india: true },
   },
   {
     slug: "gtm-jobs-india",
@@ -100,6 +108,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["Why are GTM jobs hard to search for?", "The titles vary: GTM strategy, revenue strategy, growth, founder's office and AI GTM can all describe similar work. JobPipe reads the job description, not just the title, and scores it against your roles."],
       ["Can I search GTM and sales roles together?", "Yes. Pick several roles and each gets its own search, CV and pipeline, so a GTM strategy job and an SDR leadership job are each judged on their own terms."],
     ],
+    jobs: { titles: ["GTM", "Go To Market", "Revenue Operations", "Sales Operations"], regions: ["india"], india: true, exclude: /\bbilling\b|,\s*AP\b|\bproduct management\b|\bpricing\b|\baccount executive\b/i },
   },
   {
     slug: "sales-jobs-usa",
@@ -118,6 +127,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["Are US remote sales jobs open to people outside the US?", "Usually not. Most US remote sales roles require US residence or work authorisation. JobPipe reads the location and job description and flags roles that rule you out."],
       ["How should a CV for a US sales job look?", "One page if you have under 10 years of experience, results first, and numbers in every bullet: quota, attainment, pipeline and deal size. JobPipe reorders your real facts for each job and never invents numbers."],
     ],
+    jobs: { titles: ["Account Executive", "Sales Development Representative", "Sales Manager", "Account Manager"], regions: ["us"], india: false },
   },
   {
     slug: "remote-sales-jobs-apac",
@@ -136,5 +146,6 @@ export const ROLE_PAGES: RolePage[] = [
       ["Are remote sales jobs paid in rupees?", "It depends on the company and whether they hire through an Indian entity, an employer-of-record service or as contractors. The job description or the recruiter will say."],
       ["Does JobPipe include EMEA remote jobs?", "Yes, when they are open to your location. Every job is scored against your roles, so ones that don't fit sink to the bottom."],
     ],
+    jobs: { titles: ["Account Executive", "Sales Development Representative", "Sales Manager", "Business Development"], regions: ["apac"], india: false },
   },
 ];
