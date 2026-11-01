@@ -8,7 +8,8 @@
     "start": "next start -H 127.0.0.1",
     "lint": "eslint",
     "backup": "cd data && git add -A && (git diff --cached --quiet || git commit -q -m \"Backup $(date +%Y-%m-%d)\") && git push -q && echo \"Backed up to GitHub\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
