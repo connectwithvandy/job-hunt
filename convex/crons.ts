@@ -33,6 +33,8 @@ crons.cron("open to work list", "45 3 * * *", internal.growth.sendCommentList, {
 
 // 11:15 IST: day-21 "3 quick questions" email, only to people who skipped the day-12 pop-up.
 crons.cron("feedback asks", "45 5 * * *", internal.growth.sendFeedbackAsks, {});
+// 3:00 IST, a quiet hour: recount everyone's usage totals from scratch.
+crons.cron("recount usage", "30 21 * * *", internal.stats.recountAll, {});
 
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
 

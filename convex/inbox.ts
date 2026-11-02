@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { env, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { env, internalQuery, query } from "./_generated/server";
+import { internalMutation, mutation } from "./lib/functions";
 import { requireUserId } from "./lib/auth";
 import { buildDigest, digestDue } from "./lib/digest";
 import { internal } from "./_generated/api";

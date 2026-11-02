@@ -47,6 +47,7 @@ import type * as lib_dreamwork from "../lib/dreamwork.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_facts from "../lib/facts.js";
 import type * as lib_followups from "../lib/followups.js";
+import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hunter from "../lib/hunter.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_outcomes from "../lib/outcomes.js";
@@ -117,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/facts": typeof lib_facts;
   "lib/followups": typeof lib_followups;
+  "lib/functions": typeof lib_functions;
   "lib/hunter": typeof lib_hunter;
   "lib/inbox": typeof lib_inbox;
   "lib/outcomes": typeof lib_outcomes;
