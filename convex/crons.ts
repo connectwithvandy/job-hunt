@@ -16,6 +16,9 @@ crons.cron("morning autopilot", "30 2 * * *", internal.agent.dailyRun, {});
 crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
 
 // Every hour: recruiting emails and meetings for everyone who clicked Connect Gmail (google.ts).
+// 11:30 IST: ask anyone who just reached an interview or offer for a LinkedIn shoutout, once each.
+crons.cron("shoutout asks", "0 6 * * *", internal.shoutout.sendAsks, {});
+
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
 
 // Every hour: email the owner any app errors people hit since the last email (errors.ts).

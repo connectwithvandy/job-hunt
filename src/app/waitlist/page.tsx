@@ -21,6 +21,8 @@ export default function WaitlistAdmin() {
   const resetPassword = useAction(api.access.resetPassword);
   const [reset, setReset] = useState<{ email: string; password: string } | null>(null);
   const [picked, setPicked] = useState<Set<Id<"access">>>(new Set());
+  const count = useAction(api.stats.funnel);
+  const [usage, setUsage] = useState<Awaited<ReturnType<typeof count>> | null>(null);
   if (!me) return <Loading />;
   if (!me.isOwner) return <p className="text-ink-2">Only the owner can see the waitlist.</p>;
   if (!list) return <Loading />;
@@ -56,6 +58,7 @@ export default function WaitlistAdmin() {
               </>
             )}
           </div>
+          {!approve && usage && <UsageLine now={usage.now} u={usage.usage.find((u) => u.accessId === a._id)} />}
         </div>
       </label>
       <div className="flex flex-wrap items-center gap-2">
@@ -144,7 +147,10 @@ export default function WaitlistAdmin() {
           <ul className="mb-10">{list.rejected.map((a) => row(a, true))}</ul>
         </>
       )}
-      <h2 className="mb-2 text-sm font-medium text-ink-2">Let in ({list.approved.length})</h2>
+      <div className="mb-2 flex items-center gap-3">
+        <h2 className="text-sm font-medium text-ink-2">Let in ({list.approved.length})</h2>
+        <CountButton count={async () => setUsage(await count({}))} done={!!usage} />
+      </div>
       {list.approved.length ? <ul>{list.approved.map((a) => row(a, false))}</ul> : <p className="text-sm text-ink-3">Nobody yet.</p>}
       <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Free CV reviews ({reviews?.length ?? 0})</h2>
       {reviews?.length ? (
@@ -173,7 +179,7 @@ export default function WaitlistAdmin() {
       ) : (
         <p className="text-sm text-ink-3">Nothing yet.</p>
       )}
-      <Funnel />
+      <Funnel rows={usage?.steps ?? null} count={async () => setUsage(await count({}))} />
       <SurveyAnswers rows={surveys} />
       <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Errors people hit ({errors?.length ?? 0})</h2>
       <p className="mb-2 text-xs text-ink-3">New ones are emailed to you once an hour.</p>
@@ -236,20 +242,36 @@ function SurveyAnswers({ rows }: { rows: Doc<"surveyAnswers">[] | undefined }) {
   );
 }
 
-/** How far the people you let in have got. Counted only when you click, because it reads everyone's jobs. */
-function Funnel() {
-  const count = useAction(api.stats.funnel);
-  const [rows, setRows] = useState<{ step: string; people: number }[] | null>(null);
+/** The "Count" button. Counting reads everyone's jobs, so it runs only when you click. */
+function CountButton({ count, done }: { count: () => Promise<void>; done: boolean }) {
   const [state, setState] = useState<ActionState>(null);
   const [pending, start] = useTransition();
+  return (
+    <>
+      <button className="btn btn-ghost btn-sm" disabled={pending} onClick={() => start(async () => setState(await attempt(count)))}>
+        {pending ? "Counting…" : done ? "Count again" : "Show usage"}
+      </button>
+      <Feedback state={state} />
+    </>
+  );
+}
+
+/** One person's usage: when they were last on, and what they've done. */
+function UsageLine({ now, u }: { now: number; u?: { lastSeenAt?: number; setUp: boolean; jobs: number; scored: number; tailored: number; applied: number } }) {
+  if (!u) return null;
+  const days = u.lastSeenAt ? Math.floor((now - u.lastSeenAt) / 86_400_000) : null;
+  const seen = days === null ? "Never opened the app" : days === 0 ? "Last on today" : days === 1 ? "Last on yesterday" : `Last on ${days} days ago`;
+  const parts = u.setUp ? [`${u.jobs} jobs found`, `${u.scored} scored`, `${u.tailored} CVs tailored`, `${u.applied} applied`] : ["Hasn't finished setup"];
+  return <div className={`mt-0.5 text-xs ${days === null || days > 3 ? "text-red-500" : "text-ink-2"}`}>{[seen, ...parts].join(" · ")}</div>;
+}
+
+/** How far the people you let in have got. */
+function Funnel({ rows, count }: { rows: { step: string; people: number }[] | null; count: () => Promise<void> }) {
   return (
     <section className="mt-10">
       <div className="mb-2 flex items-center gap-3">
         <h2 className="text-sm font-medium text-ink-2">How far people get</h2>
-        <button className="btn btn-ghost btn-sm" disabled={pending} onClick={() => start(async () => setState(await attempt(async () => setRows(await count({})))))}>
-          {pending ? "Counting…" : rows ? "Count again" : "Count"}
-        </button>
-        <Feedback state={state} />
+        <CountButton count={count} done={!!rows} />
       </div>
       {rows && (
         <ol className="grid gap-1 text-sm">

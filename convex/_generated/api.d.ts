@@ -63,6 +63,7 @@ import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
 import type * as payments from "../payments.js";
 import type * as prospects from "../prospects.js";
+import type * as shoutout from "../shoutout.js";
 import type * as stats from "../stats.js";
 import type * as stories from "../stories.js";
 import type * as surveys from "../surveys.js";
@@ -131,6 +132,7 @@ declare const fullApi: ApiFromModules<{
   limits: typeof limits;
   payments: typeof payments;
   prospects: typeof prospects;
+  shoutout: typeof shoutout;
   stats: typeof stats;
   stories: typeof stories;
   surveys: typeof surveys;

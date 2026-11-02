@@ -72,6 +72,8 @@ export default defineSchema({
     paidUntil: v.optional(v.number()),
     /** When the "your free week ends soon" check-in went out, so it goes once. */
     trialNoteAt: v.optional(v.number()),
+    /** When the "would you give JobPipe a shoutout?" email went out, after their first interview or offer, so it goes once. */
+    shoutoutAskedAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"]),

@@ -134,6 +134,61 @@ ${htmlParas.join("\n")}
   return { subject, text, html };
 }
 
+/** A LinkedIn post someone could share about JobPipe, in their own voice. Names no company, so their employer isn't exposed. */
+export function shoutoutPost(p: { title: string; offer: boolean }) {
+  const a = /^[aeiou]/i.test(p.title) ? "an" : "a";
+  const win = p.offer ? `I've got an offer for ${a} ${p.title} role.` : `I've got an interview lined up for ${a} ${p.title} role.`;
+  return `Small win in my job search: ${win}
+
+A tool that helped: JobPipe (jobpipe.in), built by Vandy for people hunting sales jobs. Each morning it finds new roles, scores each one against my CV with a reason, and tailors the CV for each application without making anything up. It also tracks every application and follow-up, so nothing slips.
+
+If you're looking for a sales role, it's worth a look.
+
+#jobsearch #sales #hiring`;
+}
+
+/** After someone's first interview or offer: congrats from the founder, and a no-pressure ask for a LinkedIn shoutout with the post ready. */
+export function shoutoutEmail(p: { name?: string; title: string; offer: boolean }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const post = shoutoutPost(p);
+  // Opens LinkedIn's post box with the draft filled in; they can change it before posting.
+  const share = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(post)}`;
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const subject = p.offer ? `Congrats on the offer${first ? `, ${first}` : ""}!` : `Congrats on the interview${first ? `, ${first}` : ""}!`;
+  const paras = [
+    p.offer
+      ? `Looks like an offer came through for the ${p.title} role. Huge congratulations. That's the whole point, and I'm really glad JobPipe played a part.`
+      : `Looks like you've got an interview for the ${p.title} role. Congratulations, and good luck! That's the part that counts.`,
+    "I have a small favour to ask. JobPipe is new, and I'm building it on my own, so word of mouth is how other people in sales find it. If it helped you, would you give it a shoutout on LinkedIn?",
+    "To make it easy, I've written a draft below. It doesn't name the company. Change anything you like, or write your own. And if you'd rather not, that's completely fine. Just carry on, nothing changes.",
+  ];
+  const text = `${hello}
+
+${paras.join("\n\n")}
+
+--- Draft post ---
+${post}
+------------------
+
+Post it on LinkedIn (opens with the draft filled in): ${share}
+
+If you do post, tag me so I can thank you: ${FOUNDER_LINKEDIN}
+
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(hello)}</p>
+${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+<div style="border:1px solid #ddd;border-radius:8px;padding:14px 16px;white-space:pre-wrap;background:#fafafa">${esc(post)}</div>
+<p style="margin:24px 0"><a href="${esc(share)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Post it on LinkedIn</a></p>
+<p>If you do post, <a href="${FOUNDER_LINKEDIN}">tag me</a> so I can thank you.</p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
+
 /** The forgot-password email with its one-time code. */
 export function resetEmail(code: string) {
   const subject = `${code} is your JobPipe reset code`;
