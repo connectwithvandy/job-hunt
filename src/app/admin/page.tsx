@@ -23,6 +23,7 @@ export default function AdminCentre() {
   const reviews = useQuery(api.cvReviews.list, me?.isOwner ? {} : "skip");
   const errors = useQuery(api.errors.recent, me?.isOwner ? {} : "skip");
   const surveys = useQuery(api.surveys.list, me?.isOwner ? {} : "skip");
+  const clearErrors = useMutation(api.errors.clear);
   const setApproved = useMutation(api.access.setApproved);
   const setRejected = useMutation(api.access.setRejected);
   const approveMany = useMutation(api.access.approveMany);
@@ -215,18 +216,28 @@ export default function AdminCentre() {
       {tab === "errors" && (
         <>
       <h2 className="mb-2 text-sm font-medium text-ink-2">Errors people hit ({errors?.length ?? 0})</h2>
-      <p className="mb-2 text-xs text-ink-3">New ones are emailed to you once an hour.</p>
+      <p className="mb-2 text-xs text-ink-3">New ones are emailed to you once an hour. Clear the ones you&apos;ve dealt with.</p>
       {errors?.length ? (
+        <>
+        <button type="button" className="btn btn-ghost btn-sm mb-2" onClick={() => void clearErrors({})}>
+          Clear all
+        </button>
         <ul>
           {errors.map((e) => (
             <li key={e._id} className="border-b border-line py-3 text-sm">
               <p className="whitespace-pre-wrap break-words font-mono text-xs">{e.message}</p>
-              <p className="mt-1 text-xs text-ink-3">
-                {e.email || "signed out"} · {e.page} · {new Date(e._creationTime).toLocaleString()}
-              </p>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <p className="text-xs text-ink-3">
+                  {e.email || "signed out"} · {e.page} · {new Date(e._creationTime).toLocaleString()}
+                </p>
+                <button type="button" className="text-xs text-ink-2 hover:text-ink" onClick={() => void clearErrors({ id: e._id })}>
+                  Clear
+                </button>
+              </div>
             </li>
           ))}
         </ul>
+        </>
       ) : (
         <p className="text-sm text-ink-3">None.</p>
       )}

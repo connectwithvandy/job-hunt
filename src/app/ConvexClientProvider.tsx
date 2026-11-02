@@ -13,8 +13,15 @@ function ErrorReporter() {
   const report = useMutation(api.errors.report);
   useEffect(() => {
     setErrorSender((message) => void report({ message, page: location.pathname }).catch(() => {}));
-    const onError = (e: ErrorEvent) => reportError(e.error ?? e.message);
-    const onRejection = (e: PromiseRejectionEvent) => reportError(e.reason);
+    // Only crashes in JobPipe's own code. Browser add-ons and in-app browsers inject scripts that break on their own.
+    const onError = (e: ErrorEvent) => {
+      if (e.filename && !e.filename.includes("/_next/")) return;
+      reportError(e.error ?? e.message);
+    };
+    const onRejection = (e: PromiseRejectionEvent) => {
+      if (/extension:\/\//.test(String((e.reason as Error | undefined)?.stack ?? ""))) return;
+      reportError(e.reason);
+    };
     addEventListener("error", onError);
     addEventListener("unhandledrejection", onRejection);
     return () => {

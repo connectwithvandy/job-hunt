@@ -60,3 +60,19 @@ export const mailOwner = internalAction({
     return null;
   },
 });
+
+/** Remove errors the owner has looked at: one by id, or every one shown when no id is given. Owner only. */
+export const clear = mutation({
+  args: { id: v.optional(v.id("appErrors")) },
+  handler: async (ctx, { id }) => {
+    const userId = await getAuthUserId(ctx);
+    const user = userId ? await ctx.db.get("users", userId) : null;
+    if (!isOwnerEmail(user?.email)) throw new ConvexError("Only the owner can clear errors.");
+    if (id) {
+      await ctx.db.delete("appErrors", id);
+      return null;
+    }
+    for (const row of await ctx.db.query("appErrors").order("desc").take(30)) await ctx.db.delete("appErrors", row._id);
+    return null;
+  },
+});
