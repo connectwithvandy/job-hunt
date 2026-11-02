@@ -25,6 +25,18 @@ export default defineSchema({
   /** What testers wrote in the Send feedback box, for the owner to read on the waitlist page. */
   feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
 
+  /** Answers to the timed "how's it going" pop-up (lib/survey.ts). skipped means they closed it without answering. */
+  surveyAnswers: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    kind: v.union(v.literal("found_jobs"), v.literal("recommend"), v.literal("interviews")),
+    round: v.number(),
+    skipped: v.boolean(),
+    choice: v.optional(v.string()),
+    score: v.optional(v.number()),
+    note: v.optional(v.string()),
+  }).index("by_userId_and_kind_and_round", ["userId", "kind", "round"]),
+
   /** Crashes and unexpected errors people hit in the app, emailed to the owner once an hour (errors.ts). */
   appErrors: defineTable({
     userId: v.optional(v.id("users")),

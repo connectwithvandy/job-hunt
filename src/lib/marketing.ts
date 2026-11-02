@@ -59,7 +59,11 @@ export const FAQ: [string, string][] = [
 export function jsonLdGraph(items: Record<string, unknown>[]) {
   return {
     "@context": "https://schema.org",
-    "@graph": items.map(({ "@context": _drop, ...rest }) => rest),
+    "@graph": items.map((item) => {
+      const rest = { ...item };
+      delete rest["@context"];
+      return rest;
+    }),
   };
 }
 

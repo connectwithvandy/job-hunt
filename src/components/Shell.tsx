@@ -7,6 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { Onboarding } from "./Onboarding";
 import { Celebrations } from "./Celebrate";
 import { ChatButton, Sidebar, SubTabs } from "./Sidebar";
+import { SurveyPopup } from "./SurveyPopup";
 import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
 import { Waitlist } from "./Waitlist";
@@ -58,6 +59,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       {!bare && <ChatButton />}
+      {!bare && <SurveyPopup />}
       <Celebrations />
     </div>
   );

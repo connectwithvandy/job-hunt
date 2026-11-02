@@ -14,6 +14,7 @@ export default function WaitlistAdmin() {
   const feedback = useQuery(api.feedback.list, me?.isOwner ? {} : "skip");
   const reviews = useQuery(api.cvReviews.list, me?.isOwner ? {} : "skip");
   const errors = useQuery(api.errors.recent, me?.isOwner ? {} : "skip");
+  const surveys = useQuery(api.surveys.list, me?.isOwner ? {} : "skip");
   const setApproved = useMutation(api.access.setApproved);
   const setRejected = useMutation(api.access.setRejected);
   const approveMany = useMutation(api.access.approveMany);
@@ -173,6 +174,7 @@ export default function WaitlistAdmin() {
         <p className="text-sm text-ink-3">Nothing yet.</p>
       )}
       <Funnel />
+      <SurveyAnswers rows={surveys} />
       <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Errors people hit ({errors?.length ?? 0})</h2>
       <p className="mb-2 text-xs text-ink-3">New ones are emailed to you once an hour.</p>
       {errors?.length ? (
@@ -190,6 +192,47 @@ export default function WaitlistAdmin() {
         <p className="text-sm text-ink-3">None.</p>
       )}
     </div>
+  );
+}
+
+const SURVEY_LABELS = { found_jobs: "Day 2 · finding good jobs?", recommend: "Day 6 · recommend, 0 to 10", interviews: "Monthly · interviews yet?" } as const;
+
+/** What people answered in the timed pop-up: a quick summary, then each answer. */
+function SurveyAnswers({ rows }: { rows: Doc<"surveyAnswers">[] | undefined }) {
+  const answered = (rows ?? []).filter((r) => !r.skipped);
+  const scores = answered.filter((r) => r.score !== undefined).map((r) => r.score!);
+  const average = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+  const tally = (kind: "found_jobs" | "interviews") => {
+    const counts = new Map<string, number>();
+    for (const r of answered) if (r.kind === kind && r.choice) counts.set(r.choice, (counts.get(r.choice) ?? 0) + 1);
+    return [...counts].map(([c, n]) => `${c}: ${n}`).join(" · ") || "none yet";
+  };
+  return (
+    <section className="mt-10">
+      <h2 className="mb-2 text-sm font-medium text-ink-2">Pop-up answers ({answered.length} answered, {(rows?.length ?? 0) - answered.length} closed)</h2>
+      <ul className="mb-3 grid gap-1 text-sm">
+        <li>Finding good jobs: {tally("found_jobs")}</li>
+        <li>Recommend: {average ? `${average} average from ${scores.length}` : "none yet"}</li>
+        <li>Interviews: {tally("interviews")}</li>
+      </ul>
+      {answered.length ? (
+        <ul>
+          {answered.map((r) => (
+            <li key={r._id} className="border-b border-line py-3 text-sm">
+              <p>
+                <span className="text-ink-3">{SURVEY_LABELS[r.kind]}:</span> {r.score ?? r.choice}
+              </p>
+              {r.note && <p className="mt-1 whitespace-pre-wrap">{r.note}</p>}
+              <p className="mt-1 text-xs text-ink-3">
+                {r.email} · {new Date(r._creationTime).toLocaleString()}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-ink-3">Nothing yet. The first questions go out on people&apos;s second day.</p>
+      )}
+    </section>
   );
 }
 
