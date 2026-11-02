@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import { roleKey } from "./lib/company";
+import { searchPosts } from "./lib/apify";
 import { appUrl, emailOn, sendEmail, setupNudgeEmail } from "./lib/email";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
@@ -194,6 +195,62 @@ export const sendSetupNudges = internalAction({
         console.warn("Setup nudge failed for", p.email, String(err));
       }
     }
+    return null;
+  },
+});
+
+// Searches for sales people in India saying they're looking for work. Five searches, ten posts each: about $0.10 a day.
+const OPEN_TO_WORK_SEARCHES = [
+  "open to work sales india",
+  "looking for SDR BDR role",
+  "seeking account executive opportunity bangalore",
+  "laid off sales team india",
+  "job search business development manager india",
+];
+const LOOKING = /open to work|#opentowork|looking for|seeking|laid off|let go|job search|next (role|opportunit)|new opportunit|actively (looking|exploring)|impacted by/i;
+const SALES = /\b(sales|sdr|bdr|account executive|business development|inside sales|gtm|go-to-market|revenue|account manager)\b/i;
+
+/**
+ * Each morning: LinkedIn posts from the last day by sales people looking for work, emailed to the owner to comment on
+ * by hand. Never comments or messages on its own: LinkedIn bans accounts for that.
+ */
+export const sendCommentList = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async () => {
+    const owner = ownerEmail();
+    if (!emailOn() || !owner || !env.APIFY_TOKEN) return null;
+    let posts;
+    try {
+      posts = await searchPosts(OPEN_TO_WORK_SEARCHES, 10, "24h");
+    } catch (err) {
+      console.warn("Open-to-work search failed", String(err));
+      return null;
+    }
+    const picked = posts.filter((p) => p.url && LOOKING.test(p.text) && SALES.test(`${p.text} ${p.author.headline}`)).slice(0, 10);
+    if (!picked.length) return null;
+    const snippet = (t: string) => {
+      const one = t.replace(/\s+/g, " ").trim();
+      return one.length > 220 ? `${one.slice(0, 220)}…` : one;
+    };
+    await sendEmail({
+      to: owner,
+      subject: `${picked.length} sales people looking for work today: worth a comment`,
+      text: `Posts from the last day by sales people looking for a job. 10 to 15 minutes of real comments here builds your name with exactly the people JobPipe is for.
+
+How to comment:
+- Give one specific, useful tip for their situation (their role, their city, what they asked for).
+- Don't pitch JobPipe. If they ask for CV help, point them to the free review: ${appUrl()}/cv-review
+- Comment from your own account, by hand. Never automate this part.
+
+${picked
+  .map((p, i) => `${i + 1}. ${p.author.name}${p.author.headline ? `, ${p.author.headline.slice(0, 90)}` : ""}
+   "${snippet(p.text)}"
+   ${p.url}`)
+  .join("\n\n")}
+
+${appUrl()}/admin`,
+    });
     return null;
   },
 });

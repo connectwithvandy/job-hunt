@@ -28,6 +28,9 @@ crons.cron("weekly repost post", "30 3 * * 1", internal.growth.sendRepostPost, {
 // 11:00 IST: one friendly nudge to anyone let in 2+ days ago who hasn't finished setup.
 crons.cron("setup nudges", "30 5 * * *", internal.growth.sendSetupNudges, {});
 
+// 9:15 IST: LinkedIn posts from sales people looking for work, for the owner to comment on by hand. About $0.10 a day.
+crons.cron("open to work list", "45 3 * * *", internal.growth.sendCommentList, {});
+
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
 
 // Every hour: email the owner any app errors people hit since the last email (errors.ts).

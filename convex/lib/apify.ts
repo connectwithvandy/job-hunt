@@ -54,9 +54,9 @@ export async function recentPosts(profileUrl: string, max = 5) {
   return rows.map(toPost).filter((p): p is Post => !!p).slice(0, max);
 }
 
-/** Posts from the last week matching each search, like "hiring sales manager bengaluru". About $0.02 per ten. */
-export async function searchPosts(queries: string[], perQuery = 10) {
-  const rows = await run<RawPost>("harvestapi~linkedin-post-search", { searchQueries: queries, maxPosts: perQuery, postedLimit: "week", sortBy: "date", profileScraperMode: "short" }, 0.25);
+/** Posts from the last week (or day) matching each search, like "hiring sales manager bengaluru". About $0.02 per ten. */
+export async function searchPosts(queries: string[], perQuery = 10, since: "24h" | "week" = "week") {
+  const rows = await run<RawPost>("harvestapi~linkedin-post-search", { searchQueries: queries, maxPosts: perQuery, postedLimit: since, sortBy: "date", profileScraperMode: "short" }, 0.25);
   const seen = new Set<string>();
   return rows.map(toPost).filter((p): p is Post => !!p && !seen.has(p.id) && !!seen.add(p.id));
 }
