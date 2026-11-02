@@ -25,7 +25,9 @@ const SCOPES = [
 ];
 // The same searches as the Google Script: recruiting emails and LinkedIn message alerts from the last two days.
 const RECRUITING =
-  'newer_than:2d -in:sent -category:promotions -category:social (application OR applying OR interview OR offer OR unfortunately OR candidacy OR recruiter OR "next steps")';
+  'newer_than:2d -in:sent -category:promotions -category:social (application OR applying OR interview OR offer OR unfortunately OR candidacy OR recruiter OR "next steps" OR ' +
+  // Recruiters reaching out first rarely say "application": "learn more about your background", "your next move", a booking link.
+  '"your background" OR "next move" OR opportunity OR position OR hiring OR "talent acquisition" OR "phone screen" OR "schedule a call" OR ashbyhq OR greenhouse OR lever OR calendly OR goodtime)';
 const LINKEDIN =
   "newer_than:2d from:(messages-noreply@linkedin.com OR inmail-hit-reply@linkedin.com OR hit-reply@linkedin.com)";
 
