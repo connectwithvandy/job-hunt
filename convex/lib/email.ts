@@ -220,6 +220,41 @@ ${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
   return { subject, text, html };
 }
 
+/** Day 21, for people who never answered the in-app "would you recommend it?" pop-up: three questions, answered by reply. */
+export function feedbackEmail(p: { name?: string }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const subject = first ? `${first}, 3 quick questions about JobPipe` : "3 quick questions about JobPipe";
+  const intro = "I know job hunting is hard right now, so I'll keep this short. You've had JobPipe for three weeks, and your answer would shape what I build next.";
+  const questions = [
+    "What has been most useful?",
+    "What's missing, or annoying?",
+    "Is it worth paying for? If not, what would make it worth it?",
+  ];
+  const outro = "Just hit reply. One line is plenty, and it comes straight to me.";
+  const text = `${hello}
+
+${intro}
+
+${questions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+
+${outro}
+
+Thank you, and good luck with the search,
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(hello)}</p>
+<p>${esc(intro)}</p>
+<ol style="padding-left:20px">${questions.map((q) => `<li style="margin-bottom:6px">${esc(q)}</li>`).join("")}</ol>
+<p>${esc(outro)}</p>
+<p>Thank you, and good luck with the search,<br>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
+
 /** The forgot-password email with its one-time code. */
 export function resetEmail(code: string) {
   const subject = `${code} is your JobPipe reset code`;

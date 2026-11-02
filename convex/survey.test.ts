@@ -14,20 +14,22 @@ test("asks nothing on day one", () => {
   expect(nextSurvey(START, START + 1.5 * DAY, [])).toBeNull();
 });
 
-test("day 2 asks about the jobs, once", () => {
-  expect(nextSurvey(START, START + 2.2 * DAY, [])).toEqual({ kind: "found_jobs", round: 0 });
-  const past = [{ kind: "found_jobs", round: 0, at: START + 2.2 * DAY }];
-  expect(nextSurvey(START, START + 4 * DAY, past)).toBeNull();
+test("day 3 asks about the jobs, once", () => {
+  expect(nextSurvey(START, START + 2.5 * DAY, [])).toBeNull();
+  expect(nextSurvey(START, START + 3.2 * DAY, [])).toEqual({ kind: "found_jobs", round: 0 });
+  const past = [{ kind: "found_jobs", round: 0, at: START + 3.2 * DAY }];
+  expect(nextSurvey(START, START + 5 * DAY, past)).toBeNull();
 });
 
-test("day 6 asks to recommend, but waits 3 days after the last question", () => {
-  const past = [{ kind: "found_jobs", round: 0, at: START + 4 * DAY }];
-  expect(nextSurvey(START, START + 6 * DAY, past)).toBeNull();
-  expect(nextSurvey(START, START + 7.1 * DAY, past)).toEqual({ kind: "recommend", round: 0 });
+test("day 12 asks to recommend, but waits 3 days after the last question", () => {
+  const past = [{ kind: "found_jobs", round: 0, at: START + 10 * DAY }];
+  expect(nextSurvey(START, START + 7 * DAY, [{ kind: "found_jobs", round: 0, at: START + 4 * DAY }])).toBeNull();
+  expect(nextSurvey(START, START + 12 * DAY, past)).toBeNull();
+  expect(nextSurvey(START, START + 13.1 * DAY, past)).toEqual({ kind: "recommend", round: 0 });
 });
 
-test("someone first back on day 8 skips the day 2 question and gets the day 6 one", () => {
-  expect(nextSurvey(START, START + 8 * DAY, [])).toEqual({ kind: "recommend", round: 0 });
+test("someone first back on day 14 skips the day 3 question and gets the day 12 one", () => {
+  expect(nextSurvey(START, START + 14 * DAY, [])).toEqual({ kind: "recommend", round: 0 });
 });
 
 test("from day 30, asks about interviews once every 30 days", () => {

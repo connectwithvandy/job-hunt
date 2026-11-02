@@ -236,7 +236,7 @@ export default function AdminCentre() {
   );
 }
 
-const SURVEY_LABELS = { found_jobs: "Day 2 · finding good jobs?", recommend: "Day 6 · recommend, 0 to 10", interviews: "Monthly · interviews yet?" } as const;
+const SURVEY_LABELS = { found_jobs: "Day 3 · finding good jobs?", recommend: "Day 12 · recommend, 0 to 10", interviews: "Monthly · interviews yet?" } as const;
 
 /** What people answered in the timed pop-up: a quick summary, then each answer. */
 function SurveyAnswers({ rows }: { rows: Doc<"surveyAnswers">[] | undefined }) {

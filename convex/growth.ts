@@ -7,7 +7,7 @@ import { env, internalAction, internalMutation, internalQuery } from "./_generat
 import { isOwnerEmail } from "./lib/auth";
 import { roleKey } from "./lib/company";
 import { searchPosts } from "./lib/apify";
-import { appUrl, emailOn, sendEmail, setupNudgeEmail } from "./lib/email";
+import { appUrl, emailOn, feedbackEmail, sendEmail, setupNudgeEmail } from "./lib/email";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
@@ -253,5 +253,56 @@ ${picked
 ${appUrl()}/admin`,
     });
     return `Found ${posts.length} posts, emailed ${picked.length} to ${owner}.`;
+  },
+});
+
+/** People let in 21+ days ago who used JobPipe but never answered the day-12 pop-up, and haven't had this email. */
+export const needFeedbackAsk = internalQuery({
+  args: { now: v.number() },
+  returns: v.array(v.object({ accessId: v.id("access"), email: v.string(), name: v.optional(v.string()) })),
+  handler: async (ctx, { now }) => {
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
+    const out = [];
+    for (const row of rows) {
+      if (row.feedbackAskedAt || !row.email || isOwnerEmail(row.email)) continue;
+      if (!row.decidedAt || now - row.decidedAt < 21 * DAY) continue;
+      // Never used it: the setup nudge covers them, not a feedback ask.
+      if (!(await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).first())) continue;
+      const answered = await ctx.db
+        .query("surveyAnswers")
+        .withIndex("by_userId_and_kind_and_round", (q) => q.eq("userId", row.userId).eq("kind", "recommend").eq("round", 0))
+        .first();
+      if (answered && !answered.skipped) continue;
+      out.push({ accessId: row._id, email: row.email, name: row.name });
+    }
+    return out;
+  },
+});
+
+export const markFeedbackAsked = internalMutation({
+  args: { accessId: v.id("access") },
+  returns: v.null(),
+  handler: async (ctx, { accessId }) => {
+    await ctx.db.patch("access", accessId, { feedbackAskedAt: Date.now() });
+    return null;
+  },
+});
+
+export const sendFeedbackAsks = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    if (!emailOn()) return null;
+    const people = await ctx.runQuery(internal.growth.needFeedbackAsk, { now: Date.now() });
+    for (const p of people) {
+      try {
+        await sendEmail({ to: p.email, ...feedbackEmail(p) });
+        await ctx.runMutation(internal.growth.markFeedbackAsked, { accessId: p.accessId });
+      } catch (err) {
+        // One bad address doesn't stop the rest; it is tried again tomorrow.
+        console.warn("Feedback ask failed for", p.email, String(err));
+      }
+    }
+    return null;
   },
 });

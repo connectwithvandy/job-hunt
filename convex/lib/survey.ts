@@ -6,8 +6,11 @@ const DAY = 86_400_000;
 export const SURVEY_KINDS = ["found_jobs", "recommend", "interviews"] as const;
 export type SurveyKind = (typeof SURVEY_KINDS)[number];
 
-/** Day 2: did the jobs look right? Day 6 (just before the free week ends): would they recommend it? Every 30 days after: any interviews? */
-export const SURVEY_TIMING = { foundJobsDay: 2, recommendDay: 6, interviewsEvery: 30, minGapDays: 3 };
+/**
+ * Day 3: did the jobs look right? Day 12: would they recommend it? Every 30 days after: any interviews?
+ * Spread out on purpose: job hunting is stressful, and the first week already has the welcome and check-in emails.
+ */
+export const SURVEY_TIMING = { foundJobsDay: 3, recommendDay: 12, interviewsEvery: 30, minGapDays: 3 };
 
 /** The answers each question accepts. recommend takes a 0 to 10 score instead. */
 export const SURVEY_CHOICES = {
@@ -32,7 +35,7 @@ export function nextSurvey(startedAt: number, now: number, past: { kind: string;
   const round = Math.floor(day / SURVEY_TIMING.interviewsEvery);
   if (round >= 1 && !done("interviews", round)) return { kind: "interviews", round };
   if (day >= SURVEY_TIMING.recommendDay && day < SURVEY_TIMING.interviewsEvery && !done("recommend", 0)) return { kind: "recommend", round: 0 };
-  // Only worth asking before the day 6 question takes over.
+  // Only worth asking before the day 12 question takes over.
   if (day >= SURVEY_TIMING.foundJobsDay && day < SURVEY_TIMING.recommendDay && !done("found_jobs", 0)) return { kind: "found_jobs", round: 0 };
   return null;
 }

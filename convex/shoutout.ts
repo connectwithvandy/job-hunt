@@ -5,15 +5,17 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { isOwnerEmail } from "./lib/auth";
 import { emailOn, sendEmail, shoutoutEmail } from "./lib/email";
 
-/** Everyone let in who has reached an interview or offer and hasn't been asked yet. An offer wins over an interview. */
+/** Everyone let in 14+ days ago who has reached an interview or offer and hasn't been asked yet. An offer wins over an interview. */
 export const due = internalQuery({
-  args: {},
+  args: { now: v.number() },
   returns: v.array(v.object({ accessId: v.id("access"), email: v.string(), name: v.optional(v.string()), title: v.string(), offer: v.boolean() })),
-  handler: async (ctx) => {
+  handler: async (ctx, { now }) => {
     const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
     const out = [];
     for (const row of rows) {
       if (row.shoutoutAskedAt || !row.email || isOwnerEmail(row.email)) continue;
+      // Not in their first two weeks: those already carry the welcome, check-in and pop-ups.
+      if (!row.decidedAt || now - row.decidedAt < 14 * 86_400_000) continue;
       const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc").take(3000);
       const win = jobs.find((j) => j.status === "offer") ?? jobs.find((j) => j.status === "interview");
       if (!win) continue;
@@ -37,7 +39,7 @@ export const sendAsks = internalAction({
   returns: v.null(),
   handler: async (ctx) => {
     if (!emailOn()) return null;
-    const people = await ctx.runQuery(internal.shoutout.due, {});
+    const people = await ctx.runQuery(internal.shoutout.due, { now: Date.now() });
     for (const p of people) {
       try {
         await sendEmail({ to: p.email, ...shoutoutEmail(p) });
