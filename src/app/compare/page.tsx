@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { jsonLdGraph } from "@/lib/marketing";
 import Link from "next/link";
 import { LEGAL } from "@/lib/legal";
 import { RoleLayout } from "../sales-jobs/RoleLayout";
@@ -90,7 +91,7 @@ export default function Compare() {
   ];
   return (
     <RoleLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph(jsonLd)) }} />
       <p className="label text-accent">Compare</p>
       <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">JobPipe vs Teal, Jobscan, Huntr, Naukri and LinkedIn Premium</h1>
       <p className="mt-3 text-sm text-ink-3">

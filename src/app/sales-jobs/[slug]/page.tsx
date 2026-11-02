@@ -1,4 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
+import { jsonLdGraph } from "@/lib/marketing";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -93,7 +94,7 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
   ];
   return (
     <RoleLayout current={page.slug}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph(jsonLd)) }} />
       <p className="label text-accent">Sales job guide</p>
       <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{page.title}</h1>
       <p className="mt-3 text-sm text-ink-3">

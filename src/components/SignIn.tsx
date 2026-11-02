@@ -4,7 +4,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { LEGAL, PLANS } from "@/lib/legal";
-import { FAQ, landingJsonLd } from "@/lib/marketing";
+import { FAQ, jsonLdGraph, landingJsonLd } from "@/lib/marketing";
 import { CountUp, Reveal, Rotate } from "./Motion";
 import { ThemeToggle } from "./ThemeToggle";
 import { Spinner } from "./ui";
@@ -134,7 +134,7 @@ export function SignIn() {
       {/* What the app is, how it works and the FAQ, for Google and AI answer tools. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(landingJsonLd()) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph(landingJsonLd())) }}
       />
       <header className="flex items-center justify-between py-6">
         <span className="display text-lg uppercase tracking-wide">

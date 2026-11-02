@@ -51,6 +51,18 @@ export const FAQ: [string, string][] = [
   ],
 ];
 
+/**
+ * Wraps several schema.org items into one object with an "@graph" list.
+ * Google reads both forms the same, but some in-app browsers (iPhone Safari webviews) run a script
+ * that expects one object with "@context" and crashes on a bare list, which showed up in our error alerts.
+ */
+export function jsonLdGraph(items: Record<string, unknown>[]) {
+  return {
+    "@context": "https://schema.org",
+    "@graph": items.map(({ "@context": _drop, ...rest }) => rest),
+  };
+}
+
 /** schema.org data for the landing page: what the app is, what it costs, and the FAQ. */
 export function landingJsonLd() {
   return [
