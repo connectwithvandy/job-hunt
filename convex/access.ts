@@ -2,10 +2,10 @@ import { getAuthUserId, invalidateSessions, modifyAccountCredentials, retrieveAc
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { action, env, internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { hasAccess, isOwnerEmail } from "./lib/auth";
 import { trialEnd } from "./lib/trial";
-import { emailOn, sendEmail, welcomeEmail } from "./lib/email";
+import { appUrl, emailOn, sendEmail, welcomeEmail } from "./lib/email";
 
 async function requireOwner(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
@@ -39,7 +39,9 @@ export const join = mutation({
     const existing = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if (existing) return null;
     const user = await ctx.db.get("users", userId);
-    await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
+    const accessId = await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
+    // Tell the owner, after a pause so the name, LinkedIn and role they type next are in the email.
+    if (emailOn() && !isOwnerEmail(user?.email)) await ctx.scheduler.runAfter(10 * 60 * 1000, internal.access.tellOwner, { accessId });
     return null;
   },
 });
@@ -92,6 +94,40 @@ export const markWelcomed = internalMutation({
   args: { accessId: v.id("access") },
   handler: async (ctx, { accessId }) => {
     await ctx.db.patch("access", accessId, { welcomedAt: Date.now() });
+    return null;
+  },
+});
+
+export const joinerDetails = internalQuery({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    const row = await ctx.db.get("access", accessId);
+    if (!row || row.approved || row.rejected) return null;
+    return { email: row.email, name: row.name, linkedin: row.linkedin, role: row.role };
+  },
+});
+
+/** Emails the owner that someone new is waiting, with what they told us and a link to let them in. */
+export const tellOwner = internalAction({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    const owner = (env.OWNER_EMAILS ?? "").split(",").map((s) => s.trim()).filter(Boolean)[0];
+    const p = await ctx.runQuery(internal.access.joinerDetails, { accessId });
+    if (!owner || !p) return null;
+    await sendEmail({
+      to: owner,
+      subject: `JobPipe waitlist: ${p.name || p.email} joined`,
+      text: [
+        "Someone new is on the waitlist.",
+        "",
+        `Name: ${p.name || "(not given yet)"}`,
+        `Email: ${p.email}`,
+        `Role: ${p.role || "(not given)"}`,
+        `LinkedIn: ${p.linkedin || "(not given)"}`,
+        "",
+        `Let them in: ${appUrl()}/waitlist`,
+      ].join("\n"),
+    });
     return null;
   },
 });
