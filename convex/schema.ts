@@ -176,6 +176,7 @@ export default defineSchema({
 
   jobs: defineTable({ userId: v.id("users"), ...jobFields })
     .index("by_userId", ["userId"])
+    .index("by_userId_and_status", ["userId", "status"])
     .index("by_userId_and_externalId", ["userId", "externalId"])
     .index("by_userId_and_roleKey", ["userId", "roleKey"]),
 

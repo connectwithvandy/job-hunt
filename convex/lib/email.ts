@@ -136,8 +136,12 @@ ${htmlParas.join("\n")}
 
 /** A LinkedIn post someone could share about JobPipe, in their own voice. Names no company, so their employer isn't exposed. */
 export function shoutoutPost(p: { title: string; offer: boolean }) {
-  const a = /^[aeiou]/i.test(p.title) ? "an" : "a";
-  const win = p.offer ? `I've got an offer for ${a} ${p.title} role.` : `I've got an interview lined up for ${a} ${p.title} role.`;
+  // "an SDR", "an Account Executive", "a Sales Manager": short capital words are read letter by letter.
+  const firstWord = p.title.split(/\s+/)[0] ?? "";
+  const spelled = /^[A-Z]{2,5}$/.test(firstWord);
+  const a = (spelled ? /^[AEFHILMNORSX]/.test(firstWord) : /^[aeiou]/i.test(firstWord)) ? "an" : "a";
+  const role = p.title ? ` for ${a} ${p.title} role` : "";
+  const win = p.offer ? `I've got an offer${role}.` : `I've got an interview lined up${role}.`;
   return `Small win in my job search: ${win}
 
 A tool that helped: JobPipe (jobpipe.in), built by Vandy for people hunting sales jobs. Each morning it finds new roles, scores each one against my CV with a reason, and tailors the CV for each application without making anything up. It also tracks every application and follow-up, so nothing slips.
@@ -158,8 +162,8 @@ export function shoutoutEmail(p: { name?: string; title: string; offer: boolean 
   const subject = `Was JobPipe helpful${first ? `, ${first}` : ""}?`;
   const paras = [
     p.offer
-      ? `Looks like an offer came through for the ${p.title} role. Huge congratulations!`
-      : `Looks like you've got an interview for the ${p.title} role. Congratulations, and good luck!`,
+      ? `Looks like an offer came through${p.title ? ` for the ${p.title} role` : ""}. Huge congratulations!`
+      : `Looks like you've got an interview${p.title ? ` for the ${p.title} role` : ""}. Congratulations, and good luck!`,
     "Quick question: was JobPipe helpful in getting you there?",
     "If yes, would you give it a shoutout on LinkedIn? JobPipe is new and I'm building it on my own, so word of mouth is how other people in sales find it.",
     "I've written a draft below to make it easy. It doesn't name the company. Change anything you like, or write your own. If it wasn't helpful, just hit reply and tell me what was missing. I read every one.",

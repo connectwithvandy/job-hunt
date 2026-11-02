@@ -16,10 +16,14 @@ export const due = internalQuery({
       if (row.shoutoutAskedAt || !row.email || isOwnerEmail(row.email)) continue;
       // Not in their first two weeks: those already carry the welcome, check-in and pop-ups.
       if (!row.decidedAt || now - row.decidedAt < 14 * 86_400_000) continue;
-      const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc").take(3000);
-      const win = jobs.find((j) => j.status === "offer") ?? jobs.find((j) => j.status === "interview");
-      if (!win) continue;
-      out.push({ accessId: row._id, email: row.email, name: row.name, title: win.title, offer: win.status === "offer" });
+      // Only their offers and interviews are read, not every job.
+      const offer = await ctx.db.query("jobs").withIndex("by_userId_and_status", (q) => q.eq("userId", row.userId).eq("status", "offer")).order("desc").take(10);
+      const interview = offer.length ? [] : await ctx.db.query("jobs").withIndex("by_userId_and_status", (q) => q.eq("userId", row.userId).eq("status", "interview")).order("desc").take(10);
+      const wins = offer.length ? offer : interview;
+      if (!wins.length) continue;
+      // A job made from an email may have no role yet ("Role not named yet"): never put that in a post.
+      const named = wins.find((j) => j.title && !/not named/i.test(j.title));
+      out.push({ accessId: row._id, email: row.email, name: row.name, title: named?.title ?? "", offer: offer.length > 0 });
     }
     return out;
   },

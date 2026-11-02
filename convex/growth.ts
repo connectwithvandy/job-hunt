@@ -43,8 +43,9 @@ export const newSalesJobs = internalQuery({
       if (j._creationTime < now - DAY) break;
       if (!j.india || !isSalesTitle(j.title)) continue;
       // A board seen for the first time brings old roles too; keep only ones posted in the last week.
+      // No date means it could be months old, and the post says "new", so leave it out.
       const posted = j.postedAt ? Date.parse(j.postedAt) : NaN;
-      if (!Number.isNaN(posted) && posted < now - 7 * DAY) continue;
+      if (Number.isNaN(posted) || posted < now - 7 * DAY) continue;
       const n = perCompany.get(j.company) ?? 0;
       const key = roleKey(j.company, j.title);
       if (n >= 2 || titles.has(key)) continue;
@@ -208,6 +209,8 @@ const OPEN_TO_WORK_SEARCHES = [
   "job search business development manager india",
 ];
 const LOOKING = /open to work|#opentowork|looking for|seeking|laid off|let go|job search|next (role|opportunit)|new opportunit|actively (looking|exploring)|impacted by/i;
+// Hiring posts say "looking for" too: "We're looking for an SDR". Those are recruiters, not job seekers.
+const HIRING = /we('| a)re (hiring|looking|growing)|we are hiring|#hiring|join (our|my|the) team|hiring for|now hiring|apply (now|here|via|at)|dm me your (cv|resume)|send (your|me your) (cv|resume)|open (role|position)s?\b|is hiring/i;
 const SALES = /\b(sales|sdr|bdr|account executive|business development|inside sales|gtm|go-to-market|revenue|account manager)\b/i;
 
 /**
@@ -228,7 +231,7 @@ export const sendCommentList = internalAction({
       console.warn("Open-to-work search failed", String(err));
       return `Search failed: ${String(err)}`;
     }
-    const picked = posts.filter((p) => p.url && LOOKING.test(p.text) && SALES.test(`${p.text} ${p.author.headline}`)).slice(0, 10);
+    const picked = posts.filter((p) => p.url && LOOKING.test(p.text) && !HIRING.test(p.text) && SALES.test(`${p.text} ${p.author.headline}`)).slice(0, 10);
     if (!picked.length) return `Found ${posts.length} posts, none from sales people looking for work. No email sent.`;
     const snippet = (t: string) => {
       const one = t.replace(/\s+/g, " ").trim();

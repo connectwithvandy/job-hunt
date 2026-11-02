@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { PageHead } from "@/components/bits";
+import { errorMessage } from "@/lib/errors";
 import { Loading } from "@/components/Loading";
 import { ActionButton, attempt, Feedback, type ActionState } from "@/components/ui";
 
@@ -31,12 +32,13 @@ export default function AdminCentre() {
   const [reset, setReset] = useState<{ email: string; password: string } | null>(null);
   const [picked, setPicked] = useState<Set<Id<"access">>>(new Set());
   const count = useAction(api.stats.funnel);
+  const [usageError, setUsageError] = useState("");
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof count>> | null>(null);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("overview");
   // Usage reads everyone's jobs, so it loads once when the owner opens the page, then on "Count again".
   const isOwner = !!me?.isOwner;
   useEffect(() => {
-    if (isOwner) count({}).then(setUsage, () => {});
+    if (isOwner) count({}).then(setUsage, (err) => setUsageError(errorMessage(err)));
   }, [isOwner, count]);
   if (!me) return <Loading />;
   if (!me.isOwner) return <p className="text-ink-2">Only the owner can see the waitlist.</p>;
@@ -122,6 +124,7 @@ export default function AdminCentre() {
           </button>
         ))}
       </div>
+      {usageError && <p className="mb-3 text-sm text-bad">Couldn&apos;t count usage: {usageError}</p>}
       {tab === "overview" && <Overview list={list} usage={usage} count={async () => setUsage(await count({}))} />}
       {tab === "people" && (
         <>
@@ -219,7 +222,7 @@ export default function AdminCentre() {
       <p className="mb-2 text-xs text-ink-3">New ones are emailed to you once an hour. Clear the ones you&apos;ve dealt with.</p>
       {errors?.length ? (
         <>
-        <button type="button" className="btn btn-ghost btn-sm mb-2" onClick={() => void clearErrors({})}>
+        <button type="button" className="btn btn-ghost btn-sm mb-2" onClick={() => void clearErrors({ ids: errors.map((e) => e._id) }).catch(() => {})}>
           Clear all
         </button>
         <ul>
@@ -230,7 +233,7 @@ export default function AdminCentre() {
                 <p className="text-xs text-ink-3">
                   {e.email || "signed out"} · {e.page} · {new Date(e._creationTime).toLocaleString()}
                 </p>
-                <button type="button" className="text-xs text-ink-2 hover:text-ink" onClick={() => void clearErrors({ id: e._id })}>
+                <button type="button" className="text-xs text-ink-2 hover:text-ink" onClick={() => void clearErrors({ ids: [e._id] }).catch(() => {})}>
                   Clear
                 </button>
               </div>

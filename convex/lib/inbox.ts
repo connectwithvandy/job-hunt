@@ -21,7 +21,8 @@ const RULES: [Stage, RegExp][] = [
   ["rejected", /\b(unfortunately|not (be )?moving forward|decided to (move|proceed) (forward )?with other|regret to inform|other candidates|not been selected|not selected|position has (now )?been filled|will not be progressing)\b/i],
   ["applied", /\b((received|receipt of) your application|thank(s| you) for (applying|your application)|application (has been |was )?(received|submitted))\b/i],
   ["interview", /\b(interview|schedule (a |some )?(time|call|chat)|calendly|your availability|next round|meet (with )?the team)\b/i],
-  ["screening", /\b(recruiter|quick (call|chat)|learn more about you|next steps|your profile stood out)\b/i],
+  // Also a recruiter writing first: "learn more about your background", "your next move", "a quick phone screen".
+  ["screening", /\b(recruiter|talent acquisition|quick (call|chat)|phone screen|learn more about your?|your background|(your|next) (career )?move|next steps|your profile stood out)\b/i],
 ];
 
 /**
