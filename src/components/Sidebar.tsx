@@ -63,7 +63,7 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
       </Link>
       {/* On a phone every page is in view: the links wrap onto a second row instead of scrolling off the side. */}
       <nav className="order-last flex w-full flex-wrap gap-1 text-sm md:order-none md:w-auto md:flex-col">
-        {(isOwner ? [...NAV, { label: "Admin", pages: [{ href: "/admin", label: "Admin" }] }] : NAV).map((n) => {
+        {NAV.map((n) => {
           const active = n.pages.some((p) => isOn(path, p.href));
           return (
             <Link
@@ -82,6 +82,11 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
       <div className="ml-auto flex gap-4 md:ml-0 md:flex-col md:gap-3 md:border-t md:border-line md:px-3 md:pt-5">
         <AccountLink active={ACCOUNT.pages.some((p) => isOn(path, p.href))} />
         {!isOwner && <FeedbackButton />}
+        {isOwner && (
+          <Link href="/admin" className={`text-left text-sm ${isOn(path, "/admin") ? "text-accent" : "text-ink-2 hover:text-ink"}`}>
+            Admin
+          </Link>
+        )}
         <ThemeToggle labelled />
         <button type="button" onClick={() => void signOut()} className="text-left text-sm text-ink-2 hover:text-ink">
           Sign out
