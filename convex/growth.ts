@@ -216,19 +216,20 @@ const SALES = /\b(sales|sdr|bdr|account executive|business development|inside sa
  */
 export const sendCommentList = internalAction({
   args: {},
-  returns: v.null(),
+  // Says what happened, so a run by hand shows why no email came.
+  returns: v.string(),
   handler: async () => {
     const owner = ownerEmail();
-    if (!emailOn() || !owner || !env.APIFY_TOKEN) return null;
+    if (!emailOn() || !owner || !env.APIFY_TOKEN) return `Off: email ${emailOn() ? "on" : "off"}, owner ${owner ? "set" : "missing"}, Apify ${env.APIFY_TOKEN ? "set" : "missing"}.`;
     let posts;
     try {
       posts = await searchPosts(OPEN_TO_WORK_SEARCHES, 10, "24h");
     } catch (err) {
       console.warn("Open-to-work search failed", String(err));
-      return null;
+      return `Search failed: ${String(err)}`;
     }
     const picked = posts.filter((p) => p.url && LOOKING.test(p.text) && SALES.test(`${p.text} ${p.author.headline}`)).slice(0, 10);
-    if (!picked.length) return null;
+    if (!picked.length) return `Found ${posts.length} posts, none from sales people looking for work. No email sent.`;
     const snippet = (t: string) => {
       const one = t.replace(/\s+/g, " ").trim();
       return one.length > 220 ? `${one.slice(0, 220)}…` : one;
@@ -251,6 +252,6 @@ ${picked
 
 ${appUrl()}/admin`,
     });
-    return null;
+    return `Found ${posts.length} posts, emailed ${picked.length} to ${owner}.`;
   },
 });
