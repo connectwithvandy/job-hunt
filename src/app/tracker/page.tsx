@@ -24,7 +24,7 @@ export default function Tracker() {
 
   return (
     <div>
-      <PageHead title="Applications" sub={total ? `${total} applications in motion. Drag a card to another column to move it.` : "Applications show up here once you start one."} />
+      <PageHead title="Application tracker" sub={total ? `${total} applications in motion. Drag a card to another column to move it.` : "Applications show up here once you start one."} />
       <div className="mb-6">
         <GmailSync />
       </div>

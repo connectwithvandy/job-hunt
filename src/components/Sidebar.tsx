@@ -9,10 +9,11 @@ import { api } from "../../convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 import { ThemeToggle } from "./ThemeToggle";
 
-/** Five places, each with the pages that belong together shown as tabs at the top. */
+/** Six places, each with the pages that belong together shown as tabs at the top. */
 const NAV = [
   { label: "Today", pages: [{ href: "/", label: "Today" }] },
-  { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }, { href: "/tracker", label: "Applications" }] },
+  { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }] },
+  { label: "Application tracker", pages: [{ href: "/tracker", label: "Application tracker" }] },
   { label: "Companies", pages: [{ href: "/companies", label: "Companies" }] },
   { label: "People", pages: [{ href: "/messages", label: "Messages" }, { href: "/network", label: "Your network" }] },
   { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }, { href: "/stories", label: "Stories" }] },
