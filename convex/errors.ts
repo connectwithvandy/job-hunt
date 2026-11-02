@@ -54,7 +54,7 @@ export const mailOwner = internalAction({
     await sendEmail({
       to: owners[0],
       subject: `JobPipe: ${rows.length} new error${rows.length === 1 ? "" : "s"}`,
-      text: `People hit these in the last hour:\n\n${lines.join("\n\n")}\n\nAll recent errors: ${appUrl()}/waitlist`,
+      text: `People hit these in the last hour:\n\n${lines.join("\n\n")}\n\nAll recent errors: ${appUrl()}/admin`,
     });
     await ctx.runMutation(internal.errors.markSent, { ids: rows.map((r) => r._id) });
     return null;

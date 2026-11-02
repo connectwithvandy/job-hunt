@@ -125,7 +125,7 @@ export const tellOwner = internalAction({
         `Role: ${p.role || "(not given)"}`,
         `LinkedIn: ${p.linkedin || "(not given)"}`,
         "",
-        `Let them in: ${appUrl()}/waitlist`,
+        `Let them in: ${appUrl()}/admin`,
       ].join("\n"),
     });
     return null;

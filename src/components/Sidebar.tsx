@@ -63,7 +63,7 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
       </Link>
       {/* On a phone every page is in view: the links wrap onto a second row instead of scrolling off the side. */}
       <nav className="order-last flex w-full flex-wrap gap-1 text-sm md:order-none md:w-auto md:flex-col">
-        {(isOwner ? [...NAV, { label: "Waitlist", pages: [{ href: "/waitlist", label: "Waitlist" }] }] : NAV).map((n) => {
+        {(isOwner ? [...NAV, { label: "Admin", pages: [{ href: "/admin", label: "Admin" }] }] : NAV).map((n) => {
           const active = n.pages.some((p) => isOn(path, p.href));
           return (
             <Link

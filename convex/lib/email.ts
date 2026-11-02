@@ -155,13 +155,14 @@ export function shoutoutEmail(p: { name?: string; title: string; offer: boolean 
   // Opens LinkedIn's post box with the draft filled in; they can change it before posting.
   const share = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(post)}`;
   const hello = first ? `Hi ${first},` : "Hi,";
-  const subject = p.offer ? `Congrats on the offer${first ? `, ${first}` : ""}!` : `Congrats on the interview${first ? `, ${first}` : ""}!`;
+  const subject = `Was JobPipe helpful${first ? `, ${first}` : ""}?`;
   const paras = [
     p.offer
-      ? `Looks like an offer came through for the ${p.title} role. Huge congratulations. That's the whole point, and I'm really glad JobPipe played a part.`
-      : `Looks like you've got an interview for the ${p.title} role. Congratulations, and good luck! That's the part that counts.`,
-    "I have a small favour to ask. JobPipe is new, and I'm building it on my own, so word of mouth is how other people in sales find it. If it helped you, would you give it a shoutout on LinkedIn?",
-    "To make it easy, I've written a draft below. It doesn't name the company. Change anything you like, or write your own. And if you'd rather not, that's completely fine. Just carry on, nothing changes.",
+      ? `Looks like an offer came through for the ${p.title} role. Huge congratulations!`
+      : `Looks like you've got an interview for the ${p.title} role. Congratulations, and good luck!`,
+    "Quick question: was JobPipe helpful in getting you there?",
+    "If yes, would you give it a shoutout on LinkedIn? JobPipe is new and I'm building it on my own, so word of mouth is how other people in sales find it.",
+    "I've written a draft below to make it easy. It doesn't name the company. Change anything you like, or write your own. If it wasn't helpful, just hit reply and tell me what was missing. I read every one.",
   ];
   const text = `${hello}
 
