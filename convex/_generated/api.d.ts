@@ -23,6 +23,7 @@ import type * as emailFinder from "../emailFinder.js";
 import type * as errors from "../errors.js";
 import type * as feedback from "../feedback.js";
 import type * as google from "../google.js";
+import type * as growth from "../growth.js";
 import type * as http from "../http.js";
 import type * as inbox from "../inbox.js";
 import type * as inboxReader from "../inboxReader.js";
@@ -92,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   errors: typeof errors;
   feedback: typeof feedback;
   google: typeof google;
+  growth: typeof growth;
   http: typeof http;
   inbox: typeof inbox;
   inboxReader: typeof inboxReader;

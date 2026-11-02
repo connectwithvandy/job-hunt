@@ -190,6 +190,36 @@ ${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
   return { subject, text, html };
 }
 
+/** Two days after being let in without finishing setup: a short, friendly nudge from the founder. */
+export function setupNudgeEmail(p: { name?: string; email: string; role?: string }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const link = `${appUrl()}/?signin=1&email=${encodeURIComponent(p.email)}`;
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const subject = first ? `${first}, your JobPipe is half set up` : "Your JobPipe is half set up";
+  const paras = [
+    `You're in on JobPipe, but it looks like setup didn't get finished, so it hasn't started finding ${p.role ? `${p.role} roles` : "jobs"} for you yet.`,
+    "It takes about 5 minutes: sign in, upload your CV (any PDF works), and pick the roles you want. From the next morning it finds new jobs and scores each one against your CV.",
+    "If something got in the way, like the CV upload or the roles list, just reply and tell me. It comes straight to me, and I'll help you set it up.",
+  ];
+  const text = `${hello}
+
+${paras.join("\n\n")}
+
+Finish setting up: ${link}
+
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(hello)}</p>
+${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+<p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Finish setting up</a></p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
+
 /** The forgot-password email with its one-time code. */
 export function resetEmail(code: string) {
   const subject = `${code} is your JobPipe reset code`;

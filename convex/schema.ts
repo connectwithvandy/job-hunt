@@ -74,6 +74,8 @@ export default defineSchema({
     trialNoteAt: v.optional(v.number()),
     /** When the "would you give JobPipe a shoutout?" email went out, after their first interview or offer, so it goes once. */
     shoutoutAskedAt: v.optional(v.number()),
+    /** When the "finish setting up" nudge went out, two days after being let in without finishing setup, so it goes once. */
+    setupNudgeAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"]),

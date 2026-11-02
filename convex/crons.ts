@@ -19,6 +19,15 @@ crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
 // 11:30 IST: ask anyone who just reached an interview or offer for a LinkedIn shoutout, once each.
 crons.cron("shoutout asks", "0 6 * * *", internal.shoutout.sendAsks, {});
 
+// 8:30 IST, after the careers boards refresh: today's new sales jobs as a ready LinkedIn post, emailed to the owner.
+crons.cron("daily jobs post", "0 3 * * *", internal.growth.sendJobsPost, {});
+
+// Mondays 9:00 IST: sales roles that keep getting reposted, as a ready LinkedIn post for the owner.
+crons.cron("weekly repost post", "30 3 * * 1", internal.growth.sendRepostPost, {});
+
+// 11:00 IST: one friendly nudge to anyone let in 2+ days ago who hasn't finished setup.
+crons.cron("setup nudges", "30 5 * * *", internal.growth.sendSetupNudges, {});
+
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
 
 // Every hour: email the owner any app errors people hit since the last email (errors.ts).
