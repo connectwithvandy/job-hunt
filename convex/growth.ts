@@ -199,12 +199,13 @@ export const sendSetupNudges = internalAction({
 });
 
 // Searches for sales people in India saying they're looking for work. Five searches, ten posts each: about $0.10 a day.
+// Short searches: LinkedIn matches every word, so long ones come back nearly empty.
 const OPEN_TO_WORK_SEARCHES = [
-  "open to work SDR BDR India",
-  "open to work account executive India SaaS",
-  "open to work GTM go-to-market India",
-  "open to work sales manager Bengaluru SaaS",
-  "laid off sales B2B India looking for next role",
+  "#opentowork sales India",
+  "open to work SDR",
+  "open to work account executive",
+  "open to work GTM",
+  "laid off sales India",
 ];
 // The author talking about their own search ("I'm looking", "open to work"), not advice to people who are looking.
 const LOOKING = /open to work|#opentowork|\bi(['’]m| am)( now| currently)? (actively )?(looking|seeking|exploring|open|available)|\bi (was|got) (laid off|let go|impacted)|\bmy (next|new) (role|opportunit|chapter)|\bimmediate joiner/i;
