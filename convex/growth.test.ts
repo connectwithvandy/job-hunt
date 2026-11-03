@@ -25,6 +25,12 @@ test("only B2B sales and GTM people", () => {
   expect(isSeekerPost("I'm looking for a sales role in Pune", "Software Engineer")).toBe(false);
 });
 
+test("seekers asking 'if you're hiring' are kept", () => {
+  expect(isSeekerPost("I'm looking for my first SDR role in tech. If your team is hiring a hungry SDR, let's talk", "Sales Development Representative")).toBe(true);
+  expect(isSeekerPost("OPEN TO WORK | exploring new opportunities. Know a company hiring for sales leaders?", "Sales Leader | GTM Strategy | B2B & Enterprise Sales")).toBe(true);
+  expect(isSeekerPost("🚀 Hiring | Senior WordPress Developer. Looking for someone great", "Talent Acquisition Screener")).toBe(false);
+});
+
 test("only people talking about their own search, anywhere", () => {
   expect(isSeekerPost("Open to Work in Saudi Arabia | Sales, Business Development", "B2B Sales | Business Development")).toBe(true);
   expect(isSeekerPost("I'm looking for my first role in sales. Louisville", "Bartender")).toBe(false);

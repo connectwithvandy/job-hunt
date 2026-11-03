@@ -211,8 +211,8 @@ const OPEN_TO_WORK_SEARCHES = [
 // The author talking about their own search ("I'm looking", "open to work"), not advice to people who are looking.
 const LOOKING = /open to work|#opentowork|\bi(['’]m| am)( now| currently)? (actively )?(looking|seeking|exploring|open|available)|\bi (was|got) (laid off|let go|impacted)|\bmy (next|new) (role|opportunit|chapter)|\bimmediate joiner/i;
 // Hiring posts say "looking for" too: "We're looking for an SDR". Those are recruiters, not job seekers.
-// Not "#hiring": job seekers add it for reach. LinkedIn often uses curly apostrophes ("We’re hiring"), so both kinds are matched.
-const HIRING = /we(['’]| a)re (hiring|looking|growing)|we are hiring|i(['’]| a)m hiring|i am hiring|join (our|my|the) team|hiring (for|an?)\b|now hiring|apply (now|here|via|at)|dm me your (cv|resume)|send (your|me your) (cv|resume)|open (role|position)s?\b|is hiring|role sits/i;
+// Not "#hiring", "is hiring" or "hiring a": job seekers write "if your team is hiring a…". LinkedIn often uses curly apostrophes ("We’re hiring"), so both kinds are matched.
+const HIRING = /we(['’]| a)re (hiring|looking|growing)|we are hiring|i(['’]| a)m hiring|i am hiring|join (our|my) team|now hiring|urgent(ly)? (hiring|role|requirement)|\bhiring\s*[:|–—]|apply (now|here|via|at)|dm me your (cv|resume)|(send|share) (your|me your) (cv|resume)|share resume/i;
 // Recruiters and hiring managers post about roles; they aren't the people JobPipe is for.
 const RECRUITER = /recruit|talent acquisition|sourcer|\bhr\b|human resources|hiring manager/i;
 /** The first n characters, never splitting an emoji in half (half an emoji is invalid text and broke a run). */
