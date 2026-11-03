@@ -216,9 +216,20 @@ const HIRING = /we(['’]| a)re (hiring|looking|growing)|we are hiring|i(['’]|
 const RECRUITER = /recruit|talent acquisition|sourcer|\bhr\b|human resources|hiring manager/i;
 /** A sales person saying they're looking for work, not someone hiring for a role. */
 export function isSeekerPost(text: string, headline: string) {
+  return !whyNot(text, headline);
+}
+
+/** The first check a post fails, or "" when it's a sales person in India looking for work. */
+export function whyNot(text: string, headline: string) {
   const all = `${text} ${headline}`;
+  if (!LOOKING.test(text)) return "not looking";
+  if (HIRING.test(text)) return "hiring post";
+  if (RECRUITER.test(headline)) return "recruiter";
+  if (!SALES.test(headline)) return "not a sales/GTM headline";
+  if (NOT_OUR_SALES.test(all)) return "field/consumer sales";
   // JobPipe's jobs are in India, so people elsewhere can't use it yet.
-  return LOOKING.test(text) && !HIRING.test(text) && !RECRUITER.test(headline) && SALES.test(headline) && !NOT_OUR_SALES.test(all) && INDIA.test(all);
+  if (!INDIA.test(all)) return "not India";
+  return "";
 }
 const INDIA = /india|bengaluru|bangalore|mumbai|delhi|gurugram|gurgaon|noida|pune|hyderabad|chennai|kolkata|ahmedabad|jaipur|kochi/i;
 // Sales and GTM roles JobPipe finds jobs for, read from the person's own headline so a passing mention doesn't count.
@@ -239,10 +250,11 @@ export function pitch(name: string) {
  * by hand. Never comments or messages on its own: LinkedIn bans accounts for that.
  */
 export const sendCommentList = internalAction({
-  args: {},
+  // dryRun: list every post found and why it was left out, without sending the email.
+  args: { dryRun: v.optional(v.boolean()) },
   // Says what happened, so a run by hand shows why no email came.
   returns: v.string(),
-  handler: async () => {
+  handler: async (_ctx, { dryRun }) => {
     const owner = ownerEmail();
     if (!emailOn() || !owner || !env.APIFY_TOKEN) return `Off: email ${emailOn() ? "on" : "off"}, owner ${owner ? "set" : "missing"}, Apify ${env.APIFY_TOKEN ? "set" : "missing"}.`;
     let posts;
@@ -251,6 +263,11 @@ export const sendCommentList = internalAction({
     } catch (err) {
       console.warn("Open-to-work search failed", String(err));
       return `Search failed: ${String(err)}`;
+    }
+    if (dryRun) {
+      return posts
+        .map((p) => `[${whyNot(p.text, p.author.headline) || "KEEP"}] ${p.author.name} | ${p.author.headline.slice(0, 70)} | ${p.text.replace(/\s+/g, " ").slice(0, 90)}`)
+        .join("\n");
     }
     const picked = posts
       .filter((p) => p.url && isSeekerPost(p.text, p.author.headline))
