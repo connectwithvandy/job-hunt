@@ -206,7 +206,8 @@ const OPEN_TO_WORK_SEARCHES = [
   "laid off sales team india",
   "job search business development manager india",
 ];
-const LOOKING = /open to work|#opentowork|looking for|seeking|laid off|let go|job search|next (role|opportunit)|new opportunit|actively (looking|exploring)|impacted by/i;
+// The author talking about their own search ("I'm looking", "open to work"), not advice to people who are looking.
+const LOOKING = /open to work|#opentowork|\bi(['’]m| am)( now| currently)? (actively )?(looking|seeking|exploring|open|available)|\bi (was|got) (laid off|let go|impacted)|\bmy (next|new) (role|opportunit|chapter)|\bimmediate joiner/i;
 // Hiring posts say "looking for" too: "We're looking for an SDR". Those are recruiters, not job seekers.
 // LinkedIn often uses curly apostrophes ("We’re hiring"), so both kinds are matched.
 const HIRING = /we(['’]| a)re (hiring|looking|growing)|we are hiring|i(['’]| a)m hiring|i am hiring|#hiring|join (our|my|the) team|hiring (for|an?)\b|now hiring|apply (now|here|via|at)|dm me your (cv|resume)|send (your|me your) (cv|resume)|open (role|position)s?\b|is hiring|role sits/i;
@@ -214,14 +215,18 @@ const HIRING = /we(['’]| a)re (hiring|looking|growing)|we are hiring|i(['’]|
 const RECRUITER = /recruit|talent acquisition|sourcer|\bhr\b|human resources|hiring manager/i;
 /** A sales person saying they're looking for work, not someone hiring for a role. */
 export function isSeekerPost(text: string, headline: string) {
-  return LOOKING.test(text) && !HIRING.test(text) && !RECRUITER.test(headline) && SALES.test(`${text} ${headline}`);
+  const all = `${text} ${headline}`;
+  // JobPipe's jobs are in India, so people elsewhere can't use it yet.
+  return LOOKING.test(text) && !HIRING.test(text) && !RECRUITER.test(headline) && SALES.test(all) && INDIA.test(all);
 }
 const INDIA = /india|bengaluru|bangalore|mumbai|delhi|gurugram|gurgaon|noida|pune|hyderabad|chennai|kolkata|ahmedabad|jaipur|kochi/i;
 const SALES = /\b(sales|sdr|bdr|account executive|business development|inside sales|gtm|go-to-market|revenue|account manager)\b/i;
 
 /** A short note for someone looking for a sales job: under LinkedIn's 300-character connect-note limit. */
 export function pitch(name: string) {
-  const first = name.trim().split(/\s+/)[0]?.replace(/[^\p{L}'-]/gu, "") || "there";
+  const word = name.trim().split(/\s+/)[0]?.replace(/[^\p{L}'-]/gu, "") ?? "";
+  // "PRAASHANT" reads as shouting: write it "Praashant".
+  const first = word ? word[0].toUpperCase() + (word === word.toUpperCase() ? word.slice(1).toLowerCase() : word.slice(1)) : "there";
   return `Hi ${first}, saw your post. I built JobPipe for sales people job hunting in India: new sales roles every morning, each scored against your CV, and a tailored CV in a click. First week is free: https://jobpipe.in. Happy to help either way.`;
 }
 
@@ -245,8 +250,6 @@ export const sendCommentList = internalAction({
     }
     const picked = posts
       .filter((p) => p.url && isSeekerPost(p.text, p.author.headline))
-      // People who mention India first: that's who JobPipe's jobs are for.
-      .sort((a, b) => Number(INDIA.test(`${b.text} ${b.author.headline}`)) - Number(INDIA.test(`${a.text} ${a.author.headline}`)))
       .slice(0, 10);
     if (!picked.length) return `Found ${posts.length} posts, none from sales people looking for work. No email sent.`;
     const snippet = (t: string) => {

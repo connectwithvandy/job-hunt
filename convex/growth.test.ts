@@ -13,10 +13,18 @@ test("hiring posts are left out of the open-to-work list", () => {
   expect(isSeekerPost("🚨 We’re hiring: Sales Development Representative (SDR) looking for", "Founder")).toBe(false);
   expect(isSeekerPost("I’m hiring an APJ BDR Leader. Looking for someone great", "Sales Leader")).toBe(false);
   expect(isSeekerPost("Open to work: looking for my next SDR role", "Recruiter & Sourcer")).toBe(false);
-  expect(isSeekerPost("OPEN TO WORK | actively seeking new opportunities in business development", "BD Leader")).toBe(true);
+  expect(isSeekerPost("OPEN TO WORK | Seeking ASM / RSM roles in sales across India", "Sales & Marketing")).toBe(true);
+  expect(isSeekerPost("I'm looking for my next SDR role in Bengaluru", "SDR")).toBe(true);
+});
+
+test("only India-based people talking about their own search", () => {
+  expect(isSeekerPost("Open to Work in Saudi Arabia | Sales, Business Development", "B2B Sales")).toBe(false);
+  expect(isSeekerPost("I'm looking for my first role in sales. Louisville", "Bartender")).toBe(false);
+  expect(isSeekerPost("If you're looking out for a job as an SDR or AE in India, read this", "Director of Sales")).toBe(false);
 });
 
 test("the message fits a LinkedIn connect note", () => {
   expect(pitch("Ira M.").startsWith("Hi Ira,")).toBe(true);
+  expect(pitch("PRAASHANT PRIYADARSHI").startsWith("Hi Praashant,")).toBe(true);
   expect(pitch("Manish Rangari").length).toBeLessThanOrEqual(300);
 });
