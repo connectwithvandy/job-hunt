@@ -15,6 +15,8 @@ test("hiring posts are left out of the open-to-work list", () => {
   expect(isSeekerPost("Open to work: looking for my next SDR role", "Recruiter & Sourcer")).toBe(false);
   expect(isSeekerPost("I'm looking for my next SDR role in Bengaluru", "SDR at Acme | SaaS")).toBe(true);
   expect(isSeekerPost("Open to work: Account Executive roles, India or remote", "Account Executive | B2B SaaS")).toBe(true);
+  // Seen 3 Nov: job seekers tag #hiring for reach, and "IT Sales Professional" is a sales headline.
+  expect(isSeekerPost("Hello LinkedIn Network! I am actively looking for opportunities as a Business Development executive in Mumbai #hiring", "IT Graduate | Aspiring Business Development & IT Sales Professional")).toBe(true);
 });
 
 test("only B2B sales and GTM people", () => {
