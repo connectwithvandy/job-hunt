@@ -37,7 +37,6 @@ export default defineSchema({
     note: v.optional(v.string()),
   }).index("by_userId_and_kind_and_round", ["userId", "kind", "round"]),
 
-  /** Crashes and unexpected errors people hit in the app, emailed to the owner once an hour (errors.ts). */
   // Each person's job totals for the owner's admin page: kept up to date as jobs change (convex/lib/functions.ts)
   // and recounted from scratch each night in case anything slipped.
   usageTotals: defineTable({
@@ -48,6 +47,7 @@ export default defineSchema({
     applied: v.number(),
     countedAt: v.number(),
   }).index("by_userId", ["userId"]),
+  /** Crashes and unexpected errors people hit in the app, emailed to the owner once an hour (errors.ts). */
   appErrors: defineTable({
     userId: v.optional(v.id("users")),
     email: v.string(),
