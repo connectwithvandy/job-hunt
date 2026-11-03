@@ -25,8 +25,8 @@ test("only B2B sales and GTM people", () => {
   expect(isSeekerPost("I'm looking for a sales role in Pune", "Software Engineer")).toBe(false);
 });
 
-test("only India-based people talking about their own search", () => {
-  expect(isSeekerPost("Open to Work in Saudi Arabia | Sales, Business Development", "B2B Sales")).toBe(false);
+test("only people talking about their own search, anywhere", () => {
+  expect(isSeekerPost("Open to Work in Saudi Arabia | Sales, Business Development", "B2B Sales | Business Development")).toBe(true);
   expect(isSeekerPost("I'm looking for my first role in sales. Louisville", "Bartender")).toBe(false);
   expect(isSeekerPost("If you're looking out for a job as an SDR or AE in India, read this", "Director of Sales")).toBe(false);
 });

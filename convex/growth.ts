@@ -198,14 +198,14 @@ export const sendSetupNudges = internalAction({
   },
 });
 
-// Searches for sales people in India saying they're looking for work. Five searches, ten posts each: about $0.10 a day.
+// Searches for sales and GTM people anywhere saying they're looking for work.
 // Short searches: LinkedIn matches every word, so long ones come back nearly empty.
 const OPEN_TO_WORK_SEARCHES = [
-  "#opentowork sales India",
+  "#opentowork sales",
   "open to work SDR",
   "open to work account executive",
   "open to work GTM",
-  "laid off sales India",
+  "laid off sales looking for next role",
 ];
 // The author talking about their own search ("I'm looking", "open to work"), not advice to people who are looking.
 const LOOKING = /open to work|#opentowork|\bi(['’]m| am)( now| currently)? (actively )?(looking|seeking|exploring|open|available)|\bi (was|got) (laid off|let go|impacted)|\bmy (next|new) (role|opportunit|chapter)|\bimmediate joiner/i;
@@ -225,7 +225,7 @@ export function isSeekerPost(text: string, headline: string) {
   return !whyNot(text, headline);
 }
 
-/** The first check a post fails, or "" when it's a sales person in India looking for work. */
+/** The first check a post fails, or "" when it's a sales person looking for work. */
 export function whyNot(text: string, headline: string) {
   const all = `${text} ${headline}`;
   if (!LOOKING.test(text)) return "not looking";
@@ -233,11 +233,8 @@ export function whyNot(text: string, headline: string) {
   if (RECRUITER.test(headline)) return "recruiter";
   if (!SALES.test(headline)) return "not a sales/GTM headline";
   if (NOT_OUR_SALES.test(all)) return "field/consumer sales";
-  // JobPipe's jobs are in India, so people elsewhere can't use it yet.
-  if (!INDIA.test(all)) return "not India";
   return "";
 }
-const INDIA = /india|bengaluru|bangalore|mumbai|delhi|gurugram|gurgaon|noida|pune|hyderabad|chennai|kolkata|ahmedabad|jaipur|kochi/i;
 // Sales and GTM roles JobPipe finds jobs for, read from the person's own headline so a passing mention doesn't count.
 const SALES = /\b(sdr|bdr|sales development|business development|(it|b2b|saas|tech|software|enterprise|corporate|solution) sales|sales (professional|executive|specialist|representative|rep)\b|account executive|\bae\b|inside sales|enterprise sales|sales (manager|leader|director|head|lead)|head of sales|vp,? sales|chief revenue|cro\b|gtm|go-to-market|revenue operations|revops|key account manager|account manager|partnerships? manager)/i;
 // Field and consumer sales are a different job market from the B2B and SaaS roles JobPipe covers.
@@ -248,7 +245,7 @@ export function pitch(name: string) {
   const word = name.trim().split(/\s+/)[0]?.replace(/[^\p{L}'-]/gu, "") ?? "";
   // "PRAASHANT" reads as shouting: write it "Praashant".
   const first = word ? word[0].toUpperCase() + (word === word.toUpperCase() ? word.slice(1).toLowerCase() : word.slice(1)) : "there";
-  return `Hi ${first}, saw your post. I built JobPipe for sales people job hunting in India: new sales roles every morning, each scored against your CV, and a tailored CV in a click. First week is free: https://jobpipe.in. Happy to help either way.`;
+  return `Hi ${first}, saw your post. I built JobPipe for sales people job hunting: new sales roles every morning, each scored against your CV, and a tailored CV in a click. First week is free: https://jobpipe.in. Happy to help either way.`;
 }
 
 /** Of these people, the ones not yet sent to the owner. */
