@@ -200,12 +200,13 @@ export const sendSetupNudges = internalAction({
 
 // Searches for sales and GTM people anywhere saying they're looking for work.
 // Short searches: LinkedIn matches every word, so long ones come back nearly empty.
+// Each search pairs the #opentowork tag (job seekers use it, hiring ads and advice posts don't) with one role.
 const OPEN_TO_WORK_SEARCHES = [
-  "#opentowork sales",
-  "open to work SDR",
-  "open to work account executive",
-  "open to work GTM",
-  "laid off sales looking for next role",
+  "#opentowork SDR",
+  "#opentowork BDR",
+  "#opentowork account executive",
+  "#opentowork sales manager",
+  "#opentowork GTM",
 ];
 // The author talking about their own search ("I'm looking", "open to work"), not advice to people who are looking.
 const LOOKING = /open to work|#opentowork|\bi(['’]m| am)( now| currently)? (actively )?(looking|seeking|exploring|open|available)|\bi (was|got) (laid off|let go|impacted)|\bmy (next|new) (role|opportunit|chapter)|\bimmediate joiner/i;
