@@ -13,8 +13,14 @@ test("hiring posts are left out of the open-to-work list", () => {
   expect(isSeekerPost("🚨 We’re hiring: Sales Development Representative (SDR) looking for", "Founder")).toBe(false);
   expect(isSeekerPost("I’m hiring an APJ BDR Leader. Looking for someone great", "Sales Leader")).toBe(false);
   expect(isSeekerPost("Open to work: looking for my next SDR role", "Recruiter & Sourcer")).toBe(false);
-  expect(isSeekerPost("OPEN TO WORK | Seeking ASM / RSM roles in sales across India", "Sales & Marketing")).toBe(true);
-  expect(isSeekerPost("I'm looking for my next SDR role in Bengaluru", "SDR")).toBe(true);
+  expect(isSeekerPost("I'm looking for my next SDR role in Bengaluru", "SDR at Acme | SaaS")).toBe(true);
+  expect(isSeekerPost("Open to work: Account Executive roles, India or remote", "Account Executive | B2B SaaS")).toBe(true);
+});
+
+test("only B2B sales and GTM people", () => {
+  expect(isSeekerPost("OPEN TO WORK | Seeking ASM / RSM roles in solar across India", "Sales Manager, Solar Energy")).toBe(false);
+  expect(isSeekerPost("Open to work in India, immediate joiner", "Admission & Business Development Leader | Test Prep")).toBe(false);
+  expect(isSeekerPost("I'm looking for a sales role in Pune", "Software Engineer")).toBe(false);
 });
 
 test("only India-based people talking about their own search", () => {

@@ -200,11 +200,11 @@ export const sendSetupNudges = internalAction({
 
 // Searches for sales people in India saying they're looking for work. Five searches, ten posts each: about $0.10 a day.
 const OPEN_TO_WORK_SEARCHES = [
-  "open to work sales india",
-  "looking for SDR BDR role",
-  "seeking account executive opportunity bangalore",
-  "laid off sales team india",
-  "job search business development manager india",
+  "open to work SDR BDR India",
+  "open to work account executive India SaaS",
+  "open to work GTM go-to-market India",
+  "open to work sales manager Bengaluru SaaS",
+  "laid off sales B2B India looking for next role",
 ];
 // The author talking about their own search ("I'm looking", "open to work"), not advice to people who are looking.
 const LOOKING = /open to work|#opentowork|\bi(['’]m| am)( now| currently)? (actively )?(looking|seeking|exploring|open|available)|\bi (was|got) (laid off|let go|impacted)|\bmy (next|new) (role|opportunit|chapter)|\bimmediate joiner/i;
@@ -217,10 +217,13 @@ const RECRUITER = /recruit|talent acquisition|sourcer|\bhr\b|human resources|hir
 export function isSeekerPost(text: string, headline: string) {
   const all = `${text} ${headline}`;
   // JobPipe's jobs are in India, so people elsewhere can't use it yet.
-  return LOOKING.test(text) && !HIRING.test(text) && !RECRUITER.test(headline) && SALES.test(all) && INDIA.test(all);
+  return LOOKING.test(text) && !HIRING.test(text) && !RECRUITER.test(headline) && SALES.test(headline) && !NOT_OUR_SALES.test(all) && INDIA.test(all);
 }
 const INDIA = /india|bengaluru|bangalore|mumbai|delhi|gurugram|gurgaon|noida|pune|hyderabad|chennai|kolkata|ahmedabad|jaipur|kochi/i;
-const SALES = /\b(sales|sdr|bdr|account executive|business development|inside sales|gtm|go-to-market|revenue|account manager)\b/i;
+// Sales and GTM roles JobPipe finds jobs for, read from the person's own headline so a passing mention doesn't count.
+const SALES = /\b(sdr|bdr|sales development|business development (rep|representative|manager|executive)|account executive|\bae\b|inside sales|enterprise sales|sales (manager|leader|director|head|lead)|head of sales|vp,? sales|chief revenue|cro\b|gtm|go-to-market|revenue operations|revops|key account manager|account manager|partnerships? manager)/i;
+// Field and consumer sales are a different job market from the B2B and SaaS roles JobPipe covers.
+const NOT_OUR_SALES = /\b(area sales|regional sales|territory|asm\b|rsm\b|retail|insurance|real estate|pharma|medical rep|fmcg|solar|channel sales|dealer|distributor|banking sales|loan|admissions?|test prep)/i;
 
 /** A short note for someone looking for a sales job: under LinkedIn's 300-character connect-note limit. */
 export function pitch(name: string) {
