@@ -214,6 +214,12 @@ const LOOKING = /open to work|#opentowork|\bi(['’]m| am)( now| currently)? (ac
 const HIRING = /we(['’]| a)re (hiring|looking|growing)|we are hiring|i(['’]| a)m hiring|i am hiring|join (our|my|the) team|hiring (for|an?)\b|now hiring|apply (now|here|via|at)|dm me your (cv|resume)|send (your|me your) (cv|resume)|open (role|position)s?\b|is hiring|role sits/i;
 // Recruiters and hiring managers post about roles; they aren't the people JobPipe is for.
 const RECRUITER = /recruit|talent acquisition|sourcer|\bhr\b|human resources|hiring manager/i;
+/** The first n characters, never splitting an emoji in half (half an emoji is invalid text and broke a run). */
+export function cut(text: string, n: number) {
+  const chars = Array.from(text);
+  return chars.length > n ? `${chars.slice(0, n).join("")}…` : text;
+}
+
 /** A sales person saying they're looking for work, not someone hiring for a role. */
 export function isSeekerPost(text: string, headline: string) {
   return !whyNot(text, headline);
@@ -290,7 +296,7 @@ export const sendCommentList = internalAction({
     }
     if (dryRun) {
       return posts
-        .map((p) => `[${whyNot(p.text, p.author.headline) || "KEEP"}] ${p.author.name} | ${p.author.headline.slice(0, 70)} | ${p.text.replace(/\s+/g, " ").slice(0, 90)}`)
+        .map((p) => `[${whyNot(p.text, p.author.headline) || "KEEP"}] ${p.author.name} | ${cut(p.author.headline, 70)} | ${cut(p.text.replace(/\s+/g, " "), 90)}`)
         .join("\n");
     }
     // One entry per person, keyed by their profile (or the post when there's no profile link).
@@ -303,7 +309,7 @@ export const sendCommentList = internalAction({
     if (!picked.length) return `Found ${posts.length} posts, no new sales people looking for work. No email sent.`;
     const snippet = (t: string) => {
       const one = t.replace(/\s+/g, " ").trim();
-      return one.length > 220 ? `${one.slice(0, 220)}…` : one;
+      return cut(one, 220);
     };
     await sendEmail({
       to: owner,
@@ -316,7 +322,7 @@ How to use it:
 - Do it from your own account, by hand. Never automate this part: LinkedIn bans accounts for it.
 
 ${picked
-  .map((p, i) => `${i + 1}. ${p.author.name}${p.author.headline ? `, ${p.author.headline.slice(0, 90)}` : ""}
+  .map((p, i) => `${i + 1}. ${p.author.name}${p.author.headline ? `, ${cut(p.author.headline, 90)}` : ""}
    "${snippet(p.text)}"
    Post: ${p.url}${p.author.url ? `\n   Profile: ${p.author.url}` : ""}
    Message:

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { isSeekerPost, pitch, place } from "./growth";
+import { cut, isSeekerPost, pitch, place } from "./growth";
 
 test("job post places read cleanly", () => {
   expect(place("Pune-Maharashtra-India")).toBe("Pune");
@@ -35,4 +35,10 @@ test("the message fits a LinkedIn connect note", () => {
   expect(pitch("Ira M.").startsWith("Hi Ira,")).toBe(true);
   expect(pitch("PRAASHANT PRIYADARSHI").startsWith("Hi Praashant,")).toBe(true);
   expect(pitch("Manish Rangari").length).toBeLessThanOrEqual(300);
+});
+
+test("cutting text never splits an emoji", () => {
+  const out = cut("ab🚀cd", 3);
+  expect(out).toBe("ab🚀…");
+  expect(() => JSON.parse(JSON.stringify(out))).not.toThrow();
 });
