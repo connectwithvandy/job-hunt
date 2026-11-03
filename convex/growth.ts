@@ -20,12 +20,13 @@ export function isSalesTitle(title: string) {
 
 const ownerEmail = () => (env.OWNER_EMAILS ?? "").split(",").map((s) => s.trim()).filter(Boolean)[0];
 
-/** "Bengaluru, Karnataka, India" as "Bengaluru"; remote roles say so. */
-function place(location: string, workSetting?: string) {
-  // "Hybrid - Bengaluru" or "Remote, India": the first part that names a place.
-  const parts = location.split(/[,;|/]| - /).map((p) => p.trim()).filter(Boolean);
-  const city = (parts.find((p) => !/^(hybrid|remote|on-?site|office)$/i.test(p)) ?? parts[0] ?? "India").slice(0, 30);
-  return /remote/i.test(workSetting ?? "") && !/remote/i.test(city) ? `${city}, remote` : city;
+/** "Bengaluru, Karnataka, India" or "Pune-Maharashtra-India" as "Bengaluru" / "Pune"; remote roles say "Remote". */
+export function place(location: string, workSetting?: string) {
+  if (/remote|anywhere/i.test(location) && !/hybrid/i.test(location)) return "Remote";
+  // "Hybrid - Bengaluru" or "Remote, India": the first part that names a place. Workday joins with bare dashes.
+  const parts = location.split(/[,;|/()]|\s-\s|-(?=[A-Z])/).map((p) => p.trim()).filter(Boolean);
+  const city = (parts.find((p) => !/^(hybrid|remote|on-?site|office|india)$/i.test(p)) ?? "India").slice(0, 30);
+  return /remote/i.test(workSetting ?? "") ? `${city} or remote` : city;
 }
 
 const jobV = v.object({ company: v.string(), title: v.string(), where: v.string(), url: v.string() });
@@ -41,7 +42,8 @@ export const newSalesJobs = internalQuery({
     // Newest first; stop at the first one older than a day, so only today's arrivals are read.
     for await (const j of ctx.db.query("careerJobs").order("desc")) {
       if (j._creationTime < now - DAY) break;
-      if (!j.india || !isSalesTitle(j.title)) continue;
+      // Internships aren't what sales people following the post are after.
+      if (!j.india || !isSalesTitle(j.title) || /\bintern(ship)?\b/i.test(j.title)) continue;
       // A board seen for the first time brings old roles too; keep only ones posted in the last week.
       // No date means it could be months old, and the post says "new", so leave it out.
       const posted = j.postedAt ? Date.parse(j.postedAt) : NaN;
@@ -91,26 +93,22 @@ export const sendJobsPost = internalAction({
     const jobs = (await ctx.runQuery(internal.growth.newSalesJobs, { now: Date.now() })).slice(0, 15);
     // Too few to be worth a post: skip today rather than post something thin.
     if (jobs.length < 3) return null;
+    // Each job with its apply link right under it, so the post is ready to paste as is.
     const post = `${jobs.length} new sales jobs in India, posted in the last day 👇
 
-${jobs.map((j) => `• ${j.company}: ${j.title} (${j.where})`).join("\n")}
+${jobs.map((j) => `• ${j.company}, ${j.title} (${j.where})\n${j.url}`).join("\n\n")}
 
-Comment "jobs" and I'll send you the links.
-
-I find these every morning with JobPipe, the tool I built for my own sales job hunt. It also scores each role against your CV and tailors the CV for you: jobpipe.in
+I find these every morning with JobPipe, the tool I built for my own sales job hunt. It also scores each role against your CV and tailors the CV for you: https://jobpipe.in
 
 ${TAGS}`;
     await sendEmail({
       to: owner,
       subject: `Today's LinkedIn post: ${jobs.length} new sales jobs`,
-      text: `Copy the post below into LinkedIn. When people comment "jobs", reply or DM them the links further down.
+      text: `Copy everything between the lines into LinkedIn. The links are already in.
 
---- Post ---
+------------
 ${post}
 ------------
-
-Links, for replies:
-${jobs.map((j) => `${j.company}, ${j.title}: ${j.url}`).join("\n")}
 
 Tip: post between 8 and 10 am and reply to every comment in the first hour; that is when LinkedIn decides how far a post goes.
 
@@ -210,8 +208,22 @@ const OPEN_TO_WORK_SEARCHES = [
 ];
 const LOOKING = /open to work|#opentowork|looking for|seeking|laid off|let go|job search|next (role|opportunit)|new opportunit|actively (looking|exploring)|impacted by/i;
 // Hiring posts say "looking for" too: "We're looking for an SDR". Those are recruiters, not job seekers.
-const HIRING = /we('| a)re (hiring|looking|growing)|we are hiring|#hiring|join (our|my|the) team|hiring for|now hiring|apply (now|here|via|at)|dm me your (cv|resume)|send (your|me your) (cv|resume)|open (role|position)s?\b|is hiring/i;
+// LinkedIn often uses curly apostrophes ("We’re hiring"), so both kinds are matched.
+const HIRING = /we(['’]| a)re (hiring|looking|growing)|we are hiring|i(['’]| a)m hiring|i am hiring|#hiring|join (our|my|the) team|hiring (for|an?)\b|now hiring|apply (now|here|via|at)|dm me your (cv|resume)|send (your|me your) (cv|resume)|open (role|position)s?\b|is hiring|role sits/i;
+// Recruiters and hiring managers post about roles; they aren't the people JobPipe is for.
+const RECRUITER = /recruit|talent acquisition|sourcer|\bhr\b|human resources|hiring manager/i;
+/** A sales person saying they're looking for work, not someone hiring for a role. */
+export function isSeekerPost(text: string, headline: string) {
+  return LOOKING.test(text) && !HIRING.test(text) && !RECRUITER.test(headline) && SALES.test(`${text} ${headline}`);
+}
+const INDIA = /india|bengaluru|bangalore|mumbai|delhi|gurugram|gurgaon|noida|pune|hyderabad|chennai|kolkata|ahmedabad|jaipur|kochi/i;
 const SALES = /\b(sales|sdr|bdr|account executive|business development|inside sales|gtm|go-to-market|revenue|account manager)\b/i;
+
+/** A short note for someone looking for a sales job: under LinkedIn's 300-character connect-note limit. */
+export function pitch(name: string) {
+  const first = name.trim().split(/\s+/)[0]?.replace(/[^\p{L}'-]/gu, "") || "there";
+  return `Hi ${first}, saw your post. I built JobPipe for sales people job hunting in India: new sales roles every morning, each scored against your CV, and a tailored CV in a click. First week is free: https://jobpipe.in. Happy to help either way.`;
+}
 
 /**
  * Each morning: LinkedIn posts from the last day by sales people looking for work, emailed to the owner to comment on
@@ -231,7 +243,11 @@ export const sendCommentList = internalAction({
       console.warn("Open-to-work search failed", String(err));
       return `Search failed: ${String(err)}`;
     }
-    const picked = posts.filter((p) => p.url && LOOKING.test(p.text) && !HIRING.test(p.text) && SALES.test(`${p.text} ${p.author.headline}`)).slice(0, 10);
+    const picked = posts
+      .filter((p) => p.url && isSeekerPost(p.text, p.author.headline))
+      // People who mention India first: that's who JobPipe's jobs are for.
+      .sort((a, b) => Number(INDIA.test(`${b.text} ${b.author.headline}`)) - Number(INDIA.test(`${a.text} ${a.author.headline}`)))
+      .slice(0, 10);
     if (!picked.length) return `Found ${posts.length} posts, none from sales people looking for work. No email sent.`;
     const snippet = (t: string) => {
       const one = t.replace(/\s+/g, " ").trim();
@@ -242,15 +258,17 @@ export const sendCommentList = internalAction({
       subject: `${picked.length} sales people looking for work today: worth a comment`,
       text: `Posts from the last day by sales people looking for a job. 10 to 15 minutes of real comments here builds your name with exactly the people JobPipe is for.
 
-How to comment:
-- Give one specific, useful tip for their situation (their role, their city, what they asked for).
-- Don't pitch JobPipe. If they ask for CV help, point them to the free review: ${appUrl()}/cv-review
-- Comment from your own account, by hand. Never automate this part.
+How to use it:
+- Comment on the post with one specific tip for their situation, so your name is familiar.
+- Then send the message below (connect note or DM). It's ready to paste; change a word if something in their post fits.
+- Do it from your own account, by hand. Never automate this part: LinkedIn bans accounts for it.
 
 ${picked
   .map((p, i) => `${i + 1}. ${p.author.name}${p.author.headline ? `, ${p.author.headline.slice(0, 90)}` : ""}
    "${snippet(p.text)}"
-   ${p.url}`)
+   Post: ${p.url}${p.author.url ? `\n   Profile: ${p.author.url}` : ""}
+   Message:
+   ${pitch(p.author.name)}`)
   .join("\n\n")}
 
 ${appUrl()}/admin`,
