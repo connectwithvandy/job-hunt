@@ -2,7 +2,7 @@
 // One copy, used by the landing page, its structured data and /llms.txt, so they never disagree.
 import { LEGAL, PLANS } from "./legal";
 
-export const TITLE = "JobPipe: job search for sales and GTM roles, India and US";
+export const TITLE = "JobPipe: the job search tool for sales and GTM people";
 
 export const DESCRIPTION =
   "Job search for sales and GTM roles in India, the US, APAC and EMEA. Every job scored against your CV, a tailored CV for each one, and who you know there.";
