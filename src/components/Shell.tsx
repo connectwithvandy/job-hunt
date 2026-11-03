@@ -37,7 +37,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   // Pricing and the policy pages are for everyone, signed in or not.
   if (PUBLIC.includes(path) || path.startsWith("/sales-jobs")) return <>{children}</>;
-  if (isLoading && !returning) return <SignIn />;
+  // Only the home page needs that: on a job link or any other app page the landing page would flash
+  // for a moment before the app appears (the first paint can't see the saved sign-in yet).
+  if (isLoading && !returning && path === "/") return <SignIn />;
   if (isLoading || (isAuthenticated && (access === undefined || (access?.approved && me === undefined)))) {
     return (
       <div className="flex min-h-screen items-center justify-center text-ink-3">
