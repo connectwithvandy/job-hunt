@@ -279,7 +279,7 @@ export const sendCommentList = internalAction({
     };
     await sendEmail({
       to: owner,
-      subject: `${picked.length} sales people looking for work today: worth a comment`,
+      subject: `${picked.length} sales ${picked.length === 1 ? "person" : "people"} looking for work today: worth a comment`,
       text: `Posts from the last day by sales people looking for a job. 10 to 15 minutes of real comments here builds your name with exactly the people JobPipe is for.
 
 How to use it:
