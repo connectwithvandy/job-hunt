@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { cut, isSeekerPost, pitch, place } from "./growth";
+import { cut, fitScore, isSeekerPost, pitch, place } from "./growth";
 
 test("job post places read cleanly", () => {
   expect(place("Pune-Maharashtra-India")).toBe("Pune");
@@ -47,4 +47,16 @@ test("cutting text never splits an emoji", () => {
   const out = cut("ab🚀cd", 3);
   expect(out).toBe("ab🚀…");
   expect(() => JSON.parse(JSON.stringify(out))).not.toThrow();
+});
+
+// Real posts from 3 Nov: strong fits make the email, weaker ones don't.
+test("strongest fits score 3 or more", () => {
+  expect(fitScore("Three months into my job search, and I would rather be open about it than quiet. I am an SDR/BDR with 5+ years in SaaS. #opentowork", "BDR at Connectd | Executive Careers Expert")).toBeGreaterThanOrEqual(3);
+  expect(fitScore("OPEN TO SENIOR SALES & COMMERCIAL LEADERSHIP OPPORTUNITIES I'm currently exploring my next professional opportunity #opentowork", "Sales Leader | Revenue Growth | GTM Strategy | B2B & Enterprise Sales")).toBeGreaterThanOrEqual(3);
+  expect(fitScore("🚀 Open to Work | Exploring New Career Opportunities! I'm actively looking for new career opportunities in sales #saassales #b2bsales", "Business Development Specalist & Data Analyst")).toBeGreaterThanOrEqual(3);
+});
+
+test("weaker fits stay out", () => {
+  expect(fitScore("Olá a todos – Estou em busca de vagas Home Office SDR/BDR. #OpenToWork", "SDR BDR da empresa Home Office")).toBeLessThan(3);
+  expect(fitScore("I wasn't the person you'd expect to become a top sales performer. When I started at Octopus Energy, I wasn't particularly confident. I'm naturally an ambivert, a little more introverted than extroverted, and probably not the loudest in the room. #opentowork", "Technical Operations Analyst | B2B Sales & Commercial Experience")).toBeLessThan(3);
 });

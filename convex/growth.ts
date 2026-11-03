@@ -222,6 +222,25 @@ export function cut(text: string, n: number) {
 }
 
 /** A sales person saying they're looking for work, not someone hiring for a role. */
+/**
+ * How strong a fit someone is for JobPipe, from their post and headline. 3 or more makes the email.
+ * Up: a clear sales title in the headline, SaaS/B2B, an outright "open to work", years of experience.
+ * Down: posts not in English (the message is in English), and stories without a clear ask.
+ */
+export function fitScore(text: string, headline: string) {
+  const all = `${text} ${headline}`;
+  let n = 0;
+  if (/\b(sdr|bdr|sales development|business development|account executive|\bae\b|sales (leader|manager|director|executive|representative)|head of sales|vp,? sales|gtm|go-to-market|revops|revenue operations|account manager)/i.test(headline)) n += 2;
+  if (/\b(saas|b2b|tech sales|enterprise)\b/i.test(all)) n += 1;
+  if (/open to work|#opentowork|\bi(['’]m| am) (actively |currently )?(looking|seeking)/i.test(text)) n += 1;
+  if (/\b\d+\+?\s*(years|yrs)\b/i.test(text)) n += 1;
+  if (/\b(estoy|estou|busca|vagas|olá|hoy|experiencia|oportunidades|ricerca|recherche|suche)\b/i.test(text)) n -= 2;
+  if (!/open to work|#opentowork|looking for|seeking|exploring|open to/i.test(text.slice(0, 300))) n -= 1;
+  return n;
+}
+const STRONG = 3;
+const PER_EMAIL = 5;
+
 export function isSeekerPost(text: string, headline: string) {
   return !whyNot(text, headline);
 }
@@ -294,7 +313,7 @@ export const sendCommentList = internalAction({
     }
     if (dryRun) {
       return posts
-        .map((p) => `[${whyNot(p.text, p.author.headline) || "KEEP"}] ${p.author.name} | ${cut(p.author.headline, 70)} | ${cut(p.text.replace(/\s+/g, " "), 90)}`)
+        .map((p) => `[${whyNot(p.text, p.author.headline) || `KEEP ${fitScore(p.text, p.author.headline)}`}] ${p.author.name} | ${cut(p.author.headline, 70)} | ${cut(p.text.replace(/\s+/g, " "), 90)}`)
         .join("\n");
     }
     // One entry per person, keyed by their profile (or the post when there's no profile link).
@@ -303,8 +322,12 @@ export const sendCommentList = internalAction({
     for (const p of posts) if (p.url && isSeekerPost(p.text, p.author.headline) && !byPerson.has(keyOf(p))) byPerson.set(keyOf(p), p);
     const unsent: string[] = await ctx.runQuery(internal.growth.unsentSeekers, { keys: [...byPerson.keys()] });
     const fresh = new Set(unsent);
-    const picked: (typeof posts)[number][] = [...byPerson.values()].filter((p) => fresh.has(keyOf(p))).slice(0, 10);
-    if (!picked.length) return `Found ${posts.length} posts, no new sales people looking for work. No email sent.`;
+    // Only the strongest fits, best first.
+    const picked: (typeof posts)[number][] = [...byPerson.values()]
+      .filter((p) => fresh.has(keyOf(p)) && fitScore(p.text, p.author.headline) >= STRONG)
+      .sort((a, b) => fitScore(b.text, b.author.headline) - fitScore(a.text, a.author.headline))
+      .slice(0, PER_EMAIL);
+    if (!picked.length) return `Found ${posts.length} posts, no new strong fits. No email sent.`;
     const snippet = (t: string) => {
       const one = t.replace(/\s+/g, " ").trim();
       return cut(one, 220);
