@@ -71,7 +71,7 @@ export default function Today() {
   const firstName = me.resume?.name.split(" ")[0];
 
   const stats = me.tracks.map((t) => {
-    const mine = jobs.filter((j) => jobTrackKey(j) === t.key && j.status !== "dismissed");
+    const mine = jobs.filter((j) => jobTrackKey(j, me.tracks) === t.key && j.status !== "dismissed");
     const applied = mine.filter((j) => LIVE.has(j.status) && j.status !== "applying");
     const asks = mine.flatMap((j) => j.outreach.filter((o) => o.status !== "draft"));
     const replies = asks.filter((o) => o.status === "replied" || o.status === "referred");
@@ -628,7 +628,7 @@ function NewSinceVisit({ since, jobs, prospects, tracks }: { since: number; jobs
       </div>
       <ul>
         {fresh.slice(0, 8).map(({ j, dream }) => (
-          <JobRow key={j._id} j={j} track={tracks.find((t) => t.key === jobTrackKey(j))} dream={dream} />
+          <JobRow key={j._id} j={j} track={tracks.find((t) => t.key === jobTrackKey(j, tracks))} dream={dream} />
         ))}
       </ul>
       {fresh.length > 8 && (

@@ -50,7 +50,7 @@ export default function JobPage() {
   const scores = [...(job.scores ?? [])].sort((a, b) => b.score - a.score);
   const askedIds = new Set([...job.outreach.map((o) => o.contactId), ...(job.skipped ?? [])]);
   const notAsked = people.filter((p) => !askedIds.has(p._id));
-  const currentTrack = trackByKey.get(jobTrackKey(job) ?? "");
+  const currentTrack = trackByKey.get(jobTrackKey(job, me.tracks) ?? "");
   // No CV attachment for an internal move: colleagues already know you.
   const cvName = currentTrack?.company ? "" : `${me.resume?.name ?? "Your"} CV ${job.company}.pdf`;
   // Where this job is up to, so the page leads with the one thing to do now.

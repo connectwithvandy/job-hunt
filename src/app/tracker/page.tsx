@@ -69,7 +69,7 @@ export default function Tracker() {
                       onDragEnd={() => setOver(null)}
                       className="card relative cursor-grab overflow-hidden p-4 active:cursor-grabbing"
                     >
-                      <span className="absolute inset-y-0 left-0 w-1" style={{ background: color.get(jobTrackKey(j) ?? "") ?? "transparent" }} />
+                      <span className="absolute inset-y-0 left-0 w-1" style={{ background: color.get(jobTrackKey(j, me.tracks) ?? "") ?? "transparent" }} />
                       <Link href={`/jobs/${j._id}`} className="flex gap-3">
                         <CompanyMark job={j} size={28} />
                         <div className="min-w-0">

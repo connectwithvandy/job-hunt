@@ -1,6 +1,9 @@
 // Every kind of sales job JobPipe covers, with the different names companies use for each.
 // Offered when picking roles; the short forms below also let "SDR" match "Sales Development Representative".
 
+/** Team-lead titles added on 3 Nov 2026: AE leads were missed because no leadership title fit them. Also added to existing tracks (users.addLeaderTitles). */
+export const SALES_LEADER_EXTRAS = ["Account Executive Team Lead", "Account Executive Manager", "Sales Team Lead"];
+
 export const SALES_ROLES = [
   {
     key: "sdr",
@@ -63,7 +66,7 @@ export const SALES_ROLES = [
     key: "sales-leadership",
     name: "Sales Leadership",
     color: "#F87171",
-    titles: ["Sales Manager", "Regional Sales Manager", "Area Sales Manager", "Head of Sales", "Director of Sales", "VP Sales", "Country Manager", "Chief Revenue Officer"],
+    titles: ["Sales Manager", "Regional Sales Manager", "Area Sales Manager", "Head of Sales", "Director of Sales", "VP Sales", "Country Manager", "Chief Revenue Officer", ...SALES_LEADER_EXTRAS],
     pitch: "Leads sales teams to a number: hiring, coaching, forecasting and territory planning.",
   },
   {
@@ -148,6 +151,24 @@ export function titleMatches(searched: string, title: string) {
   // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and
   // "Director, Sales Development". Leaders run the reps, so their titles rarely say "representative".
   return isLeader(t.split(" ")) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
+}
+
+/**
+ * The track whose titles fit a job title most closely: "Sales Development Manager" matches both "Sales Manager"
+ * (sales leadership) and "Sales Development Manager" (SDR leadership), and the second shares more words, so it wins.
+ * Ties go to the earlier track. Undefined when no track's titles fit.
+ */
+export function trackForTitle(tracks: { key: string; titles: string[] }[], title: string) {
+  const have = new Set(fullTitle(title).split(" "));
+  let best: { key: string; n: number } | undefined;
+  for (const t of tracks) {
+    for (const x of t.titles) {
+      if (!titleMatches(x, title)) continue;
+      const n = fullTitle(x).split(" ").filter((w) => w && !FILLER.has(w) && have.has(w)).length;
+      if (!best || n > best.n) best = { key: t.key, n };
+    }
+  }
+  return best?.key;
 }
 
 /** Jobs in another function, technical roles included. "Senior Engineer - Business Operations" holds "business operations" but isn't a GTM role. */

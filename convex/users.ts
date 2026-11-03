@@ -6,6 +6,7 @@ import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { resumeV, trackFields } from "./lib/validators";
 import { internal } from "./_generated/api";
 import { pickOwnMessages } from "./lib/chats";
+import { SALES_LEADER_EXTRAS } from "./lib/salesRoles";
 
 async function findProfile(ctx: QueryCtx, userId: Id<"users">) {
   return await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
@@ -504,5 +505,22 @@ export const backfillVoice = internalMutation({
     }
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.users.backfillVoice, { cursor: page.continueCursor });
     return null;
+  },
+});
+
+/** One-off: gives existing Sales Leadership tracks the team-lead titles new tracks now start with. Safe to run twice. */
+export const addLeaderTitles = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let changed = 0;
+    for await (const t of ctx.db.query("tracks")) {
+      if (t.key !== "sales-leadership") continue;
+      const missing = SALES_LEADER_EXTRAS.filter((x) => !t.titles.some((y) => y.toLowerCase() === x.toLowerCase()));
+      if (!missing.length) continue;
+      await ctx.db.patch(t._id, { titles: [...t.titles, ...missing] });
+      changed++;
+    }
+    return changed;
   },
 });

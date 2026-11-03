@@ -1,7 +1,8 @@
 import type { Doc } from "../../convex/_generated/dataModel";
+import { trackForTitle } from "../../convex/lib/salesRoles";
 
 type Track = Doc<"tracks">;
-type JobLike = Pick<Doc<"jobs">, "company" | "companyLogo" | "scores" | "trackKey" | "foundFor">;
+type JobLike = Pick<Doc<"jobs">, "company" | "companyLogo" | "scores" | "trackKey" | "foundFor" | "title">;
 
 export function TrackTag({ track }: { track?: Track }) {
   if (!track) return null;
@@ -51,9 +52,13 @@ export function bestScore(job: Pick<JobLike, "scores">) {
   return [...job.scores].sort((a, b) => b.score - a.score)[0];
 }
 
-/** The track a job belongs to: the one you applied with, else the best score, else the search that found it. */
-export function jobTrackKey(job: JobLike) {
-  return job.trackKey ?? bestScore(job)?.trackKey ?? job.foundFor;
+/**
+ * The track a job belongs to: the one you applied with, else the track its title fits best, else the best score,
+ * else the search that found it. The title comes before the score: a CV can score a little higher on "Sales
+ * Leadership" for an SDR Manager job, which put jobs in the wrong group.
+ */
+export function jobTrackKey(job: JobLike, tracks?: { key: string; titles: string[] }[]) {
+  return job.trackKey ?? (tracks && trackForTitle(tracks, job.title)) ?? bestScore(job)?.trackKey ?? job.foundFor;
 }
 
 export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" | "companyLogo">; size?: number }) {

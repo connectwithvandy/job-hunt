@@ -352,7 +352,7 @@ function Jobs() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     {best ? <ScorePill score={best.score} /> : <QuickFitPill score={j.quickFit} />}
-                    <TrackTag track={trackByKey.get((track ?? jobTrackKey(j)) ?? "")} />
+                    <TrackTag track={trackByKey.get((track ?? jobTrackKey(j, me.tracks)) ?? "")} />
                   </div>
                 </Link>
               </li>
