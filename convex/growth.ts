@@ -245,6 +245,29 @@ export function pitch(name: string) {
   return `Hi ${first}, saw your post. I built JobPipe for sales people job hunting in India: new sales roles every morning, each scored against your CV, and a tailored CV in a click. First week is free: https://jobpipe.in. Happy to help either way.`;
 }
 
+/** Of these people, the ones not yet sent to the owner. */
+export const unsentSeekers = internalQuery({
+  args: { keys: v.array(v.string()) },
+  returns: v.array(v.string()),
+  handler: async (ctx, { keys }) => {
+    const out: string[] = [];
+    for (const key of keys) {
+      const seen = await ctx.db.query("seekersSent").withIndex("by_key", (q) => q.eq("key", key)).first();
+      if (!seen) out.push(key);
+    }
+    return out;
+  },
+});
+
+export const markSeekersSent = internalMutation({
+  args: { keys: v.array(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { keys }) => {
+    for (const key of keys) await ctx.db.insert("seekersSent", { key, at: Date.now() });
+    return null;
+  },
+});
+
 /**
  * Each morning: LinkedIn posts from the last day by sales people looking for work, emailed to the owner to comment on
  * by hand. Never comments or messages on its own: LinkedIn bans accounts for that.
@@ -254,12 +277,13 @@ export const sendCommentList = internalAction({
   args: { dryRun: v.optional(v.boolean()) },
   // Says what happened, so a run by hand shows why no email came.
   returns: v.string(),
-  handler: async (_ctx, { dryRun }) => {
+  handler: async (ctx, { dryRun }) => {
     const owner = ownerEmail();
     if (!emailOn() || !owner || !env.APIFY_TOKEN) return `Off: email ${emailOn() ? "on" : "off"}, owner ${owner ? "set" : "missing"}, Apify ${env.APIFY_TOKEN ? "set" : "missing"}.`;
     let posts;
     try {
-      posts = await searchPosts(OPEN_TO_WORK_SEARCHES, 10, "24h");
+      // The past week, 20 a search (about $0.20): one day only turned up one or two people.
+      posts = await searchPosts(OPEN_TO_WORK_SEARCHES, 20, "week");
     } catch (err) {
       console.warn("Open-to-work search failed", String(err));
       return `Search failed: ${String(err)}`;
@@ -269,10 +293,14 @@ export const sendCommentList = internalAction({
         .map((p) => `[${whyNot(p.text, p.author.headline) || "KEEP"}] ${p.author.name} | ${p.author.headline.slice(0, 70)} | ${p.text.replace(/\s+/g, " ").slice(0, 90)}`)
         .join("\n");
     }
-    const picked = posts
-      .filter((p) => p.url && isSeekerPost(p.text, p.author.headline))
-      .slice(0, 10);
-    if (!picked.length) return `Found ${posts.length} posts, none from sales people looking for work. No email sent.`;
+    // One entry per person, keyed by their profile (or the post when there's no profile link).
+    const keyOf = (p: (typeof posts)[number]) => p.author.url || p.url;
+    const byPerson = new Map<string, (typeof posts)[number]>();
+    for (const p of posts) if (p.url && isSeekerPost(p.text, p.author.headline) && !byPerson.has(keyOf(p))) byPerson.set(keyOf(p), p);
+    const unsent: string[] = await ctx.runQuery(internal.growth.unsentSeekers, { keys: [...byPerson.keys()] });
+    const fresh = new Set(unsent);
+    const picked: (typeof posts)[number][] = [...byPerson.values()].filter((p) => fresh.has(keyOf(p))).slice(0, 10);
+    if (!picked.length) return `Found ${posts.length} posts, no new sales people looking for work. No email sent.`;
     const snippet = (t: string) => {
       const one = t.replace(/\s+/g, " ").trim();
       return one.length > 220 ? `${one.slice(0, 220)}…` : one;
@@ -280,7 +308,7 @@ export const sendCommentList = internalAction({
     await sendEmail({
       to: owner,
       subject: `${picked.length} sales ${picked.length === 1 ? "person" : "people"} looking for work today: worth a comment`,
-      text: `Posts from the last day by sales people looking for a job. 10 to 15 minutes of real comments here builds your name with exactly the people JobPipe is for.
+      text: `Posts from the past week by sales people looking for a job, none sent to you before. 10 to 15 minutes of real comments here builds your name with exactly the people JobPipe is for.
 
 How to use it:
 - Comment on the post with one specific tip for their situation, so your name is familiar.
@@ -297,6 +325,7 @@ ${picked
 
 ${appUrl()}/admin`,
     });
+    await ctx.runMutation(internal.growth.markSeekersSent, { keys: picked.map(keyOf) });
     return `Found ${posts.length} posts, emailed ${picked.length} to ${owner}.`;
   },
 });

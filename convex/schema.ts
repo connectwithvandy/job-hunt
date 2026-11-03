@@ -230,6 +230,8 @@ export default defineSchema({
   }).index("by_userId", ["userId"]),
 
   /** Each careers-board role by company and title, so a role taken down and put up again shows as a repost. */
+  // People already in the owner's open-to-work email (by profile link), so the weekly search doesn't repeat them.
+  seekersSent: defineTable({ key: v.string(), at: v.number() }).index("by_key", ["key"]),
   roleSightings: defineTable({ key: v.string(), firstSeen: v.number(), reposts: v.number(), lastClosedAt: v.optional(v.number()) }).index("by_key", ["key"]),
 
   /** Gmail messages already read, so the hourly script never counts one twice. */
