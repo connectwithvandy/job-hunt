@@ -60,6 +60,68 @@ export const ROLE_PAGES: RolePage[] = [
     jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india", "blr", "remote"], india: true },
   },
   {
+    slug: "sdr-salary-india",
+    title: "SDR salary in India (2026)",
+    jobsHeading: "SDR and BDR roles open right now",
+    description: "What SDRs and BDRs earn in India in 2026: typical total pay, fixed vs variable, what moves pay up or down, and what to ask before accepting an offer.",
+    intro:
+      "SDRs and BDRs at SaaS companies in India typically earn ₹10–22 lakh a year in total pay (fixed plus variable), from what I have seen working in sales development. How much of that is fixed depends on the company. Freshers, and roles selling only into India, often start lower.",
+    sections: [
+      {
+        heading: "What moves SDR pay up or down",
+        text: "The market you sell into matters most: roles selling into the US, UK or Europe usually pay more than roles selling into India. Then the company: funded or global SaaS companies tend to pay more than small local firms. Experience, outbound versus inbound work, and US or UK shift hours also change the offer.",
+      },
+      {
+        heading: "Fixed pay, variable pay and OTE",
+        text: "SDR offers are usually quoted as OTE, on-target earnings: fixed pay plus the variable pay you earn at 100% of target. Variable is usually paid monthly or quarterly on meetings held or pipeline created. Two offers with the same OTE can be very different if one is mostly fixed and the other mostly variable.",
+      },
+      {
+        heading: "What to ask before you accept",
+        text: "Ask for the fixed and variable split, what the target is and how it is measured, how many SDRs hit target last quarter, how often variable is paid, whether there are accelerators above target, and how long the ramp period is before full target applies.",
+      },
+    ],
+    faq: [
+      ["What is the average SDR salary in India?", "Most SDR and BDR roles at SaaS companies pay around ₹10–22 lakh a year in total pay, fixed plus variable. Fresher roles and roles selling only into India often start below that range."],
+      ["Do SDRs get commission?", "Yes, as variable pay tied to meetings held or pipeline created, not closed revenue. It is usually paid monthly or quarterly and is part of the OTE quoted in the offer."],
+      ["Do SDRs selling to the US earn more?", "Usually, yes. Roles selling into the US, UK or Europe tend to pay more than India-only roles, and often involve shifted working hours. Ask whether a shift allowance or transport is included."],
+      ["How much more does an Account Executive earn than an SDR?", "A clear step up. AEs at SaaS companies in India typically earn ₹17–30 lakh a year in total pay, with a larger share as variable tied to closed revenue."],
+      ["Is SDR a good job in India?", "For people who want a B2B sales career, yes: it is the most common way into SaaS sales, pay is good for an entry role, and most companies promote strong SDRs to Account Executive within one to two years."],
+      ["How do I negotiate an SDR offer?", "Compare offers on OTE and on how achievable the target is, not just fixed pay. Ask how many SDRs hit target last quarter, and negotiate the fixed part if the variable looks hard to earn."],
+    ],
+    jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india", "blr", "remote"], india: true },
+  },
+  {
+    slug: "account-executive-salary-india",
+    title: "Account Executive salary in India (2026)",
+    jobsHeading: "Account Executive roles open right now",
+    description: "What Account Executives earn in India in 2026: typical total pay, OTE and commission, what changes pay, and what to ask about quota before accepting.",
+    intro:
+      "Account Executives (AEs) at SaaS companies in India typically earn ₹17–30 lakh a year in total pay (fixed plus variable), from what I have seen working in sales. How much of that is fixed depends on the company. Enterprise roles at large global software companies often pay more; SMB and India-only roles often pay less.",
+    sections: [
+      {
+        heading: "What moves AE pay up or down",
+        text: "Segment and deal size come first: enterprise AEs running large, long deals usually earn more than SMB AEs closing many small ones. The market you sell into, the company's size and funding, and your record against quota also move the offer.",
+      },
+      {
+        heading: "OTE, commission and quota",
+        text: "AE offers are quoted as OTE, on-target earnings: fixed pay plus commission at 100% of quota. AEs usually carry a bigger variable share than SDRs, paid on closed revenue. The quota decides whether that variable is real: an OTE is only worth what the team actually hits.",
+      },
+      {
+        heading: "What to ask before you accept",
+        text: "Ask for the fixed and variable split, the quota and how it was set, what share of AEs hit quota last year, whether commission is capped, whether there are accelerators above quota, any clawbacks, and how long the ramp is before full quota applies.",
+      },
+    ],
+    faq: [
+      ["What is the average Account Executive salary in India?", "Most AE roles at SaaS companies pay around ₹17–30 lakh a year in total pay, fixed plus variable. Enterprise roles at large global companies often pay more, and SMB or India-only roles often less."],
+      ["What is OTE for an Account Executive?", "On-target earnings: fixed pay plus the commission you earn at 100% of quota. Ask for the split, because two offers with the same OTE can carry very different risk."],
+      ["How is AE commission paid?", "As a share of the revenue you close, usually paid monthly or quarterly once the deal is signed or paid. Many plans pay more per rupee above quota (accelerators); some cap it."],
+      ["What share of AEs hit quota?", "It varies widely by company, which is why you should ask. If few AEs on the team hit quota last year, the variable part of the OTE is unlikely, and the fixed part is what you should compare."],
+      ["How much does pay go up from SDR to AE?", "A clear step up: SDRs at SaaS companies in India typically earn ₹10–22 lakh a year in total pay, AEs ₹17–30 lakh, with more of it tied to closed revenue."],
+      ["Do remote AE roles for global companies pay more?", "Often, when they sell into the US, UK, Europe or the Middle East. Check the currency, whether you are an employee or a contractor, and who pays for benefits."],
+    ],
+    jobs: { titles: ["Account Executive", "Enterprise Account Executive", "Mid Market Account Executive"], exclude: /\bkey account\b|executive\s*-\s*account management|\btalent account\b/i, regions: ["blr", "india", "remote"], india: true },
+  },
+  {
     slug: "sdr-bdr-jobs-india",
     title: "SDR and BDR jobs in India and remote",
     description: "Sales Development Representative (SDR) and Business Development Representative (BDR) jobs in India and remote, updated every morning from company careers pages.",
