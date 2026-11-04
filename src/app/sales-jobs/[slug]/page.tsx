@@ -41,7 +41,7 @@ async function openRoles(page: RolePage) {
       // The same role posted in several cities shows once.
       .filter((j) => !seen.has(`${j.company}|${j.title}`) && !!seen.add(`${j.company}|${j.title}`))
       .sort((a, b) => (Date.parse(b.postedAt ?? "") || 0) - (Date.parse(a.postedAt ?? "") || 0))
-      .slice(0, 15);
+      .slice(0, 25);
   } catch (err) {
     // A failed read leaves the guide as it is; the list comes back on the next rebuild.
     console.warn("Guide roles failed", err);

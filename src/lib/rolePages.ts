@@ -17,10 +17,10 @@ export type RolePage = {
 export const ROLE_PAGES: RolePage[] = [
   {
     slug: "sdr-bdr-jobs-india",
-    title: "SDR and BDR jobs in India",
-    description: "Find SDR and BDR jobs in India and remote APAC. JobPipe scores every opening against your CV, tailors your CV and shows who can refer you.",
+    title: "SDR and BDR jobs in India and remote",
+    description: "Sales Development Representative (SDR) and Business Development Representative (BDR) jobs in India and remote, updated every morning from company careers pages.",
     intro:
-      "Sales Development Representative (SDR) and Business Development Representative (BDR) roles are the most common way into B2B sales. Most openings are at SaaS companies in Bengaluru, Gurugram, Mumbai and Pune, plus remote roles selling into the US, EMEA and APAC.",
+      "A Sales Development Representative (SDR) or Business Development Representative (BDR) finds and qualifies new buyers and books meetings for Account Executives. It is the most common way into B2B sales. Most openings are at SaaS companies in Bengaluru, Gurugram, Mumbai and Pune, plus remote roles selling into the US, EMEA and APAC.",
     looksFor: [
       "Meetings booked and pipeline created, with numbers and percentage of target.",
       "Outbound activity that worked: channels, sequences and reply rates.",
@@ -29,6 +29,8 @@ export const ROLE_PAGES: RolePage[] = [
     ],
     faq: [
       ["What is the difference between an SDR and a BDR?", "An SDR usually follows up on inbound leads and a BDR usually prospects outbound, but many companies use the two titles for the same job. Read the job description, not the title, to see which one it is."],
+      ["What does an SDR do?", "An SDR researches target companies, reaches buyers by email, phone and LinkedIn, qualifies interest and books meetings for Account Executives. Day to day that means prospecting lists, outreach sequences, follow-ups and logging everything in the CRM, measured on meetings booked and pipeline created."],
+      ["Are there remote SDR and BDR jobs in India?", "Yes. Many companies hire SDRs and BDRs remotely from India, usually to sell into the US, EMEA or APAC. The list on this page includes remote roles open to people in India, not just office roles."],
       ["Do SDR jobs in India sell to the US?", "Many do. A large share of SDR and BDR roles in Bengaluru and remote India sell into North America or EMEA, often on shifted hours. The job description usually says which region and time zone."],
       ["How does JobPipe help with SDR jobs?", "JobPipe searches job boards and company careers pages every morning, scores each SDR or BDR opening against your CV with a reason, tailors your CV without inventing anything, and shows who you know at the company."],
       ["How do I get an SDR job with no sales experience?", "Show proof you can do the work: customer-facing jobs, targets you hit, cold outreach you have done and clear writing. Many companies hire freshers and career switchers as SDRs, and a short note on why sales, plus a sample outreach email, helps you stand out."],
@@ -36,7 +38,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["What happens in an SDR interview?", "Usually a recruiter call, a hiring manager round and a mock cold call or written outreach exercise. Prepare a 30-second pitch, your numbers against target and questions about the market you would sell into."],
       ["How do I find out what an SDR role pays?", "Ask the recruiter for the range early, including the split between fixed pay and variable (incentive) pay and how often variable is paid. Compare on-target earnings (fixed plus variable at 100% of target), not just the fixed part."],
     ],
-    jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india"], india: true },
+    jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india", "blr", "remote"], india: true },
   },
   {
     slug: "sdr-manager-jobs",
@@ -63,8 +65,8 @@ export const ROLE_PAGES: RolePage[] = [
   },
   {
     slug: "account-executive-jobs-bengaluru",
-    title: "Account Executive jobs in Bengaluru and India",
-    description: "Account Executive jobs in Bengaluru, India and remote APAC: SMB, mid-market and enterprise. JobPipe scores each one against your CV and finds warm intros.",
+    title: "Account Executive jobs in Bengaluru, India and remote",
+    description: "Account Executive (AE) jobs in Bengaluru, India and remote: SMB, mid-market and enterprise SaaS sales, updated every morning from company careers pages.",
     intro:
       "Account Executives (AEs) own deals from first meeting to signed contract. Bengaluru has the biggest share of SaaS AE roles in India, from SMB and mid-market to enterprise, with more remote roles covering APAC and the Middle East.",
     looksFor: [
@@ -74,6 +76,8 @@ export const ROLE_PAGES: RolePage[] = [
       "Forecast accuracy and the CRM you ran your pipeline in.",
     ],
     faq: [
+      ["What does an Account Executive do?", "An Account Executive (AE) runs deals from first meeting to signed contract: discovery calls, demos, proposals, negotiation and closing. AEs carry a revenue quota and are measured on what they close, often with SDRs booking some of their meetings."],
+      ["Are there remote Account Executive jobs in India?", "Yes. Some SaaS companies hire AEs remotely from India, usually to cover India, APAC or the Middle East. The list on this page includes remote roles open to people in India alongside Bengaluru ones."],
       ["What is a full-cycle Account Executive?", "A full-cycle AE finds their own pipeline as well as closing it, instead of relying only on meetings booked by SDRs. Many startup AE roles in India are full cycle."],
       ["How do I show I'm ready for an enterprise AE role?", "Show deal sizes, cycle length, multi-threading and quota attainment in numbers. JobPipe's tailored CV puts the proof a job asks for first, using only facts from your own CV."],
       ["Does JobPipe apply to AE jobs for me?", "No. JobPipe finds and scores jobs, tailors your CV and drafts referral notes, but you apply yourself. Recruiters are wary of bot applications, so this keeps your applications credible."],
@@ -82,7 +86,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["What happens in an Account Executive interview?", "Usually a recruiter call, a hiring manager round and a mock discovery call or deal presentation, sometimes with a panel. Bring your attainment by year, one deal from first call to close, and how you build your own pipeline."],
       ["What is OTE in an Account Executive offer?", "On-target earnings: fixed pay plus the variable pay you earn at 100% of quota. Ask for the split, the quota, how many reps hit it last year and whether commission is capped."],
     ],
-    jobs: { titles: ["Account Executive", "Enterprise Account Executive", "Mid Market Account Executive"], regions: ["blr"], india: true },
+    jobs: { titles: ["Account Executive", "Enterprise Account Executive", "Mid Market Account Executive"], exclude: /\bkey account\b|executive\s*-\s*account management|\btalent account\b/i, regions: ["blr", "india", "remote"], india: true },
   },
   {
     slug: "sales-leadership-jobs-india",
@@ -179,4 +183,4 @@ export const ROLE_PAGES: RolePage[] = [
 ];
 
 /** When the guide text last changed. Shown on each guide and given to search engines; move it on when you edit a guide. */
-export const GUIDES_UPDATED = "2026-11-01";
+export const GUIDES_UPDATED = "2026-11-04";
