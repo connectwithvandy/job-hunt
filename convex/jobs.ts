@@ -115,8 +115,12 @@ export async function contactsAt(ctx: QueryCtx, userId: Id<"users">, company: st
         )
       : ctx.db.query("contacts").withIndex("by_userId_and_companyKey", (q) => q.eq("userId", userId).eq("companyKey", key));
   for (const c of await longer.take(60)) if (!c.left) found.set(c._id, c);
-  for (let n = 6; n < key.length; n++) {
-    const prefix = key.slice(0, n);
+  // Contacts filed under a shorter name ("Google" for "Google Customer Solutions"). Only whole-word prefixes:
+  // one lookup per letter ran up to ~20 lookups a company and timed out the referrals page (4 Nov).
+  const words = company.trim().split(/\s+/);
+  const prefixes = new Set(words.slice(1).map((_, i) => companyKey(words.slice(0, i + 1).join(" "))));
+  for (const prefix of prefixes) {
+    if (prefix.length < 6 || prefix.length >= key.length) continue;
     for (const c of await ctx.db
       .query("contacts")
       .withIndex("by_userId_and_companyKey", (q) => q.eq("userId", userId).eq("companyKey", prefix))
