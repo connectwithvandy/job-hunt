@@ -205,7 +205,9 @@ export const completeOnboarding = mutation({
       if (existing) await ctx.db.replace("tracks", existing._id, { userId, ...track });
       else await ctx.db.insert("tracks", { userId, ...track });
     }
-    await ctx.db.patch("profiles", profile._id, { onboarded: true, location: args.location.trim() || "India" });
+    // Morning autopilot starts on, so new roles arrive (and the new-roles email has something to send) from day one.
+    // Someone who turned it off keeps it off.
+    await ctx.db.patch("profiles", profile._id, { onboarded: true, location: args.location.trim() || "India", autopilot: profile.autopilot ?? true });
     return null;
   },
 });
@@ -297,7 +299,7 @@ export const setAutopilot = mutation({
 export const autopilotUsers = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const profiles = await ctx.db.query("profiles").withIndex("by_autopilot", (q) => q.eq("autopilot", true)).take(50);
+    const profiles = await ctx.db.query("profiles").withIndex("by_autopilot", (q) => q.eq("autopilot", true)).take(300);
     return profiles.map((p) => p.userId);
   },
 });
@@ -519,6 +521,22 @@ export const addLeaderTitles = internalMutation({
       const missing = SALES_LEADER_EXTRAS.filter((x) => !t.titles.some((y) => y.toLowerCase() === x.toLowerCase()));
       if (!missing.length) continue;
       await ctx.db.patch(t._id, { titles: [...t.titles, ...missing] });
+      changed++;
+    }
+    return changed;
+  },
+});
+
+/** One-off (4 Nov 2026): turns morning autopilot on for every set-up member who never chose either way. Safe to run twice. */
+export const autopilotForAll = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let changed = 0;
+    for (const row of await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000)) {
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+      if (!profile?.onboarded || profile.autopilot !== undefined) continue;
+      await ctx.db.patch("profiles", profile._id, { autopilot: true });
       changed++;
     }
     return changed;
