@@ -31,6 +31,7 @@ const HONESTY = `Hard rules:
 - Use only facts that appear in the candidate's master CV. Never invent employers, titles, dates, numbers, tools or achievements.
 - You may reorder, shorten, merge and reword, but every number you write must appear in the master CV exactly.
 - Every claim, not just every number, must trace to a line in the master CV. A number keeps its own label, period and owner: if the CV says "qualified pipeline", don't call it "Stage 1 pipeline"; a team's result is never the candidate's own.
+- Never turn a dated figure into relative time ("last quarter", "this year", "recently", "currently"): name the period exactly as the CV does ("in Q1 FY26"). You don't know today's date relative to the CV.
 - Years of experience are copied from the CV, never worked out from dates. Industries, markets and buyers are only the ones the CV names.
 - Use the posting's word only when it means exactly the same thing as the CV's word. When unsure, keep the CV's word.
 - Never present the candidate as holding a role or title they haven't held, and never as the job they're applying for. The headline and summary say what they are today, from the CV.
