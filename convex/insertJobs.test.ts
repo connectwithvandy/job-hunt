@@ -7,7 +7,7 @@ import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
-const job = (id: string, title: string, postedAt: string | undefined, source: "dreamwork" | "pasted" = "dreamwork") => ({
+const job = (id: string, title: string, postedAt: string | undefined, source: "dreamwork" | "pasted" | "careers" = "dreamwork") => ({
   externalId: id,
   source,
   url: `https://example.com/${id}`,
@@ -33,6 +33,18 @@ test("searched jobs posted over 45 days ago aren't saved; fresh ones and ones yo
   expect(added).toBe(3);
   const titles = await t.run(async (ctx) => (await ctx.db.query("jobs").collect()).map((j) => j.title).sort());
   expect(titles).toEqual(["Enterprise Account Executive", "Founding Account Executive", "Senior Account Executive"]);
+});
+
+test("a careers-board role is kept however old, and the count matches what's saved", async () => {
+  const t = convexTest(schema, modules);
+  rateLimiter.register(t);
+  const userId = await t.run(async (ctx) => await ctx.db.insert("users", { email: "c@example.com" }));
+  const old = new Date(Date.now() - 90 * 86_400_000).toISOString();
+  const first = await t.mutation(internal.jobs.insertMany, { userId, jobs: [job("e", "Strategic Account Executive", old, "careers"), job("f", "Account Executive", old)] });
+  expect(first).toMatchObject({ added: 1, kept: 1 });
+  // Seen again the next morning: nothing new, but it still counts as one open role.
+  const again = await t.mutation(internal.jobs.insertMany, { userId, jobs: [job("e", "Strategic Account Executive", old, "careers")] });
+  expect(again).toMatchObject({ added: 0, kept: 1 });
 });
 
 test("the first scoring after sign-up runs once, and never for someone who already has scores", async () => {

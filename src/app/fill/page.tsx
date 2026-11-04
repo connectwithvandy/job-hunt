@@ -104,7 +104,7 @@ function Fill() {
         </div>
       </div>
       <ul className="space-y-1 text-sm text-ink-2">
-        <li>{data.answers.filter((a) => a.exact).length} answers to this form&apos;s own questions, plus your saved answers</li>
+        <li>{data.answers.filter((a) => a.exact && a.answer).length} answers to this form&apos;s own questions, plus your saved answers</li>
         <li>{data.resume ? (data.tailored ? "Your tailored CV" : "Your CV (not tailored for this job yet)") : "No CV yet: upload one on the CVs page"}</li>
         {data.coverLetter && <li>Your cover letter</li>}
       </ul>

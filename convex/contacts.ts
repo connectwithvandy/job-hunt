@@ -116,7 +116,8 @@ export const warmCompanies = query({
       if (j.status === "dismissed" || j.status === "rejected") continue;
       // A closed posting, or a new one up for over 45 days, is likely filled: not worth asking a friend about.
       // Jobs you already asked about stay, so their notes don't vanish.
-      const posted = j.postedAt ? Date.parse(j.postedAt) : j._creationTime;
+      // Careers-board roles were live when found, so they age from then.
+      const posted = j.postedAt && j.source !== "careers" ? Date.parse(j.postedAt) : j._creationTime;
       const stale = j.liveCheck?.state === "closed" || (j.status === "new" && now - posted > 45 * 86_400_000);
       if (stale && !j.outreach.length) continue;
       const k = companyKey(j.company);

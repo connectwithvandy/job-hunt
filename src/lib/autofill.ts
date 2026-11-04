@@ -18,7 +18,8 @@ const FILL_SOURCE = String.raw`function (answers, files) {
   const rules = [
     [/\bfirst name\b|\bgiven name\b/, () => first],
     [/\blast name\b|\bsurname\b|\bfamily name\b/, () => last],
-    [/\bfull name\b|^name$|^your name$/, () => fullName],
+    // Ashby labels its name box "Name" with the field name "_systemfield_name" beside it.
+    [/\bfull name\b|^name$|^your name$|^name systemfield name$/, () => fullName],
     [/\bemail\b/, () => get("Email")],
     [/\bphone\b|\bmobile\b|\bcontact number\b/, () => get("Phone")],
     [/linkedin/, () => get("LinkedIn profile")],
@@ -64,7 +65,9 @@ const FILL_SOURCE = String.raw`function (answers, files) {
     return norm(parts.join(" "));
   };
   // This form's own questions, read ahead by JobPipe: matched on the form's exact wording first.
-  const exact = answers.filter((a) => a.exact).map((a) => ({ q: norm(a.question), answer: a.answer })).filter((a) => a.q.length > 3);
+  // One left blank on purpose (like "who referred you? their email") stays blank instead of falling to the rules below.
+  // Matched on the question's first 40 characters: forms often show only its first sentence as the label.
+  const exact = answers.filter((a) => a.exact).map((a) => ({ q: norm(a.question).slice(0, 40), answer: a.answer })).filter((a) => a.q.length > 3);
   const answerFor = (label) => {
     for (const a of exact) if (label.includes(a.q)) return a.answer;
     // An empty saved answer doesn't stop the search: "current role" in a "why leave" question should fall through.

@@ -360,6 +360,8 @@ export const insertMany = internalMutation({
   args: { userId: v.id("users"), jobs: v.array(v.object(jobFields)) },
   handler: async (ctx, { userId, jobs }) => {
     let added = 0;
+    /** Saved now or already there: what the Jobs page will show. */
+    let kept = 0;
     let lastId: Id<"jobs"> | null = null;
     const fit = await quickFitFor(ctx, userId);
     for (const found of jobs) {
@@ -377,6 +379,11 @@ export const insertMany = internalMutation({
           .first());
       if (existing) {
         lastId = existing._id;
+        kept++;
+        // A careers board can move its links (like a company leaving Ashby's hosted page): keep the saved one working.
+        if (job.source === "careers" && existing.source === "careers" && job.url && existing.url !== job.url) {
+          await ctx.db.patch("jobs", existing._id, { url: job.url, sourceUrl: job.sourceUrl ?? job.url });
+        }
         continue;
       }
       // Bank and lender sales jobs never fit a tech sales search; one you add yourself is still saved.
@@ -385,14 +392,16 @@ export const insertMany = internalMutation({
       // Some boards return roles posted months ago. The Jobs list hides anything over 45 days old as likely
       // filled, so saving them only inflated "N found".
       const posted = job.postedAt ? Date.parse(job.postedAt) : NaN;
-      if (searched && !Number.isNaN(posted) && Date.now() - posted > STALE_AFTER) continue;
+      // A role on the company's own careers board today is open, however long ago it went up.
+      if (searched && job.source !== "careers" && !Number.isNaN(posted) && Date.now() - posted > STALE_AFTER) continue;
       const { description, pack, research, prep, ...light } = job;
       lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack, quickFit: light.quickFit ?? fit(job) });
       if (job.source !== "careers") await noteBoard(ctx, job.company, [job.sourceUrl, job.url]);
       if (description || pack || research || prep) await ctx.db.insert("jobDetails", { jobId: lastId, userId, ...defined({ description, pack, research, prep }) });
       added++;
+      kept++;
     }
-    return { added, lastId };
+    return { added, kept, lastId };
   },
 });
 

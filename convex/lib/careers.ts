@@ -300,6 +300,16 @@ async function readGoogle(board: CareerBoard, titles: string[]): Promise<CareerJ
   return [...jobs.values()];
 }
 
+/** Whether the company has switched off its jobs.ashbyhq.com page (it answers "Page not found"). */
+async function ashbyPageOff(slug: string) {
+  try {
+    const res = await fetch(`https://jobs.ashbyhq.com/${slug}`, { method: "HEAD", signal: AbortSignal.timeout(10_000) });
+    return res.status === 404;
+  } catch {
+    return false;
+  }
+}
+
 export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
   if (board.ats === "workday") return await readWorkday(board, titles, known);
   if (board.ats === "google") return await readGoogle(board, titles);
@@ -311,6 +321,8 @@ export async function readBoard(board: CareerBoard, titles: string[] = [], known
   const id = (jobId: string | number) => `${board.ats}:${board.slug}:${jobId}`;
   if (board.ats === "ashby") {
     const body = await getJson<{ jobs: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`);
+    // Some companies switch off Ashby's hosted page and list jobs on their own site, so Ashby's job links are dead ends.
+    const ownSite = board.careersUrl ?? (board.website && (await ashbyPageOff(board.slug)) ? `https://${board.website}/careers` : null);
     return body.jobs.filter((j) => j.isListed !== false).map((j) => {
       const places = [j.location, ...(j.secondaryLocations ?? []).map((s) => s.location)].filter(Boolean).join("; ");
       return {
@@ -321,7 +333,7 @@ export async function readBoard(board: CareerBoard, titles: string[] = [], known
         workSetting: j.isRemote ? "remote" : undefined,
         salary: j.shouldDisplayCompensationOnJobPostings ? j.compensation?.compensationTierSummary || undefined : undefined,
         postedAt: j.publishedAt,
-        url: j.jobUrl,
+        url: ownSite ?? j.jobUrl,
         description: cut(j.descriptionPlain),
       };
     });

@@ -22,7 +22,9 @@ export const refresh = internalAction({
     let added = 0;
     let removed = 0;
     const one = async (board: CareerBoard) => {
-      const have = new Set<string>(await ctx.runQuery(internal.careers.idsFor, { company: board.name }));
+      const saved: { externalId: string; url: string }[] = await ctx.runQuery(internal.careers.linksFor, { company: board.name });
+      const have = new Set(saved.map((s) => s.externalId));
+      const linkOf = new Map(saved.map((s) => [s.externalId, s.url]));
       const read = await readBoard(board, titles, have);
       // Workday roles already saved come back as ids only; they're still open.
       const stillOpen = read.filter((j) => "known" in j).map((j) => j.externalId);
@@ -33,7 +35,8 @@ export const refresh = internalAction({
         .filter((j) => j.india || j.workSetting === "remote" || /remote|distributed/i.test(j.location))
         .filter((j) => titles.some((t) => titleMatches(t, j.title)));
       const live = new Set([...jobs.map((j) => j.externalId), ...stillOpen]);
-      const fresh = jobs.filter((j) => !have.has(j.externalId));
+      // New roles, plus saved ones whose link the board moved (addJobs updates those links).
+      const fresh = jobs.filter((j) => !have.has(j.externalId) || linkOf.get(j.externalId) !== j.url);
       const gone = [...have].filter((id) => !live.has(id));
       for (let i = 0; i < fresh.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: fresh.slice(i, i + 50) });
       for (let i = 0; i < gone.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: gone.slice(i, i + 200) });

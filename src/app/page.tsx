@@ -57,6 +57,8 @@ function startedFirstSearch() {
 
 export default function Today() {
   const me = useQuery(api.users.me);
+  // Same query as the menu (shared, not fetched twice), so the greeting uses the same name.
+  const account = useQuery(api.access.mine);
   const [searching] = useState(startedFirstSearch);
   const [searchError] = useState(firstSearchError);
   const jobs = useQuery(api.jobs.list);
@@ -68,7 +70,8 @@ export default function Today() {
   const markSeen = useMutation(api.users.markSeen);
   useEffect(() => void markSeen().catch(() => {}), [markSeen]);
   if (!me || !jobs) return <Loading />;
-  const firstName = me.resume?.name.split(" ")[0];
+  // The name on the account first, so the greeting matches the menu; the CV name only if none was given.
+  const firstName = (account?.name || me.resume?.name || "").split(" ")[0];
 
   const stats = me.tracks.map((t) => {
     const mine = jobs.filter((j) => jobTrackKey(j, me.tracks) === t.key && j.status !== "dismissed");

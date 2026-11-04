@@ -1,3 +1,5 @@
+import { companyKey } from "./company";
+
 // Companies whose own careers boards we read every morning. Most fast-growing startups post
 // only there (Ashby, Greenhouse or Lever), never on the job boards, so searches would miss them.
 // Picked for B2B, SaaS and AI companies hiring in India or remote. The weekly finder
@@ -6,7 +8,14 @@
 // host/tenant/site from the careers address, e.g. adobe.wd5.myworkdayjobs.com/external_experienced.
 // A SmartRecruiters slug is the company name in jobs.smartrecruiters.com/canva.
 
-export type CareerBoard = { name: string; website: string; ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google"; slug: string };
+export type CareerBoard = {
+  name: string;
+  website: string;
+  ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google";
+  slug: string;
+  /** The company's own careers page, when its board's hosted page is switched off (Cursor's Ashby page is a 404). */
+  careersUrl?: string;
+};
 
 export const CAREER_BOARDS: CareerBoard[] = [
   // Voice and AI apps
@@ -20,7 +29,7 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Speechify", website: "speechify.com", ats: "greenhouse", slug: "speechify" },
   { name: "Observe.AI", website: "observe.ai", ats: "greenhouse", slug: "observeai" },
   { name: "Lovable", website: "lovable.dev", ats: "ashby", slug: "lovable" },
-  { name: "Cursor", website: "cursor.com", ats: "ashby", slug: "cursor" },
+  { name: "Cursor", website: "cursor.com", ats: "ashby", slug: "cursor", careersUrl: "https://cursor.com/careers" },
   { name: "Composio", website: "composio.dev", ats: "ashby", slug: "composio" },
   { name: "Writer", website: "writer.com", ats: "ashby", slug: "writer" },
   { name: "Harvey", website: "harvey.ai", ats: "ashby", slug: "harvey" },
@@ -101,3 +110,40 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Thomson Reuters", website: "thomsonreuters.com", ats: "workday", slug: "thomsonreuters.wd5/thomsonreuters/External_Career_Site" },
   { name: "Broadcom", website: "broadcom.com", ats: "workday", slug: "broadcom.wd1/broadcom/External_Career" },
 ];
+
+/** The public careers page for a board, where a person can browse every open role. */
+export function boardUrl(b: Pick<CareerBoard, "ats" | "slug">): string | null {
+  switch (b.ats) {
+    case "ashby":
+      return `https://jobs.ashbyhq.com/${b.slug}`;
+    case "greenhouse":
+      return `https://job-boards.greenhouse.io/${b.slug}`;
+    case "lever":
+      return `https://jobs.lever.co/${b.slug}`;
+    case "smartrecruiters":
+      return `https://jobs.smartrecruiters.com/${b.slug}`;
+    case "rippling":
+      return `https://ats.rippling.com/${b.slug}/jobs`;
+    case "keka":
+      return `https://${b.slug}.keka.com/careers`;
+    case "freshteam":
+      return `https://${b.slug}.freshteam.com/jobs`;
+    case "zoho":
+      return `https://${b.slug}/jobs/Careers`;
+    case "workday": {
+      // Stored as "<tenant>.wdN/<tenant>/<site>".
+      const [host, , site] = b.slug.split("/");
+      return host && site ? `https://${host}.myworkdayjobs.com/${site}` : null;
+    }
+    case "google":
+      return "https://www.google.com/about/careers/applications/jobs/results";
+    default:
+      return null;
+  }
+}
+
+/** A company's careers page: its known board, else a search that lands on it in one click. */
+export function careersPage(name: string, key: string): string {
+  const board = CAREER_BOARDS.find((b) => companyKey(b.name) === key || companyKey(b.name) === companyKey(name));
+  return (board && (board.careersUrl ?? boardUrl(board))) || `https://www.google.com/search?q=${encodeURIComponent(`${name} careers`)}`;
+}

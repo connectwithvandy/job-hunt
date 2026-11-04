@@ -1297,13 +1297,15 @@ async function checkCompanyRoles(ctx: ActionCtx, me: Context, p: Doc<"prospects"
   if (board) {
     const rows: CareerRow[] = await ctx.runQuery(internal.careers.forCompany, { company: board });
     const found = await withCareerTexts(ctx, rows.filter(fitsPlace).slice(0, 100));
-    if (found.length) await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: found.map((f) => fromFound(f, trackFor(f.title))) });
-    return found.length;
+    if (!found.length) return 0;
+    // Count what the Jobs page will show, not what the board listed: some roles are filtered out when saved.
+    const { kept }: { kept: number } = await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: found.map((f) => fromFound(f, trackFor(f.title))) });
+    return kept;
   }
   const fits = (await companyListings(p.name)).filter(fitsPlace);
   if (!fits.length) return 0;
-  await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: fits.map((l) => fromListing(l, trackFor(l.title))) });
-  return fits.length;
+  const { kept }: { kept: number } = await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: fits.map((l) => fromListing(l, trackFor(l.title))) });
+  return kept;
 }
 
 export const checkOpenRoles = action({

@@ -74,7 +74,8 @@ export const forFill = query({
       resume = (resumes.find((r) => r._id === profile?.defaultResumeId) ?? resumes[0])?.resume;
       tailored = false;
     }
-    const exact = (d?.applyForm?.questions ?? []).filter((q) => q.answer.trim()).map((q) => ({ question: q.question, answer: q.answer, exact: true }));
+    // Blank ones too: a question the candidate must answer must not be filled by a looser match (like their own email).
+    const exact = (d?.applyForm?.questions ?? []).map((q) => ({ question: q.question, answer: q.answer.trim(), exact: true }));
     const saved = (profile?.answers ?? []).filter((a) => a.question.trim() && a.answer.trim()).map((a) => ({ question: a.question, answer: a.answer, exact: false }));
     return {
       company: job.company,

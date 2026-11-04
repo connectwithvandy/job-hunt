@@ -115,11 +115,12 @@ export const trackTitles = internalQuery({
   },
 });
 
-export const idsFor = internalQuery({
+/** Each saved role's id and link, so a refresh can spot links the board has moved. */
+export const linksFor = internalQuery({
   args: { company: v.string() },
   handler: async (ctx, { company }) => {
     const rows = await ctx.db.query("careerJobs").withIndex("by_company", (q) => q.eq("company", company)).take(3000);
-    return rows.map((r) => r.externalId);
+    return rows.map((r) => ({ externalId: r.externalId, url: r.url }));
   },
 });
 
@@ -131,7 +132,12 @@ export const addJobs = internalMutation({
   args: { jobs: v.array(careerJobV) },
   handler: async (ctx, { jobs }) => {
     for (const { description, ...job } of jobs) {
-      if (await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.eq("externalId", job.externalId)).first()) continue;
+      const have = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.eq("externalId", job.externalId)).first();
+      if (have) {
+        // The board moved its links (like Cursor leaving Ashby's hosted page): keep ours pointing somewhere real.
+        if (have.url !== job.url) await ctx.db.patch("careerJobs", have._id, { url: job.url });
+        continue;
+      }
       await ctx.db.insert("careerJobs", job);
       if (description) await ctx.db.insert("careerJobTexts", { externalId: job.externalId, description });
       // The same title back after it was taken down is a repost.

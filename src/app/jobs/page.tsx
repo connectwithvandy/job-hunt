@@ -82,7 +82,8 @@ function Jobs() {
   const region = regionParam === "all" ? null : (regionParam ?? (homeIsBlr ? "blr" : null));
 
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
-  const isOld = (j: (typeof jobs)[number]) => j.status === "new" && now - (j.postedAt ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000;
+  // A role from a company's own careers board was live when found, so its age counts from then.
+  const isOld = (j: (typeof jobs)[number]) => j.status === "new" && now - (j.postedAt && j.source !== "careers" ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000;
   const oldCount = jobs.filter(isOld).length;
   // Applied and later live on the Tracker, so this list stays jobs you can still apply to.
   const isApplied = (j: (typeof jobs)[number]) => j.status !== "new" && j.status !== "applying" && j.status !== "dismissed";
@@ -114,8 +115,10 @@ function Jobs() {
     .sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite));
   // Weak first guesses (no AI score, guess under the line) fold away unless a filter asks for them.
   const isWeak = (j: ListJob) => !j.favorite && fitFor(j, track) < 0 && (j.quickFit ?? 0) < WEAK_GUESS;
-  const weakCount = show ? 0 : sorted.filter(isWeak).length;
-  const visible = showWeak || show ? sorted : sorted.filter((j) => !isWeak(j));
+  // Searching by name (like "Cursor" from its company card) means you want those roles, weak or not.
+  const searching = q.trim().length > 0;
+  const weakCount = show || searching ? 0 : sorted.filter(isWeak).length;
+  const visible = showWeak || show || searching ? sorted : sorted.filter((j) => !isWeak(j));
   // In the fit order, a heading marks where AI scores give way to first guesses, and where low AI scores start.
   const section = (j: ListJob) => (sort !== "fit" || j.favorite ? null : fitTier(fitFor(j, track)));
   const SECTION_NAMES = ["Scored below 60 by the AI", "Not scored yet: first guesses from the title and words", "Scored by the AI"];

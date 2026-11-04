@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
+import { careersPage } from "../../../convex/lib/careerBoards";
 import { linkedInPeopleSearch } from "../../../convex/lib/company";
 import { PageHead, ScorePill } from "@/components/bits";
 import { HiringContacts } from "@/components/job-client";
@@ -263,8 +264,11 @@ function Companies() {
                         return roles ? `Found ${roles} sales or GTM ${roles === 1 ? "role" : "roles"} in Bengaluru or remote. They're on the Jobs page.` : "No sales or GTM roles in Bengaluru or remote right now.";
                       }}
                     >
-                      Check open roles
+                      Refresh roles
                     </ActionButton>
+                    <a className="btn btn-ghost btn-sm" href={careersPage(p.name, p.key)} target="_blank" rel="noreferrer">
+                      Careers page ↗
+                    </a>
                     <button className="text-ink-3 underline hover:text-ink" onClick={() => void setDream({ prospectId: p._id, dream: !p.dream })}>
                       {p.dream ? "Take off dream list" : "Add to dream list"}
                     </button>

@@ -32,9 +32,14 @@ export const readForm = action({
     const userId = await requireUserId(ctx);
     const job = (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">;
     const link = job.sourceUrl || job.url || "";
+    // A careers-board job keeps its board and id in externalId ("careers:ashby:cursor:<id>"), which still works
+    // when the link points at the company's own site instead.
+    const ext = job.externalId.match(/^careers:(ashby|greenhouse|lever):([^:]+):(.+)$/);
+    const board = boardFromUrl(link) ?? (ext ? { ats: ext[1], slug: ext[2] } : null);
+    const formLink = boardFromUrl(link) || !ext ? link : formLinkFor(ext[1], ext[2], ext[3]);
     let form;
     try {
-      form = await readFormQuestions(boardFromUrl(link), link);
+      form = await readFormQuestions(board, formLink);
     } catch {
       throw new ConvexError("Couldn't reach the application form just now. Try again in a minute.");
     }
@@ -72,6 +77,13 @@ export const readForm = action({
     return { questions: filled.length, needsYou: filled.filter((q) => q.needsYou).length };
   },
 });
+
+/** The board's own address for a job, so its id can be read the usual way. */
+function formLinkFor(ats: string, slug: string, id: string) {
+  if (ats === "greenhouse") return `https://job-boards.greenhouse.io/${slug}/jobs/${id}`;
+  if (ats === "lever") return `https://jobs.lever.co/${slug}/${id}`;
+  return `https://jobs.ashbyhq.com/${slug}/${id}`;
+}
 
 /** Keeps only answers that can go into the form as they are: a listed option, nothing on legal or personal questions. */
 function settle(q: FormQuestion, a: { answer: string; needsYou: boolean } | undefined) {
