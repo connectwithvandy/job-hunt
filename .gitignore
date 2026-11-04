@@ -45,3 +45,4 @@ next-env.d.ts
 
 # Convex data exports (npx convex export)
 backups/
+social-drafts.md
