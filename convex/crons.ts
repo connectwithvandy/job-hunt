@@ -22,8 +22,9 @@ crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
 // 11:30 IST: ask anyone who just reached an interview or offer for a LinkedIn shoutout, once each.
 crons.cron("shoutout asks", "0 6 * * *", internal.shoutout.sendAsks, {});
 
-// 8:30 IST, after the careers boards refresh: today's new sales jobs as a ready LinkedIn post, emailed to the owner.
-crons.cron("daily jobs post", "0 3 * * *", internal.growth.sendJobsPost, {});
+// 9:15 IST: the owner's one morning email: who's waiting, today's LinkedIn post, open-to-work people, errors (growth.ts).
+// It replaces the separate jobs post, open-to-work list, waitlist and hourly error emails.
+crons.cron("owner morning email", "45 3 * * *", internal.growth.sendMorning, {});
 
 // Mondays 9:00 IST: sales roles that keep getting reposted, as a ready LinkedIn post for the owner.
 crons.cron("weekly repost post", "30 3 * * 1", internal.growth.sendRepostPost, {});
@@ -31,17 +32,11 @@ crons.cron("weekly repost post", "30 3 * * 1", internal.growth.sendRepostPost, {
 // 11:00 IST: one friendly nudge to anyone let in 2+ days ago who hasn't finished setup.
 crons.cron("setup nudges", "30 5 * * *", internal.growth.sendSetupNudges, {});
 
-// 9:15 IST: LinkedIn posts from sales people looking for work, for the owner to comment on by hand. About $0.10 a day.
-crons.cron("open to work list", "45 3 * * *", internal.growth.sendCommentList, {});
-
 // 11:15 IST: day-21 "3 quick questions" email, only to people who skipped the day-12 pop-up.
 crons.cron("feedback asks", "45 5 * * *", internal.growth.sendFeedbackAsks, {});
 // 3:00 IST, a quiet hour: recount everyone's usage totals from scratch.
 crons.cron("recount usage", "30 21 * * *", internal.stats.recountAll, {});
 
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
-
-// Every hour: email the owner any app errors people hit since the last email (errors.ts).
-crons.interval("error alerts", { hours: 1 }, internal.errors.mailOwner, {});
 
 export default crons;

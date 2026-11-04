@@ -1,9 +1,10 @@
-// Free growth on autopilot. Each morning the owner gets a ready LinkedIn post of new sales jobs; each Monday,
+// Free growth on autopilot. Each morning the owner gets one email (sendMorning): who's waiting, a ready LinkedIn post,
+// the strongest open-to-work people and any errors. Each Monday,
 // a post about sales roles that keep getting reposted; and anyone let in who hasn't finished setup gets one nudge.
 // The posts never name where the jobs come from.
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { type ActionCtx, env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import { roleKey } from "./lib/company";
 import { searchPosts } from "./lib/apify";
@@ -83,40 +84,25 @@ export const repostedSalesJobs = internalQuery({
 
 const TAGS = "#salesjobs #hiring #SDR #AccountExecutive #salesindia";
 
-/** Emails the owner today's new sales jobs as a LinkedIn post ready to copy, with the links kept for replies. */
-export const sendJobsPost = internalAction({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    const owner = ownerEmail();
-    if (!emailOn() || !owner) return null;
-    const jobs = (await ctx.runQuery(internal.growth.newSalesJobs, { now: Date.now() })).slice(0, 15);
-    // Too few to be worth a post: skip today rather than post something thin.
-    if (jobs.length < 3) return null;
-    // Each job with its apply link right under it, so the post is ready to paste as is.
-    const post = `${jobs.length} new sales jobs in India, posted in the last day 👇
+/** Today's LinkedIn post: the top new sales jobs with their links, ready to paste. Null when too few to post. */
+async function jobsPostSection(ctx: ActionCtx): Promise<string | null> {
+  const jobs = (await ctx.runQuery(internal.growth.newSalesJobs, { now: Date.now() })).slice(0, JOBS_PER_POST);
+  // Too few to be worth a post: skip today rather than post something thin.
+  if (jobs.length < 3) return null;
+  // Each job with its apply link right under it, so the post is ready to paste as is.
+  const post = `${jobs.length} new sales jobs in India, posted in the last day 👇
 
 ${jobs.map((j) => `• ${j.company}, ${j.title} (${j.where})\n${j.url}`).join("\n\n")}
 
 I find these every morning with JobPipe, the tool I built for my own sales job hunt. It also scores each role against your CV and tailors the CV for you: https://jobpipe.in
 
 ${TAGS}`;
-    await sendEmail({
-      to: owner,
-      subject: `Today's LinkedIn post: ${jobs.length} new sales jobs`,
-      text: `Copy everything between the lines into LinkedIn. The links are already in.
-
+  return `LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
 ------------
 ${post}
-------------
-
-Tip: post between 8 and 10 am and reply to every comment in the first hour; that is when LinkedIn decides how far a post goes.
-
-${appUrl()}/admin`,
-    });
-    return null;
-  },
-});
+------------`;
+}
+const JOBS_PER_POST = 4;
 
 /** Emails the owner a weekly post on sales roles that keep coming back, framed as a question to ask, not an accusation. */
 export const sendRepostPost = internalAction({
@@ -295,52 +281,36 @@ export const markSeekersSent = internalMutation({
  * Each morning: LinkedIn posts from the last day by sales people looking for work, emailed to the owner to comment on
  * by hand. Never comments or messages on its own: LinkedIn bans accounts for that.
  */
-export const sendCommentList = internalAction({
-  // dryRun: list every post found and why it was left out, without sending the email.
-  args: { dryRun: v.optional(v.boolean()) },
-  // Says what happened, so a run by hand shows why no email came.
-  returns: v.string(),
-  handler: async (ctx, { dryRun }) => {
-    const owner = ownerEmail();
-    if (!emailOn() || !owner || !env.APIFY_TOKEN) return `Off: email ${emailOn() ? "on" : "off"}, owner ${owner ? "set" : "missing"}, Apify ${env.APIFY_TOKEN ? "set" : "missing"}.`;
-    let posts;
-    try {
-      // The past week, 20 a search (about $0.20): one day only turned up one or two people.
-      posts = await searchPosts(OPEN_TO_WORK_SEARCHES, 20, "week");
-    } catch (err) {
-      console.warn("Open-to-work search failed", String(err));
-      return `Search failed: ${String(err)}`;
-    }
-    if (dryRun) {
-      return posts
-        .map((p) => `[${whyNot(p.text, p.author.headline) || `KEEP ${fitScore(p.text, p.author.headline)}`}] ${p.author.name} | ${cut(p.author.headline, 70)} | ${cut(p.text.replace(/\s+/g, " "), 90)}`)
-        .join("\n");
-    }
-    // One entry per person, keyed by their profile (or the post when there's no profile link).
-    const keyOf = (p: (typeof posts)[number]) => p.author.url || p.url;
-    const byPerson = new Map<string, (typeof posts)[number]>();
-    for (const p of posts) if (p.url && isSeekerPost(p.text, p.author.headline) && !byPerson.has(keyOf(p))) byPerson.set(keyOf(p), p);
-    const unsent: string[] = await ctx.runQuery(internal.growth.unsentSeekers, { keys: [...byPerson.keys()] });
-    const fresh = new Set(unsent);
-    // Only the strongest fits, best first.
-    const picked: (typeof posts)[number][] = [...byPerson.values()]
-      .filter((p) => fresh.has(keyOf(p)) && fitScore(p.text, p.author.headline) >= STRONG)
-      .sort((a, b) => fitScore(b.text, b.author.headline) - fitScore(a.text, a.author.headline))
-      .slice(0, PER_EMAIL);
-    if (!picked.length) return `Found ${posts.length} posts, no new strong fits. No email sent.`;
-    const snippet = (t: string) => {
-      const one = t.replace(/\s+/g, " ").trim();
-      return cut(one, 220);
-    };
-    await sendEmail({
-      to: owner,
-      subject: `${picked.length} sales ${picked.length === 1 ? "person" : "people"} looking for work today: worth a comment`,
-      text: `Posts from the past week by sales people looking for a job, none sent to you before. 5 minutes of real comments here builds your name with exactly the people JobPipe is for.
+type SeekerPost = Awaited<ReturnType<typeof searchPosts>>[number];
+const keyOf = (p: SeekerPost) => p.author.url || p.url;
 
-How to use it:
-- Comment on the post with one specific tip for their situation, so your name is familiar.
-- Then send the message below (connect note or DM). It's ready to paste; change a word if something in their post fits.
-- Do it from your own account, by hand. Never automate this part: LinkedIn bans accounts for it.
+/** The strongest new open-to-work people this week, best first, not sent before. A string when the search failed. */
+async function pickSeekers(ctx: ActionCtx): Promise<{ posts: SeekerPost[]; picked: SeekerPost[] } | string> {
+  if (!env.APIFY_TOKEN) return "Apify key missing.";
+  let posts: SeekerPost[];
+  try {
+    // The past week, 20 a search (about $0.20): one day only turned up one or two people.
+    posts = await searchPosts(OPEN_TO_WORK_SEARCHES, 20, "week");
+  } catch (err) {
+    console.warn("Open-to-work search failed", String(err));
+    return `Search failed: ${String(err)}`;
+  }
+  // One entry per person, keyed by their profile (or the post when there's no profile link).
+  const byPerson = new Map<string, SeekerPost>();
+  for (const p of posts) if (p.url && isSeekerPost(p.text, p.author.headline) && !byPerson.has(keyOf(p))) byPerson.set(keyOf(p), p);
+  const unsent: string[] = await ctx.runQuery(internal.growth.unsentSeekers, { keys: [...byPerson.keys()] });
+  const fresh = new Set(unsent);
+  // Only the strongest fits, best first.
+  const picked = [...byPerson.values()]
+    .filter((p) => fresh.has(keyOf(p)) && fitScore(p.text, p.author.headline) >= STRONG)
+    .sort((a, b) => fitScore(b.text, b.author.headline) - fitScore(a.text, a.author.headline))
+    .slice(0, PER_EMAIL);
+  return { posts, picked };
+}
+
+function seekersSection(picked: SeekerPost[]) {
+  const snippet = (t: string) => cut(t.replace(/\s+/g, " ").trim(), 220);
+  return `SALES PEOPLE LOOKING FOR WORK (about 5 minutes: comment with one useful tip, then send the message by hand; never automate this)
 
 ${picked
   .map((p, i) => `${i + 1}. ${p.author.name}${p.author.headline ? `, ${cut(p.author.headline, 90)}` : ""}
@@ -348,12 +318,71 @@ ${picked
    Post: ${p.url}${p.author.url ? `\n   Profile: ${p.author.url}` : ""}
    Message:
    ${pitch(p.author.name)}`)
-  .join("\n\n")}
+  .join("\n\n")}`;
+}
 
-${appUrl()}/admin`,
-    });
-    await ctx.runMutation(internal.growth.markSeekersSent, { keys: picked.map(keyOf) });
-    return `Found ${posts.length} posts, emailed ${picked.length} to ${owner}.`;
+/** Shows every open-to-work post found and why each was kept or left out, without sending anything. */
+export const previewSeekers = internalAction({
+  args: {},
+  returns: v.string(),
+  handler: async () => {
+    if (!env.APIFY_TOKEN) return "Apify key missing.";
+    const posts = await searchPosts(OPEN_TO_WORK_SEARCHES, 20, "week");
+    return posts
+      .map((p) => `[${whyNot(p.text, p.author.headline) || `KEEP ${fitScore(p.text, p.author.headline)}`}] ${p.author.name} | ${cut(p.author.headline, 70)} | ${cut(p.text.replace(/\s+/g, " "), 90)}`)
+      .join("\n");
+  },
+});
+
+/** People waiting to be let in, oldest first. */
+export const waiting = internalQuery({
+  args: {},
+  returns: v.array(v.object({ email: v.string(), name: v.optional(v.string()), role: v.optional(v.string()), linkedin: v.optional(v.string()) })),
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", false)).take(200);
+    return rows.filter((r) => !r.rejected).map((r) => ({ email: r.email, name: r.name, role: r.role, linkedin: r.linkedin }));
+  },
+});
+
+/**
+ * The owner's one morning email (9:15 IST): who's waiting to be let in, today's LinkedIn post, the strongest
+ * open-to-work people, and any errors since yesterday. Each part is left out when empty; nothing at all, no email.
+ * `dryRun` returns the email instead of sending it, and doesn't mark anything as sent.
+ */
+export const sendMorning = internalAction({
+  args: { dryRun: v.optional(v.boolean()) },
+  returns: v.string(),
+  handler: async (ctx, { dryRun }): Promise<string> => {
+    const owner = ownerEmail();
+    if (!emailOn() || !owner) return "Email or owner missing.";
+    const [waitingList, post, seekers, errors] = await Promise.all([
+      ctx.runQuery(internal.growth.waiting, {}),
+      jobsPostSection(ctx),
+      pickSeekers(ctx),
+      ctx.runQuery(internal.errors.unsent, {}),
+    ]);
+    const picked = typeof seekers === "string" ? [] : seekers.picked;
+    const parts: string[] = [];
+    if (waitingList.length) {
+      parts.push(`WAITING TO BE LET IN (${waitingList.length}): ${appUrl()}/admin
+${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not given"} · ${w.email}${w.linkedin ? ` · ${w.linkedin}` : ""}`).join("\n")}`);
+    }
+    if (post) parts.push(post);
+    if (picked.length) parts.push(seekersSection(picked));
+    if (errors.length) {
+      parts.push(`ERRORS SINCE YESTERDAY (${errors.length}): ${appUrl()}/admin
+${errors.slice(0, 5).map((r) => `- ${new Date(r._creationTime).toISOString().slice(0, 16).replace("T", " ")} UTC · ${r.email || "signed out"} · ${r.page}\n  ${cut(r.message.split("\n")[0], 200)}`).join("\n")}`);
+    }
+    if (typeof seekers === "string") parts.push(`(Open-to-work search: ${seekers})`);
+    if (!parts.length || (parts.length === 1 && typeof seekers === "string")) return "Nothing to report. No email sent.";
+    const bits = [waitingList.length && `${waitingList.length} waiting`, post && "LinkedIn post", picked.length && `${picked.length} to message`, errors.length && `${errors.length} error${errors.length === 1 ? "" : "s"}`].filter(Boolean);
+    const subject = `JobPipe this morning: ${bits.join(", ")}`;
+    const text = `${parts.join("\n\n\n")}\n`;
+    if (dryRun) return `${subject}\n\n${text}`;
+    await sendEmail({ to: owner, subject, text });
+    if (picked.length) await ctx.runMutation(internal.growth.markSeekersSent, { keys: picked.map(keyOf) });
+    if (errors.length) await ctx.runMutation(internal.errors.markSent, { ids: errors.map((r) => r._id) });
+    return `Sent: ${subject}`;
   },
 });
 

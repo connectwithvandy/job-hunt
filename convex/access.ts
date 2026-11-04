@@ -39,9 +39,8 @@ export const join = mutation({
     const existing = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if (existing) return null;
     const user = await ctx.db.get("users", userId);
-    const accessId = await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
-    // Tell the owner, after a pause so the name, LinkedIn and role they type next are in the email.
-    if (emailOn() && !isOwnerEmail(user?.email)) await ctx.scheduler.runAfter(10 * 60 * 1000, internal.access.tellOwner, { accessId });
+    await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
+    // The owner hears about new joiners in the one morning email (growth.sendMorning), not one email each.
     return null;
   },
 });
