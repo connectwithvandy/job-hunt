@@ -13,6 +13,8 @@ export type RolePage = {
   looksFor?: string[];
   /** Heading over the live roles, when "Open roles right now" would be unclear on an explainer. */
   jobsHeading?: string;
+  /** Heading over the questions, when "Questions people ask" would be unclear (interview guides). */
+  faqHeading?: string;
   faq: [string, string][];
   /** Which live roles to list: titles searched the way the app searches them, and the regions that count. */
   jobs: { titles: string[]; regions: RegionKey[]; india: boolean; exclude?: RegExp };
@@ -58,6 +60,85 @@ export const ROLE_PAGES: RolePage[] = [
       ["Do SDR and BDR jobs need sales experience?", "Often not. Many companies hire freshers and career switchers. Show proof you can do the work: targets you hit, customer-facing jobs, cold outreach you have done and clear writing."],
     ],
     jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india", "blr", "remote"], india: true },
+  },
+  {
+    slug: "sdr-interview-questions",
+    title: "SDR interview questions and answers (2026)",
+    jobsHeading: "SDR and BDR roles open right now",
+    faqHeading: "SDR interview questions, with how to answer",
+    description: "Common SDR and BDR interview questions with how to answer each, how the mock cold call works, and what to ask the hiring manager before you say yes.",
+    intro:
+      "Most SDR and BDR interviews test three things: whether you can take rejection, whether you can talk and write clearly to a stranger, and whether you are coachable. Below are the questions that come up most, with how to answer each, and how to handle the mock cold call.",
+    sections: [
+      {
+        heading: "How SDR interviews usually run",
+        text: "First a recruiter screen: why sales, why this company, notice period and pay expectations. Then a hiring manager round on motivation, any numbers you have and how you handle objections. Most companies add a role play, a mock cold call or a written outreach email. Some end with a short call with a sales leader or an Account Executive.",
+      },
+      {
+        heading: "The mock cold call",
+        text: "Open politely and say why you are calling, tied to something real about their company. Ask one good question instead of pitching features. When they object, acknowledge it, ask one follow-up question, and try once more. Close by asking for a meeting at a specific time. Interviewers mostly judge your calm, your listening and whether you ask for the meeting, not whether you win.",
+      },
+      {
+        heading: "Questions to ask the interviewer",
+        text: "How many SDRs hit target last quarter? How many moved to Account Executive in the last year? What is the split between inbound and outbound? Which market and time zone will I sell into? How long is the ramp before full target? Which tools does the team use?",
+      },
+    ],
+    faq: [
+      ["Why do you want to be an SDR?", "Be specific: you like talking to new people, you are motivated by a clear target, and you want a path into B2B sales and then Account Executive. Add one real example, such as a target you hit or a time you convinced someone."],
+      ["Tell me about a time you faced rejection.", "Pick a real example, say what you did next and what changed. Interviewers want proof that a no does not stop you, and that you learn from it rather than taking it personally."],
+      ["How would you research a prospect before reaching out?", "Check the company's site, news, hiring and funding, then the person's role and recent LinkedIn activity. Pick one thing that connects to the problem your product solves, and use it in your first line. Keep research to a few minutes per prospect."],
+      ["How would you write a cold email to a prospect?", "Short, about them, and with one ask: a first line tied to something real about their company, one sentence on a problem you solve for teams like theirs, and a simple question or a request for 15 minutes. No attachments and no long product description."],
+      ["How do you handle 'We are not interested'?", "Acknowledge it, then ask one question to learn why, for example what they use today. If there is no fit, thank them and ask if you can check back later. Never argue."],
+      ["How do you handle 'Just send me an email'?", "Agree, then ask one question so the email is useful: what would make it worth reading. Often that question restarts the conversation. Send the email the same day and refer to the call."],
+      ["How would you plan your day as an SDR?", "Block time for research, outreach and follow-ups, put calls when buyers pick up, and keep the CRM up to date as you go. Mention that you would track your own numbers each week, not just activity."],
+      ["Tell me about a target you hit or missed.", "Give the number, the time period and what you did. If you missed, say why and what you changed. Freshers can use a college, part-time or customer-facing target."],
+      ["What do you know about our product and who buys it?", "Say who the buyer is, the problem they solve and one or two competitors, in your own words. Check their site, customer stories and job posts before the interview."],
+      ["Where do you see yourself in two years?", "As an Account Executive, or on the way to it, after hitting target consistently as an SDR. It shows ambition that matches how SDR teams are built."],
+      ["How do you take feedback?", "Give a real example of feedback you got, what you changed, and the result. Coachability is one of the main things SDR managers hire for."],
+      ["Sell me this pen.", "Do not list features. Ask questions first: when did they last use a pen, what for, what annoyed them. Then tie the pen to the need they described, and ask for the sale."],
+      ["Do I need sales experience to get an SDR job?", "Often not. Many companies hire freshers and career switchers. Show customer-facing work, targets you hit, outreach you have done and clear writing, and prepare well for the mock call."],
+    ],
+    jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india", "blr", "remote"], india: true },
+  },
+  {
+    slug: "sales-interview-questions",
+    title: "Sales interview questions and answers (2026)",
+    jobsHeading: "Sales roles open right now",
+    faqHeading: "Sales interview questions, with how to answer",
+    description: "Common sales interview questions for SDR, BDR and Account Executive roles, with how to answer each, how role plays work, and questions to ask back.",
+    intro:
+      "Sales interviews check whether you can find and win business, handle a no, and talk honestly about your numbers. These are the questions that come up most for B2B sales roles, from SDR to Account Executive, with how to answer each.",
+    sections: [
+      {
+        heading: "How sales interviews usually run",
+        text: "A recruiter screen, then a hiring manager round on your numbers and how you sell, then a role play: a mock cold call for SDRs, a discovery call or deal presentation for Account Executives. Senior roles often add a panel or a final round with a sales leader.",
+      },
+      {
+        heading: "Talking about your numbers",
+        text: "Know your quota or target and your attainment for each year or quarter, your average deal size and sales cycle, and how much pipeline you built yourself. Be exact and do not round up: interviewers check. If you missed, say by how much, why and what you changed.",
+      },
+      {
+        heading: "Questions to ask back",
+        text: "What share of the team hit quota last year? Where do leads come from, and how much pipeline am I expected to build myself? What is the territory? How long is ramp? Why is this role open?",
+      },
+    ],
+    faq: [
+      ["Tell me about yourself.", "Two minutes: where you sell now, who to, one result with a number, and why this role is the next step. Leave out your full history; they have your CV."],
+      ["Why sales?", "Give a real reason: you like the target, the people, being paid for results. Back it with an example of something you sold or a target you hit."],
+      ["Walk me through your numbers.", "Quota and attainment by year or quarter, deal size, cycle length and segment. Say where the pipeline came from. Have the figures ready without looking them up."],
+      ["Tell me about a deal you won.", "Pick one deal and tell it from first contact to signature: who the buyer was, their problem, who else was involved, the hardest moment and how you got past it, and the final size."],
+      ["Tell me about a deal you lost.", "Be honest about why you lost and what you would do differently. Interviewers want self-awareness, not a story where nothing was your fault."],
+      ["How do you build pipeline?", "Name your channels (outbound email, calls, LinkedIn, referrals, events), how you choose target accounts, and a number such as meetings or pipeline you created in a quarter."],
+      ["How do you run a discovery call?", "Agree the agenda, ask about their current process, the problem, its cost, who decides and by when, then agree a clear next step. Most of the call should be them talking."],
+      ["How do you handle price objections?", "Ask what they are comparing the price to, go back to the cost of the problem they described, and trade rather than discount: anything you give should get something back, such as a longer term or a faster signature."],
+      ["Sell me this pen.", "Ask questions before pitching: how they use pens, what bothers them. Tie the pen to the need they gave you, then ask for the sale. The test is whether you discover before you pitch."],
+      ["How do you handle rejection?", "Give a real example, what you did next and the result. Show you keep going and learn from it without taking it personally."],
+      ["How do you forecast your deals?", "Explain the stages you use, what has to be true for a deal to move stage, and how close your past forecasts were. Mention the CRM you ran your pipeline in."],
+      ["Why are you leaving your current job?", "Keep it forward-looking: bigger deals, a better market, a clearer path. Do not criticise your current company."],
+      ["What are your salary expectations?", "Ask for the range first. If you must answer, give total pay (OTE) with the fixed and variable split you expect, based on your current pay and the market."],
+      ["How do I answer sales interview questions as a fresher?", "Use examples from college, internships, part-time jobs or anything with a target or a customer. Prepare for the role play, research the company, and show you are coachable."],
+    ],
+    jobs: { titles: ["Account Executive", "SDR", "BDR", "Sales Development Representative"], exclude: /\bkey account\b|executive\s*-\s*account management|\btalent account\b/i, regions: ["india", "blr", "remote"], india: true },
   },
   {
     slug: "sdr-salary-india",

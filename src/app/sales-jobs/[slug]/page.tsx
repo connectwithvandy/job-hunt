@@ -171,7 +171,7 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
           </ul>
         </>
       )}
-      <h2 className="display mt-12 text-2xl">Questions people ask</h2>
+      <h2 className="display mt-12 text-2xl">{page.faqHeading ?? "Questions people ask"}</h2>
       <div className="mt-4 space-y-6">
         {page.faq.map(([q, a]) => (
           <div key={q}>
