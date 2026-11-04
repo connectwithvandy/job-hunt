@@ -205,7 +205,18 @@ export const forGuide = query({
   args: { titles: v.array(v.string()), india: v.boolean() },
   handler: async (ctx, { titles, india }) => {
     const rows = await searchTitles(ctx, titles.slice(0, 4).map((t) => t.slice(0, 60)), india, 96);
-    return rows.map(({ company, title, location, workSetting, postedAt, url }) => ({ company, title, location, workSetting, postedAt, url }));
+    return rows.map(({ externalId, company, title, location, workSetting, postedAt, url }) => ({ externalId, company, title, location, workSetting, postedAt, url }));
+  },
+});
+
+/** One open role's full text, for its public page. Null once the company takes it down, so the page goes away. */
+export const forJobPage = query({
+  args: { externalId: v.string() },
+  handler: async (ctx, { externalId }) => {
+    const job = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.eq("externalId", externalId)).first();
+    if (!job) return null;
+    const text = await ctx.db.query("careerJobTexts").withIndex("by_externalId", (q) => q.eq("externalId", externalId)).first();
+    return { description: text?.description ?? null };
   },
 });
 
