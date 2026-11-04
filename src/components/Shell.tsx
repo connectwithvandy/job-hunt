@@ -52,7 +52,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (!me) return <SignIn />;
   if (!me.onboarded) return <Onboarding me={me} />;
 
-  const bare = path.startsWith("/jobs/") && path.endsWith("/resume");
+  // The CV print view, and the small window the autofill bookmark opens.
+  const bare = (path.startsWith("/jobs/") && path.endsWith("/resume")) || path === "/fill";
   return (
     <div className="min-h-screen md:flex">
       {!bare && <Sidebar isOwner={me.isOwner} />}

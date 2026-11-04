@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { LOCATION_CHOICES, PRESET_TRACKS } from "../../convex/lib/defaults";
-import { autofillBookmarklet } from "@/lib/autofill";
+import { liveBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
 import { myOwnMessages, parseMessagesCsv } from "@/lib/linkedinMessages";
 import { errorMessage } from "@/lib/errors";
@@ -694,27 +694,30 @@ export function FactsForm({ facts }: { facts: { question: string; answer: string
   );
 }
 
-/** The draggable autofill bookmark, carrying your saved answers. Re-drag it after changing them. */
+/**
+ * The draggable autofill bookmark. It carries nothing: on a form it opens a small JobPipe window that
+ * sends that job's answers, CV and cover letter, so it never needs re-dragging after answers change.
+ */
 export function AutofillLink({ answers }: { answers: { question: string; answer: string }[] }) {
   const ref = useRef<HTMLAnchorElement>(null);
   // React refuses javascript: links in JSX, so the address is set on the element directly.
   useEffect(() => {
-    ref.current?.setAttribute("href", autofillBookmarklet(answers));
-  }, [answers]);
+    ref.current?.setAttribute("href", liveBookmarklet(window.location.origin));
+  }, []);
   return (
     <div className="card p-6">
       <h2 className="display mb-1 text-2xl">Autofill application forms</h2>
       <p className="mb-2 text-sm text-warn md:hidden">Set this up on your computer: phone browsers can&apos;t drag bookmarks.</p>
       <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-ink-2">
         <li>Show your browser&apos;s bookmarks bar (Cmd+Shift+B in Chrome).</li>
-        <li>Drag the button below onto it.</li>
-        <li>On any application form (Greenhouse, Lever, Ashby, Workday and others), click the bookmark. Filled fields turn green; check them and upload your CV yourself.</li>
+        <li>Drag the button below onto it. If you have an older JobPipe bookmark, delete it.</li>
+        <li>On a job in JobPipe, click Apply. On the form that opens, click the bookmark: it fills your answers and attaches your tailored CV. Check everything, then press Submit yourself.</li>
       </ol>
       <a ref={ref} className="btn btn-primary inline-flex cursor-grab" onClick={(e) => e.preventDefault()} draggable>
         JobPipe autofill
       </a>
       <p className="mt-3 text-xs text-ink-3">
-        It carries your {answers.length} saved answers and sends nothing anywhere. After you change an answer, drag it again to replace the old bookmark.
+        It uses your {answers.length} saved answers plus each job&apos;s own form answers, read fresh every time. JobPipe never presses Submit for you.
       </p>
     </div>
   );

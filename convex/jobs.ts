@@ -44,7 +44,7 @@ const heavyFit = (job: Doc<"jobs">) =>
   (job.scores ?? []).some((s) => s.gaps.length || s.reason.length > SHORT_REASON) || !!(job.brief?.whatTheyWant || job.brief?.watchOuts);
 
 /** A job with its heavy parts filled in, whether they're still on the job or already in jobDetails. */
-async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs"> & Pick<Details, "sent">> {
+async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs"> & Pick<Details, "sent"> & { applyForm?: Doc<"jobDetails">["applyForm"] }> {
   const d = await detailsOf(ctx, job._id);
   if (!d) return job;
   const scores = job.scores?.map((s) => {
@@ -60,6 +60,7 @@ async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs">
     sent: d.sent,
     scores,
     brief: d.brief ?? job.brief,
+    applyForm: d.applyForm,
   };
 }
 

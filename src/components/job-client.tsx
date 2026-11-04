@@ -10,10 +10,11 @@ import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
 import { nextFollowUp } from "../../convex/lib/followups";
+import { setApplying } from "@/lib/applying";
 import { downloadDocx, downloadLetterDocx } from "@/lib/docx";
 import { timeAgo } from "./bits";
 import { errorMessage } from "@/lib/errors";
-import { type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
+import { ActionButton, type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
 type Outreach = Doc<"jobs">["outreach"][number];
@@ -35,6 +36,8 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
         onClick={async () => {
           // Open first, inside the click, or the browser blocks the new tab.
           window.open(link, "_blank", "noreferrer");
+          // So the autofill bookmark on that form knows which job's answers and CV to use.
+          setApplying(job._id);
           const ready: string[] = [];
           if (job.pack) {
             await downloadDocx(job.pack.resume, `${job.pack.resume.name} CV ${job.company}`);
@@ -46,7 +49,7 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
           if (job.status === "new") await setStatus({ jobId: job._id, status: "applying" });
           setDone(
             ready.length
-              ? `${ready.join(", ")}. On the form: click your Autofill bookmark, attach the CV, paste the letter, Submit.`
+              ? `${ready.join(", ")}. On the form: click your JobPipe autofill bookmark. It fills your answers and attaches the CV; check it all, then press Submit.`
               : "Form opened. Write your tailored CV in step 1 first to have it downloaded here too.",
           );
         }}
@@ -1336,6 +1339,83 @@ function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
           </div>
         </div>
       )}
+    </li>
+  );
+}
+
+type ApplyForm = NonNullable<Doc<"jobDetails">["applyForm"]>;
+
+/**
+ * The application form's own questions with drafted answers, read from Greenhouse, Lever or Ashby.
+ * The candidate fixes or fills each one here; the autofill bookmark then puts them in the form.
+ */
+export function ApplyQuestions({ jobId, form }: { jobId: Id<"jobs">; form?: ApplyForm }) {
+  const readForm = useAction(api.applyForm.readForm);
+  const read = async () => {
+    const r = await readForm({ jobId });
+    if (!r.questions) return "This form only asks the standard things (name, email, CV), which the bookmark fills.";
+    return r.needsYou ? `Drafted ${r.questions} answers. ${r.needsYou} need your answer: they're marked below.` : `Drafted ${r.questions} answers. Check them below.`;
+  };
+  if (!form) {
+    return (
+      <div className="mb-4 space-y-2">
+        <p className="text-sm text-ink-2">Read the form&apos;s own questions (like &quot;Why us?&quot; or visa and notice questions) and draft answers from your CV, before you open it.</p>
+        <ActionButton variant="ghost" pending="Reading the form…" run={read}>
+          Read the form&apos;s questions
+        </ActionButton>
+      </div>
+    );
+  }
+  if (!form.questions.length) return null;
+  const open = form.questions.filter((q) => q.needsYou).length;
+  return (
+    <div className="mb-4">
+      <div className="mb-2 flex flex-wrap items-baseline gap-2">
+        <div className="label">This form&apos;s questions</div>
+        <span className={`text-xs ${open ? "text-warn" : "text-ink-3"}`}>{open ? `${open} need your answer` : "All drafted. Check them before you apply."}</span>
+      </div>
+      <ul className="space-y-3">
+        {form.questions.map((q, i) => (
+          <AnswerRow key={`${i}-${q.question}-${q.answer}`} jobId={jobId} index={i} q={q} />
+        ))}
+      </ul>
+      <div className="mt-2">
+        <ActionButton size="sm" variant="ghost" pending="Reading the form…" run={read}>
+          Read again and redraft
+        </ActionButton>
+      </div>
+    </div>
+  );
+}
+
+function AnswerRow({ jobId, index, q }: { jobId: Id<"jobs">; index: number; q: ApplyForm["questions"][number] }) {
+  const edit = useMutation(api.applyAnswers.edit);
+  const [value, setValue] = useState(q.answer);
+  const [state, setState] = useState<ActionState>(null);
+  const save = async (answer: string) => {
+    if (answer === q.answer) return;
+    setState(await attempt(async () => void (await edit({ jobId, index, answer }))));
+  };
+  return (
+    <li className={`rounded-lg border p-3 ${q.needsYou ? "border-warn" : "border-line"}`}>
+      <div className="mb-1 text-sm font-medium">
+        {q.question}
+        {q.required && <span className="text-ink-3"> (required)</span>}
+      </div>
+      {q.options ? (
+        <select className="field text-sm" value={value} onChange={(e) => (setValue(e.target.value), void save(e.target.value))}>
+          <option value="">Pick one…</option>
+          {q.options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <textarea className="field text-sm" rows={q.long ? 5 : 1} value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => void save(value)} placeholder={q.needsYou ? "Your answer" : ""} />
+      )}
+      {q.needsYou && <p className="mt-1 text-xs text-warn">{value.trim() ? "Check this one carefully." : "JobPipe won't guess this one. Answer it yourself."}</p>}
+      <Feedback state={state} />
     </li>
   );
 }

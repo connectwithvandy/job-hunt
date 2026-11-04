@@ -271,3 +271,20 @@ export const prospectFields = {
 };
 
 export const prospectV = v.object(prospectFields);
+
+/** The questions on a job's application form, each with a drafted answer the candidate checks before applying. */
+export const applyFormV = v.object({
+  at: v.number(),
+  source: v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby")),
+  questions: v.array(
+    v.object({
+      question: v.string(),
+      answer: v.string(),
+      options: v.optional(v.array(v.string())),
+      required: v.boolean(),
+      long: v.boolean(),
+      /** No safe answer from the CV and saved facts, or a legal or personal question: the candidate fills it in. */
+      needsYou: v.boolean(),
+    }),
+  ),
+});

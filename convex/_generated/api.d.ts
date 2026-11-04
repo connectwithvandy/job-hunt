@@ -11,6 +11,8 @@
 import type * as access from "../access.js";
 import type * as agent from "../agent.js";
 import type * as alerts from "../alerts.js";
+import type * as applyAnswers from "../applyAnswers.js";
+import type * as applyForm from "../applyForm.js";
 import type * as auth from "../auth.js";
 import type * as careers from "../careers.js";
 import type * as careersFinder from "../careersFinder.js";
@@ -49,6 +51,7 @@ import type * as lib_dreamwork from "../lib/dreamwork.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_facts from "../lib/facts.js";
 import type * as lib_followups from "../lib/followups.js";
+import type * as lib_formQuestions from "../lib/formQuestions.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hunter from "../lib/hunter.js";
 import type * as lib_inbox from "../lib/inbox.js";
@@ -84,6 +87,8 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   agent: typeof agent;
   alerts: typeof alerts;
+  applyAnswers: typeof applyAnswers;
+  applyForm: typeof applyForm;
   auth: typeof auth;
   careers: typeof careers;
   careersFinder: typeof careersFinder;
@@ -122,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/facts": typeof lib_facts;
   "lib/followups": typeof lib_followups;
+  "lib/formQuestions": typeof lib_formQuestions;
   "lib/functions": typeof lib_functions;
   "lib/hunter": typeof lib_hunter;
   "lib/inbox": typeof lib_inbox;

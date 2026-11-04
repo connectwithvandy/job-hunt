@@ -3,7 +3,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { reviewValidator } from "./lib/cvReview";
 import { chatRowV } from "./lib/chats";
-import { briefV, jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, scoreNoteV, sentV, storyFields } from "./lib/validators";
+import { applyFormV, briefV, jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, scoreNoteV, sentV, storyFields } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -186,6 +186,8 @@ export default defineSchema({
     scoreNotes: v.optional(v.array(scoreNoteV)),
     /** What they want and what to watch for; the job keeps only the blocker. */
     brief: v.optional(briefV),
+    /** The application form's questions with drafted answers, read when the candidate asks. */
+    applyForm: v.optional(applyFormV),
   }).index("by_jobId", ["jobId"]),
 
   jobs: defineTable({ userId: v.id("users"), ...jobFields })

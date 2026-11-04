@@ -11,7 +11,7 @@ import { linkedInPeopleSearch } from "../../../../convex/lib/company";
 import { RECHECK_AFTER, ghostSigns, skipReason } from "../../../../convex/lib/posting";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { CvMatch } from "@/components/CvMatch";
-import { ApplyButton, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
 import { inInr, payRange, payText, useInrRates } from "@/lib/money";
@@ -294,9 +294,10 @@ export default function JobPage() {
                 Save your standard form answers (notice period, pay, why you&apos;re moving) on the <Link className="underline" href="/resume">CVs page</Link> to copy them here in one click.
               </p>
             )}
+            <ApplyQuestions jobId={job._id} form={job.applyForm} />
             <p className="mb-3 text-sm text-ink-2">
-              Apply opens the form, downloads your tailored CV and copies your cover letter. Then click your Autofill bookmark (set it up on the{" "}
-              <Link className="underline" href="/resume">CVs page</Link>), attach the CV, paste and submit.
+              Apply opens the form and downloads your tailored CV. Then click your JobPipe autofill bookmark (set it up on the{" "}
+              <Link className="underline" href="/resume">CVs page</Link>): it fills your answers and attaches the CV. Check everything and press Submit yourself.
             </p>
             <div className="flex flex-wrap items-start gap-3">
               <ApplyButton job={job} />
