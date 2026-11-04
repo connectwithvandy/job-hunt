@@ -31,8 +31,9 @@ type RawPost = {
   postedAt?: { timestamp?: number };
 };
 
-/** LinkedIn sends some text with HTML escapes ("Sales &amp; BD"); turn them back into characters. */
-const unescape = (t: string) => t.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+/** LinkedIn sends some text with HTML escapes ("Sales &amp; BD"), sometimes twice over ("&amp;amp;"); turn them back into characters. */
+const unescapeOnce = (t: string) => t.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+const unescape = (t: string) => unescapeOnce(unescapeOnce(t));
 
 function toPost(p: RawPost): Post | null {
   if (!p.id || !p.content?.trim()) return null;
