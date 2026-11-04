@@ -276,3 +276,43 @@ Didn't ask for this? Ignore this email; your password stays the same.
 </div>`;
   return { subject, text, html };
 }
+
+/** The daily "new roles for you" email: each person's best new jobs, under their own role groups. */
+export function alertsEmail(p: { name?: string; groups: { track: string; jobs: { title: string; company: string; where: string; fit?: number; id: string }[] }[] }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1).toLowerCase();
+  const count = p.groups.reduce((n, g) => n + g.jobs.length, 0);
+  const subject = `${count} new ${count === 1 ? "role" : "roles"} for you today${first ? `, ${first}` : ""}`;
+  const url = appUrl();
+  const line = (j: { title: string; company: string; where: string; fit?: number }) => `${j.title}, ${j.company} (${j.where})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}`;
+  const text = `${first ? `Hi ${first},` : "Hi,"}
+
+New roles JobPipe found for you since yesterday, best fit first:
+
+${p.groups.map((g) => `${g.track}\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}`).join("\n")}`).join("\n\n")}
+
+Open one to see why it fits, tailor your CV and find who to ask for an intro.
+
+All your roles: ${url}/jobs
+
+Vandy
+Founder, JobPipe
+
+Don't want these? Reply "stop" and I'll turn them off.
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(first ? `Hi ${first},` : "Hi,")}</p>
+<p>New roles JobPipe found for you since yesterday, best fit first:</p>
+${p.groups
+  .map(
+    (g) => `<p style="margin:20px 0 6px;font-weight:600">${esc(g.track)}</p>
+<ul style="margin:0;padding-left:18px">${g.jobs.map((j) => `<li style="margin:4px 0"><a href="${esc(`${url}/jobs/${j.id}`)}" style="color:#1a1a1a;font-weight:600">${esc(j.title)}</a>, ${esc(j.company)} <span style="color:#666">(${esc(j.where)})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}</span></li>`).join("")}</ul>`,
+  )
+  .join("\n")}
+<p>Open one to see why it fits, tailor your CV and find who to ask for an intro.</p>
+<p style="margin:24px 0"><a href="${esc(`${url}/jobs`)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">See all your roles</a></p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a></span></p>
+<p style="color:#999;font-size:12px">Don't want these? Reply "stop" and I'll turn them off.</p>
+</div>`;
+  return { subject, text, html };
+}

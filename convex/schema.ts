@@ -86,6 +86,10 @@ export default defineSchema({
     shoutoutAskedAt: v.optional(v.number()),
     /** When the "finish setting up" nudge went out, two days after being let in without finishing setup, so it goes once. */
     setupNudgeAt: v.optional(v.number()),
+    /** When the last "new roles for you" email went out, so it goes at most once a day. */
+    alertsAt: v.optional(v.number()),
+    /** Asked to stop the "new roles for you" email. */
+    alertsOff: v.optional(v.boolean()),
     /** When the day-21 "3 quick questions" email went out (only to people who skipped the day-12 pop-up), so it goes once. */
     feedbackAskedAt: v.optional(v.number()),
   })

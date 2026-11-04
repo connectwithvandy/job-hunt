@@ -12,6 +12,9 @@ crons.cron("careers boards", "30 1 * * *", internal.careersRefresh.refresh, {});
 // 8:00 in India (02:30 UTC): find and score new jobs before the day starts.
 crons.cron("morning autopilot", "30 2 * * *", internal.agent.dailyRun, {});
 
+// 9:30 IST: each member's best new roles from this morning's search, under their own role groups.
+crons.cron("new roles emails", "0 4 * * *", internal.alerts.send, {});
+
 // 10:30 in India (05:00 UTC): a personal check-in two days before someone's free week ends (trial.ts).
 crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
 
