@@ -939,6 +939,19 @@ export const prep = action({
   handler: async (ctx, { jobId }): Promise<null> => await prepFor(ctx, await setup(ctx), jobId),
 });
 
+/** The full interview prep, started from the chat: it takes a few minutes, so the chat answers right away instead of waiting. */
+export const prepInBackground = internalAction({
+  args: { userId: v.id("users"), jobId: v.id("jobs") },
+  handler: async (ctx, { userId, jobId }): Promise<null> => {
+    try {
+      await prepFor(ctx, await contextFor(ctx, userId), jobId);
+    } catch (err) {
+      console.warn("Background interview prep failed", String(err));
+    }
+    return null;
+  },
+});
+
 async function prepFor(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Context, jobId: Id<"jobs">): Promise<null> {
     const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs"> & { sent?: Doc<"jobDetails">["sent"] });
     const track = tracks.find((t) => t.key === (job.trackKey ?? job.pack?.trackKey ?? job.foundFor)) ?? null;
@@ -1480,8 +1493,10 @@ async function runChatTool(ctx: ActionCtx, me: Context, name: string, input: Rec
       return `Researched the company for ${await titleOf(jobId!)}; it's on the job's page.`;
     }
     case "prepare_interview": {
-      await prepFor(ctx, me, jobId!);
-      return `Interview prep for ${await titleOf(jobId!)} is on the job's page.`;
+      // A few minutes of writing: run it in the background so the chat can answer now.
+      const what = await titleOf(jobId!);
+      await ctx.scheduler.runAfter(0, internal.agent.prepInBackground, { userId: me.userId, jobId: jobId! });
+      return `Started the full interview prep for ${what}. It will be on the job's page in 2 to 3 minutes.`;
     }
     case "add_dream_company": {
       await ctx.runMutation(internal.prospects.addDreamForAction, { userId: me.userId, name: str("name") ?? "" });

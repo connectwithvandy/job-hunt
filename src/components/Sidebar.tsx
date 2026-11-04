@@ -47,8 +47,10 @@ export function SubTabs() {
 export function ChatButton() {
   const path = usePathname();
   if (path.startsWith("/chat")) return null;
+  // On a job's page, the chat starts about that job.
+  const jobId = path.match(/^\/jobs\/([a-z0-9]+)(\/|$)/)?.[1];
   return (
-    <Link href="/chat" className="no-print btn btn-primary fixed right-5 bottom-5 z-40 rounded-full shadow-lg">
+    <Link href={jobId ? `/chat?job=${jobId}` : "/chat"} className="no-print btn btn-primary fixed right-5 bottom-5 z-40 rounded-full shadow-lg">
       Ask JobPipe
     </Link>
   );
