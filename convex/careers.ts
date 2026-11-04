@@ -198,12 +198,13 @@ export const search = internalQuery({
 
 /**
  * Open roles for a public sales-jobs guide page. These are public postings from company careers boards, and the
- * page rebuilds at most once a day, so the read stays small: a few titles, 32 rows per search word.
+ * page rebuilds at most once a day, so the read stays small: a few titles, 96 rows per search word. 96, not fewer,
+ * because loose matches ("Sales Executives" for "Account Executive") fill the top of a search and the page drops them.
  */
 export const forGuide = query({
   args: { titles: v.array(v.string()), india: v.boolean() },
   handler: async (ctx, { titles, india }) => {
-    const rows = await searchTitles(ctx, titles.slice(0, 4).map((t) => t.slice(0, 60)), india, 32);
+    const rows = await searchTitles(ctx, titles.slice(0, 4).map((t) => t.slice(0, 60)), india, 96);
     return rows.map(({ company, title, location, workSetting, postedAt, url }) => ({ company, title, location, workSetting, postedAt, url }));
   },
 });
