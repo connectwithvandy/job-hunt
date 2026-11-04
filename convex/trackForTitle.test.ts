@@ -19,3 +19,13 @@ test("AE team leads fit Sales Leadership, even for someone who only searches lea
   expect(trackForTitle(lead, "Account Executive Team Lead")).toBe("sales-leadership");
   expect(trackForTitle(lead, "AE Manager")).toBe("sales-leadership");
 });
+
+test("Salesforce engineers aren't sales jobs", () => {
+  expect(trackForTitle(tracks, "Sr Engineer Salesforce")).toBeUndefined();
+  expect(trackForTitle(tracks, "Salesforce Administrator Manager")).toBeUndefined();
+  expect(trackForTitle(tracks, "Sales Managers - North")).toBe("sales-leadership");
+});
+
+test("delivery roles that mention post-sales aren't sales jobs", () => {
+  expect(trackForTitle(tracks, "Delivery Manager - Controls Post-sales - Hardware Design")).toBeUndefined();
+});

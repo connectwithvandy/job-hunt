@@ -143,14 +143,17 @@ export function titleMatches(searched: string, title: string) {
   // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
   const t = fullTitle(title);
   const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
+  // Whole words only (a plural is fine): "Salesforce Engineer" doesn't hold "sales", "Sales Managers" holds "manager".
+  const tw = new Set(t.split(" "));
+  const has = (w: string) => tw.has(w) || tw.has(`${w}s`) || (w.endsWith("s") && tw.has(w.slice(0, -1)));
   // "Account Executive" isn't "Accounting Executive", "Accounts Executive" or "Executive - Accounts Payable".
   const accounting = /\baccount(ing|ant)|\baccounts (executive|payable|receivable|assistant|officer)|\bexecutive\W+accounts\b/;
   if (accounting.test(t) && !accounting.test(words.join(" "))) return false;
   // A rep search leaves out the reps' team leads and managers; the leadership role finds those.
-  if (!isLeader(words)) return words.every((w) => t.includes(w)) && !(words.includes("representative") && isLeader(t.split(" ")));
+  if (!isLeader(words)) return words.every(has) && !(words.includes("representative") && isLeader(t.split(" ")));
   // A leader search takes any leader word: "SDR Manager" also finds "Head of Sales Development" and
   // "Director, Sales Development". Leaders run the reps, so their titles rarely say "representative".
-  return isLeader(t.split(" ")) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every((w) => t.includes(w));
+  return isLeader(t.split(" ")) && words.filter((w) => !LEADER.has(w) && w !== "representative" && w !== "team").every(has);
 }
 
 /**
@@ -173,7 +176,7 @@ export function trackForTitle(tracks: { key: string; titles: string[] }[], title
 
 /** Jobs in another function, technical roles included. "Senior Engineer - Business Operations" holds "business operations" but isn't a GTM role. */
 const OTHER_FUNCTION =
-  /\b(engineer|engineering|developer|programmer|devops|sre|scientist|designer|architect|product manager|product owner|program manager|tech|technical|technology manager|presales|pre sales|pre-sales|solutions consultant|data analyst|qa|tester|recruiter|talent acquisition|accountant|nurse|physician|pharmacist|teacher|lawyer|paralegal|counsel)\b/;
+  /\b(engineer|engineering|developer|delivery|programmer|devops|sre|scientist|designer|architect|product manager|product owner|program manager|tech|technical|technology manager|presales|pre sales|pre-sales|solutions consultant|data analyst|qa|tester|recruiter|talent acquisition|accountant|nurse|physician|pharmacist|teacher|lawyer|paralegal|counsel)\b/;
 
 /** Whether a title belongs to another function than the one searched for; "Sales Engineer" still matches a "Sales Engineer" search. */
 export function otherFunction(searched: string, title: string) {
