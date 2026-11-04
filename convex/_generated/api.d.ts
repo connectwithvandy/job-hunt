@@ -10,6 +10,7 @@
 
 import type * as access from "../access.js";
 import type * as agent from "../agent.js";
+import type * as alerts from "../alerts.js";
 import type * as auth from "../auth.js";
 import type * as careers from "../careers.js";
 import type * as careersFinder from "../careersFinder.js";
@@ -81,6 +82,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   access: typeof access;
   agent: typeof agent;
+  alerts: typeof alerts;
   auth: typeof auth;
   careers: typeof careers;
   careersFinder: typeof careersFinder;
