@@ -239,7 +239,7 @@ export function fitScore(text: string, headline: string) {
   return n;
 }
 const STRONG = 3;
-const PER_EMAIL = 5;
+const PER_EMAIL = 3;
 
 export function isSeekerPost(text: string, headline: string) {
   return !whyNot(text, headline);
@@ -335,7 +335,7 @@ export const sendCommentList = internalAction({
     await sendEmail({
       to: owner,
       subject: `${picked.length} sales ${picked.length === 1 ? "person" : "people"} looking for work today: worth a comment`,
-      text: `Posts from the past week by sales people looking for a job, none sent to you before. 10 to 15 minutes of real comments here builds your name with exactly the people JobPipe is for.
+      text: `Posts from the past week by sales people looking for a job, none sent to you before. 5 minutes of real comments here builds your name with exactly the people JobPipe is for.
 
 How to use it:
 - Comment on the post with one specific tip for their situation, so your name is familiar.
