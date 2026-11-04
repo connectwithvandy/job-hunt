@@ -308,7 +308,7 @@ async function pickSeekers(ctx: ActionCtx): Promise<{ posts: SeekerPost[]; picke
   return { posts, picked };
 }
 
-function seekersSection(picked: SeekerPost[]) {
+function seekersSection(picked: SeekerPost[], notes: (string | null)[]) {
   const snippet = (t: string) => cut(t.replace(/\s+/g, " ").trim(), 220);
   return `SALES PEOPLE LOOKING FOR WORK (about 5 minutes: comment with one useful tip, then send the message by hand; never automate this)
 
@@ -317,7 +317,7 @@ ${picked
    "${snippet(p.text)}"
    Post: ${p.url}${p.author.url ? `\n   Profile: ${p.author.url}` : ""}
    Message:
-   ${pitch(p.author.name)}`)
+   ${notes[i] ?? pitch(p.author.name)}`)
   .join("\n\n")}`;
 }
 
@@ -368,7 +368,13 @@ export const sendMorning = internalAction({
 ${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not given"} · ${w.email}${w.linkedin ? ` · ${w.linkedin}` : ""}`).join("\n")}`);
     }
     if (post) parts.push(post);
-    if (picked.length) parts.push(seekersSection(picked));
+    if (picked.length) {
+      // A personal note per person, written from their post; the plain one if that fails.
+      const notes: (string | null)[] = await ctx.runAction(internal.growthNotes.write, {
+        people: picked.map((p) => ({ name: p.author.name, headline: p.author.headline, post: p.text })),
+      });
+      parts.push(seekersSection(picked, notes));
+    }
     if (errors.length) {
       parts.push(`ERRORS SINCE YESTERDAY (${errors.length}): ${appUrl()}/admin
 ${errors.slice(0, 5).map((r) => `- ${new Date(r._creationTime).toISOString().slice(0, 16).replace("T", " ")} UTC · ${r.email || "signed out"} · ${r.page}\n  ${cut(r.message.split("\n")[0], 200)}`).join("\n")}`);
