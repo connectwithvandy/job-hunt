@@ -203,6 +203,143 @@ export const ROLE_PAGES: RolePage[] = [
     jobs: { titles: ["Account Executive", "Enterprise Account Executive", "Mid Market Account Executive"], exclude: /\bkey account\b|executive\s*-\s*account management|\btalent account\b/i, regions: ["blr", "india", "remote"], india: true },
   },
   {
+    slug: "inside-sales-jobs-india",
+    title: "Inside sales jobs in India and remote",
+    description: "Inside sales jobs in India and remote: inside sales representative and executive roles at software and B2B companies, updated every morning.",
+    intro:
+      "Inside sales means selling by phone, email and video instead of meeting buyers in person. In B2B and software companies, inside sales roles range from SDRs who book meetings to inside sales executives who close smaller deals themselves. Most openings are in Bengaluru, Pune, Gurugram, Mumbai and Hyderabad, plus remote roles.",
+    looksFor: [
+      "Activity and results with numbers: calls, meetings, deals closed and percentage of target.",
+      "Clear speaking and writing, because every conversation is remote.",
+      "A CRM you have worked in, such as Salesforce, HubSpot or Zoho.",
+      "The market and buyer you sold to, and the deal size.",
+    ],
+    faq: [
+      ["What is inside sales?", "Selling remotely, by phone, email and video calls, rather than visiting customers. Most B2B software sales in India is inside sales."],
+      ["What is the difference between inside sales and field sales?", "Inside sales works remotely and handles more, usually smaller, deals. Field sales meets customers in person, often for larger accounts or in industries like manufacturing and pharma."],
+      ["Is inside sales the same as an SDR job?", "Not always. SDRs book meetings for Account Executives. Some inside sales roles also close deals themselves, especially for smaller customers. Read the job description to see which it is."],
+      ["Do inside sales jobs need experience?", "Many entry roles hire freshers who speak and write well and have hit any kind of target. Experienced roles ask for a record against quota."],
+      ["Are there work-from-home inside sales jobs?", "Yes. Inside sales suits remote work, and many companies hire remote inside sales staff in India, often for US, UK or APAC markets on shifted hours."],
+    ],
+    jobs: { titles: ["Inside Sales Representative", "Inside Sales Executive", "Inside Sales Manager", "Inside Sales"], regions: ["india", "blr", "remote"], india: true },
+  },
+  {
+    slug: "saas-sales-jobs-india",
+    title: "SaaS, tech and B2B sales jobs in India",
+    description: "SaaS, tech and B2B sales jobs in India and remote: SDR, Account Executive, pre-sales and account management roles at software companies, updated daily.",
+    intro:
+      "SaaS sales means selling software that customers pay for by subscription, usually to other businesses (B2B). The main roles are SDR or BDR (booking meetings), Account Executive (closing deals), Solutions Engineer (the technical side) and Account Manager (growing existing customers). Bengaluru has the most openings in India, followed by Gurugram, Mumbai, Pune and Hyderabad.",
+    sections: [
+      {
+        heading: "The main SaaS sales roles",
+        table: {
+          head: ["Role", "What they do", "Measured on"],
+          rows: [
+            ["SDR / BDR", "Finds and qualifies new buyers, books meetings", "Meetings and pipeline created"],
+            ["Account Executive", "Runs deals from first meeting to signed contract", "Revenue closed against quota"],
+            ["Solutions Engineer", "Demos, technical questions, proofs of concept", "Deals won with the AE"],
+            ["Account Manager", "Renewals, upsell and expansion with existing customers", "Retention and expansion revenue"],
+          ],
+        },
+      },
+      {
+        heading: "How SaaS sales differs from other sales",
+        text: "Deals are recurring, so companies care about how long customers stay, not just the first sale. Sales is mostly inside sales, done over video calls. Teams are split by stage (SDR, AE, account management), and pay is usually fixed plus variable against a target.",
+      },
+    ],
+    faq: [
+      ["How do I get into SaaS sales with no experience?", "Most people start as an SDR or BDR. Show targets you hit, customer-facing work, clear writing and outreach you have done, and learn the basics of how software is bought."],
+      ["Is tech sales the same as SaaS sales?", "Mostly. Tech sales covers all technology sold to businesses, including hardware and services; SaaS sales is the software-subscription part, and the biggest share of tech sales jobs in India."],
+      ["What does B2B sales mean?", "Business to business: selling to companies rather than to individual consumers. Deals involve several people and take longer, and SaaS is one of the largest B2B sales markets."],
+      ["What do SaaS sales jobs pay in India?", "From what I have seen, SDRs at SaaS companies typically earn ₹10–22 lakh a year in total pay and Account Executives ₹17–30 lakh, fixed plus variable. Freshers and India-only roles often start lower."],
+      ["Which cities have the most SaaS sales jobs in India?", "Bengaluru, then Gurugram, Mumbai, Pune, Hyderabad and Chennai. Many companies also hire remote sales staff in India to sell into the US, UK, Europe or APAC."],
+    ],
+    jobsHeading: "SaaS sales roles open right now",
+    jobs: { titles: ["Account Executive", "Sales Development Representative", "Solutions Engineer", "Account Manager"], exclude: /\bkey account\b|executive\s*-\s*account management|\btalent account\b/i, regions: ["india", "blr", "remote"], india: true },
+  },
+  {
+    slug: "business-development-jobs-india",
+    title: "Business development jobs in Bengaluru and India",
+    description: "Business development jobs in Bengaluru, India and remote: BDR, business development executive and manager roles at B2B and software companies.",
+    intro:
+      "Business development jobs find and open new business: new customers, new markets or new partners. In B2B and software companies, entry roles (Business Development Representative or Executive) book meetings for sales, and manager roles own new accounts, partnerships or a region.",
+    looksFor: [
+      "New business you created, with numbers: meetings, pipeline, deals or partners signed.",
+      "The market, industry and buyer you worked with.",
+      "Outreach that worked: channels, messages and conversion.",
+      "For managers: territory or partner results, and any team you led.",
+    ],
+    faq: [
+      ["What does a business development executive do?", "Finds potential customers, reaches out by phone, email and LinkedIn, qualifies their interest and books meetings or closes smaller deals, depending on the company."],
+      ["Is business development the same as sales?", "Closely related. Business development usually means opening new opportunities (customers, markets, partners); sales usually means closing them. Many companies use the titles loosely, so read the job description."],
+      ["What is the difference between a BDR and a business development manager?", "A BDR is an entry role that books meetings. A business development manager is more senior and usually owns new accounts, partnerships or a region, and may lead a team."],
+      ["Do business development jobs need an MBA?", "Most B2B and software business development roles do not. Proof of results (meetings, pipeline, deals) matters more than the degree."],
+    ],
+    jobs: { titles: ["Business Development Representative", "Business Development Executive", "Business Development Manager", "Head of Business Development"], regions: ["india", "blr", "remote"], india: true },
+  },
+  {
+    slug: "presales-jobs-india",
+    title: "Pre-sales and solutions engineer jobs in India",
+    description: "Pre-sales, solutions engineer and sales engineer jobs in India and remote at software companies: what the role is, what it needs, and open roles.",
+    intro:
+      "Pre-sales (Solutions Engineer, Sales Engineer, Presales Consultant) is the technical side of selling software: understanding the buyer's needs, giving demos, answering technical questions and running proofs of concept alongside the Account Executive.",
+    looksFor: [
+      "Deals you helped win, with size and what you did in them.",
+      "Products you can demo and the technical depth behind them.",
+      "Proofs of concept you ran and how they turned out.",
+      "How you work with Account Executives and product teams.",
+    ],
+    faq: [
+      ["What does a pre-sales consultant do?", "Works with the sales team to win deals: discovery on technical needs, tailored demos, answering security and integration questions, and running trials or proofs of concept."],
+      ["What is the difference between a solutions engineer and a sales engineer?", "Usually the same job; companies pick one title. Both support sales on the technical side rather than carrying the quota alone."],
+      ["Do I need to code for a pre-sales job?", "Not always, but you need to understand how the product works and explain it clearly. Some roles ask for scripting, APIs or cloud basics."],
+      ["Can I move from pre-sales to sales?", "Yes. Many solutions engineers move into Account Executive or sales leadership roles, because they already know the buyer and the deal process."],
+    ],
+    jobs: { titles: ["Solutions Engineer", "Sales Engineer", "Presales Consultant", "Solutions Consultant"], exclude: /\btesting\b|\bnetwork\b|\bqa\b|\bsupport\b|\bimplementation\b/i, regions: ["india", "blr", "remote"], india: true },
+  },
+  {
+    slug: "sales-resume",
+    title: "Sales resume: how to write one that gets calls (SDR, BDR, AE)",
+    faqHeading: "Sales resume questions",
+    jobsHeading: "Sales roles to try it on",
+    description: "How to write a sales resume for SDR, BDR and Account Executive jobs in India: format, the numbers to show, bullet examples, and common mistakes.",
+    intro:
+      "A sales resume has one job: prove you can hit a number. Hiring managers skim for targets, attainment, pipeline and deal size, so put those first, in numbers, near the top. Here is what to include for SDR, BDR and Account Executive roles, and what to leave out.",
+    sections: [
+      {
+        heading: "What to show for each role",
+        table: {
+          head: ["Role", "Lead with", "Also show"],
+          rows: [
+            ["SDR / BDR", "Meetings booked and pipeline created against target", "Channels, reply rates, market sold into, tools"],
+            ["Account Executive", "Quota and attainment by year", "Deal size, cycle length, segment, new vs expansion"],
+            ["Fresher", "Any target you hit, customer-facing work", "Outreach you have done, clear writing, why sales"],
+          ],
+        },
+      },
+      {
+        heading: "Format that works",
+        text: "One page, two if you have over eight years. Name, phone, email and LinkedIn at the top. A two-line summary of the role you want and your best number. Then experience, newest first, three to five bullets per job, each starting with a result. Skills and tools at the end. Save as PDF unless the form asks for Word.",
+      },
+      {
+        heading: "Bullets: before and after",
+        text: "Before: 'Responsible for outbound prospecting and lead generation.' After: 'Booked 40 qualified meetings a quarter from outbound email and calls to US mid-market companies, 115% of target.' (Use your own real numbers; these are only examples.) Before: 'Handled enterprise accounts.' After: 'Closed ₹1.2 crore in new business in FY25, 108% of quota, average deal ₹15 lakh over a four-month cycle.'",
+      },
+      {
+        heading: "Common mistakes",
+        text: "Duties instead of results. Rounding numbers up (interviewers check). A long objective paragraph. Listing every tool you have touched. One generic resume for every job: move the proof each job asks for to the top.",
+      },
+    ],
+    faq: [
+      ["What should a sales resume include?", "Contact details, a short summary, experience with results in numbers (target, attainment, pipeline, deal size), and the tools you use. Put the numbers first in each bullet."],
+      ["How do I write an SDR resume with no experience?", "Lead with anything that shows you can hit a target or talk to strangers: college or part-time targets, customer-facing jobs, cold outreach you have done. Add a short line on why sales."],
+      ["Should a sales resume have an objective?", "A two-line summary works better: the role you want and your strongest result. Skip long objective paragraphs."],
+      ["How long should a sales resume be?", "One page for most people; two if you have more than about eight years of experience. Hiring managers skim, so the top half matters most."],
+      ["Should I tailor my resume for each sales job?", "Yes. Keep the facts the same, but move the experience each job asks for to the top. JobPipe does this for each role without inventing anything."],
+    ],
+    jobs: { titles: ["SDR", "Account Executive", "Sales Development Representative", "BDR"], exclude: /\bkey account\b|executive\s*-\s*account management|\btalent account\b/i, regions: ["india", "blr", "remote"], india: true },
+  },
+  {
     slug: "sdr-bdr-jobs-india",
     title: "SDR and BDR jobs in India and remote",
     description: "Sales Development Representative (SDR) and Business Development Representative (BDR) jobs in India and remote, updated every morning from company careers pages.",
@@ -300,7 +437,7 @@ export const ROLE_PAGES: RolePage[] = [
   },
   {
     slug: "gtm-jobs-india",
-    title: "GTM strategy and AI GTM jobs in India",
+    title: "GTM, RevOps and AI GTM jobs in India",
     description: "Go-to-market (GTM) strategy, GTM operations and AI GTM jobs in India and remote APAC. JobPipe scores each against your CV and finds who can refer you.",
     intro:
       "Go-to-market (GTM) roles sit between sales, marketing and strategy: planning segments and territories, building outbound and launch plays, and more and more, running AI tools across the sales process. Titles vary a lot, so one search rarely finds them all.",
