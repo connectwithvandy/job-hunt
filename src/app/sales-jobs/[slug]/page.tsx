@@ -105,6 +105,13 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
         , sales development leader · Updated {new Date(GUIDES_UPDATED).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
       </p>
       <p className="mt-5 text-lg text-ink-2">{page.intro}</p>
+      <p className="mt-5 text-sm text-ink-2">
+        Applying for these roles?{" "}
+        <Link href="/cv-review" className="underline decoration-accent underline-offset-4 hover:text-ink">
+          Get a free CV review
+        </Link>{" "}
+        from a sales hiring manager&apos;s point of view.
+      </p>
       {page.sections?.map((sec) => (
         <section key={sec.heading} className="mt-12">
           <h2 className="display text-2xl">{sec.heading}</h2>
@@ -156,7 +163,12 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-sm text-ink-2">JobPipe scores roles like these against your CV every morning and tailors your CV for the ones worth applying to.</p>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href="/" className="btn btn-primary">
+              See how well you fit these roles
+            </Link>
+            <p className="text-sm text-ink-2">Upload your CV: JobPipe scores roles like these against it every morning. 7 days free.</p>
+          </div>
         </section>
       )}
       {page.looksFor && (
