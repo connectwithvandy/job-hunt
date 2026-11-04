@@ -8,13 +8,57 @@ export type RolePage = {
   title: string; // the H1 and the search title
   description: string; // 140-160 characters, for Google
   intro: string;
-  looksFor: string[];
+  /** Explainer guides (not job lists) carry their own sections: a heading with text, a comparison table, or both. */
+  sections?: { heading: string; text?: string; table?: { head: string[]; rows: string[][] } }[];
+  looksFor?: string[];
+  /** Heading over the live roles, when "Open roles right now" would be unclear on an explainer. */
+  jobsHeading?: string;
   faq: [string, string][];
   /** Which live roles to list: titles searched the way the app searches them, and the regions that count. */
   jobs: { titles: string[]; regions: RegionKey[]; india: boolean; exclude?: RegExp };
 };
 
 export const ROLE_PAGES: RolePage[] = [
+  {
+    slug: "sdr-vs-bdr",
+    title: "SDR vs BDR: what is the difference?",
+    jobsHeading: "SDR and BDR roles open right now",
+    description: "SDR vs BDR explained: inbound vs outbound, how each is measured, how both compare to an Account Executive, and which job titles to apply for.",
+    intro:
+      "An SDR (Sales Development Representative) usually works inbound leads, people who already showed interest, while a BDR (Business Development Representative) usually prospects outbound, reaching companies that have not. Both book meetings for Account Executives. Many companies use the two titles for the same job, so read the job description, not the title.",
+    sections: [
+      {
+        heading: "SDR vs BDR vs Account Executive",
+        table: {
+          head: ["", "SDR", "BDR", "Account Executive (AE)"],
+          rows: [
+            ["Full title", "Sales Development Representative", "Business Development Representative", "Account Executive"],
+            ["Main job", "Qualify people who came in and book meetings", "Find new companies and book meetings", "Run deals from first meeting to signed contract"],
+            ["Leads", "Mostly inbound: demo requests, sign-ups, events", "Mostly outbound: cold email, calls, LinkedIn", "Meetings from SDRs and BDRs, plus their own"],
+            ["Measured on", "Meetings booked, speed of follow-up, pipeline created", "Meetings booked, pipeline created from new accounts", "Revenue closed against quota"],
+            ["Usual next step", "Account Executive", "Account Executive", "Senior or enterprise AE, or sales manager"],
+          ],
+        },
+      },
+      {
+        heading: "How to tell which one a job really is",
+        text: "Look for the words in the job description, not the title. 'Inbound', 'MQL', 'demo requests' and 'speed to lead' mean SDR-style work. 'Outbound', 'net new', 'cold calling', 'target accounts' and 'territory' mean BDR-style work. Many roles in India are a mix, and many sell into the US, UK or Australia on shifted hours, which the job description usually says.",
+      },
+      {
+        heading: "Which one should you apply for?",
+        text: "Both. Recruiters search for both titles, and the work overlaps enough that your CV can serve either. Put your strongest proof first: meetings booked and pipeline created against target, the channels you used, and the market you sold into. If you prefer outbound, lead with cold outreach that worked; if inbound, lead with speed and conversion.",
+      },
+    ],
+    faq: [
+      ["What does SDR stand for?", "Sales Development Representative. In sales, an SDR qualifies leads and books meetings for Account Executives. Outside sales, SDR can mean other things, such as the IMF's Special Drawing Rights."],
+      ["What does BDR stand for?", "Business Development Representative. A BDR prospects new companies, usually outbound, and books meetings for Account Executives."],
+      ["Is a BDR higher than an SDR?", "No. They are usually the same level, both entry roles in B2B sales, and both lead to Account Executive. Some companies pay outbound BDRs slightly more because the work is harder, but it depends on the company."],
+      ["Is an SDR the same as inside sales?", "Not quite. Inside sales means selling remotely rather than in person. SDRs and BDRs are part of inside sales, but some inside sales roles also close small deals themselves."],
+      ["Which is better for becoming an Account Executive, SDR or BDR?", "Both lead there. Outbound BDR work teaches you to create pipeline from nothing, which AE interviews often test. What matters most is hitting target consistently and getting close to deals."],
+      ["Do SDR and BDR jobs need sales experience?", "Often not. Many companies hire freshers and career switchers. Show proof you can do the work: targets you hit, customer-facing jobs, cold outreach you have done and clear writing."],
+    ],
+    jobs: { titles: ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"], regions: ["india", "blr", "remote"], india: true },
+  },
   {
     slug: "sdr-bdr-jobs-india",
     title: "SDR and BDR jobs in India and remote",

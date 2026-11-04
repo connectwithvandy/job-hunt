@@ -95,7 +95,7 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
   return (
     <RoleLayout current={page.slug}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph(jsonLd)) }} />
-      <p className="label text-accent">Sales job guide</p>
+      <p className="label text-accent">{page.sections ? "Sales career guide" : "Sales job guide"}</p>
       <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{page.title}</h1>
       <p className="mt-3 text-sm text-ink-3">
         By{" "}
@@ -105,9 +105,42 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
         , sales development leader · Updated {new Date(GUIDES_UPDATED).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
       </p>
       <p className="mt-5 text-lg text-ink-2">{page.intro}</p>
+      {page.sections?.map((sec) => (
+        <section key={sec.heading} className="mt-12">
+          <h2 className="display text-2xl">{sec.heading}</h2>
+          {sec.table && (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
+                <thead>
+                  <tr>
+                    {sec.table.head.map((h) => (
+                      <th key={h} className="border-b border-line py-2 pr-4 font-medium">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sec.table.rows.map(([first, ...rest]) => (
+                    <tr key={first} className="border-b border-line align-top">
+                      <th className="py-2 pr-4 font-medium text-ink">{first}</th>
+                      {rest.map((c, i) => (
+                        <td key={i} className="py-2 pr-4 text-ink-2">
+                          {c}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {sec.text && <p className="mt-4 text-ink-2">{sec.text}</p>}
+        </section>
+      ))}
       {roles.length > 0 && (
         <section className="mt-12">
-          <h2 className="display text-2xl">Open roles right now</h2>
+          <h2 className="display text-2xl">{page.jobsHeading ?? "Open roles right now"}</h2>
           <p className="mt-1 text-sm text-ink-3">
             From company careers pages, checked every morning. Updated {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}.
           </p>
@@ -126,14 +159,18 @@ export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug
           <p className="mt-3 text-sm text-ink-2">JobPipe scores roles like these against your CV every morning and tailors your CV for the ones worth applying to.</p>
         </section>
       )}
-      <h2 className="display mt-12 text-2xl">What hiring managers look for</h2>
-      <ul className="mt-4 space-y-3 text-ink-2">
-        {page.looksFor.map((l) => (
-          <li key={l} className="border-l-2 border-accent pl-4">
-            {l}
-          </li>
-        ))}
-      </ul>
+      {page.looksFor && (
+        <>
+          <h2 className="display mt-12 text-2xl">What hiring managers look for</h2>
+          <ul className="mt-4 space-y-3 text-ink-2">
+            {page.looksFor.map((l) => (
+              <li key={l} className="border-l-2 border-accent pl-4">
+                {l}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <h2 className="display mt-12 text-2xl">Questions people ask</h2>
       <div className="mt-4 space-y-6">
         {page.faq.map(([q, a]) => (
