@@ -45,9 +45,16 @@ export const join = mutation({
   },
 });
 
-/** A few words about you while you wait: name, LinkedIn and the role you're after. */
+/** Roles that are let straight in. Anyone picking "Other" waits for the owner to check their LinkedIn. */
+const SALES_ROLES = new Set(["Account Executive", "SDR / BDR", "Sales leadership", "GTM strategy / AI GTM", "Founder's Office"]);
+
+/**
+ * Name, LinkedIn and the role you're after. Picking a sales role lets you in straight away (trial starts now,
+ * welcome email goes out), so people arriving from search don't wait days. Returns whether you're in.
+ */
 export const describe = mutation({
   args: { name: v.string(), linkedin: v.string(), role: v.string() },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("Please sign in again.");
@@ -55,11 +62,14 @@ export const describe = mutation({
     const linkedin = args.linkedin.trim().slice(0, 300);
     const role = args.role.trim().slice(0, 60);
     if (!name) throw new ConvexError("Add your name.");
+    if (!role) throw new ConvexError("Pick the role you're after.");
     if (linkedin && !/^(https?:\/\/)?([a-z]+\.)?linkedin\.com\//i.test(linkedin)) throw new ConvexError("That doesn't look like a LinkedIn profile link.");
     const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if (!row) throw new ConvexError("Join the waitlist first.");
-    await ctx.db.patch("access", row._id, { name, linkedin: linkedin || undefined, role: role || undefined });
-    return null;
+    const letIn = SALES_ROLES.has(role) && !row.approved && !row.rejected;
+    await ctx.db.patch("access", row._id, { name, linkedin: linkedin || undefined, role, ...(letIn ? { approved: true, decidedAt: Date.now() } : {}) });
+    if (letIn) await queueWelcome(ctx, row._id);
+    return letIn;
   },
 });
 

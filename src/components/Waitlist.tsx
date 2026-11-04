@@ -53,7 +53,7 @@ export function Waitlist({ email, onWaitlist, answered, rejected }: { email: str
             setBusy(false);
           }}
         >
-          <p className="text-lg text-ink-2">Three quick questions, so we let the right people in first.</p>
+          <p className="text-lg text-ink-2">Three quick questions. Pick a sales role and you&apos;re in straight away.</p>
           <label className="block">
             <span className="label">Your name</span>
             <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
@@ -63,7 +63,7 @@ export function Waitlist({ email, onWaitlist, answered, rejected }: { email: str
             <input className="field mt-1" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="linkedin.com/in/your-name" />
           </label>
           <div>
-            <span className="label">What role are you after?</span>
+            <span className="label">What role are you after? (required)</span>
             <div className="mt-2 flex flex-wrap gap-2">
               {ROLES.map((r) => (
                 <button
@@ -79,7 +79,7 @@ export function Waitlist({ email, onWaitlist, answered, rejected }: { email: str
             </div>
           </div>
           {error && <p className="text-sm text-bad">{error}</p>}
-          <button className="btn btn-primary" disabled={busy || !name.trim()}>
+          <button className="btn btn-primary" disabled={busy || !name.trim() || !role}>
             {busy ? "Saving…" : "Save"}
           </button>
         </form>

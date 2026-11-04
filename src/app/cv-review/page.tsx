@@ -154,7 +154,7 @@ function Result({ review }: { review: Review }) {
           Re-checks after each change, a CV tailored to every job description, and who you know at each company come with JobPipe.
         </p>
         <Link href="/" className="btn btn-primary mt-6">
-          Join the waitlist
+          Start your free trial
         </Link>
       </div>
     </section>

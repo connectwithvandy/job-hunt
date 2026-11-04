@@ -12,7 +12,7 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
           <span className="text-accent">.</span>
         </Link>
         <Link href="/" className="rounded-full border border-line px-4 py-1.5 text-sm hover:border-accent">
-          Join the waitlist
+          Start your free trial
         </Link>
       </header>
       <main className="mt-12">{children}</main>
@@ -23,7 +23,7 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/" className="btn btn-primary">
-            Join the waitlist
+            Start your free trial
           </Link>
           <Link href="/cv-review" className="btn btn-ghost">
             Free CV review

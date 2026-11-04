@@ -97,8 +97,8 @@ export function SignIn() {
   }[flow];
   const head = {
     signUp: [
-      "Join the waitlist",
-      "Pick a password now. We let people in in small groups and email you the day you're in.",
+      "Start your free trial",
+      "Pick a password. Sales and GTM people get in straight away, with 7 days free.",
     ],
     signIn: ["Welcome back", "Sign in to pick up where you left off."],
     reset: [
@@ -122,7 +122,7 @@ export function SignIn() {
     "reset-verification": locked,
   }[flow];
   const button = {
-    signUp: "Join the waitlist",
+    signUp: "Start your free trial",
     signIn: "Sign in",
     reset: "Send me a code",
     "reset-verification": "Set new password and sign in",
@@ -297,7 +297,7 @@ export function SignIn() {
                 ? "Back to sign in"
                 : flow === "signUp"
                   ? "Already have an account? Sign in"
-                  : "New here? Join the waitlist"}
+                  : "New here? Start your free trial"}
             </button>
             {flow === "signUp" && (
               <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
@@ -448,7 +448,7 @@ export function SignIn() {
           className="btn btn-primary relative mt-8"
           onClick={() => start("signUp")}
         >
-          Join the waitlist
+          Start your free trial
         </button>
       </Reveal>
 
