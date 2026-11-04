@@ -31,17 +31,20 @@ type RawPost = {
   postedAt?: { timestamp?: number };
 };
 
+/** LinkedIn sends some text with HTML escapes ("Sales &amp; BD"); turn them back into characters. */
+const unescape = (t: string) => t.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
 function toPost(p: RawPost): Post | null {
   if (!p.id || !p.content?.trim()) return null;
   const handle = p.author?.publicIdentifier;
   return {
     id: p.id,
-    text: p.content.trim(),
+    text: unescape(p.content.trim()),
     url: p.linkedinUrl ?? "",
     at: p.postedAt?.timestamp,
     author: {
-      name: p.author?.name ?? "",
-      headline: p.author?.info ?? "",
+      name: unescape(p.author?.name ?? ""),
+      headline: unescape(p.author?.info ?? ""),
       // Their plain profile link, without LinkedIn's tracking bits.
       url: handle ? `https://www.linkedin.com/in/${handle}/` : (p.author?.linkedinUrl?.split("?")[0] ?? ""),
     },
