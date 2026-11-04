@@ -8,7 +8,7 @@ import { alertsEmail } from "./lib/email";
 
 const modules = import.meta.glob("./**/*.ts");
 
-test("new-roles email: today's new jobs, best fit first, under the person's own groups; skips people who said stop", async () => {
+test("new-roles email: today's relevant new jobs (fit 60+, title in their groups), best fit first, under the person's own groups; skips people who said stop", async () => {
   vi.useFakeTimers();
   const NOW = Date.UTC(2026, 10, 10, 4);
   vi.setSystemTime(NOW - 2 * 86_400_000);
@@ -35,6 +35,9 @@ test("new-roles email: today's new jobs, best fit first, under the person's own 
     await ctx.db.insert("jobs", { userId: ids.a, ...job("SDR", { scores: [{ trackKey: "sdr", score: 60, reason: "", gaps: [] }] }) });
     await ctx.db.insert("jobs", { userId: ids.a, ...job("Sales Development Manager", { quickFit: 150 }) });
     await ctx.db.insert("jobs", { userId: ids.a, ...job("Dismissed SDR", { status: "dismissed" }) });
+    // Weak fit, and a title outside their groups: neither makes the email.
+    await ctx.db.insert("jobs", { userId: ids.a, ...job("BDR", { scores: [{ trackKey: "sdr", score: 40, reason: "", gaps: [] }] }) });
+    await ctx.db.insert("jobs", { userId: ids.a, ...job("Office Manager", { scores: [{ trackKey: "sdr", score: 90, reason: "", gaps: [] }] }) });
     await ctx.db.insert("jobs", { userId: ids.b, ...job("SDR") });
   });
   const due = await t.query(internal.alerts.due, { now: NOW });
@@ -48,4 +51,16 @@ test("new-roles email: today's new jobs, best fit first, under the person's own 
   const mail = alertsEmail(due[0]);
   expect(mail.subject).toBe("2 new roles for you today, Asha");
   expect(mail.text).toContain("/jobs/");
+});
+
+test("no email when nothing new is relevant", async () => {
+  const t = convexTest(schema, modules);
+  rateLimiter.register(t);
+  await t.run(async (ctx) => {
+    const a = await ctx.db.insert("users", { email: "c@example.com" });
+    await ctx.db.insert("access", { userId: a, email: "c@example.com", approved: true });
+    await ctx.db.insert("tracks", { userId: a, key: "sdr", name: "SDR / BDR", color: "#000", status: "active", titles: ["SDR"], pitch: "" });
+    await ctx.db.insert("jobs", { userId: a, externalId: "1", source: "careers", url: "https://x", title: "SDR", company: "Acme", location: "Pune", status: "new", outreach: [], updatedAt: 0, scores: [{ trackKey: "sdr", score: 45, reason: "", gaps: [] }] });
+  });
+  expect(await t.query(internal.alerts.due, { now: Date.now() + 60_000 })).toEqual([]);
 });

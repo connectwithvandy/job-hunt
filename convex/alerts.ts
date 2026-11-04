@@ -8,6 +8,8 @@ import { trackForTitle } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
 const PER_EMAIL = 8;
+/** The app's "good fit" line (violet 60+, green 75+): weaker roles stay in the app but don't make the email. */
+const RELEVANT = 60;
 
 const jobV = v.object({ title: v.string(), company: v.string(), where: v.string(), fit: v.optional(v.number()), id: v.string() });
 const personV = v.object({ accessId: v.id("access"), email: v.string(), name: v.optional(v.string()), groups: v.array(v.object({ track: v.string(), jobs: v.array(jobV) })) });
@@ -40,15 +42,16 @@ export const due = internalQuery({
         if (j._creationTime < since) break;
         if (j.status === "new") fresh.push(j);
       }
-      if (!fresh.length) continue;
+      // Only relevant roles: the title fits one of their groups, and the fit is 60 or more.
       const best = fresh
-        .map((j) => ({ j, fit: fitOf(j) }))
+        .map((j) => ({ j, fit: fitOf(j), key: j.trackKey ?? trackForTitle(tracks, j.title) }))
+        .filter((x) => x.fit !== undefined && x.fit >= RELEVANT && tracks.some((t) => t.key === x.key))
         .sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1))
         .slice(0, PER_EMAIL);
+      if (!best.length) continue;
       const byTrack = new Map<string, { title: string; company: string; where: string; fit?: number; id: string }[]>();
-      for (const { j, fit } of best) {
-        const key = j.trackKey ?? trackForTitle(tracks, j.title) ?? j.foundFor;
-        const name = tracks.find((t) => t.key === key)?.name ?? "Other roles";
+      for (const { j, fit, key } of best) {
+        const name = tracks.find((t) => t.key === key)!.name;
         const list = byTrack.get(name) ?? [];
         list.push({ title: j.title, company: j.company, where: j.location || "Not listed", fit, id: j._id });
         byTrack.set(name, list);
