@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { regionsOf } from "../src/lib/regions";
 import { payText } from "../src/lib/money";
 import { cleanCompany, sameRoleKey } from "./lib/company";
+import { openDoors } from "./lib/posting";
 import { quickFit } from "./lib/quickFit";
 import { backOffice } from "./lib/salesRoles";
 
@@ -62,4 +63,15 @@ test("long rupee pay reads in lakhs", () => {
   expect(payText("₹1,400,000 – ₹2,400,000/year (est.)", {})).toBe("₹14–24 L/yr (est.)");
   expect(payText("INR 650000 per year", {})).toBe("₹6.5 L/yr");
   expect(payText("₹25 LPA", {})).toBe("₹25 LPA");
+});
+
+test("open doors count people only at companies with a role that fits", () => {
+  const { open, people } = openDoors([
+    { peopleCount: 3, fitting: 2 },
+    { peopleCount: 9, fitting: 0 },
+    { peopleCount: 1, fitting: 1 },
+  ]);
+  expect(open.length).toBe(2);
+  expect(people).toBe(4);
+  expect(openDoors([]).people).toBe(0);
 });

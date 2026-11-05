@@ -87,3 +87,9 @@ export function skipReason(job: { scores?: { score: number }[]; brief?: { blocke
   if (best >= 0 && best < SKIP_BELOW) return `Your best fit is ${best}, under the line of ${SKIP_BELOW}. Your time is better spent on a stronger match.`;
   return null;
 }
+
+/** Companies with a role that fits where you know someone, and how many people that adds up to. */
+export function openDoors<C extends { peopleCount: number; fitting: number }>(warm: C[]) {
+  const open = warm.filter((c) => c.fitting > 0);
+  return { open, people: open.reduce((n, c) => n + c.peopleCount, 0) };
+}

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
 import { nextFollowUp, replyTiming } from "../../convex/lib/followups";
-import { SKIP_BELOW } from "../../convex/lib/posting";
+import { openDoors, SKIP_BELOW } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -228,6 +228,7 @@ export default function Today() {
         </section>
       )}
 
+      <OpenDoors warm={warm ?? []} askedAt={askedAt} />
       <CelebrateWins jobs={jobs} now={now} />
       <TodayProgress
         items={[
@@ -333,6 +334,42 @@ function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
   ]);
   useCelebrateNewWins(wins);
   return null;
+}
+
+/** The people you already know at companies hiring for you: a way in besides the application form. */
+function OpenDoors({ warm, askedAt }: { warm: FunctionReturnType<typeof api.contacts.warmCompanies>; askedAt: Set<string> }) {
+  const { open, people } = openDoors(warm);
+  const next = open.filter((c) => !askedAt.has(c.key) && c.people.length).slice(0, 3);
+  if (!people) return null;
+  return (
+    <section className="card mb-8 p-6">
+      <h2 className="display text-2xl">
+        You know {people} {people === 1 ? "person" : "people"} at {open.length} {open.length === 1 ? "company" : "companies"} hiring for your role
+      </h2>
+      {!!next.length && (
+        <ul className="mt-4 divide-y divide-line text-sm">
+          {next.map((c) => {
+            const p = c.people[0];
+            return (
+              <li key={c.key} className="py-3">
+                <Link href={`/jobs/${c.jobs[0]._id}`} className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="font-medium">
+                      {p.firstName} {p.lastName}
+                    </span>
+                    <span className="block text-xs text-ink-3">
+                      {[p.position, `${c.jobs[0].title} at ${c.company}`, p.chat ? `last talked ${timeAgo(p.chat.lastAt)}` : null].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  <span className="text-accent">Ask for a referral</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 /** Today's goals and how far along you are. Counts start again at 4 AM. */
