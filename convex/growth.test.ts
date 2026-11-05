@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { cut, fitScore, isSeekerPost, pitch, place } from "./growth";
+import { cut, fitScore, isSeekerPost, isTechCompany, pitch, place } from "./growth";
 
 test("job post places read cleanly", () => {
   expect(place("Pune-Maharashtra-India")).toBe("Pune");
@@ -59,4 +59,18 @@ test("strongest fits score 3 or more", () => {
 test("weaker fits stay out", () => {
   expect(fitScore("Olá a todos – Estou em busca de vagas Home Office SDR/BDR. #OpenToWork", "SDR BDR da empresa Home Office")).toBeLessThan(3);
   expect(fitScore("I wasn't the person you'd expect to become a top sales performer. When I started at Octopus Energy, I wasn't particularly confident. I'm naturally an ambivert, a little more introverted than extroverted, and probably not the loudest in the room. #opentowork", "Technical Operations Analyst | B2B Sales & Commercial Experience")).toBeLessThan(3);
+});
+
+test("the LinkedIn post lists tech companies only", () => {
+  // Seen 5 Nov: a pharma and a credit bureau led the post.
+  expect(isTechCompany("Dr Reddy's Laboratories Limited", "Regional Sales Manager", "https://jobs.smartrecruiters.com/DrReddysLaboratoriesLimited/744000159072399")).toBe(false);
+  expect(isTechCompany("Equifax", "Senior Manager Sales - North", "https://equifax.wd5.myworkdayjobs.com/External/job/IND-Delhi/AVP-Sales_J00179959")).toBe(false);
+  expect(isTechCompany("Acme Finance", "Account Manager", "https://jobs.lever.co/acmefinance/1")).toBe(false);
+  // Hand-picked, even on Workday or SmartRecruiters.
+  expect(isTechCompany("Salesforce", "Account Executive", "https://salesforce.wd12.myworkdayjobs.com/External_Career_Site/job/1")).toBe(true);
+  expect(isTechCompany("Canva", "Account Executive", "https://jobs.smartrecruiters.com/Canva/1")).toBe(true);
+  // A startup board, even if not hand-picked.
+  expect(isTechCompany("Wayground", "Team Lead, Account Executive (US)", "https://jobs.lever.co/Wayground/96a0cc02")).toBe(true);
+  expect(isTechCompany("Newco", "SDR", "https://job-boards.greenhouse.io/newco/jobs/1")).toBe(true);
+  expect(isTechCompany("Newco", "SDR", "https://jobs.ashbyhq.com/newco/1")).toBe(true);
 });

@@ -6,9 +6,11 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { type ActionCtx, env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
-import { roleKey } from "./lib/company";
+import { CAREER_BOARDS } from "./lib/careerBoards";
+import { companyKey, roleKey } from "./lib/company";
 import { searchPosts } from "./lib/apify";
 import { appUrl, emailOn, feedbackEmail, sendEmail, setupNudgeEmail } from "./lib/email";
+import { isLender } from "./lib/quickFit";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
@@ -17,6 +19,17 @@ const ALL_TITLES = [...new Set(SALES_ROLES.flatMap((r) => r.titles))];
 /** A sales job by its title, leaving out finance roles that only borrow sales words. */
 export function isSalesTitle(title: string) {
   return !backOffice(title) && ALL_TITLES.some((t) => titleMatches(t, title));
+}
+
+const PICKED_COMPANIES = new Set(CAREER_BOARDS.map((b) => companyKey(b.name)));
+// Startups hire on these. Big non-tech firms (Dr Reddy's, Equifax) arrive through Workday and SmartRecruiters
+// boards found in job links, so a company on those counts only if it was picked by hand.
+const STARTUP_BOARD = /(^|\.)(ashbyhq\.com|greenhouse\.io|lever\.co|rippling\.com)(\/|$)/i;
+
+/** A SaaS, tech or AI company, as far as its name and job link can tell: the public post lists only these. */
+export function isTechCompany(company: string, title: string, url: string) {
+  if (PICKED_COMPANIES.has(companyKey(company))) return true;
+  return STARTUP_BOARD.test(url.replace(/^https?:\/\//i, "")) && !isLender(title, company);
 }
 
 const ownerEmail = () => (env.OWNER_EMAILS ?? "").split(",").map((s) => s.trim()).filter(Boolean)[0];
@@ -32,7 +45,7 @@ export function place(location: string, workSetting?: string) {
 
 const jobV = v.object({ company: v.string(), title: v.string(), where: v.string(), url: v.string() });
 
-/** Sales roles in India that appeared on careers boards in the last day, one or two per company. */
+/** Sales roles at tech companies in India that appeared on careers boards in the last day, one or two per company. */
 export const newSalesJobs = internalQuery({
   args: { now: v.number() },
   returns: v.array(jobV),
@@ -45,6 +58,7 @@ export const newSalesJobs = internalQuery({
       if (j._creationTime < now - DAY) break;
       // Internships aren't what sales people following the post are after.
       if (!j.india || !isSalesTitle(j.title) || /\bintern(ship)?\b/i.test(j.title)) continue;
+      if (!isTechCompany(j.company, j.title, j.url)) continue;
       // A board seen for the first time brings old roles too; keep only ones posted in the last week.
       // No date means it could be months old, and the post says "new", so leave it out.
       const posted = j.postedAt ? Date.parse(j.postedAt) : NaN;

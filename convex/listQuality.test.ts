@@ -13,6 +13,8 @@ test("Bengaluru or remote leaves out field jobs in other Indian cities and remot
   expect(nearBlr("Hyderabad, TS, India", "Account Executive", "remote")).toBe(false);
   expect(nearBlr("Remote", "Strategic Account Executive, France")).toBe(false);
   expect(nearBlr("Remote", "Territory Account Executive, Saskatchewan / Manitoba")).toBe(false);
+  expect(nearBlr("Remote", "Account Executive, Federal")).toBe(false);
+  expect(nearBlr("Remote", "Enterprise Account Executive - SLED")).toBe(false);
 });
 
 test("Bengaluru or remote keeps Bengaluru, India-wide remote, and remote teams selling into other markets", () => {

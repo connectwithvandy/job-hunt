@@ -6,8 +6,9 @@ const INDIA_OK = /\b(india|worldwide|anywhere|global|apac|asia)\b/i;
 const OTHER_INDIAN_PLACE =
   /\b(mumbai|delhi|new delhi|gurugram|gurgaon|noida|pune|hyderabad|chennai|kolkata|ahmedabad|jaipur|kochi|chandigarh|indore|lucknow|coimbatore|nagpur|surat|vadodara|bhubaneswar|patna|rewari|mangalore|shimoga|shivamogga|maharashtra|delhi ncr|ncr|telangana|tamil nadu|haryana|west bengal|gujarat|rajasthan|kerala|uttar pradesh|punjab|odisha|bihar|andhra pradesh|madhya pradesh)\b/i;
 // A title naming one country outside India, so likely hiring there: "Strategic Account Executive, France", "Territory AE, Saskatchewan".
+// Federal and SLED (state, local, education) are US government sales teams, based in the US.
 const FOREIGN_MARKET =
-  /\b(united states|usa|canada|saskatchewan|manitoba|ontario|quebec|alberta|british columbia|united kingdom|ireland|france|germany|spain|italy|netherlands|poland|sweden|uae|saudi|ksa|australia|new zealand|japan|korea|brazil|mexico)\b/i;
+  /\b(federal|sled|united states|usa|canada|saskatchewan|manitoba|ontario|quebec|alberta|british columbia|united kingdom|ireland|france|germany|spain|italy|netherlands|poland|sweden|uae|saudi|ksa|australia|new zealand|japan|korea|brazil|mexico)\b/i;
 
 /**
  * Remote, and not locked to other countries or other Indian cities: "Remote (United States)" is out,
