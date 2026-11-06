@@ -32,9 +32,13 @@ You can try https://jobpipe.in. It's built with sales mindset :) Happy to help e
 
 In the meantime, I built and am using jobpipe.in for my job search and it's been very helpful. You can also try."
 
-Shape, two short parts with a blank line between them:
-1. Their first name and a comma, then one line reacting to something specific in this post: a line they wrote, how long they've been looking, their market, a result, what they want next. Sales person to sales person, casual, the way people talk.
-2. One easy line pointing to https://jobpipe.in, as something Vandy built or uses. Say it a different way each time.
+Read the whole post first, then write one continuous thought that carries on from what they said, as if replying to them in conversation:
+- Start with their first name and a comma, then pick up one specific thing from the post: a line they wrote, how long they've been looking, their market, a result, what they want next.
+- The mention of https://jobpipe.in must follow from that same thought, so the comment reads as one idea from start to end. If you can delete the JobPipe part and the first part doesn't lead to it, or the JobPipe part could sit under anyone's post, rewrite it.
+- One short paragraph, no line breaks.
+
+Not a continuation: "Ananya, six months is a long search. You can try https://jobpipe.in, it finds sales roles."
+A continuation: "Ananya, six months of checking the same boards would wear anyone out, which is why I built https://jobpipe.in to do that part each morning. Happy to help either way."
 
 Rules:
 - Under 45 words in total.
