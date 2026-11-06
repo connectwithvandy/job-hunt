@@ -9,8 +9,17 @@ crons.weekly("careers finder", { dayOfWeek: "sunday", hourUTC: 0, minuteUTC: 0 }
 // 7:00 in India (01:30 UTC): read every company careers board, an hour before the searches use them.
 crons.cron("careers boards", "30 1 * * *", internal.careersRefresh.refresh, {});
 
+// 15:00 in India: read them again, so roles posted today don't wait for tomorrow.
+crons.cron("careers boards afternoon", "30 9 * * *", internal.careersRefresh.refresh, {});
+
+// 7:40 in India: today's LinkedIn sales roles into the same shared list, before the morning run reads it.
+crons.cron("linkedin pool", "10 2 * * *", internal.careersRefresh.linkedInPool, {});
+
 // 8:00 in India (02:30 UTC): find and score new jobs before the day starts.
 crons.cron("morning autopilot", "30 2 * * *", internal.agent.dailyRun, {});
+
+// 16:00 IST: the afternoon top-up, free sources only and no scoring.
+crons.cron("afternoon top-up", "30 10 * * *", internal.agent.dailyRun, { light: true });
 
 // 9:30 IST: each member's best new roles from this morning's search, under their own role groups.
 crons.cron("new roles emails", "0 4 * * *", internal.alerts.send, {});

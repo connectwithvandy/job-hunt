@@ -69,8 +69,13 @@ type Place = ReturnType<typeof readPlace>;
 // Drops half an emoji left at the cut, which the database refuses.
 const cut = (text?: string | null) => (text ? text.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, "") : undefined);
 
-async function getJson<T>(url: string, headers: Record<string, string> = {}): Promise<T> {
+async function getJson<T>(url: string, headers: Record<string, string> = {}, again = true): Promise<T> {
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
+  // Too many searches at once: wait a moment and try once more.
+  if (res.status === 429 && again) {
+    await new Promise((ok) => setTimeout(ok, 3000));
+    return await getJson<T>(url, headers, false);
+  }
   if (!res.ok) throw new Error(`${new URL(url).host} answered ${res.status}`);
   return (await res.json()) as T;
 }
@@ -266,7 +271,7 @@ function openToIndianCity(name: string, where: string, remote: boolean, title: s
 }
 
 /** Jobs from the other boards, and the names of any board that didn't answer. */
-export async function searchOtherSources(titles: string[], location: string, googleTitles = 2): Promise<{ jobs: Found[]; failed: string[] }> {
+export async function searchOtherSources(titles: string[], location: string, googleTitles = 2, adzunaTitles = 4): Promise<{ jobs: Found[]; failed: string[] }> {
   const place = readPlace(location);
   // JSearch's free plan is about 200 searches a month and Adzuna's about 2,500, so they take a few titles a day,
   // a different few each day, and every title gets its turn within the week.
@@ -274,7 +279,7 @@ export async function searchOtherSources(titles: string[], location: string, goo
   const turn = (n: number) => (titles.length <= n ? titles : Array.from({ length: n }, (_, i) => titles[(day * n + i) % titles.length]));
   const calls: [string, Promise<Found[]>][] = [
     ...turn(googleTitles).map((t): [string, Promise<Found[]>] => ["Google Jobs", jsearch(t, place)]),
-    ...turn(4).map((t): [string, Promise<Found[]>] => ["Adzuna", adzuna(t, place)]),
+    ...turn(adzunaTitles).map((t): [string, Promise<Found[]>] => ["Adzuna", adzuna(t, place)]),
     // Dreamwork, Himalayas and Hacker News are free, so they search every title; Google and Adzuna have quotas.
     ...titles.slice(0, 16).map((t): [string, Promise<Found[]>] => ["Himalayas", himalayas(t, place)]),
     ...titles.slice(0, 16).map((t): [string, Promise<Found[]>] => ["Hacker News", hackerNews(t, place)]),

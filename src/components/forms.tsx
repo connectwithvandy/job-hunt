@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -31,7 +32,7 @@ export function ImportConnections() {
         const file = new FormData(e.currentTarget).get("file") as File | null;
         setState(
           await attempt(async () => {
-            if (!file?.size) throw new Error("Choose your Connections.csv file.");
+            if (!file?.size) throw new ConvexError("Choose your Connections.csv file.");
             const rows = parseConnectionsCsv(await file.text());
             setBusy("Replacing your old list…");
             while (await clear()) {

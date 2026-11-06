@@ -48,7 +48,7 @@ describe("C. Google Jobs monthly share (budget 10, owner + 1 tester)", () => {
     expect(await reserve(tester, 50)).toBe(0);
   });
 
-  test("owner uses what the tester leaves, up to 10, never more", async () => {
+  test("owner and tester each get their share, never more", async () => {
     const { owner, tester, reserve, totalUsed } = await setup();
     expect(await reserve(tester, 5)).toBe(5);
     expect(await reserve(owner, 10)).toBe(5);
@@ -57,10 +57,10 @@ describe("C. Google Jobs monthly share (budget 10, owner + 1 tester)", () => {
     expect(await totalUsed()).toBe(10);
   });
 
-  test("if the owner spends all 10 first, the tester gets none and the budget holds", async () => {
+  test("the owner can't use up everyone else's share", async () => {
     const { owner, tester, reserve, totalUsed } = await setup();
-    expect(await reserve(owner, 10)).toBe(10);
-    expect(await reserve(tester, 5)).toBe(0);
+    expect(await reserve(owner, 10)).toBe(5);
+    expect(await reserve(tester, 5)).toBe(5);
     expect(await totalUsed()).toBe(10);
   });
 
@@ -82,7 +82,7 @@ describe("C. Google Jobs monthly share (budget 10, owner + 1 tester)", () => {
     });
     expect(await reserve(tester, 10)).toBe(3);
     expect(await reserve(second, 10)).toBe(3);
-    expect(await reserve(owner, 10)).toBe(4);
-    expect(await totalUsed()).toBe(10);
+    expect(await reserve(owner, 10)).toBe(3);
+    expect(await totalUsed()).toBe(9);
   });
 });

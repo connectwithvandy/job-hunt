@@ -224,6 +224,54 @@ ${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
   return { subject, text, html };
 }
 
+/** A short founder note with one button, as plain text and HTML. */
+function founderNote(hello: string, paras: string[], button: string, link: string) {
+  const text = `${hello}
+
+${paras.join("\n\n")}
+
+${button}: ${link}
+
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(hello)}</p>
+${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+<p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">${esc(button)}</a></p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
+</div>`;
+  return { text, html };
+}
+
+/** Day 5, for people who still haven't set up after the first nudge: a personal question rather than another reminder. */
+export function setupReminderEmail(p: { name?: string; email: string }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const subject = first ? `${first}, did something get stuck?` : "Did something get stuck?";
+  const paras = [
+    "You signed up for JobPipe but haven't uploaded your CV yet, so I wanted to ask you directly: did something get in the way?",
+    "Just reply with a word or two, like \"CV upload\", \"not sure what to do\", \"found a job\" or \"not for me\". Any answer helps, and it comes straight to me.",
+    "If you just haven't had the time, it takes about 5 minutes and I've kept your account ready.",
+  ];
+  return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "Finish setting up", `${appUrl()}/?signin=1&email=${encodeURIComponent(p.email)}`) };
+}
+
+/** Day 7, for people set up who haven't paid: 3 extra days and how to keep going. */
+export function trialExtendedEmail(p: { name?: string; month: number; pass: number }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const rupees = (r: number) => `₹${r.toLocaleString("en-IN")}`;
+  const subject = first ? `${first}, I've added 3 days to your JobPipe` : "I've added 3 days to your JobPipe";
+  const paras = [
+    "Your free week on JobPipe ended today, and job hunts rarely fit into a week, so I've added 3 more days for you.",
+    "If you haven't tried it yet, star a job you like and open its tailored CV. That's where it saves the most time.",
+    `If it's helping, you can keep going for ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own.`,
+    "If it isn't, reply and tell me what's missing. It comes straight to me, and I read every one.",
+  ];
+  return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See plans", `${appUrl()}/billing`) };
+}
+
 /** Day 21, for people who never answered the in-app "would you recommend it?" pop-up: three questions, answered by reply. */
 export function feedbackEmail(p: { name?: string }) {
   const word = p.name?.trim().split(/\s+/)[0];

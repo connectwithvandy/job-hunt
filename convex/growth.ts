@@ -9,7 +9,7 @@ import { isOwnerEmail } from "./lib/auth";
 import { CAREER_BOARDS } from "./lib/careerBoards";
 import { companyKey, roleKey } from "./lib/company";
 import { searchJobs, searchPosts } from "./lib/apify";
-import { appUrl, emailOn, feedbackEmail, sendEmail, setupNudgeEmail } from "./lib/email";
+import { appUrl, emailOn, feedbackEmail, sendEmail, setupNudgeEmail, setupReminderEmail } from "./lib/email";
 import { isLender } from "./lib/quickFit";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
@@ -250,6 +250,33 @@ export const needSetupNudge = internalQuery({
   },
 });
 
+/** People let in 5 to 21 days ago, nudged at least 2 days ago, still not set up, and not yet asked what got stuck. */
+export const needSecondNudge = internalQuery({
+  args: { now: v.number() },
+  returns: v.array(v.object({ accessId: v.id("access"), email: v.string(), name: v.optional(v.string()) })),
+  handler: async (ctx, { now }) => {
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
+    const out = [];
+    for (const row of rows) {
+      if (!row.setupNudgeAt || row.setupNudge2At || !row.email || isOwnerEmail(row.email)) continue;
+      if (now - row.setupNudgeAt < 2 * DAY || !row.decidedAt || now - row.decidedAt < 5 * DAY || now - row.decidedAt > 21 * DAY) continue;
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+      if (profile?.onboarded) continue;
+      out.push({ accessId: row._id, email: row.email, name: row.name });
+    }
+    return out;
+  },
+});
+
+export const markSecondNudge = internalMutation({
+  args: { accessId: v.id("access") },
+  returns: v.null(),
+  handler: async (ctx, { accessId }) => {
+    await ctx.db.patch("access", accessId, { setupNudge2At: Date.now() });
+    return null;
+  },
+});
+
 export const markNudged = internalMutation({
   args: { accessId: v.id("access") },
   returns: v.null(),
@@ -272,6 +299,15 @@ export const sendSetupNudges = internalAction({
       } catch (err) {
         // One bad address doesn't stop the rest; it is tried again tomorrow.
         console.warn("Setup nudge failed for", p.email, String(err));
+      }
+    }
+    const stuck = await ctx.runQuery(internal.growth.needSecondNudge, { now: Date.now() });
+    for (const p of stuck) {
+      try {
+        await sendEmail({ to: p.email, ...setupReminderEmail(p) });
+        await ctx.runMutation(internal.growth.markSecondNudge, { accessId: p.accessId });
+      } catch (err) {
+        console.warn("Second nudge failed for", p.email, String(err));
       }
     }
     return null;

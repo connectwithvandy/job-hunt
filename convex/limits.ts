@@ -78,11 +78,11 @@ export const reserveGoogle = internalMutation({
     const rows = await ctx.db.query("googleUsage").withIndex("by_month_userId", (q) => q.eq("month", month)).take(500);
     const used = rows.reduce((n, r) => n + r.count, 0);
     const mine = rows.find((r) => r.userId === userId);
-    const user = await ctx.db.get("users", userId);
     // Everyone let in, plus the owner, who never needs a waitlist row (counted once even if they have one).
     const approved = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(500);
     const people = approved.filter((a) => !isOwnerEmail(a.email)).length + 1;
-    const share = isOwnerEmail(user?.email) ? budget : Math.floor(budget / people);
+    // The owner gets the same share as everyone: on 6 Nov their searches had used 128 of 190, leaving none for others.
+    const share = Math.floor(budget / people);
     const granted = Math.max(0, Math.min(want, budget - used, share - (mine?.count ?? 0)));
     if (!granted) return 0;
     if (mine) await ctx.db.patch("googleUsage", mine._id, { count: mine.count + granted });

@@ -275,7 +275,7 @@ async function linkedInMatches(titles: string[], location: string, since: "24h" 
  * Searches every board for one track and saves the new roles. Returns how many were new, and which boards didn't answer.
  * `linkedin` also reads LinkedIn's listings from that far back; only the owner's account pays for it.
  */
-async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2, linkedin?: "24h" | "week"): Promise<{ added: number; failed: string[] }> {
+async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2, linkedin?: "24h" | "week", adzunaTitles = 4): Promise<{ added: number; failed: string[] }> {
     // Google Jobs has one small free monthly quota for everyone, so take this person's share of it first.
     const google: number = track.company || !env.JSEARCH_API_KEY ? 0 : await ctx.runMutation(internal.limits.reserveGoogle, { userId, want: Math.min(googleTitles, track.titles.length) });
     const [settled, [others, otherFailed]] = await Promise.all([
@@ -285,7 +285,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
-            searchOtherSources(track.titles, location, google),
+            searchOtherSources(track.titles, location, google, adzunaTitles),
             careerMatches(ctx, track.titles, location),
             linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, location, linkedin) : Promise.resolve({ jobs: [], failed: false }),
           ]).then(([other, careers, li]): [Found[], string[]] => [[...other.jobs, ...careers, ...li.jobs], [...other.failed, ...(li.failed ? ["LinkedIn"] : [])]]),
@@ -527,31 +527,45 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, loc
 
 // ---------- Autopilot ----------
 
-/** Every morning: search each active track for people who turned autopilot on, then score what's new. */
+/**
+ * Every morning: search each active track for people who turned autopilot on, then score what's new.
+ * `light` is the afternoon top-up: free sources only, no scoring, so roles from the second careers refresh reach people the same day.
+ */
 export const dailyRun = internalAction({
-  args: {},
-  handler: async (ctx) => {
+  args: { light: v.optional(v.boolean()) },
+  handler: async (ctx, { light }) => {
     const userIds: Id<"users">[] = await ctx.runQuery(internal.users.autopilotUsers, {});
     // One run per person, a little apart, so one slow person can't stop the rest.
-    for (const [i, userId] of userIds.entries()) await ctx.scheduler.runAfter(i * 30_000, internal.agent.autopilotFor, { userId });
+    for (const [i, userId] of userIds.entries()) await ctx.scheduler.runAfter(i * 30_000, internal.agent.autopilotFor, { userId, light });
     return null;
   },
 });
 
 export const autopilotFor = internalAction({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
+  args: { userId: v.id("users"), light: v.optional(v.boolean()) },
+  handler: async (ctx, { userId, light }) => {
     try {
       // Someone taken off the app doesn't keep spending in the background.
       const allowed: boolean = await ctx.runQuery(internal.access.allowed, { userId });
       if (!allowed) return null;
       const me = await contextFor(ctx, userId);
+      if (light) {
+        for (const track of me.tracks.filter((t) => t.status === "active")) {
+          try {
+            await searchTrack(ctx, userId, track, me.location, 0, undefined, 0);
+          } catch (err) {
+            console.warn("Afternoon search failed", track.key, String(err));
+          }
+        }
+        return null;
+      }
       let added = 0;
       const failed = new Set<string>();
       // One Google Jobs title per track keeps a month of mornings inside JSearch's free 200 searches.
       for (const track of me.tracks.filter((t) => t.status === "active")) {
         try {
-          const found = await searchTrack(ctx, userId, track, me.location, 1, isOwnerEmail(me.email) ? "24h" : undefined);
+          // One Adzuna title a track: its limits are about 25 searches a minute and 2,500 a month, shared by everyone.
+          const found = await searchTrack(ctx, userId, track, me.location, 1, isOwnerEmail(me.email) ? "24h" : undefined, 1);
           added += found.added;
           for (const f of found.failed) failed.add(f);
         } catch (err) {

@@ -109,7 +109,7 @@ export default function AdminCentre() {
     <div className="mx-auto max-w-3xl">
       <PageHead
         title="Admin"
-        sub={`Only you see this. People who sign up can't use JobPipe, or spend your AI credits, until you let them in. ${
+        sub={`Only you see this. Anyone who picks a sales role at signup gets in straight away; people who pick "Other" wait for you. ${
           list.emailOn
             ? "Letting someone in sends them a personal \"you're in\" email from hello@jobpipe.in."
             : "Letting someone in opens your email app with a note to tell them. (Automatic email is off until RESEND_API_KEY is set.)"
@@ -219,7 +219,7 @@ export default function AdminCentre() {
       {tab === "errors" && (
         <>
       <h2 className="mb-2 text-sm font-medium text-ink-2">Errors people hit ({errors?.length ?? 0})</h2>
-      <p className="mb-2 text-xs text-ink-3">New ones are emailed to you once an hour. Clear the ones you&apos;ve dealt with.</p>
+      <p className="mb-2 text-xs text-ink-3">New ones are in your morning email. Clear the ones you&apos;ve dealt with.</p>
       {errors?.length ? (
         <>
         <button type="button" className="btn btn-ghost btn-sm mb-2" onClick={() => void clearErrors({ ids: errors.map((e) => e._id) }).catch(() => {})}>

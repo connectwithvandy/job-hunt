@@ -106,6 +106,19 @@ const careerJobV = v.object({
   description: v.optional(v.string()),
 });
 
+/** Starts the id of a role saved from the shared LinkedIn search. These stay inside the app, off the public guide pages. */
+const LINKEDIN_ROLE = "linkedin:";
+
+/** Roles from the shared LinkedIn search saved before this time, oldest first. */
+export const oldLinkedIn = internalQuery({
+  args: { before: v.number() },
+  returns: v.array(v.string()),
+  handler: async (ctx, { before }) => {
+    const rows = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.gte("externalId", LINKEDIN_ROLE).lt("externalId", "linkedin;")).take(1000);
+    return rows.filter((r) => r._creationTime < before).map((r) => r.externalId);
+  },
+});
+
 /** Every title in anyone's tracks, typed or picked. Only roles matching one are kept. */
 export const trackTitles = internalQuery({
   args: {},
@@ -120,7 +133,8 @@ export const linksFor = internalQuery({
   args: { company: v.string() },
   handler: async (ctx, { company }) => {
     const rows = await ctx.db.query("careerJobs").withIndex("by_company", (q) => q.eq("company", company)).take(3000);
-    return rows.map((r) => ({ externalId: r.externalId, url: r.url }));
+    // Roles from the shared LinkedIn search aren't on the company's board list, so a board refresh must not close them.
+    return rows.filter((r) => !r.externalId.startsWith(LINKEDIN_ROLE)).map((r) => ({ externalId: r.externalId, url: r.url }));
   },
 });
 
@@ -205,7 +219,9 @@ export const forGuide = query({
   args: { titles: v.array(v.string()), india: v.boolean() },
   handler: async (ctx, { titles, india }) => {
     const rows = await searchTitles(ctx, titles.slice(0, 4).map((t) => t.slice(0, 60)), india, 96);
-    return rows.map(({ externalId, company, title, location, workSetting, postedAt, url }) => ({ externalId, company, title, location, workSetting, postedAt, url }));
+    return rows
+      .filter((r) => !r.externalId.startsWith(LINKEDIN_ROLE))
+      .map(({ externalId, company, title, location, workSetting, postedAt, url }) => ({ externalId, company, title, location, workSetting, postedAt, url }));
   },
 });
 
