@@ -53,6 +53,7 @@ import type * as lib_facts from "../lib/facts.js";
 import type * as lib_followups from "../lib/followups.js";
 import type * as lib_formQuestions from "../lib/formQuestions.js";
 import type * as lib_functions from "../lib/functions.js";
+import type * as lib_guide from "../lib/guide.js";
 import type * as lib_hunter from "../lib/hunter.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_outcomes from "../lib/outcomes.js";
@@ -129,6 +130,7 @@ declare const fullApi: ApiFromModules<{
   "lib/followups": typeof lib_followups;
   "lib/formQuestions": typeof lib_formQuestions;
   "lib/functions": typeof lib_functions;
+  "lib/guide": typeof lib_guide;
   "lib/hunter": typeof lib_hunter;
   "lib/inbox": typeof lib_inbox;
   "lib/outcomes": typeof lib_outcomes;

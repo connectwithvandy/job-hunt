@@ -15,9 +15,12 @@ import { useCelebrateNewWins, WIN_WORDS } from "@/components/Celebrate";
 import { CompanyMark, DAY_STARTS_AT, QuickFitPill, likelyScore, ScorePill, TrackTag, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { fitTier } from "@/lib/jobFilters";
 import { Loading } from "@/components/Loading";
+import { SetupGuide } from "@/components/SetupGuide";
 import { ActionButton } from "@/components/ui";
 
 const DAY = 86_400_000;
+/** After this long, Today asks for a fresh connections file: people keep connecting. */
+const CONNECTIONS_STALE = 30 * DAY;
 
 /** A steady day's outreach: new companies asked for a referral, and applications sent. */
 const COMPANIES_A_DAY = 10;
@@ -208,6 +211,9 @@ export default function Today() {
     ...(learn ? [{ key: "learn", verb: "Learn", main: "What keeps costing you", sub: `${noes} noes and silences so far. See the pattern.`, href: "/#whats-working" }] : []),
   ];
 
+  // The job the guide points to: the best fit still open, else any open one.
+  const bestToOpen = [...jobs].filter((j) => j.status === "new" || j.status === "applying").sort((a, b) => fit(b) - fit(a))[0];
+
   return (
     <div className="mx-auto max-w-3xl">
       <header className="mb-8">
@@ -218,13 +224,28 @@ export default function Today() {
         </h1>
       </header>
 
-      {(me.contactsCount === 0 || jobs.length === 0) && (
-        <section className="card mb-8 p-6">
-          <h2 className="display mb-4 text-2xl">Next steps</h2>
-          <ol className="grid gap-3 md:grid-cols-2">
-            <Setup done={jobs.length > 0} n={1} href="/jobs" title="Find your first jobs" text={jobs.length ? firstFound(jobs, searching) : searchError ? `The first search didn't work: ${searchError} Try again on the Jobs page.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."} />
-            <Setup done={me.contactsCount > 0} n={2} href="/network" title="Load your LinkedIn connections" text="So every job shows who you know there." />
-          </ol>
+      <SetupGuide
+        progress={{
+          hasCv: !!me.resume,
+          roles: me.tracks.length,
+          contacts: me.contactsCount,
+          jobs: jobs.length,
+          scored: jobs.filter((j) => j.scores?.length).length,
+          tailored: jobs.filter((j) => j.hasPack || j.pack).length,
+          applied: appliedTotal,
+        }}
+        bestJob={bestToOpen?._id}
+        foundNote={jobs.length ? firstFound(jobs, searching) : searchError ? `The first search didn't work: ${searchError} Try again on the Jobs page.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."}
+      />
+      {me.contactsCount > 0 && me.contactsLoadedAt && now - me.contactsLoadedAt > CONNECTIONS_STALE && (
+        <section className="card mb-8 flex flex-wrap items-center justify-between gap-3 p-5">
+          <div>
+            <p className="font-medium">Refresh your LinkedIn connections</p>
+            <p className="mt-1 text-sm text-ink-2">You loaded them {timeAgo(new Date(me.contactsLoadedAt).toISOString())}. Anyone you&apos;ve connected with since won&apos;t show up on your jobs yet.</p>
+          </div>
+          <Link href="/network" className="btn btn-primary btn-sm">
+            Refresh
+          </Link>
         </section>
       )}
 
@@ -612,20 +633,6 @@ function Stat({ label, value }: { label: string; value: number }) {
       <dt className="text-xs text-ink-3">{label}</dt>
       <dd className="display text-3xl leading-none tabular-nums">{value}</dd>
     </div>
-  );
-}
-
-function Setup({ done, n, href, title, text }: { done: boolean; n: number; href: string; title: string; text: string }) {
-  return (
-    <li>
-      <Link href={href} className={`block rounded-xl border border-line p-4 hover:bg-soft ${done ? "opacity-50" : ""}`}>
-        <div className="flex items-center gap-2 font-medium">
-          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${done ? "bg-accent text-on-accent" : "bg-soft text-ink"}`}>{done ? "✓" : n}</span>
-          {title}
-        </div>
-        <p className="mt-1 text-sm text-ink-2">{text}</p>
-      </Link>
-    </li>
   );
 }
 

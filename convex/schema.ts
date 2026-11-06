@@ -136,6 +136,8 @@ export default defineSchema({
     writingRules: v.optional(v.string()),
     onboarded: v.boolean(),
     contactsCount: v.optional(v.number()),
+    /** When the connections file was last loaded, so Today can ask for a fresh one. Missing for files loaded before 6 Nov 2026. */
+    contactsLoadedAt: v.optional(v.number()),
     /** How many people your loaded LinkedIn chats cover (lib/chats.ts), and when the file was loaded. */
     chatsCount: v.optional(v.number()),
     chatsAt: v.optional(v.number()),

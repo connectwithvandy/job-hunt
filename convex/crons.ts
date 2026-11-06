@@ -21,6 +21,9 @@ crons.cron("morning autopilot", "30 2 * * *", internal.agent.dailyRun, {});
 // 16:00 IST: the afternoon top-up, free sources only and no scoring.
 crons.cron("afternoon top-up", "30 10 * * *", internal.agent.dailyRun, { light: true });
 
+// Mondays 10:45 IST: what JobPipe did for each person this week.
+crons.cron("weekly progress", "15 5 * * 1", internal.alerts.sendWeekly, {});
+
 // 9:30 IST: each member's best new roles from this morning's search, under their own role groups.
 crons.cron("new roles emails", "0 4 * * *", internal.alerts.send, {});
 

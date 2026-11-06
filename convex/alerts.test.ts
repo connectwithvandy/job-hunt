@@ -4,7 +4,7 @@ import rateLimiter from "@convex-dev/rate-limiter/test";
 import { expect, test, vi } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
-import { alertsEmail } from "./lib/email";
+import { alertsEmail, weeklyEmail } from "./lib/email";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -40,7 +40,7 @@ test("new-roles email: today's new jobs with a title in their groups, unless the
     await ctx.db.insert("jobs", { userId: ids.a, ...job("Office Manager", { scores: [{ trackKey: "sdr", score: 90, reason: "", gaps: [] }] }) });
     await ctx.db.insert("jobs", { userId: ids.b, ...job("SDR") });
   });
-  const due = await t.query(internal.alerts.due, { now: NOW });
+  const due = await t.action(internal.alerts.due, { now: NOW });
   vi.useRealTimers();
   expect(due.map((d) => d.email)).toEqual(["a@example.com"]);
   // The AI-scored role first, then the one not scored yet, which shows no fit number; each under its own group.
@@ -63,5 +63,28 @@ test("no email when nothing new is relevant", async () => {
     await ctx.db.insert("tracks", { userId: a, key: "sdr", name: "SDR / BDR", color: "#000", status: "active", titles: ["SDR"], pitch: "" });
     await ctx.db.insert("jobs", { userId: a, externalId: "1", source: "careers", url: "https://x", title: "SDR", company: "Acme", location: "Pune", status: "new", outreach: [], updatedAt: 0, scores: [{ trackKey: "sdr", score: 45, reason: "", gaps: [] }] });
   });
-  expect(await t.query(internal.alerts.due, { now: Date.now() + 60_000 })).toEqual([]);
+  expect(await t.action(internal.alerts.due, { now: Date.now() + 60_000 })).toEqual([]);
+});
+
+test("weekly email: only people set up with new jobs, and it asks for fresh connections when old", async () => {
+  const NOW = Date.now();
+  const t = convexTest(schema, modules);
+  rateLimiter.register(t);
+  const ids = await t.run(async (ctx) => {
+    const add = async (email: string, onboarded: boolean, jobs: number) => {
+      const userId = await ctx.db.insert("users", { email });
+      const accessId = await ctx.db.insert("access", { userId, email, approved: true, name: "asha" });
+      await ctx.db.insert("profiles", { userId, location: "India", onboarded, contactsCount: 5, contactsLoadedAt: NOW - 40 * 86_400_000 });
+      for (let i = 0; i < jobs; i++) await ctx.db.insert("jobs", { userId, externalId: `${email}${i}`, source: "careers", url: "https://x", title: "SDR", company: "Acme", location: "Pune", status: "new", outreach: [], updatedAt: 0 });
+      return accessId;
+    };
+    return { active: await add("a@example.com", true, 2), notSetUp: await add("b@example.com", false, 2), quiet: await add("c@example.com", true, 0) };
+  });
+  const week = await t.query(internal.alerts.weekFor, { accessId: ids.active, now: NOW + 1000 });
+  expect(week).toMatchObject({ found: 2, refreshConnections: true });
+  expect(await t.query(internal.alerts.weekFor, { accessId: ids.notSetUp, now: NOW + 1000 })).toBe(null);
+  expect(await t.query(internal.alerts.weekFor, { accessId: ids.quiet, now: NOW + 1000 })).toBe(null);
+  const mail = weeklyEmail(week!);
+  expect(mail.subject).toBe("Asha, your week on JobPipe");
+  expect(mail.text).toContain("refresh your LinkedIn connections");
 });

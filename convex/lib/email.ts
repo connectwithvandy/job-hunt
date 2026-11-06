@@ -272,6 +272,26 @@ export function trialExtendedEmail(p: { name?: string; month: number; pass: numb
   return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See plans", `${appUrl()}/billing`) };
 }
 
+/** Mondays: the week in numbers, and the one thing most worth doing next. */
+export function weeklyEmail(p: { name?: string; found: number; strong: number; tailored: number; applied: number; refreshConnections: boolean }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const n = (k: number, one: string, many: string) => `${k.toLocaleString("en-IN")} ${k === 1 ? one : many}`;
+  const next = p.refreshConnections
+    ? ["Your next step: refresh your LinkedIn connections. Anyone you've connected with lately won't show up on your jobs until you load a fresh file.", "Refresh connections", `${appUrl()}/network`]
+    : !p.tailored
+      ? ["Your next step: open your best-fit job and tailor your CV for it. That's where JobPipe saves the most time.", "See your jobs", `${appUrl()}/jobs`]
+      : !p.applied
+        ? ["Your next step: apply to your best job, then mark it applied so JobPipe can remind you to follow up.", "See your jobs", `${appUrl()}/jobs`]
+        : ["Your next step: open Today and work through what's due.", "Open Today", appUrl()];
+  const paras = [
+    `This week JobPipe found you ${n(p.found, "new job", "new jobs")}${p.strong ? `, ${p.strong} of them a strong fit` : ""}.`,
+    `So far you've tailored ${n(p.tailored, "CV", "CVs")} and sent ${n(p.applied, "application", "applications")}.`,
+    next[0],
+  ];
+  return { subject: first ? `${first}, your week on JobPipe` : "Your week on JobPipe", ...founderNote(first ? `Hi ${first},` : "Hi,", paras, next[1], next[2]) };
+}
+
 /** Day 21, for people who never answered the in-app "would you recommend it?" pop-up: three questions, answered by reply. */
 export function feedbackEmail(p: { name?: string }) {
   const word = p.name?.trim().split(/\s+/)[0];

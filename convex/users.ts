@@ -1,3 +1,4 @@
+import { contactsLoadedAt } from "./contacts";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -52,6 +53,7 @@ export const me = query({
       linkedinPosts: profile?.linkedinPosts ?? "",
       myMessagesCount: profile?.myMessages ? profile.myMessages.split("\n---\n").length : 0,
       contactsCount: profile?.contactsCount ?? 0,
+      contactsLoadedAt: await contactsLoadedAt(ctx, userId, profile),
       chatsCount: profile?.chatsCount ?? 0,
       autopilot: profile?.autopilot ?? false,
       answers: profile?.answers ?? [],

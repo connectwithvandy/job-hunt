@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { companyKey } from "./lib/company";
@@ -23,6 +23,14 @@ async function bumpCount(ctx: MutationCtx, userId: Id<"users">, delta: number | 
   await ctx.db.patch("profiles", profile._id, { contactsCount: delta === "reset" ? 0 : (profile.contactsCount ?? 0) + delta });
 }
 
+/** When someone's connections were last loaded: the saved time, or for older files when the first one was stored. */
+export async function contactsLoadedAt(ctx: QueryCtx, userId: Id<"users">, profile: { contactsCount?: number; contactsLoadedAt?: number } | null) {
+  if (!profile?.contactsCount) return null;
+  if (profile.contactsLoadedAt) return profile.contactsLoadedAt;
+  const first = await ctx.db.query("contacts").withIndex("by_userId_and_companyKey", (q) => q.eq("userId", userId)).first();
+  return first?._creationTime ?? null;
+}
+
 /** The browser parses LinkedIn's Connections.csv and sends it here in batches. */
 export const importBatch = mutation({
   args: { rows: v.array(rowV) },
@@ -34,6 +42,7 @@ export const importBatch = mutation({
       await ctx.db.insert("contacts", { userId, ...r, companyKey: companyKey(r.company) });
     }
     await bumpCount(ctx, userId, Math.min(rows.length, 500));
+    if (profile) await ctx.db.patch("profiles", profile._id, { contactsLoadedAt: Date.now() });
     return null;
   },
 });
