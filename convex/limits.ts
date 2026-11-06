@@ -6,8 +6,12 @@ import type { DataModel } from "./_generated/dataModel";
 import { env, internalMutation, type QueryCtx } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import { DAILY_LIMITS } from "./lib/defaults";
+import { trialOver } from "./lib/trial";
 
 const DAY = 24 * HOUR;
+
+/** What still works once the free trial is over: searching for jobs, and adding a CV. */
+const OPEN_AFTER_TRIAL: string[] = ["search", "readCv"];
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
   readCv: { kind: "fixed window", rate: DAILY_LIMITS.readCv, period: DAY },
@@ -53,6 +57,10 @@ export const consume = internalMutation({
   handler: async (ctx, { userId, kind, count, checkOnly }) => {
     const user = await ctx.db.get("users", userId);
     if (isOwnerEmail(user?.email)) return null;
+    if (!OPEN_AFTER_TRIAL.includes(kind)) {
+      const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+      if (trialOver(row, Date.now())) throw new ConvexError("Your free trial has ended. You can still search for jobs. To use this, pick a plan on the Plan & billing page.");
+    }
     const args = { key: userId, count: count ?? 1 };
     const { ok, retryAfter } = checkOnly ? await rateLimiter.check(ctx, kind, args) : await rateLimiter.limit(ctx, kind, args);
     if (!ok) {

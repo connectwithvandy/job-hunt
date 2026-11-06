@@ -1,6 +1,7 @@
 "use client";
 
 import { useConvexAuth, useQuery } from "convex/react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { api } from "../../convex/_generated/api";
@@ -25,6 +26,20 @@ function hasSession() {
 const noSubscribe = () => () => {};
 
 /** Signed out: the landing page. Not let in yet: the waitlist. Signed in but new: onboarding. Otherwise the app. */
+/** Says plainly what stopped and how to turn it back on, so a blocked button is never a surprise. */
+function TrialOverNotice() {
+  const account = useQuery(api.access.mine);
+  if (!account?.trialOver) return null;
+  return (
+    <div className="card mx-auto mb-6 flex max-w-3xl flex-wrap items-center justify-between gap-3 p-4 text-sm">
+      <p className="text-ink-2">Your free trial has ended. You can still search for jobs, but tailored CVs, fit scores and the other AI tools are paused.</p>
+      <Link href="/billing" className="btn btn-primary btn-sm">
+        Pick a plan
+      </Link>
+    </div>
+  );
+}
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const access = useQuery(api.access.status, isAuthenticated ? {} : "skip");
@@ -58,6 +73,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen md:flex">
       {!bare && <Sidebar isOwner={me.isOwner} />}
       <main className="min-w-0 flex-1 px-5 py-8 md:px-12 md:py-12 print:p-0">
+        {!bare && <TrialOverNotice />}
         {!bare && <SubTabs />}
         {children}
       </main>

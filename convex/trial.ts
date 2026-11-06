@@ -1,12 +1,12 @@
 // A personal check-in from the founder two days before someone's free week ends: what JobPipe did for them, and how to keep going.
-// On day 7, anyone set up who hasn't paid gets 3 extra days and a note saying so.
+// On day 7, anyone set up who hasn't paid gets 3 extra days and a note saying so. On day 10 the AI tools stop, and they hear why.
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { emailOn, sendEmail, trialEmail, trialExtendedEmail } from "./lib/email";
+import { emailOn, sendEmail, trialEmail, trialEndedEmail, trialExtendedEmail } from "./lib/email";
 import { isOwnerEmail } from "./lib/auth";
 import { priceOf } from "./lib/plans";
-import { checkInDue, extensionDue, trialEnd } from "./lib/trial";
+import { checkInDue, EXTRA_DAYS, extensionDue, lockAt, trialEnd, trialOver } from "./lib/trial";
 import { foundingFor } from "./payments";
 
 const statsV = v.object({ found: v.number(), strong: v.number(), cvs: v.number(), applied: v.number(), interviews: v.number() });
@@ -69,6 +69,34 @@ export const extensionsDue = internalQuery({
   },
 });
 
+/** People set up whose trial just ran out, who haven't paid and haven't been told. */
+export const endedDue = internalQuery({
+  args: { now: v.number() },
+  returns: v.array(v.object({ accessId: v.id("access"), email: v.string(), name: v.optional(v.string()), month: v.number(), pass: v.number() })),
+  handler: async (ctx, { now }) => {
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
+    const out = [];
+    for (const row of rows) {
+      if (row.trialEndedNoteAt || !row.email || isOwnerEmail(row.email) || !trialOver(row, now)) continue;
+      if (now > lockAt(row)! + EXTRA_DAYS * 86_400_000) continue;
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+      if (!profile?.onboarded) continue;
+      const founding = await foundingFor(ctx, row.userId);
+      out.push({ accessId: row._id, email: row.email, name: row.name, month: priceOf("month", founding).rupees, pass: priceOf("pass", founding).rupees });
+    }
+    return out;
+  },
+});
+
+export const markEnded = internalMutation({
+  args: { accessId: v.id("access") },
+  returns: v.null(),
+  handler: async (ctx, { accessId }) => {
+    await ctx.db.patch("access", accessId, { trialEndedNoteAt: Date.now() });
+    return null;
+  },
+});
+
 export const markExtended = internalMutation({
   args: { accessId: v.id("access") },
   returns: v.null(),
@@ -100,6 +128,15 @@ export const sendCheckIns = internalAction({
         await ctx.runMutation(internal.trial.markExtended, { accessId: p.accessId });
       } catch (err) {
         console.warn("Extra days email failed for", p.email, String(err));
+      }
+    }
+    const ended = await ctx.runQuery(internal.trial.endedDue, { now: Date.now() });
+    for (const p of ended) {
+      try {
+        await sendEmail({ to: p.email, ...trialEndedEmail(p) });
+        await ctx.runMutation(internal.trial.markEnded, { accessId: p.accessId });
+      } catch (err) {
+        console.warn("Trial ended email failed for", p.email, String(err));
       }
     }
     return null;

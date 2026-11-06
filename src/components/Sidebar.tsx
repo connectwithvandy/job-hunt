@@ -113,7 +113,9 @@ function AccountLink({ active }: { active: boolean }) {
     ? "Owner"
     : me.paidUntil && me.paidUntil > now
       ? `Paid until ${new Date(me.paidUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
-      : me.trialEndsAt && me.trialEndsAt > now
+      : me.trialOver
+        ? "Trial ended"
+        : me.trialEndsAt && me.trialEndsAt > now
         ? `Free trial · ${daysLeft(me.trialEndsAt - now)}`
         : "Free beta";
   return (

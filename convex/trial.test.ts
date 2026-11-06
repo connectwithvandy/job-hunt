@@ -4,8 +4,8 @@ import rateLimiter from "@convex-dev/rate-limiter/test";
 import { expect, test } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
-import { setupReminderEmail, trialEmail, trialExtendedEmail } from "./lib/email";
-import { trialEnd } from "./lib/trial";
+import { setupReminderEmail, trialEmail, trialEndedEmail, trialExtendedEmail } from "./lib/email";
+import { trialEnd, trialOver } from "./lib/trial";
 
 const modules = import.meta.glob("./**/*.ts");
 const DAY = 86_400_000;
@@ -103,4 +103,47 @@ test("the new emails read right", () => {
   const extended = trialExtendedEmail({ name: "Asha", month: 499, pass: 1299 });
   expect(extended.subject).toBe("Asha, I've added 3 days to your JobPipe");
   expect(extended.text).toContain("₹1,299 for 3 months");
+});
+
+test("the lock comes on day 10, not for payers, and not for anyone with no let-in date", () => {
+  expect(trialOver({ approved: true, decidedAt: NOW - 9.9 * DAY }, NOW)).toBe(false);
+  expect(trialOver({ approved: true, decidedAt: NOW - 10 * DAY }, NOW)).toBe(true);
+  expect(trialOver({ approved: true, decidedAt: NOW - 20 * DAY, paidUntil: NOW + DAY }, NOW)).toBe(false);
+  expect(trialOver({ approved: true, decidedAt: NOW - 20 * DAY, paidUntil: NOW - DAY }, NOW)).toBe(true);
+  expect(trialOver({ approved: true }, NOW)).toBe(false);
+});
+
+test("after the trial, search still works but tailoring and the other AI tools don't", async () => {
+  const t = setup();
+  const start = Date.now();
+  const ids = await t.run(async (ctx) => {
+    const add = async (email: string, extra: Record<string, number>) => {
+      const userId = await ctx.db.insert("users", { email });
+      await ctx.db.insert("access", { userId, email, approved: true, ...extra });
+      return userId;
+    };
+    return { over: await add("over@example.com", { decidedAt: start - 11 * DAY }), paid: await add("paid@example.com", { decidedAt: start - 11 * DAY, paidUntil: start + 30 * DAY }), fresh: await add("fresh@example.com", { decidedAt: start - DAY }) };
+  });
+  const use = (userId: typeof ids.over, kind: "search" | "readCv" | "tailor" | "score" | "chat") => t.mutation(internal.limits.consume, { userId, kind });
+  await expect(use(ids.over, "search")).resolves.toBe(null);
+  await expect(use(ids.over, "readCv")).resolves.toBe(null);
+  for (const kind of ["tailor", "score", "chat"] as const) await expect(use(ids.over, kind)).rejects.toThrow("free trial has ended");
+  await expect(use(ids.paid, "tailor")).resolves.toBe(null);
+  await expect(use(ids.fresh, "tailor")).resolves.toBe(null);
+});
+
+test("the trial-ended email goes once, to people set up who haven't paid", async () => {
+  const t = setup();
+  await member(t, "ended@example.com", { decidedAt: NOW - 10.5 * DAY });
+  await member(t, "not-yet@example.com", { decidedAt: NOW - 9 * DAY });
+  await member(t, "paid@example.com", { decidedAt: NOW - 10.5 * DAY, paidUntil: NOW + DAY });
+  await member(t, "never-set-up@example.com", { decidedAt: NOW - 10.5 * DAY });
+  for (const e of ["ended@example.com", "not-yet@example.com", "paid@example.com"]) await setUp(t, e);
+  const due = await t.query(internal.trial.endedDue, { now: NOW });
+  expect(due.map((p) => p.email)).toEqual(["ended@example.com"]);
+  await t.mutation(internal.trial.markEnded, { accessId: due[0].accessId });
+  expect(await t.query(internal.trial.endedDue, { now: NOW })).toEqual([]);
+  const mail = trialEndedEmail({ name: "Asha", month: 499, pass: 1299 });
+  expect(mail.subject).toBe("Asha, your JobPipe trial has ended");
+  expect(mail.text).toContain("keep searching for jobs");
 });

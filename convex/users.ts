@@ -1,3 +1,4 @@
+import { trialOver } from "./lib/trial";
 import { contactsLoadedAt } from "./contacts";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
@@ -207,6 +208,9 @@ export const completeOnboarding = mutation({
       if (existing) await ctx.db.replace("tracks", existing._id, { userId, ...track });
       else await ctx.db.insert("tracks", { userId, ...track });
     }
+    // Someone who only sets up after their trial ran out gets a real one, starting now.
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (row && trialOver(row, Date.now())) await ctx.db.patch("access", row._id, { decidedAt: Date.now(), trialNoteAt: undefined, trialExtendedAt: undefined, trialEndedNoteAt: undefined });
     // Morning autopilot starts on, so new roles arrive (and the new-roles email has something to send) from day one.
     // Someone who turned it off keeps it off.
     await ctx.db.patch("profiles", profile._id, { onboarded: true, location: args.location.trim() || "India", autopilot: profile.autopilot ?? true });

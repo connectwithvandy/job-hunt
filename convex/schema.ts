@@ -90,6 +90,8 @@ export default defineSchema({
     setupNudge2At: v.optional(v.number()),
     /** When the day-7 email added 3 extra days to the free week. */
     trialExtendedAt: v.optional(v.number()),
+    /** When the "your free trial has ended" email went out, so it goes once. */
+    trialEndedNoteAt: v.optional(v.number()),
     /** When the last "new roles for you" email went out, so it goes at most once a day. */
     alertsAt: v.optional(v.number()),
     /** Asked to stop the "new roles for you" email. */

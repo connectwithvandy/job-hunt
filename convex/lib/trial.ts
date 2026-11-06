@@ -1,4 +1,5 @@
-// The free week: it starts when the owner lets someone in. Nobody is locked out when it ends (yet).
+// The free trial: it starts when someone is let in, runs 7 days plus 3 extra, then the AI tools need a plan.
+// Searching and browsing jobs stays open. See limits.consume.
 import { PLANS } from "./plans";
 
 const DAY = 86_400_000;
@@ -11,6 +12,20 @@ export function trialEnd(row: { approved: boolean; decidedAt?: number; welcomedA
 
 /** Days added by the day-7 email. */
 export const EXTRA_DAYS = 3;
+
+type TrialRow = { approved: boolean; decidedAt?: number; welcomedAt?: number; paidUntil?: number };
+
+/** When the AI tools stop: the first week plus the extra days, whether or not the day-7 email has gone out yet. */
+export function lockAt(row: TrialRow | null) {
+  const start = row?.approved ? (row.decidedAt ?? row.welcomedAt) : undefined;
+  return start ? start + (PLANS.trialDays + EXTRA_DAYS) * DAY : null;
+}
+
+/** True once the trial is over and nothing is paid. Anyone with no let-in date stays open. */
+export function trialOver(row: TrialRow | null, now: number) {
+  const at = lockAt(row);
+  return !!at && now >= at && (row?.paidUntil ?? 0) <= now;
+}
 
 /** The extra days go out once the first week is over, and not to anyone it ended for long ago. */
 export function extensionDue(firstEnd: number, now: number) {

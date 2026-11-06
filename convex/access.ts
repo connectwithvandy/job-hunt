@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { hasAccess, isOwnerEmail } from "./lib/auth";
-import { trialEnd } from "./lib/trial";
+import { trialEnd, trialOver } from "./lib/trial";
 import { appUrl, emailOn, sendEmail, welcomeEmail } from "./lib/email";
 
 async function requireOwner(ctx: QueryCtx) {
@@ -244,6 +244,7 @@ export const mine = query({
       linkedin: row?.linkedin ?? "",
       paidUntil: row?.paidUntil ?? null,
       trialEndsAt: trialEnd(row),
+      trialOver: !isOwnerEmail(user?.email) && trialOver(row, Date.now()),
       isOwner: isOwnerEmail(user?.email),
       // The owner has no waitlist row, so there's nowhere to keep an edited name.
       canEdit: !!row,

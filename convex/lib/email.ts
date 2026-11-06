@@ -266,10 +266,25 @@ export function trialExtendedEmail(p: { name?: string; month: number; pass: numb
   const paras = [
     "Your free week on JobPipe ended today, and job hunts rarely fit into a week, so I've added 3 more days for you.",
     "If you haven't tried it yet, star a job you like and open its tailored CV. That's where it saves the most time.",
-    `If it's helping, you can keep going for ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own.`,
-    "If it isn't, reply and tell me what's missing. It comes straight to me, and I read every one.",
+    `After that you can still search for jobs, but tailored CVs, fit scores, referral notes and interview prep will need a plan: ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own.`,
+    "If it isn't helping, reply and tell me what's missing. It comes straight to me, and I read every one.",
   ];
   return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See plans", `${appUrl()}/billing`) };
+}
+
+/** Day 10: the trial is over, what still works, and how to keep going. */
+export function trialEndedEmail(p: { name?: string; month: number; pass: number }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const rupees = (r: number) => `₹${r.toLocaleString("en-IN")}`;
+  const subject = first ? `${first}, your JobPipe trial has ended` : "Your JobPipe trial has ended";
+  const paras = [
+    "Your free trial on JobPipe has ended. Your jobs, CVs and notes are all still there, and you can keep searching for jobs.",
+    "Tailored CVs, fit scores, referral notes, interview prep and the chat are now paused.",
+    `To turn them back on, it's ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works.`,
+    "If the price or something else is in the way, reply and tell me. It comes straight to me.",
+  ];
+  return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "Pick a plan", `${appUrl()}/billing`) };
 }
 
 /** Mondays: the week in numbers, and the one thing most worth doing next. */
