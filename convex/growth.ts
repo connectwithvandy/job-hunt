@@ -1,5 +1,5 @@
 // Free growth on autopilot. Each morning the owner gets one email (sendMorning): who's waiting, a ready LinkedIn post,
-// the strongest open-to-work people and any errors. Each Monday,
+// the strongest open-to-work people with a comment to leave on their post, and any errors. Each Monday,
 // a post about sales roles that keep getting reposted; and anyone let in who hasn't finished setup gets one nudge.
 // The posts never name where the jobs come from.
 import { v } from "convex/values";
@@ -8,7 +8,7 @@ import { type ActionCtx, env, internalAction, internalMutation, internalQuery } 
 import { isOwnerEmail } from "./lib/auth";
 import { CAREER_BOARDS } from "./lib/careerBoards";
 import { companyKey, roleKey } from "./lib/company";
-import { searchPosts } from "./lib/apify";
+import { searchJobs, searchPosts } from "./lib/apify";
 import { appUrl, emailOn, feedbackEmail, sendEmail, setupNudgeEmail } from "./lib/email";
 import { isLender } from "./lib/quickFit";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
@@ -45,7 +45,45 @@ export function place(location: string, workSetting?: string) {
 
 const jobV = v.object({ company: v.string(), title: v.string(), where: v.string(), url: v.string() });
 
-/** Sales roles at tech companies in India that appeared on careers boards in the last day, one or two per company. */
+/** True when a job was posted in the last 24 hours. A date with no time counts as the end of that day. */
+export function postedInLastDay(postedAt: string | undefined, now: number) {
+  const t = postedAt ? Date.parse(postedAt) : NaN;
+  if (Number.isNaN(t)) return false;
+  return (/^\d{4}-\d{2}-\d{2}$/.test(postedAt!.trim()) ? t + DAY : t) >= now - DAY;
+}
+
+/** Which part of the post a job belongs to: SDRs, AEs or sales managers. Null keeps it out of the post. */
+export function postGroup(title: string): "sdr" | "ae" | "manager" | null {
+  if (/operations|enablement|engineer|marketing|partner|channel|customer success/i.test(title)) return null;
+  if (/\b(manager|head|director|vp|vice president|lead)\b/i.test(title)) return /\b(sales|sdr|bdr|business development|revenue)\b/i.test(title) ? "manager" : null;
+  if (/\b(sdr|bdr|bde|sales development|business development|inside sales|lead development|market development|account development|outbound sales)\b/i.test(title)) return "sdr";
+  if (/\b(account executive|ae|sales executive)\b/i.test(title)) return "ae";
+  return null;
+}
+
+/** Up to n jobs, half SDRs and half the closing side (AEs and sales managers). A side with too few leaves room for the other. */
+export function mixJobs<T extends { title: string }>(jobs: T[], n: number) {
+  const groups: Record<"sdr" | "ae" | "manager", T[]> = { sdr: [], ae: [], manager: [] };
+  for (const j of jobs) {
+    const g = postGroup(j.title);
+    if (g) groups[g].push(j);
+  }
+  const turns = ["sdr", "ae", "sdr", "manager"] as const;
+  const out: T[] = [];
+  for (let i = 0; out.length < n && i < jobs.length * turns.length; i++) {
+    const next = groups[turns[i % turns.length]].shift();
+    if (next) out.push(next);
+  }
+  return out;
+}
+
+/** "KAM - Manager (Mumbai)" in Mumbai reads "KAM - Manager": the place is shown once, after the title. */
+export function jobLine(j: { company: string; title: string; where: string; url: string }) {
+  const title = j.title.replace(/\s*\(([^)]*)\)\s*$/, (all, inside: string) => (inside.trim().toLowerCase() === j.where.toLowerCase() ? "" : all));
+  return `• ${j.company}, ${title} (${j.where})\n${j.url}`;
+}
+
+/** Sales roles at tech companies in India posted in the last 24 hours and new on careers boards, one or two per company. */
 export const newSalesJobs = internalQuery({
   args: { now: v.number() },
   returns: v.array(jobV),
@@ -59,10 +97,9 @@ export const newSalesJobs = internalQuery({
       // Internships aren't what sales people following the post are after.
       if (!j.india || !isSalesTitle(j.title) || /\bintern(ship)?\b/i.test(j.title)) continue;
       if (!isTechCompany(j.company, j.title, j.url)) continue;
-      // A board seen for the first time brings old roles too; keep only ones posted in the last week.
-      // No date means it could be months old, and the post says "new", so leave it out.
-      const posted = j.postedAt ? Date.parse(j.postedAt) : NaN;
-      if (Number.isNaN(posted) || posted < now - 7 * DAY) continue;
+      // The post promises the last 24 hours. A board seen for the first time brings old roles too,
+      // and no date could mean months old, so both stay out.
+      if (!postedInLastDay(j.postedAt, now)) continue;
       const n = perCompany.get(j.company) ?? 0;
       const key = roleKey(j.company, j.title);
       if (n >= 2 || titles.has(key)) continue;
@@ -98,15 +135,58 @@ export const repostedSalesJobs = internalQuery({
 
 const TAGS = "#salesjobs #hiring #SDR #AccountExecutive #salesindia";
 
-/** Today's LinkedIn post: the top new sales jobs with their links, ready to paste. Null when too few to post. */
+type PostJob = { company: string; title: string; where: string; url: string };
+
+// One search per side of the post, so sales managers don't crowd out the rest.
+const POST_SEARCHES = [
+  `"Sales Development Representative" OR "SDR" OR "Business Development Representative" OR "BDR"`,
+  `"Account Executive" OR "Enterprise Account Executive" OR "Senior Account Executive"`,
+  `"Sales Manager" OR "Head of Sales" OR "Sales Development Manager" OR "Business Development Manager"`,
+];
+
+/** Today's sales jobs from LinkedIn at tech companies in India: about $0.09 a day, capped at $0.12. Empty when the search fails. */
+async function linkedInPostJobs(ctx: ActionCtx, now: number): Promise<PostJob[]> {
+  if (!env.APIFY_TOKEN) return [];
+  const settled = await Promise.allSettled(POST_SEARCHES.map((q) => searchJobs([q], "India", false, "24h", 30, 0.04)));
+  for (const r of settled) if (r.status === "rejected") console.warn("Post job search failed:", String(r.reason));
+  const rows = settled
+    .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+    .filter((j) => isSalesTitle(j.title) && postGroup(j.title) && !/\bintern(ship)?\b/i.test(j.title) && !isLender(j.title, j.company))
+    .filter((j) => !j.postedAt || postedInLastDay(j.postedAt, now));
+  // A LinkedIn link says nothing about the company, so the AI picks out the tech ones by name.
+  const names = [...new Set(rows.map((j) => j.company))];
+  const tech = new Set<string>((await ctx.runAction(internal.growthNotes.techCompanies, { names })).map(companyKey));
+  return rows
+    .filter((j) => tech.has(companyKey(j.company)) || isTechCompany(j.company, j.title, j.applyUrl ?? j.url))
+    .map((j) => ({ company: j.company, title: j.title, where: place(j.location, j.workSetting), url: j.applyUrl ?? j.url }));
+}
+
+/** Today's LinkedIn post: new SDR, AE and sales manager jobs with their links, ready to paste. Null when too few to post. */
 async function jobsPostSection(ctx: ActionCtx): Promise<string | null> {
-  const jobs = (await ctx.runQuery(internal.growth.newSalesJobs, { now: Date.now() })).slice(0, JOBS_PER_POST);
+  const now = Date.now();
+  const [boards, linkedIn]: [PostJob[], PostJob[]] = await Promise.all([ctx.runQuery(internal.growth.newSalesJobs, { now }), linkedInPostJobs(ctx, now)]);
+  // Careers boards first: they link straight to the company. One role once, two per company at most.
+  const seen = new Set<string>();
+  const perCompany = new Map<string, number>();
+  const pool = [...boards, ...linkedIn].filter((j) => {
+    const key = roleKey(j.company, j.title);
+    const company = companyKey(j.company);
+    const n = perCompany.get(company) ?? 0;
+    if (seen.has(key) || n >= 2) return false;
+    seen.add(key);
+    perCompany.set(company, n + 1);
+    return true;
+  });
+  const jobs = mixJobs(pool, JOBS_PER_POST);
   // Too few to be worth a post: skip today rather than post something thin.
   if (jobs.length < 3) return null;
+  const sdrs = jobs.filter((j) => postGroup(j.title) === "sdr");
+  const closers = jobs.filter((j) => postGroup(j.title) !== "sdr");
+  const list = (name: string, group: PostJob[]) => (group.length ? `${name}\n\n${group.map(jobLine).join("\n\n")}` : "");
   // Each job with its apply link right under it, so the post is ready to paste as is.
-  const post = `${jobs.length} new sales jobs in India, posted in the last day 👇
+  const post = `${jobs.length} new sales jobs in India, posted in the last 24 hours 👇
 
-${jobs.map((j) => `• ${j.company}, ${j.title} (${j.where})\n${j.url}`).join("\n\n")}
+${[list("SDR / BDR", sdrs), list("AE and sales managers", closers)].filter(Boolean).join("\n\n")}
 
 I find these every morning with JobPipe, the tool I built for my own sales job hunt. It also scores each role against your CV and tailors the CV for you: https://jobpipe.in
 
@@ -116,7 +196,7 @@ ${TAGS}`;
 ${post}
 ------------`;
 }
-const JOBS_PER_POST = 4;
+const JOBS_PER_POST = 6;
 
 /** Emails the owner a weekly post on sales roles that keep coming back, framed as a question to ask, not an accusation. */
 export const sendRepostPost = internalAction({
@@ -258,14 +338,16 @@ export function whyNot(text: string, headline: string) {
 // Sales and GTM roles JobPipe finds jobs for, read from the person's own headline so a passing mention doesn't count.
 const SALES = /\b(sdr|bdr|sales development|business development|(it|b2b|saas|tech|software|enterprise|corporate|solution) sales|sales (professional|executive|specialist|representative|rep)\b|account executive|\bae\b|inside sales|enterprise sales|sales (manager|leader|director|head|lead)|head of sales|vp,? sales|chief revenue|cro\b|gtm|go-to-market|revenue operations|revops|key account manager|account manager|partnerships? manager)/i;
 // Field and consumer sales are a different job market from the B2B and SaaS roles JobPipe covers.
-const NOT_OUR_SALES = /\b(area sales|regional sales|territory|asm\b|rsm\b|retail|insurance|real estate|pharma|medical rep|fmcg|solar|channel sales|dealer|distributor|banking sales|loan|admissions?|test prep)/i;
+const NOT_OUR_SALES = /\b(area sales|regional sales|territory|asm\b|rsm\b|retail|insurance|real estate|pharma|medical rep|fmcg|solar|channel sales|dealer|distributor|banking sales|loan|admissions?|test prep|printing|packaging)/i;
 
-/** A short note for someone looking for a sales job: under LinkedIn's 300-character connect-note limit. */
-export function pitch(name: string) {
+/** The owner's own comment, used only when the personal one can't be written. Same words on many posts look copied, so the email says when this happens. */
+export function plainComment(name: string) {
   const word = name.trim().split(/\s+/)[0]?.replace(/[^\p{L}'-]/gu, "") ?? "";
   // "PRAASHANT" reads as shouting: write it "Praashant".
-  const first = word ? word[0].toUpperCase() + (word === word.toUpperCase() ? word.slice(1).toLowerCase() : word.slice(1)) : "there";
-  return `Hi ${first}, saw your post. I built JobPipe for sales people job hunting: new sales roles every morning, each scored against your CV, and a tailored CV in a click. First week is free: https://jobpipe.in. Happy to help either way.`;
+  const first = word ? word[0].toUpperCase() + (word === word.toUpperCase() ? word.slice(1).toLowerCase() : word.slice(1)) : "";
+  return `${first ? `${first}, job` : "Job"} hunting is very similar to sales, you got to reach out to folks at the right time with the right context!
+
+You can try https://jobpipe.in. It's built with sales mindset :) Happy to help either way.`;
 }
 
 /** Of these people, the ones not yet sent to the owner. */
@@ -322,16 +404,17 @@ async function pickSeekers(ctx: ActionCtx): Promise<{ posts: SeekerPost[]; picke
   return { posts, picked };
 }
 
-function seekersSection(picked: SeekerPost[], notes: (string | null)[]) {
+function seekersSection(picked: SeekerPost[], comments: (string | null)[], error?: string) {
   const snippet = (t: string) => cut(t.replace(/\s+/g, " ").trim(), 220);
-  return `SALES PEOPLE LOOKING FOR WORK (about 5 minutes: comment with one useful tip, then send the message by hand; never automate this)
+  return `SALES PEOPLE LOOKING FOR WORK (about 5 minutes: paste each comment under their post by hand; never automate this)${error ? `\n\nThe personal comments failed today, so these are your plain one. Change the words before posting. Reason: ${cut(error, 160)}` : ""}
 
 ${picked
   .map((p, i) => `${i + 1}. ${p.author.name}${p.author.headline ? `, ${cut(p.author.headline, 90)}` : ""}
    "${snippet(p.text)}"
    Post: ${p.url}${p.author.url ? `\n   Profile: ${p.author.url}` : ""}
-   Message:
-   ${notes[i] ?? pitch(p.author.name)}`)
+   Comment:
+
+${comments[i] ?? plainComment(p.author.name)}`)
   .join("\n\n")}`;
 }
 
@@ -383,11 +466,11 @@ ${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not 
     }
     if (post) parts.push(post);
     if (picked.length) {
-      // A personal note per person, written from their post; the plain one if that fails.
-      const notes: (string | null)[] = await ctx.runAction(internal.growthNotes.write, {
+      // A personal comment per person, written from their post; the plain one if that fails.
+      const written: { comments: (string | null)[]; error?: string } = await ctx.runAction(internal.growthNotes.write, {
         people: picked.map((p) => ({ name: p.author.name, headline: p.author.headline, post: p.text })),
       });
-      parts.push(seekersSection(picked, notes));
+      parts.push(seekersSection(picked, written.comments, written.error));
     }
     if (errors.length) {
       parts.push(`ERRORS SINCE YESTERDAY (${errors.length}): ${appUrl()}/admin
@@ -395,7 +478,7 @@ ${errors.slice(0, 5).map((r) => `- ${new Date(r._creationTime).toISOString().sli
     }
     if (typeof seekers === "string") parts.push(`(Open-to-work search: ${seekers})`);
     if (!parts.length || (parts.length === 1 && typeof seekers === "string")) return "Nothing to report. No email sent.";
-    const bits = [waitingList.length && `${waitingList.length} waiting`, post && "LinkedIn post", picked.length && `${picked.length} to message`, errors.length && `${errors.length} error${errors.length === 1 ? "" : "s"}`].filter(Boolean);
+    const bits = [waitingList.length && `${waitingList.length} waiting`, post && "LinkedIn post", picked.length && `${picked.length} to comment on`, errors.length && `${errors.length} error${errors.length === 1 ? "" : "s"}`].filter(Boolean);
     const subject = `JobPipe this morning: ${bits.join(", ")}`;
     const text = `${parts.join("\n\n\n")}\n`;
     if (dryRun) return `${subject}\n\n${text}`;
