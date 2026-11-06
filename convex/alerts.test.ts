@@ -8,7 +8,7 @@ import { alertsEmail } from "./lib/email";
 
 const modules = import.meta.glob("./**/*.ts");
 
-test("new-roles email: today's relevant new jobs (fit 60+, title in their groups), best fit first, under the person's own groups; skips people who said stop", async () => {
+test("new-roles email: today's new jobs with a title in their groups, unless the AI said skip, AI-scored first, under the person's own groups; skips people who said stop", async () => {
   vi.useFakeTimers();
   const NOW = Date.UTC(2026, 10, 10, 4);
   vi.setSystemTime(NOW - 2 * 86_400_000);
@@ -33,9 +33,9 @@ test("new-roles email: today's relevant new jobs (fit 60+, title in their groups
   vi.setSystemTime(NOW - 3_600_000);
   await t.run(async (ctx) => {
     await ctx.db.insert("jobs", { userId: ids.a, ...job("SDR", { scores: [{ trackKey: "sdr", score: 60, reason: "", gaps: [] }] }) });
-    await ctx.db.insert("jobs", { userId: ids.a, ...job("Sales Development Manager", { quickFit: 150 }) });
+    await ctx.db.insert("jobs", { userId: ids.a, ...job("Sales Development Manager", { quickFit: 100 }) });
     await ctx.db.insert("jobs", { userId: ids.a, ...job("Dismissed SDR", { status: "dismissed" }) });
-    // Weak fit, and a title outside their groups: neither makes the email.
+    // Scored as one to skip, and a title outside their groups: neither makes the email.
     await ctx.db.insert("jobs", { userId: ids.a, ...job("BDR", { scores: [{ trackKey: "sdr", score: 40, reason: "", gaps: [] }] }) });
     await ctx.db.insert("jobs", { userId: ids.a, ...job("Office Manager", { scores: [{ trackKey: "sdr", score: 90, reason: "", gaps: [] }] }) });
     await ctx.db.insert("jobs", { userId: ids.b, ...job("SDR") });
@@ -43,11 +43,12 @@ test("new-roles email: today's relevant new jobs (fit 60+, title in their groups
   const due = await t.query(internal.alerts.due, { now: NOW });
   vi.useRealTimers();
   expect(due.map((d) => d.email)).toEqual(["a@example.com"]);
-  // Fit 75 (first guess) before fit 60 (AI score); each under its own group.
+  // The AI-scored role first, then the one not scored yet, which shows no fit number; each under its own group.
   expect(due[0].groups).toEqual([
-    { track: "Sales Development Leadership", jobs: [expect.objectContaining({ title: "Sales Development Manager", fit: 75 })] },
     { track: "SDR / BDR", jobs: [expect.objectContaining({ title: "SDR", fit: 60 })] },
+    { track: "Sales Development Leadership", jobs: [expect.objectContaining({ title: "Sales Development Manager" })] },
   ]);
+  expect(due[0].groups[1].jobs[0].fit).toBeUndefined();
   const mail = alertsEmail(due[0]);
   expect(mail.subject).toBe("2 new roles for you today, Asha");
   expect(mail.text).toContain("/jobs/");

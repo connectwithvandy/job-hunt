@@ -335,7 +335,7 @@ export function alertsEmail(p: { name?: string; groups: { track: string; jobs: {
   const line = (j: { title: string; company: string; where: string; fit?: number }) => `${j.title}, ${j.company} (${j.where})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}`;
   const text = `${first ? `Hi ${first},` : "Hi,"}
 
-New roles JobPipe found for you since yesterday, best fit first:
+New roles matching your titles since yesterday, best first:
 
 ${p.groups.map((g) => `${g.track}\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}`).join("\n")}`).join("\n\n")}
 
@@ -350,7 +350,7 @@ Don't want these? Reply "stop" and I'll turn them off.
 `;
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
 <p>${esc(first ? `Hi ${first},` : "Hi,")}</p>
-<p>New roles JobPipe found for you since yesterday, best fit first:</p>
+<p>New roles matching your titles since yesterday, best first:</p>
 ${p.groups
   .map(
     (g) => `<p style="margin:20px 0 6px;font-weight:600">${esc(g.track)}</p>

@@ -8,7 +8,7 @@ import { trackForTitle } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
 const PER_EMAIL = 8;
-/** The app's "good fit" line (violet 60+, green 75+): weaker roles stay in the app but don't make the email. */
+/** Below this AI score the app says skip the job, so it stays out of the email. Roles not scored yet still go in. */
 const RELEVANT = 60;
 
 const jobV = v.object({ title: v.string(), company: v.string(), where: v.string(), fit: v.optional(v.number()), id: v.string() });
@@ -16,10 +16,9 @@ const personV = v.object({ accessId: v.id("access"), email: v.string(), name: v.
 
 type Person = Infer<typeof personV>;
 
-/** The fit to show: the AI score, else the free first guess on the same scale. */
-function fitOf(j: { scores?: { score: number }[]; quickFit?: number }) {
-  if (j.scores?.length) return Math.max(...j.scores.map((s) => s.score));
-  return j.quickFit !== undefined ? Math.round(15 + j.quickFit * 0.4) : undefined;
+/** The AI's best score for a role, if it has been scored. Only about 24 a day are, so most new roles have none yet. */
+function aiFit(j: { scores?: { score: number }[] }) {
+  return j.scores?.length ? Math.max(...j.scores.map((s) => s.score)) : undefined;
 }
 
 /** Members with new roles since the last email (or the last day), best fit first, grouped by their own tracks. */
@@ -42,11 +41,12 @@ export const due = internalQuery({
         if (j._creationTime < since) break;
         if (j.status === "new") fresh.push(j);
       }
-      // Only relevant roles: the title fits one of their groups, and the fit is 60 or more.
+      // Every new role whose title fits one of their groups, unless the AI scored it as one to skip.
+      // Scored roles first, then by the free first guess. The guess only sorts: at most 55, it would look like a poor fit.
       const best = fresh
-        .map((j) => ({ j, fit: fitOf(j), key: j.trackKey ?? trackForTitle(tracks, j.title) }))
-        .filter((x) => x.fit !== undefined && x.fit >= RELEVANT && tracks.some((t) => t.key === x.key))
-        .sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1))
+        .map((j) => ({ j, fit: aiFit(j), guess: j.quickFit ?? 0, key: j.trackKey ?? trackForTitle(tracks, j.title) }))
+        .filter((x) => (x.fit === undefined || x.fit >= RELEVANT) && tracks.some((t) => t.key === x.key))
+        .sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1) || b.guess - a.guess)
         .slice(0, PER_EMAIL);
       if (!best.length) continue;
       const byTrack = new Map<string, { title: string; company: string; where: string; fit?: number; id: string }[]>();
