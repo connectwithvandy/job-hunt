@@ -4,7 +4,7 @@ export const PLANS = {
   trialDays: 7,
   full: 999,
   founding: 499,
-  foundingSeats: 10,
+  foundingSeats: 100,
   /** The Job Hunt Pass: one payment for 3 months, no auto-renewal. */
   passMonths: 3,
   pass: 2499,
