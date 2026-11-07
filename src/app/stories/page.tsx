@@ -23,19 +23,19 @@ export default function Stories() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHead
-        title="Stories"
-        sub="The handful of stories from your career worth knowing by heart. Interview prep reuses these instead of writing new ones for every job, so each telling gets sharper."
+        title="Proof of work"
+        sub="The handful of examples from your career worth knowing by heart. Interview prep reuses these instead of writing new ones for every job, so each telling gets sharper."
       >
         {stories.length < MAX_STORIES && (
           <ActionButton
             run={async () => {
               const { added } = await build();
-              return `Added ${added} ${added === 1 ? "story" : "stories"}.`;
+              return `Added ${added} ${added === 1 ? "example" : "examples"}.`;
             }}
             pending="Writing… about a minute"
             variant={stories.length ? "ghost" : "primary"}
           >
-            {stories.length ? "Find more in my CV" : "Write my stories from my CV"}
+            {stories.length ? "Find more in my CV" : "Write my proof of work from my CV"}
           </ActionButton>
         )}
         <button type="button" className="btn btn-ghost" onClick={() => setAdding(true)}>
@@ -51,7 +51,7 @@ export default function Stories() {
 
       {stories.length === 0 && !adding ? (
         <div className="card p-8 text-ink-2">
-          No stories yet. Write them from your CV in one click, or they&apos;ll fill in as you prepare for interviews from a job&apos;s page.
+          No examples yet. Write them from your CV in one click, or they&apos;ll fill in as you prepare for interviews from a job&apos;s page.
         </div>
       ) : (
         <div className="space-y-4">

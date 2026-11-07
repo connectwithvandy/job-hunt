@@ -1042,7 +1042,7 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
         </button>
       </div>
       {!prep ? (
-        <p className="text-sm text-ink-2">Likely questions with answer outlines from your CV, four stories to have ready, sharp questions to ask them, and a first-90-days plan.</p>
+        <p className="text-sm text-ink-2">Likely questions with answer outlines from your CV, four examples to have ready, sharp questions to ask them, and a first-90-days plan.</p>
       ) : (
         <div className="space-y-5 text-sm">
           <details open>
@@ -1058,7 +1058,7 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
             </ol>
           </details>
           <details>
-            <summary className="cursor-pointer font-medium">Stories to have ready</summary>
+            <summary className="cursor-pointer font-medium">Proof of work to have ready</summary>
             <ul className="mt-2 space-y-3">
               {prep.stories.map((st) => (
                 <li key={st.title}>
@@ -1086,7 +1086,7 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
               ))}
             </ul>
             <p className="mt-3 text-xs text-ink-3">
-              New stories are saved to your <a className="underline" href="/stories">story bank</a>, so the next interview reuses the ones you already know.
+              New examples are saved to your <a className="underline" href="/stories">proof of work</a>, so the next interview reuses the ones you already know.
             </p>
           </details>
           <details>

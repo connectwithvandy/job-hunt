@@ -17,7 +17,7 @@ import { type ActionState, ActionButton, attempt, Feedback, Spinner } from "./ui
 import { payRange } from "@/lib/money";
 
 const fileClass =
-  "text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line";
+  "block w-full max-w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line";
 
 export function ImportConnections() {
   const clear = useMutation(api.contacts.clearBatch);

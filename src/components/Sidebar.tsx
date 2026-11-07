@@ -16,7 +16,7 @@ const NAV = [
   { label: "Application tracker", pages: [{ href: "/tracker", label: "Application tracker" }] },
   { label: "Companies", pages: [{ href: "/companies", label: "Companies" }] },
   { label: "People", pages: [{ href: "/messages", label: "Messages" }, { href: "/network", label: "Your network" }] },
-  { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }, { href: "/stories", label: "Stories" }] },
+  { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }, { href: "/stories", label: "Proof of work" }] },
 ];
 /** Your own account: reached from your name at the bottom of the menu, not a place in it. */
 const ACCOUNT = { label: "Account", pages: [{ href: "/account", label: "Profile" }, { href: "/billing", label: "Plan & billing" }] };

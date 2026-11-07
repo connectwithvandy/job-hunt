@@ -438,7 +438,7 @@ function NextStep({
       job.status === "offer" ? "Weigh the offer" : "Prepare for the interview",
       job.status === "offer"
         ? "Check the pay against what you'd ask for, and ask Ask JobPipe to help you negotiate."
-        : "Open the interview prep under More at the bottom: likely questions, your stories that answer them, and research on the company.",
+        : "Open the interview prep under More at the bottom: likely questions, your proof of work that answers them, and research on the company.",
     ],
     done: null,
   }[stage];
@@ -474,7 +474,7 @@ function NextStep({
             {job.status === "offer" ? "Ask about the offer" : "Go to interview prep"}
           </Link>
           <Link href="/stories" className="btn btn-ghost">
-            Your interview stories
+            Your proof of work
           </Link>
         </div>
       )}

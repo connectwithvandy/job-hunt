@@ -36,7 +36,7 @@ export function ActionButton({
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <span className="inline-flex max-w-full flex-col items-start gap-1">
       <button
         type="button"
         disabled={busy}

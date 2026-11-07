@@ -100,6 +100,10 @@ body {
   transition: background 0.15s, opacity 0.15s, transform 0.05s;
   white-space: nowrap;
 }
+@media (max-width: 640px) {
+  /* A long label wraps on a phone instead of pushing the page sideways. */
+  .btn { max-width: 100%; white-space: normal; }
+}
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.55; cursor: progress; }
 .btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }

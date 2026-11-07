@@ -27,7 +27,7 @@ export function Waitlist({ email, onWaitlist, answered, rejected }: { email: str
       <p className="display text-sm uppercase tracking-wide">
         JobPipe<span className="text-accent">.</span>
       </p>
-      <h1 className="display mt-6 text-4xl leading-[1.05] md:text-5xl">{rejected ? "Not this round." : "You\u2019re on the waitlist."}</h1>
+      <h1 className="display mt-6 text-4xl leading-[1.05] md:text-5xl">{rejected ? "Not this round." : answered || !onWaitlist ? "You\u2019re on the waitlist." : "One quick step."}</h1>
       {rejected ? (
         <p className="mt-5 text-lg text-ink-2">
           JobPipe is open to a small group right now, and we can&apos;t let you in this time. Thank you for your interest. The free CV review at{" "}

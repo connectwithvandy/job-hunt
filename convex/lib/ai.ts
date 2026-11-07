@@ -17,6 +17,9 @@ function modelFor(tier: Tier) {
   return { model: env.JOBHUNT_MODEL ?? "claude-opus-5-5", effort: "medium" as const, fallback: true };
 }
 
+/** People read this text as it is, so a failed search must not show up in it. */
+const SEARCH_NOTE = "Never mention searching, tools, or a search failing in your answer. If you couldn't confirm something, leave it out or say it's unknown.";
+
 /**
  * Ask Claude for JSON matching `schema`. With `webSearch`, Claude may search the web that many times first.
  * `shared` is text that repeats across calls (like the CV); it goes first and is cached, so repeats cost a tenth.
@@ -48,7 +51,7 @@ export async function askJSON<T extends z.ZodType>(opts: { system: string; promp
       // Haiku has no fallback model to hand a declined request to.
       ...(fallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
       // System text is the same on every call of a kind, so cache it too.
-      system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: opts.webSearch ? `${opts.system}\n${SEARCH_NOTE}` : opts.system, cache_control: { type: "ephemeral" } }],
       output_config: { effort, format: { type: "json_schema", schema } },
       ...(opts.webSearch ? { tools: [{ type: "web_search_20260209", name: "web_search", max_uses: opts.webSearch }] } : {}),
       messages,
