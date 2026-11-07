@@ -27,6 +27,8 @@ export default function AdminCentre() {
   const clearErrors = useMutation(api.errors.clear);
   const setApproved = useMutation(api.access.setApproved);
   const setRejected = useMutation(api.access.setRejected);
+  const addPaidTime = useMutation(api.access.addPaidTime);
+  const clearPaidTime = useMutation(api.access.clearPaidTime);
   const approveMany = useMutation(api.access.approveMany);
   const resetPassword = useAction(api.access.resetPassword);
   const [reset, setReset] = useState<{ email: string; password: string } | null>(null);
@@ -85,6 +87,22 @@ export default function AdminCentre() {
         }}>
         Reset password
       </ActionButton>
+      {!approve && (
+        <ActionButton size="sm" variant="ghost" run={async () => {
+            if (!window.confirm(`Add 3 months of paid time for ${a.email}? Only for someone paid for outside the app.`)) return;
+            await addPaidTime({ accessId: a._id });
+          }}>
+          Add 3 months paid
+        </ActionButton>
+      )}
+      {!approve && !!a.paidUntil && (
+        <ActionButton size="sm" variant="ghost" run={async () => {
+            if (!window.confirm(`Remove all paid time for ${a.email}? If their free trial is over, their AI tools stop.`)) return;
+            await clearPaidTime({ accessId: a._id });
+          }}>
+          Clear paid time
+        </ActionButton>
+      )}
       {approve && !a.rejected && (
         <ActionButton size="sm" variant="ghost" run={async () => {
             if (!window.confirm(`Turn down ${a.email}? They'll see a short "not this round" note. You can let them in later.`)) return;

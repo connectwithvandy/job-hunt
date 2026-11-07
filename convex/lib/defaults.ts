@@ -29,6 +29,9 @@ export const PIPELINE: { status: string; label: string }[] = [
 export const MAX_STORIES = 20;
 
 /** Daily allowance per person, so a public app can't run up an unbounded AI bill. */
+/** AI scores each person gets from the morning run. */
+export const AUTOPILOT_SCORES = 24;
+
 export const DAILY_LIMITS = {
   readCv: 5,
   score: 30,

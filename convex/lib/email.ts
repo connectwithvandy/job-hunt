@@ -11,15 +11,30 @@ export const emailOn = () => !!env.RESEND_API_KEY;
 
 export const appUrl = () => (env.APP_URL ?? "https://jobpipe.in").replace(/\/$/, "");
 
-/** Sends one email. Throws with Resend's reason when it fails. */
+/** Waits before each new try. A bad address fails at once; only busy or broken moments are tried again. */
+export const EMAIL_RETRY_WAITS = [1000, 3000];
+
+/** Sends one email, trying again if Resend is busy or can't be reached. Throws with Resend's reason when it fails. */
 export async function sendEmail(msg: { to: string; subject: string; text: string; html?: string }) {
   if (!env.RESEND_API_KEY) throw new Error("Email is off: RESEND_API_KEY isn't set.");
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html }),
-  });
-  if (!res.ok) throw new Error(`Resend said ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  // The same key on every try, so a try that worked but lost its reply can't send the email twice.
+  const key = crypto.randomUUID();
+  for (let attempt = 0; ; attempt++) {
+    const last = attempt >= EMAIL_RETRY_WAITS.length;
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": key },
+        body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html }),
+      });
+      if (res.ok) return;
+      const failure = new Error(`Resend said ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      if (last || (res.status !== 429 && res.status < 500)) throw Object.assign(failure, { final: true });
+    } catch (err) {
+      if (last || (err as { final?: boolean }).final) throw err;
+    }
+    await new Promise((done) => setTimeout(done, EMAIL_RETRY_WAITS[attempt]));
+  }
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

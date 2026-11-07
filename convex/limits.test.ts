@@ -86,3 +86,43 @@ describe("C. Google Jobs monthly share (budget 10, owner + 1 tester)", () => {
     expect(await totalUsed()).toBe(9);
   });
 });
+
+describe("D. The whole app's daily AI limit", () => {
+  beforeEach(() => {
+    process.env.AI_DAILY_UNITS = "20";
+  });
+  afterEach(() => {
+    delete process.env.AI_DAILY_UNITS;
+  });
+
+  test("stops AI work for everyone at the limit, but search stays open", async () => {
+    const { t, tester } = await setup();
+    const other = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", { email: "other@example.com" });
+      await ctx.db.insert("access", { userId: id, email: "other@example.com", approved: true });
+      return id;
+    });
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "tailor" });
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "score", count: 5 });
+    await expect(t.mutation(internal.limits.consume, { userId: other, kind: "score" })).rejects.toThrow("reached today's limit");
+    await expect(t.mutation(internal.limits.consume, { userId: other, kind: "score", checkOnly: true })).rejects.toThrow("reached today's limit");
+    await t.mutation(internal.limits.consume, { userId: other, kind: "search" });
+  });
+
+  test("a check alone uses nothing, and the owner isn't stopped", async () => {
+    const { t, tester, owner } = await setup();
+    for (let i = 0; i < 3; i++) await t.mutation(internal.limits.consume, { userId: tester, kind: "tailor", checkOnly: true });
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "tailor" });
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "score", count: 5 });
+    await t.mutation(internal.limits.consume, { userId: owner, kind: "tailor" });
+  });
+
+  test("the health numbers show what's been used", async () => {
+    const { t, tester } = await setup();
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "tailor" });
+    const f = await t.query(internal.stats.healthFacts, { now: Date.now() });
+    expect(f.aiUsed).toBe(15);
+    expect(f.aiLimit).toBe(20);
+    expect(f.letIn).toBe(1);
+  });
+});

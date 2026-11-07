@@ -46,3 +46,24 @@ test("someone the owner turned down is not let in by picking a sales role", asyn
   expect(await as.mutation(api.access.describe, { name: "Sam", linkedin: "", role: "Account Executive" })).toBe(false);
   expect((await row())?.approved).toBe(false);
 });
+
+test("the owner can add and clear paid time, and nobody else can", async () => {
+  process.env.OWNER_EMAILS = "owner@example.com";
+  const t = convexTest(schema, modules);
+  rateLimiter.register(t);
+  const { owner, accessId, tester } = await t.run(async (ctx) => {
+    const owner = await ctx.db.insert("users", { email: "owner@example.com" });
+    const tester = await ctx.db.insert("users", { email: "new@example.com" });
+    const accessId = await ctx.db.insert("access", { userId: tester, email: "new@example.com", approved: true });
+    return { owner, accessId, tester };
+  });
+  await expect(t.withIdentity({ subject: `${tester}|s` }).mutation(api.access.addPaidTime, { accessId })).rejects.toThrow("Only the owner");
+  await expect(t.withIdentity({ subject: `${tester}|s` }).mutation(api.access.clearPaidTime, { accessId })).rejects.toThrow("Only the owner");
+  const as = t.withIdentity({ subject: `${owner}|s` });
+  const first = await as.mutation(api.access.addPaidTime, { accessId });
+  expect(first).toBeGreaterThan(Date.now() + 89 * 86_400_000);
+  // A second click adds on, so nobody loses days.
+  expect(await as.mutation(api.access.addPaidTime, { accessId })).toBeGreaterThan(first + 89 * 86_400_000);
+  await as.mutation(api.access.clearPaidTime, { accessId });
+  expect((await t.run(async (ctx) => await ctx.db.get("access", accessId)))?.paidUntil).toBeUndefined();
+});

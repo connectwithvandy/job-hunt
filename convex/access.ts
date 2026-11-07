@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { hasAccess, isOwnerEmail } from "./lib/auth";
+import { PLANS } from "./lib/plans";
 import { trialEnd, trialOver } from "./lib/trial";
 import { appUrl, emailOn, sendEmail, welcomeEmail } from "./lib/email";
 
@@ -81,6 +82,32 @@ export const list = query({
     const notIn = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", false)).order("desc").take(200);
     const approved = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).order("desc").take(200);
     return { waiting: notIn.filter((a) => !a.rejected), rejected: notIn.filter((a) => a.rejected), approved, emailOn: emailOn() };
+  },
+});
+
+/**
+ * Three months' paid time for someone paid for outside the app, like a group deal by payment link. Owner only.
+ * Adds to any time they already have. No payment row, so it doesn't use a founding seat.
+ */
+export const addPaidTime = mutation({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    await requireOwner(ctx);
+    const row = await ctx.db.get("access", accessId);
+    if (!row) throw new ConvexError("That person isn't on the list.");
+    const paidUntil = Math.max(Date.now(), row.paidUntil ?? 0) + PLANS.passMonths * 30 * 86_400_000;
+    await ctx.db.patch("access", accessId, { paidUntil });
+    return paidUntil;
+  },
+});
+
+/** Undo paid time added by mistake. Owner only. */
+export const clearPaidTime = mutation({
+  args: { accessId: v.id("access") },
+  handler: async (ctx, { accessId }) => {
+    await requireOwner(ctx);
+    await ctx.db.patch("access", accessId, { paidUntil: undefined });
+    return null;
   },
 });
 

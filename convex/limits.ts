@@ -44,6 +44,15 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
 };
 
 /**
+ * What each kind of AI work counts for against the whole app's daily limit, roughly by what it costs:
+ * a job score on Sonnet is 1, a tailored CV and letter on Opus is 15. Kinds not listed use no AI.
+ */
+const AI_UNITS: Partial<Record<keyof typeof LABELS, number>> = { readCv: 1, score: 1, addJob: 1, notes: 2, chat: 2, research: 5, prep: 5, tailor: 15 };
+
+/** The whole app's daily AI limit, so a bug can't run up a big bill. Raise it with AI_DAILY_UNITS, no deploy needed. */
+export const aiLimit = () => ({ kind: "fixed window" as const, rate: Number(env.AI_DAILY_UNITS ?? 3000), period: DAY });
+
+/**
  * Spend `count` of today's allowance, or throw a friendly error. The owner has no limit.
  * With `checkOnly`, only makes sure it's there, so slow AI work can spend it after it succeeds.
  */
@@ -60,6 +69,12 @@ export const consume = internalMutation({
     if (!OPEN_AFTER_TRIAL.includes(kind)) {
       const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
       if (trialOver(row, Date.now())) throw new ConvexError("Your free trial has ended. You can still search for jobs. To use this, pick a plan on the Plan & billing page.");
+    }
+    const units = (AI_UNITS[kind] ?? 0) * (count ?? 1);
+    if (units) {
+      const appArgs = { count: units, config: aiLimit() };
+      const { ok } = checkOnly ? await rateLimiter.check(ctx, "appAi", appArgs) : await rateLimiter.limit(ctx, "appAi", appArgs);
+      if (!ok) throw new ConvexError("JobPipe's AI tools have reached today's limit. They'll be back tomorrow, and job search still works.");
     }
     const args = { key: userId, count: count ?? 1 };
     const { ok, retryAfter } = checkOnly ? await rateLimiter.check(ctx, kind, args) : await rateLimiter.limit(ctx, kind, args);

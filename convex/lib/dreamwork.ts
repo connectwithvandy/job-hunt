@@ -50,6 +50,8 @@ async function callTool<T>(name: string, args: Record<string, unknown>): Promise
   }
 }
 
+const RETRY_WAIT = 1500;
+
 /** Without a key Dreamwork sends 25 at a time, so a busy title like "Account Executive" needs a few pages. */
 export async function searchListings(search: string, location: string, limit = 10, pages = 1) {
   const where = location.trim().toLowerCase();
@@ -62,7 +64,21 @@ export async function searchListings(search: string, location: string, limit = 1
   const all: Listing[] = [];
   let cursor: string | undefined;
   for (let i = 0; i < pages; i++) {
-    const page = await callTool<{ listings: Listing[]; nextCursor?: string | null }>("browse_listings", cursor ? { ...filters, cursor } : filters);
+    const args = cursor ? { ...filters, cursor } : filters;
+    type Page = { listings: Listing[]; nextCursor?: string | null };
+    let page: Page;
+    try {
+      // One more try after a short wait: most failures here are a passing hiccup.
+      page = await callTool<Page>("browse_listings", args).catch(async () => {
+        await new Promise((done) => setTimeout(done, RETRY_WAIT));
+        return await callTool<Page>("browse_listings", args);
+      });
+    } catch (err) {
+      // A later page failing shouldn't lose the pages already read.
+      if (!all.length) throw err;
+      console.warn("Dreamwork stopped early", search, String(err));
+      break;
+    }
     all.push(...page.listings);
     cursor = page.nextCursor ?? undefined;
     if (!cursor) break;

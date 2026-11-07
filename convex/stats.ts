@@ -4,12 +4,40 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction, internalQuery } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
+import type { HealthFacts } from "./lib/health";
+import { lockAt, trialOver } from "./lib/trial";
+import { aiLimit, rateLimiter } from "./limits";
 import { internalMutation, jobCounts } from "./lib/functions";
 
 /** What one person let in has done, for the owner's admin page. */
 type Usage = { accessId: Id<"access">; lastSeenAt?: number; setUp: boolean; jobs: number; scored: number; tailored: number; applied: number };
 
 const STEPS = ["Let in", "Set up", "Searched", "Scored a job", "Tailored a CV", "Applied", "Paid"] as const;
+
+/** The numbers for the health block in the owner's morning email. */
+export const healthFacts = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, { now }): Promise<HealthFacts> => {
+    const profiles = await ctx.db.query("profiles").withIndex("by_autopilot", (q) => q.eq("autopilot", true)).take(300);
+    const rows = (await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000)).filter((r) => !isOwnerEmail(r.email));
+    const config = aiLimit();
+    const { value } = await rateLimiter.getValue(ctx, "appAi", { config });
+    const unpaid = rows.filter((r) => (r.paidUntil ?? 0) <= now);
+    return {
+      people: profiles.length,
+      runs: profiles.flatMap((p) => (p.lastAutopilot ? [p.lastAutopilot] : [])),
+      letIn: rows.length,
+      paying: rows.length - unpaid.length,
+      trialOver: rows.filter((r) => trialOver(r, now)).length,
+      lockingSoon: unpaid.filter((r) => {
+        const at = lockAt(r);
+        return !!at && at > now && at <= now + 3 * 86_400_000;
+      }).length,
+      aiUsed: Math.max(0, Math.round(config.rate - value)),
+      aiLimit: config.rate,
+    };
+  },
+});
 
 /** How far each person let in has got, step by step, and what each one has done. Reads one small totals row per person. */
 export const funnelData = internalQuery({

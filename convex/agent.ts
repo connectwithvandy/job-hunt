@@ -15,7 +15,8 @@ import { unverifiedNumbers } from "./lib/facts";
 import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
-import { MAX_STORIES } from "./lib/defaults";
+import { AUTOPILOT_SCORES, MAX_STORIES } from "./lib/defaults";
+import { settleLimited } from "./lib/pool";
 import { pdfText } from "./lib/pdfText";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
 import { inBengaluru, remoteForIndia } from "./lib/places";
@@ -30,7 +31,6 @@ type NewJob = Infer<typeof jobV>;
 type LiveCheck = Infer<typeof liveCheckV>;
 
 /** Jobs the morning run scores per person; the rest wait a day. */
-const AUTOPILOT_SCORES = 24;
 type Resume = Infer<typeof resumeV>;
 type Context = {
   userId: Id<"users">;
@@ -281,7 +281,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const [settled, [others, otherFailed]] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : Promise.allSettled(track.titles.slice(0, 16).map((title) => searchListings(title, location, 25, 4))),
+        : settleLimited(track.titles.slice(0, 16), 5, (title) => searchListings(title, location, 25, 4)),
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
@@ -290,6 +290,8 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
             linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, location, linkedin) : Promise.resolve({ jobs: [], failed: false }),
           ]).then(([other, careers, li]): [Found[], string[]] => [[...other.jobs, ...careers, ...li.jobs], [...other.failed, ...(li.failed ? ["LinkedIn"] : [])]]),
     ]);
+    // Keep the reason in the logs: a search that half worked still gives the person jobs, so nothing else records it.
+    for (const r of settled) if (r.status === "rejected") console.warn("Dreamwork search failed", String(r.reason));
     // Dreamwork also matches company names, so keep only titles holding the searched words.
     const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
     if (!listings.length && !others.length && settled.every((r) => r.status === "rejected")) {

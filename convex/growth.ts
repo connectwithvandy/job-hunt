@@ -6,6 +6,8 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { type ActionCtx, env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
+import { AUTOPILOT_SCORES } from "./lib/defaults";
+import { healthSection } from "./lib/health";
 import { CAREER_BOARDS } from "./lib/careerBoards";
 import { companyKey, roleKey } from "./lib/company";
 import { searchJobs, searchPosts } from "./lib/apify";
@@ -488,14 +490,22 @@ export const sendMorning = internalAction({
   handler: async (ctx, { dryRun }): Promise<string> => {
     const owner = ownerEmail();
     if (!emailOn() || !owner) return "Email or owner missing.";
-    const [waitingList, post, seekers, errors] = await Promise.all([
+    const now = Date.now();
+    // One section failing mustn't stop the whole email: it's how the owner hears about failures.
+    let postError = "";
+    const [waitingList, post, seekers, errors, facts] = await Promise.all([
       ctx.runQuery(internal.growth.waiting, {}),
-      jobsPostSection(ctx),
-      pickSeekers(ctx),
+      jobsPostSection(ctx).catch((err) => {
+        postError = String(err);
+        return null;
+      }),
+      pickSeekers(ctx).catch((err) => `failed: ${String(err)}`),
       ctx.runQuery(internal.errors.unsent, {}),
+      ctx.runQuery(internal.stats.healthFacts, { now }),
     ]);
     const picked = typeof seekers === "string" ? [] : seekers.picked;
-    const parts: string[] = [];
+    const health = healthSection(facts, now, AUTOPILOT_SCORES);
+    const parts: string[] = [health.text];
     if (waitingList.length) {
       parts.push(`WAITING TO BE LET IN (${waitingList.length}): ${appUrl()}/admin
 ${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not given"} · ${w.email}${w.linkedin ? ` · ${w.linkedin}` : ""}`).join("\n")}`);
@@ -513,8 +523,8 @@ ${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not 
 ${errors.slice(0, 5).map((r) => `- ${new Date(r._creationTime).toISOString().slice(0, 16).replace("T", " ")} UTC · ${r.email || "signed out"} · ${r.page}\n  ${cut(r.message.split("\n")[0], 200)}`).join("\n")}`);
     }
     if (typeof seekers === "string") parts.push(`(Open-to-work search: ${seekers})`);
-    if (!parts.length || (parts.length === 1 && typeof seekers === "string")) return "Nothing to report. No email sent.";
-    const bits = [waitingList.length && `${waitingList.length} waiting`, post && "LinkedIn post", picked.length && `${picked.length} to comment on`, errors.length && `${errors.length} error${errors.length === 1 ? "" : "s"}`].filter(Boolean);
+    if (postError) parts.push(`(LinkedIn post failed: ${cut(postError, 200)})`);
+    const bits = [health.alarm && "NEEDS A LOOK", health.headline, waitingList.length && `${waitingList.length} waiting`, post && "LinkedIn post", picked.length && `${picked.length} to comment on`, errors.length && `${errors.length} error${errors.length === 1 ? "" : "s"}`].filter(Boolean);
     const subject = `JobPipe this morning: ${bits.join(", ")}`;
     const text = `${parts.join("\n\n\n")}\n`;
     if (dryRun) return `${subject}\n\n${text}`;

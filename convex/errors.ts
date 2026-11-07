@@ -19,6 +19,15 @@ export const report = mutation({
   },
 });
 
+/** Something failed on the server that nobody would otherwise see. It reaches the owner in the morning email. */
+export const logServer = internalMutation({
+  args: { message: v.string(), page: v.string() },
+  handler: async (ctx, { message, page }) => {
+    await ctx.db.insert("appErrors", { email: "", message: message.slice(0, 1000), page: page.slice(0, 200), emailed: false });
+    return null;
+  },
+});
+
 /** The latest errors, newest first. Owner only. */
 export const recent = query({
   args: {},

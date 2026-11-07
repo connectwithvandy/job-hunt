@@ -162,6 +162,7 @@ export const send = internalAction({
     const people: Person[] = await ctx.runAction(internal.alerts.due, { now: Date.now() });
     if (dryRun) return people.map((p) => `${p.email}: ${p.groups.map((g) => `${g.track} (${g.jobs.length})`).join(", ")}`).join("\n") || "Nobody due.";
     let sent = 0;
+    let lastError = "";
     for (const p of people) {
       try {
         await sendEmail({ to: p.email, ...alertsEmail(p) });
@@ -170,8 +171,10 @@ export const send = internalAction({
       } catch (err) {
         // One bad address doesn't stop the rest.
         console.warn("New-roles email failed for", p.email, String(err));
+        lastError = String(err);
       }
     }
+    if (sent < people.length) await ctx.runMutation(internal.errors.logServer, { message: `New-roles email failed for ${people.length - sent} of ${people.length} people. Last reason: ${lastError}`, page: "new roles email" });
     return `Sent ${sent} of ${people.length}.`;
   },
 });
