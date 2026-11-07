@@ -12,7 +12,7 @@ import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
 import { cvSenior, cvWords, isLender, quickFit } from "./lib/quickFit";
-import { backOffice } from "./lib/salesRoles";
+import { backOffice, shopFloor } from "./lib/salesRoles";
 import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
@@ -392,7 +392,7 @@ export const insertMany = internalMutation({
       }
       // Bank and lender sales jobs never fit a tech sales search; one you add yourself is still saved.
       const searched = job.source !== "pasted" && job.source !== "link" && job.source !== "email";
-      if (searched && (isLender(job.title, job.company) || backOffice(job.title))) continue;
+      if (searched && (isLender(job.title, job.company) || backOffice(job.title) || shopFloor(job.title, job.location))) continue;
       // Some boards return roles posted months ago. The Jobs list hides anything over 45 days old as likely
       // filled, so saving them only inflated "N found".
       const posted = job.postedAt ? Date.parse(job.postedAt) : NaN;

@@ -197,6 +197,13 @@ function isLeader(words: string[]) {
 const BACK_OFFICE =
   /\b(accounts? (payable|receivable)|accountant|accounting|bookkeep\w*|revenue accounting|f&a|fp&a|taxation|payroll|audit(or)?|(?<!key )(?<!strategic )accounts (executive|assistant|officer|manager))\b|\bexecutive\W+accounts\b|\bfinance executive\b/i;
 
+const SHOP_TITLE = /\b(jewell?e?ry|showroom|retail store|store (sales|executive|manager)|food (and|&) beverage|f&b|banquets?|counter sales|beauty advisor)\b/i;
+
+/** A shop, showroom or hotel sales job. They match "Sales Executive" but aren't the B2B roles people come here for. */
+export function shopFloor(title: string, location = "") {
+  return SHOP_TITLE.test(title.replace(/_/g, " ")) || /\bmall\b/i.test(location);
+}
+
 /** A finance or back-office job whose title only looks like sales: "Executive - Accounts Payable". */
 export function backOffice(title: string) {
   return BACK_OFFICE.test(title.replace(/_/g, " "));

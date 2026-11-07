@@ -4,7 +4,7 @@ import { payText } from "../src/lib/money";
 import { cleanCompany, sameRoleKey } from "./lib/company";
 import { openDoors } from "./lib/posting";
 import { quickFit } from "./lib/quickFit";
-import { backOffice } from "./lib/salesRoles";
+import { backOffice, shopFloor } from "./lib/salesRoles";
 
 const nearBlr = (location: string, title = "Account Executive", workSetting?: string) => regionsOf({ location, title, workSetting }).includes("blr");
 
@@ -74,4 +74,11 @@ test("open doors count people only at companies with a role that fits", () => {
   expect(open.length).toBe(2);
   expect(people).toBe(4);
   expect(openDoors([]).people).toBe(0);
+});
+
+test("shop and hotel sales jobs are left out, and B2B roles aren't", () => {
+  for (const [t, l] of [["Jewellry Sales Executive", "Bengaluru"], ["Food & Beverage Sales Executive", "Bangalore"], ["Sales Executive Fmb 02", "BIBA FORUM MALL, BANGALORE"], ["Showroom Sales Executive", "Pune"]])
+    expect(shopFloor(t, l), t).toBe(true);
+  for (const [t, l] of [["Account Executive", "Bengaluru"], ["Inside Sales Executive", "Bangalore"], ["Enterprise Account Executive - Retail", "India"], ["Store Experience Product Manager", "Remote"]])
+    expect(shopFloor(t, l), t).toBe(false);
 });
