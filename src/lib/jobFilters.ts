@@ -1,4 +1,4 @@
-// Filters for the Jobs list, modelled on Dreamwork's: each reads one URL parameter.
+// Filters for the Jobs list: each reads one URL parameter.
 
 import { SKIP_BELOW } from "../../convex/lib/posting";
 import { titleMatches } from "../../convex/lib/salesRoles";
@@ -92,10 +92,7 @@ export const FILTERS: Filter[] = [
     key: "source",
     label: "Source",
     options: [
-      { value: "dreamwork", label: "Dreamwork", test: (j) => j.source === "dreamwork" },
-      { value: "jsearch", label: "Google Jobs", test: (j) => j.source === "jsearch" },
-      { value: "himalayas", label: "Himalayas", test: (j) => j.source === "himalayas" },
-      { value: "hn", label: "Hacker News", test: (j) => j.source === "hn" },
+      { value: "boards", label: "Job boards", test: (j) => ["dreamwork", "jsearch", "adzuna", "himalayas", "hn"].includes(j.source) },
       { value: "email", label: "From my email", test: (j) => j.source === "email" },
       { value: "linkedin", label: "LinkedIn", test: (j) => j.source === "linkedin" || j.source === "post" },
       { value: "careers", label: "Company careers pages", test: (j) => j.source === "careers" },

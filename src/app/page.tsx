@@ -487,11 +487,11 @@ function greeting() {
 /** Which roles and which fit scores actually get replies, from every application with a known result. */
 const SOURCE_LABELS: Record<string, string> = {
   careers: "Company careers boards",
-  dreamwork: "Dreamwork",
-  jsearch: "Google Jobs",
-  adzuna: "Adzuna",
-  himalayas: "Himalayas",
-  hn: "Hacker News",
+  dreamwork: "Job boards",
+  jsearch: "Job boards",
+  adzuna: "Job boards",
+  himalayas: "Job boards",
+  hn: "Job boards",
   email: "From your email",
   linkedin: "LinkedIn jobs",
   link: "Added by you",
@@ -701,11 +701,6 @@ function Autopilot({ on, last }: { on: boolean; last: { at: number; added: numbe
               ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} new strong ${last.strong === 1 ? "fit" : "fits"} (75+)${last.funded ? `, ${last.funded} newly funded ${last.funded === 1 ? "company" : "companies"}` : ""}.`
               : `First run is ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning, India time.`}
         </p>
-        {on && last?.failed?.length ? (
-          <p className="mt-1 text-sm text-warn">
-            {last.failed.join(", ")} didn&apos;t answer this run, so there may be fewer new jobs than usual. The next run tries again.
-          </p>
-        ) : null}
       </div>
       {on && last && last.strong > 0 && (
         <Link href="/jobs?fit=strong" className="btn btn-ghost btn-sm">

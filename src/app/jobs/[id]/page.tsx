@@ -157,14 +157,9 @@ export default function JobPage() {
             <TrackTag track={currentTrack} />
             {currentTrack?.pay && <span className="text-ink-2">Ask for {payRange(currentTrack.pay)}</span>}
             {job.postedAt && <span className="text-ink-3">Posted {timeAgo(job.postedAt)}</span>}
-            {job.sourceUrl && (
-              <a className="text-ink-2 underline" href={job.sourceUrl} target="_blank" rel="noreferrer">
+            {(job.sourceUrl || job.url) && (
+              <a className="text-ink-2 underline" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
                 Original posting
-              </a>
-            )}
-            {job.source === "dreamwork" && (
-              <a className="text-ink-2 underline" href={job.url} target="_blank" rel="noreferrer">
-                On Dreamwork
               </a>
             )}
           </div>

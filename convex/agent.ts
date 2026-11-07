@@ -296,7 +296,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
     if (!listings.length && !others.length && settled.every((r) => r.status === "rejected")) {
       const reason = (settled[0] as PromiseRejectedResult).reason;
-      throw reason instanceof ConvexError ? reason : new ConvexError("Dreamwork didn't answer. Try again in a minute.");
+      throw reason instanceof ConvexError ? reason : new ConvexError("The job search didn't answer. Try again in a minute.");
     }
     // The same role often shows up on several boards; keep the first copy, Dreamwork's when there is one.
     const sameRole = (j: NewJob) => `${j.company}|${j.title}`.toLowerCase().replace(/[^a-z0-9|]/g, "");

@@ -23,7 +23,7 @@ function modelFor(tier: Tier) {
  */
 export async function askJSON<T extends z.ZodType>(opts: { system: string; prompt: string; schema: T; webSearch?: number; tier?: Tier; shared?: string }): Promise<z.infer<T>> {
   if (!env.ANTHROPIC_API_KEY) {
-    throw new ConvexError("The AI isn't set up yet: the app owner needs to add an Anthropic API key.");
+    throw new ConvexError("The AI tools aren't available right now. Please try again later.");
   }
   const schema = z.toJSONSchema(opts.schema) as Record<string, unknown>;
   delete schema.$schema;
@@ -83,7 +83,7 @@ export async function streamChat(opts: {
   tools?: Anthropic.Beta.BetaTool[];
   runTool?: (name: string, input: Record<string, unknown>) => Promise<string>;
 }): Promise<string> {
-  if (!env.ANTHROPIC_API_KEY) throw new ConvexError("The AI isn't set up yet: the app owner needs to add an Anthropic API key.");
+  if (!env.ANTHROPIC_API_KEY) throw new ConvexError("The AI tools aren't available right now. Please try again later.");
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const messages: Anthropic.Beta.BetaMessageParam[] = opts.messages.map((m) => ({ role: m.role, content: m.text }));
   let text = "";

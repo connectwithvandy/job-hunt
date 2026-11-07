@@ -41,7 +41,7 @@ async function callTool<T>(name: string, args: Record<string, unknown>): Promise
       try {
         reason = (JSON.parse(text) as { error?: string }).error ?? text;
       } catch {}
-      throw new ConvexError(`Dreamwork: ${reason}`);
+      throw new ConvexError(reason);
     }
     return (result.structuredContent ??
       JSON.parse((result.content as { text: string }[])[0].text)) as T;

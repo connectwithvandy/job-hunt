@@ -119,7 +119,7 @@ export function FindJobs({ tracks }: { tracks: Doc<"tracks">[] }) {
           {busy ? "Searching…" : "Search"}
         </button>
       </div>
-      <p className="mt-2 text-xs text-ink-3">Searches Dreamwork, Himalayas and any other job board you switch on, for every title on the role, posted in the last 30 days, in the place you chose on the Roles page.</p>
+      <p className="mt-2 text-xs text-ink-3">Searches job boards and company careers pages for every title on the role, posted in the last 30 days, in the place you chose on the Roles page.</p>
       <div className="mt-1">
         <Feedback state={busy ? null : state} />
       </div>
@@ -352,7 +352,7 @@ export function AddJob() {
         </button>
       </div>
       {mode === "link" ? (
-        <input name="link" className="field" placeholder="LinkedIn, Dreamwork or careers page link" />
+        <input name="link" className="field" placeholder="LinkedIn or careers page link" />
       ) : (
         <textarea name="text" className="field h-28" placeholder="Paste the whole job post here" />
       )}
@@ -1207,10 +1207,9 @@ function hostOf(u: string) {
   }
 }
 
-/** A note naming the job boards that didn't answer, or nothing when they all did. */
+/** A plain note when a job board didn't answer. Which one, and any used-up quota, is for the owner's morning email. */
 function boardsDown(failed: string[]) {
-  const names = [...new Set(failed)];
-  return names.length ? ` ${names.join(", ")} didn't answer, so there may be more; try again later.` : "";
+  return failed.some((f) => !/used up/.test(f)) ? " Some job boards didn't answer, so there may be more; try again later." : "";
 }
 
 /** Emails that want an answer: an invite, questions, an offer or a no. Confirmations don't. */
