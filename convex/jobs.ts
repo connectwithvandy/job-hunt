@@ -543,7 +543,7 @@ export const unscoredIds = internalQuery({
     const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
     // The best quick fits first, so the day's AI scores go where they matter.
     return recent
-      .filter((j) => j.status === "new" && !j.scores?.length)
+      .filter((j) => j.status === "new" && !j.scores?.length && j.liveCheck?.state !== "closed")
       .sort((a, b) => (b.quickFit ?? 0) - (a.quickFit ?? 0))
       .slice(0, limit)
       .map((j) => j._id);

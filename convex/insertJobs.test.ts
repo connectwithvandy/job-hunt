@@ -66,3 +66,17 @@ test("the first scoring after sign-up runs once, and never for someone who alrea
   });
   expect(await t.mutation(internal.jobs.claimFirstScoring, { userId: seasoned })).toBe(false);
 });
+
+test("the morning run skips jobs known to be closed, so dead ones don't use up its scores", async () => {
+  const t = convexTest(schema, modules);
+  const { userId, closed, open } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { email: "a@example.com" });
+    const job = { userId, externalId: "x", source: "dreamwork" as const, url: "https://example.com", title: "AE", company: "Acme", location: "Remote", status: "new" as const, outreach: [], updatedAt: 1 };
+    const closed = await ctx.db.insert("jobs", { ...job, externalId: "gone", quickFit: 99, liveCheck: { at: 1, state: "closed", note: "" } });
+    const open = await ctx.db.insert("jobs", { ...job, externalId: "here", quickFit: 10 });
+    return { userId, closed, open };
+  });
+  const ids = await t.query(internal.jobs.unscoredIds, { userId, limit: 5 });
+  expect(ids).toEqual([open]);
+  expect(ids).not.toContain(closed);
+});

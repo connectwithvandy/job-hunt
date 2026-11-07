@@ -20,7 +20,7 @@ import { settleLimited } from "./lib/pool";
 import { pdfText } from "./lib/pdfText";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
 import { inBengaluru, remoteForIndia } from "./lib/places";
-import { companyListings, dreamworkIdFromUrl, getListing, searchListings, type Listing } from "./lib/dreamwork";
+import { companyListings, dreamworkIdFromUrl, getListing, listingGone, searchListings, type Listing } from "./lib/dreamwork";
 import { cvMatch } from "./lib/cvMatch";
 import { withCompanyLinks } from "./lib/directLink";
 import { htmlToText, openTo, readPlace, searchOtherSources, titleMatches, type Found } from "./lib/sources";
@@ -459,9 +459,22 @@ export const checkPosting = action({
 /** Below this, a description is a teaser (Adzuna sends only the opening lines), not the posting. */
 const FULL_JD = 800;
 
-async function withDescription<J extends Doc<"jobs">>(job: J): Promise<J> {
+async function withDescription<J extends Doc<"jobs">>(ctx: ActionCtx, job: J): Promise<J> {
   if (job.description || job.source !== "dreamwork") return job;
-  const l = await getListing(job.externalId);
+  let l: Awaited<ReturnType<typeof getListing>>;
+  try {
+    l = await getListing(job.externalId);
+  } catch (err) {
+    if (!listingGone(err)) throw err;
+    // Gone from the board, but the company's own page may still have it.
+    const link = job.sourceUrl || job.url;
+    const text = link && publicUrl(link) ? await pageText(link) : "";
+    const read = text.length >= 400 ? (await extractJob(text).catch(() => null))?.description : undefined;
+    if (read) return { ...job, description: read };
+    // Marked closed so the morning run stops picking it, or dead jobs would take up the day's scores.
+    await ctx.runMutation(internal.jobs.saveLiveCheck, { userId: job.userId, jobId: job._id, liveCheck: { at: Date.now(), state: "closed", note: "This listing was removed, and we couldn't read the company's page." } });
+    throw new ConvexError("This listing was removed, so there's nothing to score. If it's still open on the company's site, paste the description with Add job.");
+  }
   // Dreamwork sends null for missing fields; the database wants them left out.
   return { ...job, description: l.description ?? undefined, companyLogo: l.companyLogoUrl ?? undefined, seniority: l.seniorityLevel ?? undefined };
 }
@@ -506,7 +519,7 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, loc
       await Promise.all(
         ids.slice(i, i + 4).map(async (jobId) => {
           try {
-            const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+            const job = await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
             const s = await scoreJob(job, cvFor, tracks, location, markets, past);
             await ctx.runMutation(internal.jobs.patchForAction, {
               userId,
@@ -651,7 +664,7 @@ export const tailorQuestions = action({
   args: { jobId: v.id("jobs"), resumeId: v.optional(v.id("resumes")) },
   handler: async (ctx, { jobId, resumeId }): Promise<{ question: string; why: string }[]> => {
     const { userId, resume, resumes, resumeFor, tracks, facts } = await setup(ctx);
-    const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
+    const job = await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
     // The same CV tailoring would use: the one picked, else the best-scoring track's, else the default.
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
     const track = tracks.find((t) => t.key === best) ?? null;
@@ -673,7 +686,7 @@ async function tailorFor(
     const live = !anyway && !saved.pack && (!saved.liveCheck || Date.now() - saved.liveCheck.at > RECHECK_AFTER) ? await checkAndSave(ctx, userId, saved) : saved.liveCheck;
     const skip = skipReason({ ...saved, liveCheck: live });
     if (skip && !anyway && !saved.pack) throw new ConvexError(`${skip} If you still want to apply, choose "Write it anyway".`);
-    const job = await withFullDescription(await withDescription(saved));
+    const job = await withFullDescription(await withDescription(ctx, saved));
     // No track picked: use the best-scoring one if the job was scored, otherwise pitch straight at the job.
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
     const track = tracks.find((t) => t.key === (trackKey ?? best)) ?? null;
@@ -969,7 +982,7 @@ export const prepInBackground = internalAction({
 });
 
 async function prepFor(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Context, jobId: Id<"jobs">): Promise<null> {
-    const job = await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs"> & { sent?: Doc<"jobDetails">["sent"] });
+    const job = await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs"> & { sent?: Doc<"jobDetails">["sent"] });
     const track = tracks.find((t) => t.key === (job.trackKey ?? job.pack?.trackKey ?? job.foundFor)) ?? null;
     // Prep from the CV they actually read, when one was sent.
     const cv = requireResume(job.sent?.resume ?? job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
@@ -1266,7 +1279,7 @@ export const chatReply = internalAction({
       const chat: Doc<"chats"> = await ctx.runQuery(internal.chats.forAction, { userId, chatId });
       const jobs: Doc<"jobs">[] = await ctx.runQuery(internal.jobs.recentForChat, { userId });
       const prospects: Doc<"prospects">[] = await ctx.runQuery(internal.prospects.topForChat, { userId });
-      const focus = chat.jobId ? await withDescription((await ctx.runQuery(internal.jobs.forAction, { userId, jobId: chat.jobId })) as Doc<"jobs">) : null;
+      const focus = chat.jobId ? await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId: chat.jobId })) as Doc<"jobs">) : null;
       const history = chat.messages.slice(0, -1).slice(-30);
       // The conversation sent to Claude has to start with the user.
       while (history.length && history[0].role !== "user") history.shift();

@@ -107,6 +107,9 @@ export async function getListing(id: string) {
   return body.listing;
 }
 
+/** True when Dreamwork no longer has this job, as opposed to a passing failure. */
+export const listingGone = (err: unknown) => /listing not found/i.test(err instanceof ConvexError ? String(err.data) : String(err));
+
 export function dreamworkIdFromUrl(url: string) {
   return url.match(/dreamworkhq\.com\/job\/([0-9a-f-]{36})/)?.[1] ?? null;
 }
