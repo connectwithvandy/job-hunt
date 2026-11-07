@@ -6,7 +6,7 @@ import { action, internalAction, internalQuery } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import type { HealthFacts } from "./lib/health";
 import { lockAt, trialOver } from "./lib/trial";
-import { aiLimit, rateLimiter } from "./limits";
+import { aiLimit, FRESH_ALERTS_A_DAY, rateLimiter } from "./limits";
 import { internalMutation, jobCounts } from "./lib/functions";
 
 /** What one person let in has done, for the owner's admin page. */
@@ -22,6 +22,7 @@ export const healthFacts = internalQuery({
     const rows = (await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000)).filter((r) => !isOwnerEmail(r.email));
     const config = aiLimit();
     const { value } = await rateLimiter.getValue(ctx, "appAi", { config });
+    const fresh = await rateLimiter.getValue(ctx, "freshAlert");
     const unpaid = rows.filter((r) => (r.paidUntil ?? 0) <= now);
     return {
       people: profiles.length,
@@ -35,6 +36,7 @@ export const healthFacts = internalQuery({
       }).length,
       aiUsed: Math.max(0, Math.round(config.rate - value)),
       aiLimit: config.rate,
+      freshSent: Math.max(0, Math.round(FRESH_ALERTS_A_DAY - fresh.value)),
     };
   },
 });

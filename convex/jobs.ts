@@ -550,6 +550,33 @@ export const unscoredIds = internalQuery({
   },
 });
 
+/** Jobs saved since a time and not scored yet, best first guess first. */
+export const unscoredSince = internalQuery({
+  args: { userId: v.id("users"), since: v.number(), limit: v.number() },
+  handler: async (ctx, { userId, since, limit }) => {
+    const out = [];
+    for await (const j of ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc")) {
+      if (j._creationTime < since) break;
+      if (j.status === "new" && !j.scores?.length) out.push(j);
+    }
+    return out.sort((a, b) => (b.quickFit ?? 0) - (a.quickFit ?? 0)).slice(0, limit).map((j) => j._id);
+  },
+});
+
+/** Which of these jobs reached a fit, for an alert. */
+export const strongOf = internalQuery({
+  args: { userId: v.id("users"), ids: v.array(v.id("jobs")), min: v.number() },
+  handler: async (ctx, { userId, ids, min }) => {
+    const out = [];
+    for (const id of ids) {
+      const j = await ctx.db.get("jobs", id);
+      const fit = Math.max(0, ...(j?.scores ?? []).map((s) => s.score));
+      if (j?.userId === userId && fit >= min) out.push({ id, title: j.title, company: j.company, where: j.location || "Not listed", fit });
+    }
+    return out.sort((a, b) => b.fit - a.fit);
+  },
+});
+
 /** Recent applications with a known result, so scoring can learn which roles get replies. */
 export const pastOutcomes = internalQuery({
   args: { userId: v.id("users"), now: v.number() },

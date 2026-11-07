@@ -15,7 +15,8 @@ import { unverifiedNumbers } from "./lib/facts";
 import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
-import { AUTOPILOT_SCORES, MAX_STORIES } from "./lib/defaults";
+import { AUTOPILOT_SCORES, FRESH_FIT, FRESH_SCORES, MAX_STORIES } from "./lib/defaults";
+import { emailOn, freshEmail, sendEmail } from "./lib/email";
 import { settleLimited } from "./lib/pool";
 import { pdfText } from "./lib/pdfText";
 import { RECHECK_AFTER, readLive, sentHome, skipReason } from "./lib/posting";
@@ -647,6 +648,70 @@ export const autopilotFor = internalAction({
       await ctx.runMutation(internal.users.recordAutopilot, { userId, added, scored, strong, funded, failed: [...failed] });
     } catch (err) {
       console.error("Autopilot failed for a user", String(err));
+    }
+    return null;
+  },
+});
+
+// ---------- Fresh jobs ----------
+
+const freshRowV = v.object({ externalId: v.string(), company: v.string(), title: v.string(), location: v.string(), workSetting: v.optional(v.string()), salary: v.optional(v.string()), postedAt: v.optional(v.string()), url: v.string(), india: v.boolean() });
+
+/** After a daytime read of the careers boards: hands each new role to the people whose titles it matches. */
+export const freshRun = internalAction({
+  args: { since: v.number() },
+  handler: async (ctx, { since }) => {
+    const rows: Infer<typeof freshRowV>[] = await ctx.runQuery(internal.careers.newSince, { since });
+    if (!rows.length) return null;
+    const people: { userId: Id<"users">; titles: string[] }[] = await ctx.runQuery(internal.users.freshAudience, {});
+    let woken = 0;
+    for (const p of people) {
+      const mine = rows.filter((r) => p.titles.some((t) => titleMatches(t, r.title)));
+      if (mine.length) await ctx.scheduler.runAfter(woken++ * 5_000, internal.agent.freshFor, { userId: p.userId, rows: mine });
+    }
+    console.log(`Fresh jobs: ${rows.length} new roles, ${woken} people to check.`);
+    return null;
+  },
+});
+
+/** Saves the new roles that fit this person, scores the likeliest, and emails them at once if one is a strong fit. */
+export const freshFor = internalAction({
+  args: { userId: v.id("users"), rows: v.array(freshRowV) },
+  handler: async (ctx, { userId, rows }) => {
+    try {
+      if (!(await ctx.runQuery(internal.access.allowed, { userId }))) return null;
+      const me = await contextFor(ctx, userId);
+      if (!me.resume) return null;
+      const place = readPlace(me.location);
+      const start = Date.now();
+      const jobs = new Map<string, NewJob>();
+      for (const track of me.tracks.filter((t) => t.status === "active" && !t.company)) {
+        const mine = rows.filter((r) => track.titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title));
+        for (const f of await withCareerTexts(ctx, mine)) {
+          const job = fromFound(f, track.key);
+          if (!jobs.has(job.externalId)) jobs.set(job.externalId, job);
+        }
+      }
+      if (!jobs.size) return null;
+      await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [...jobs.values()] });
+      const ids: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredSince, { userId, since: start, limit: FRESH_SCORES });
+      if (!ids.length) return null;
+      try {
+        await spend(ctx, userId, "score", ids.length);
+      } catch {
+        // Out of today's scores or past the trial: the roles are saved and show up as usual.
+        return null;
+      }
+      await scoreIds(ctx, me, ids);
+      const strong: { id: Id<"jobs">; title: string; company: string; where: string; fit: number }[] = await ctx.runQuery(internal.jobs.strongOf, { userId, ids, min: FRESH_FIT });
+      if (!strong.length || !emailOn()) return null;
+      // The day in India, so the limit turns over at midnight there.
+      const day = new Date(Date.now() + 19_800_000).toISOString().slice(0, 10);
+      const to: { email: string; name?: string } | null = await ctx.runMutation(internal.alerts.claimFresh, { userId, day });
+      if (to) await sendEmail({ to: to.email, ...freshEmail({ name: to.name, jobs: strong }) });
+    } catch (err) {
+      console.error("Fresh job check failed", String(err));
+      await ctx.runMutation(internal.errors.logServer, { message: `Fresh job check failed: ${String(err)}`, page: "fresh job alerts" });
     }
     return null;
   },

@@ -12,6 +12,7 @@ export type HealthFacts = {
   lockingSoon: number;
   aiUsed: number;
   aiLimit: number;
+  freshSent: number;
 };
 
 /** Older than this is yesterday's run. The morning email goes out about 75 minutes after the run starts. */
@@ -42,6 +43,7 @@ export function healthSection(f: HealthFacts, now: number, scoreCap: number) {
     `- Sources that failed: ${failures.join(", ") || "none"}`,
     `- Accounts: ${f.letIn} let in, ${f.paying} paying, ${f.trialOver} trial ended, ${f.lockingSoon} locking in 3 days`,
     `- AI use: ${f.aiUsed} of ${f.aiLimit} units today`,
+    `- Fresh job alerts sent: ${f.freshSent}`,
   ].join("\n");
   return { text, alarm: warnings.length > 0, headline: `${runs.length} of ${f.people} ran` };
 }

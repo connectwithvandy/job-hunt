@@ -13,6 +13,8 @@ const DAY = 24 * HOUR;
 /** What still works once the free trial is over: searching for jobs, and adding a CV. */
 const OPEN_AFTER_TRIAL: string[] = ["search", "readCv"];
 
+export const FRESH_ALERTS_A_DAY = 40;
+
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
   readCv: { kind: "fixed window", rate: DAILY_LIMITS.readCv, period: DAY },
   score: { kind: "fixed window", rate: DAILY_LIMITS.score, period: DAY },
@@ -28,6 +30,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
   // Error reports from browsers: enough to spot a real crash, not enough for a loop to flood the table.
   appError: { kind: "fixed window", rate: 30, period: DAY },
+  /** Fresh job alerts for the whole app, leaving room in the email plan's daily limit for everything else. */
+  freshAlert: { kind: "fixed window", rate: FRESH_ALERTS_A_DAY, period: DAY },
 });
 
 const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {

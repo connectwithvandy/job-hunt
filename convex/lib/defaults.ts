@@ -32,9 +32,18 @@ export const MAX_STORIES = 20;
 /** AI scores each person gets from the morning run. */
 export const AUTOPILOT_SCORES = 24;
 
+/** New roles scored for one person each time the careers boards are read during the day. */
+export const FRESH_SCORES = 3;
+
+/** Fit that earns an alert straight away: the same line as a strong fit everywhere else. */
+export const FRESH_FIT = 75;
+
+/** Fresh job alerts one person can get in a day, so they stay worth opening. */
+export const FRESH_PER_DAY = 3;
+
 export const DAILY_LIMITS = {
   readCv: 5,
-  score: 30,
+  score: 45,
   tailor: 3,
   notes: 10,
   addJob: 20,

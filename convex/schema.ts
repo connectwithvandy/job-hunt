@@ -94,6 +94,9 @@ export default defineSchema({
     trialEndedNoteAt: v.optional(v.number()),
     /** When the last "new roles for you" email went out, so it goes at most once a day. */
     alertsAt: v.optional(v.number()),
+    /** The IST day of the last fresh job alert, and how many went out that day (alerts.claimFresh). */
+    freshDay: v.optional(v.string()),
+    freshCount: v.optional(v.number()),
     /** Asked to stop the "new roles for you" email. */
     alertsOff: v.optional(v.boolean()),
     /** When the day-21 "3 quick questions" email went out (only to people who skipped the day-12 pop-up), so it goes once. */

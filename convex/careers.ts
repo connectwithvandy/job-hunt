@@ -120,6 +120,19 @@ export const oldLinkedIn = internalQuery({
 });
 
 /** Every title in anyone's tracks, typed or picked. Only roles matching one are kept. */
+/** Roles saved since a time, newest first: what a daytime read of the boards just found. */
+export const newSince = internalQuery({
+  args: { since: v.number() },
+  handler: async (ctx, { since }) => {
+    const out = [];
+    for await (const r of ctx.db.query("careerJobs").order("desc")) {
+      if (r._creationTime < since || out.length >= 300) break;
+      out.push({ externalId: r.externalId, company: r.company, title: r.title, location: r.location, workSetting: r.workSetting, salary: r.salary, postedAt: r.postedAt, url: r.url, india: r.india });
+    }
+    return out;
+  },
+});
+
 export const trackTitles = internalQuery({
   args: {},
   handler: async (ctx) => {

@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { healthSection, type HealthFacts } from "./lib/health";
 
 const NOW = 1_800_000_000_000;
-const base: HealthFacts = { people: 2, runs: [], letIn: 3, paying: 1, trialOver: 0, lockingSoon: 1, aiUsed: 100, aiLimit: 1000 };
+const base: HealthFacts = { people: 2, runs: [], letIn: 3, paying: 1, trialOver: 0, lockingSoon: 1, aiUsed: 100, aiLimit: 1000, freshSent: 0 };
 const run = (extra = {}) => ({ at: NOW - 3_600_000, added: 10, scored: 24, strong: 2, ...extra });
 
 test("adds up today's run and groups a source's failures under one name", () => {

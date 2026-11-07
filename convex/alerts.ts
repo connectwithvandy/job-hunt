@@ -4,7 +4,9 @@ import { type Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { contactsLoadedAt } from "./contacts";
+import { FRESH_PER_DAY } from "./lib/defaults";
 import { alertsEmail, emailOn, sendEmail, weeklyEmail } from "./lib/email";
+import { rateLimiter } from "./limits";
 import { trackForTitle } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
@@ -150,6 +152,23 @@ export const turnOff = internalMutation({
     if (!row) return false;
     await ctx.db.patch("access", row._id, { alertsOff: true });
     return true;
+  },
+});
+
+/**
+ * Takes one of today's fresh alerts for this person, within their limit and the app's. Returns where to send it,
+ * or null to stay quiet. Taken before sending, so a retry can't send the same alert twice.
+ */
+export const claimFresh = internalMutation({
+  args: { userId: v.id("users"), day: v.string() },
+  handler: async (ctx, { userId, day }) => {
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!row?.email || row.alertsOff || row.rejected) return null;
+    const count = row.freshDay === day ? (row.freshCount ?? 0) : 0;
+    if (count >= FRESH_PER_DAY) return null;
+    if (!(await rateLimiter.limit(ctx, "freshAlert")).ok) return null;
+    await ctx.db.patch("access", row._id, { freshDay: day, freshCount: count + 1 });
+    return { email: row.email, name: row.name };
   },
 });
 

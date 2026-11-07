@@ -63,8 +63,8 @@ const CHUNK = 40;
 
 /** Downloads every careers board once and keeps the shared table in step: new roles in, closed roles out. */
 export const refresh = internalAction({
-  args: { start: v.optional(v.number()) },
-  handler: async (ctx, { start = 0 }) => {
+  args: { start: v.optional(v.number()), fresh: v.optional(v.boolean()), since: v.optional(v.number()) },
+  handler: async (ctx, { start = 0, fresh, since = Date.now() }) => {
     const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
     // No tracks yet would mean keeping nothing; leave the table as it is.
     if (!titles.length) return null;
@@ -102,7 +102,9 @@ export const refresh = internalAction({
       settled.forEach((r, k) => r.status === "rejected" && console.warn("Careers board failed:", batch[k].name, String(r.reason)));
     }
     console.log(`Careers boards ${start + 1}-${start + mine.length} of ${boards.length}: ${added} new roles, ${removed} closed.`);
-    if (start + CHUNK < boards.length) await ctx.scheduler.runAfter(0, internal.careersRefresh.refresh, { start: start + CHUNK });
+    if (start + CHUNK < boards.length) await ctx.scheduler.runAfter(0, internal.careersRefresh.refresh, { start: start + CHUNK, fresh, since });
+    // Daytime reads: what's new goes straight to the people it fits (agent.freshRun).
+    else if (fresh) await ctx.scheduler.runAfter(0, internal.agent.freshRun, { since });
     return null;
   },
 });

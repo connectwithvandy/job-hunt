@@ -310,6 +310,20 @@ export const autopilotUsers = internalQuery({
   },
 });
 
+/** Everyone with morning search on and the titles they're after, so a daytime read only wakes people it matters to. */
+export const freshAudience = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const profiles = await ctx.db.query("profiles").withIndex("by_autopilot", (q) => q.eq("autopilot", true)).take(300);
+    const out = [];
+    for (const p of profiles) {
+      const tracks = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", p.userId)).take(50);
+      out.push({ userId: p.userId, titles: tracks.filter((t) => t.status === "active" && !t.company).flatMap((t) => t.titles) });
+    }
+    return out;
+  },
+});
+
 export const recordAutopilot = internalMutation({
   args: { userId: v.id("users"), added: v.number(), scored: v.number(), strong: v.number(), funded: v.optional(v.number()), failed: v.optional(v.array(v.string())) },
   handler: async (ctx, { userId, ...run }) => {

@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import rateLimiter from "@convex-dev/rate-limiter/test";
-import { expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
-import { alertsEmail, weeklyEmail } from "./lib/email";
+import { alertsEmail, freshEmail, weeklyEmail } from "./lib/email";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -87,4 +87,36 @@ test("weekly email: only people set up with new jobs, and it asks for fresh conn
   const mail = weeklyEmail(week!);
   expect(mail.subject).toBe("Asha, your week on JobPipe");
   expect(mail.text).toContain("refresh your LinkedIn connections");
+});
+
+describe("fresh job alerts", () => {
+  const setup = async (extra = {}) => {
+    const t = convexTest(schema, modules);
+    rateLimiter.register(t);
+    const userId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", { email: "a@example.com" });
+      await ctx.db.insert("access", { userId: id, email: "a@example.com", name: "Asha", approved: true, ...extra });
+      return id;
+    });
+    return { t, userId, claim: (day: string) => t.mutation(internal.alerts.claimFresh, { userId, day }) };
+  };
+
+  test("one person gets at most 3 a day, and the count starts over the next day", async () => {
+    const { claim } = await setup();
+    for (let i = 0; i < 3; i++) expect((await claim("2026-11-08"))?.email).toBe("a@example.com");
+    expect(await claim("2026-11-08")).toBeNull();
+    expect((await claim("2026-11-09"))?.email).toBe("a@example.com");
+  });
+
+  test("someone who asked to stop emails gets none", async () => {
+    const { claim } = await setup({ alertsOff: true });
+    expect(await claim("2026-11-08")).toBeNull();
+  });
+
+  test("the alert names the job, its fit and a link", () => {
+    const m = freshEmail({ name: "asha test", jobs: [{ id: "j1", title: "Account Executive", company: "Acme", where: "Bengaluru", fit: 82 }, { id: "j2", title: "AE", company: "Beta", where: "Remote", fit: 76 }] });
+    expect(m.subject).toBe("New: Account Executive at Acme (82% fit) and 1 more");
+    expect(m.text).toContain("Hi Asha,");
+    expect(m.text).toContain("/jobs/j1");
+  });
 });

@@ -376,6 +376,30 @@ Didn't ask for this? Ignore this email; your password stays the same.
 }
 
 /** The daily "new roles for you" email: each person's best new jobs, under their own role groups. */
+/** A strong new role, sent as soon as it's found, because early applicants get read first. */
+export function freshEmail(p: { name?: string; jobs: { id: string; title: string; company: string; where: string; fit: number }[] }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1).toLowerCase();
+  const top = p.jobs[0];
+  const more = p.jobs.length - 1;
+  const subject = `New: ${top.title} at ${top.company} (${top.fit}% fit)${more ? ` and ${more} more` : ""}`;
+  const url = appUrl();
+  const text = `${first ? `Hi ${first},` : "Hi,"}
+
+${p.jobs.length === 1 ? "A strong match was just posted." : "Strong matches were just posted."} Applying early gives you the best chance of being read:
+
+${p.jobs.map((j) => `- ${j.title}, ${j.company} (${j.where}), ${j.fit}% fit\n  ${url}/jobs/${j.id}`).join("\n")}
+
+Open it to see why it fits and tailor your CV.
+
+Vandy
+Founder, JobPipe
+
+Don't want these? Reply "stop" and I'll turn them off.
+`;
+  return { subject, text };
+}
+
 export function alertsEmail(p: { name?: string; groups: { track: string; jobs: { title: string; company: string; where: string; fit?: number; id: string }[] }[] }) {
   const word = p.name?.trim().split(/\s+/)[0];
   const first = word && word[0].toUpperCase() + word.slice(1).toLowerCase();
