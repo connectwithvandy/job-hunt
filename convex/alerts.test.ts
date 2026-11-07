@@ -4,6 +4,7 @@ import rateLimiter from "@convex-dev/rate-limiter/test";
 import { describe, expect, test, vi } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
+import { fingerprintOf } from "./lib/careers";
 import { alertsEmail, freshEmail, weeklyEmail } from "./lib/email";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -119,4 +120,10 @@ describe("fresh job alerts", () => {
     expect(m.text).toContain("Hi Asha,");
     expect(m.text).toContain("/jobs/j1");
   });
+});
+
+test("a board's fingerprint ignores order and changes when a job is added", async () => {
+  const a = await fingerprintOf(["1", "2", "3"]);
+  expect(await fingerprintOf(["3", "1", "2"])).toBe(a);
+  expect(await fingerprintOf(["1", "2", "3", "4"])).not.toBe(a);
 });

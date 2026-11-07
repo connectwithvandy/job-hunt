@@ -310,6 +310,25 @@ async function ashbyPageOff(slug: string) {
   }
 }
 
+/** Boards with a small public job list, cheap enough to check every 15 minutes. */
+export const FAST_ATS = new Set<CareerBoard["ats"]>(["ashby", "greenhouse", "lever"]);
+
+export const boardKey = (board: CareerBoard) => `${board.ats}:${board.slug}`;
+
+/** The same ids in any order give the same fingerprint. */
+export async function fingerprintOf(ids: string[]) {
+  const bytes = new TextEncoder().encode([...ids].sort().join(","));
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...hash.slice(0, 12)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** A fast board's fingerprint, from its light job list: no descriptions on Greenhouse or Lever. */
+export async function boardFingerprint(board: CareerBoard) {
+  if (board.ats === "greenhouse") return await fingerprintOf((await getJson<{ jobs: { id: number }[] }>(`https://boards-api.greenhouse.io/v1/boards/${board.slug}/jobs`)).jobs.map((j) => String(j.id)));
+  if (board.ats === "ashby") return await fingerprintOf((await getJson<{ jobs: { id: string; isListed?: boolean }[] }>(`https://api.ashbyhq.com/posting-api/job-board/${board.slug}`)).jobs.filter((j) => j.isListed !== false).map((j) => j.id));
+  return await fingerprintOf((await getJson<{ id: string }[]>(`https://api.lever.co/v0/postings/${board.slug}?mode=json`)).map((j) => j.id));
+}
+
 export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
   if (board.ats === "workday") return await readWorkday(board, titles, known);
   if (board.ats === "google") return await readGoogle(board, titles);

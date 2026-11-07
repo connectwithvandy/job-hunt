@@ -120,6 +120,24 @@ export const oldLinkedIn = internalQuery({
 });
 
 /** Every title in anyone's tracks, typed or picked. Only roles matching one are kept. */
+/** Every fast board's last fingerprint. */
+export const boardHashes = internalQuery({
+  args: {},
+  handler: async (ctx) => (await ctx.db.query("boardStates").take(1000)).map(({ key, hash }) => ({ key, hash })),
+});
+
+export const saveBoardHashes = internalMutation({
+  args: { rows: v.array(v.object({ key: v.string(), hash: v.string() })) },
+  handler: async (ctx, { rows }) => {
+    for (const { key, hash } of rows) {
+      const have = await ctx.db.query("boardStates").withIndex("by_key", (q) => q.eq("key", key)).unique();
+      if (have) await ctx.db.patch("boardStates", have._id, { hash });
+      else await ctx.db.insert("boardStates", { key, hash });
+    }
+    return null;
+  },
+});
+
 /** Roles saved since a time, newest first: what a daytime read of the boards just found. */
 export const newSince = internalQuery({
   args: { since: v.number() },

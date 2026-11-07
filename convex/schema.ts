@@ -224,6 +224,9 @@ export default defineSchema({
     .index("by_company", ["company"])
     .searchIndex("search_title", { searchField: "title", filterFields: ["india"] }),
 
+  /** A short fingerprint of each fast board's job list, so a quick check can skip boards that haven't changed. */
+  boardStates: defineTable({ key: v.string(), hash: v.string() }).index("by_key", ["key"]),
+
   /** Careers boards found in job links (lib/boardFromUrl.ts), read each morning beside the hand-picked ones. */
   discoveredBoards: defineTable({
     key: v.string(),
