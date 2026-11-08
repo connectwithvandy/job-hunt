@@ -1,10 +1,10 @@
-// Sends email through Resend (resend.com, free up to 3,000 a month) from hello@jobpipe.in.
+// Sends email through Resend (resend.com, free up to 3,000 a month) from vandana@jobpipe.in.
 // Off when RESEND_API_KEY is missing: the waitlist page then falls back to opening your own email app.
 
 import { env } from "../_generated/server";
 
-export const FROM = "Vandy from JobPipe <hello@jobpipe.in>";
-export const REPLY_TO = "hello@jobpipe.in";
+export const FROM = "Vandy from JobPipe <vandana@jobpipe.in>";
+export const REPLY_TO = "vandana@jobpipe.in";
 const FOUNDER_LINKEDIN = "https://www.linkedin.com/in/meet-vandana/";
 
 export const emailOn = () => !!env.RESEND_API_KEY;

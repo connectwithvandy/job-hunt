@@ -43,7 +43,7 @@ export default function Pricing() {
         </div>
         <p className="mt-2 text-sm text-ink-2">
           From {PLANS.minSeats} seats, for sales communities, bootcamps and
-          companies supporting people after a layoff. Write to hello@jobpipe.in.
+          companies supporting people after a layoff. Write to vandana@jobpipe.in.
         </p>
       </div>
       <p>

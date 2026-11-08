@@ -113,9 +113,9 @@ export const confirm = action({
     await requireUserId(ctx);
     const k = keys();
     if (!k) throw new ConvexError("Payments aren't switched on yet.");
-    if (!(await paymentGenuine(k.secret, orderId, paymentId, signature))) throw new ConvexError("We couldn't confirm this payment. If money left your account, write to hello@jobpipe.in.");
+    if (!(await paymentGenuine(k.secret, orderId, paymentId, signature))) throw new ConvexError("We couldn't confirm this payment. If money left your account, write to vandana@jobpipe.in.");
     const until: number | null = await ctx.runMutation(internal.payments.markPaid, { orderId, paymentId });
-    if (until === null) throw new ConvexError("We couldn't find this order. If money left your account, write to hello@jobpipe.in.");
+    if (until === null) throw new ConvexError("We couldn't find this order. If money left your account, write to vandana@jobpipe.in.");
     return { until };
   },
 });

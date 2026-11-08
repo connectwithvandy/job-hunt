@@ -141,7 +141,7 @@ export default function Billing() {
       )}
 
       <p className="mt-8 text-xs text-ink-3">
-        Prices include all features; GST is added where it applies. See <Link className="underline" href="/refunds">refunds and cancellation</Link>, or write to hello@jobpipe.in.
+        Prices include all features; GST is added where it applies. See <Link className="underline" href="/refunds">refunds and cancellation</Link>, or write to vandana@jobpipe.in.
       </p>
     </div>
   );

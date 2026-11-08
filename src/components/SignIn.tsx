@@ -91,7 +91,7 @@ export function SignIn() {
     signIn:
       'That email and password don\'t match. Try again, or use "Forgot password?" below.',
     reset:
-      "Couldn't send the code. Check the email, or write to hello@jobpipe.in and we'll sort it.",
+      "Couldn't send the code. Check the email, or write to vandana@jobpipe.in and we'll sort it.",
     "reset-verification":
       "That code didn't work or has expired. Check it or send a new one. New passwords need 8 or more characters.",
   }[flow];
@@ -407,10 +407,10 @@ export function SignIn() {
           <p className="mt-4 text-sm text-ink-2">
             Something else?{" "}
             <a
-              href="mailto:hello@jobpipe.in"
+              href="mailto:vandana@jobpipe.in"
               className="text-ink underline decoration-accent underline-offset-4"
             >
-              hello@jobpipe.in
+              vandana@jobpipe.in
             </a>
           </p>
         </div>

@@ -36,7 +36,7 @@ function Details({ me }: { me: { email: string; name: string; linkedin: string; 
         <label className="block">
           <span className="label">Email</span>
           <input className="field mt-1" value={me.email} disabled />
-          <span className="mt-1 block text-xs text-ink-3">You sign in with this. To change it, write to hello@jobpipe.in.</span>
+          <span className="mt-1 block text-xs text-ink-3">You sign in with this. To change it, write to vandana@jobpipe.in.</span>
         </label>
         <label className="block">
           <span className="label">LinkedIn profile link</span>

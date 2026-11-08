@@ -129,7 +129,7 @@ export default function AdminCentre() {
         title="Admin"
         sub={`Only you see this. Anyone who picks a sales role at signup gets in straight away; people who pick "Other" wait for you. ${
           list.emailOn
-            ? "Letting someone in sends them a personal \"you're in\" email from hello@jobpipe.in."
+            ? "Letting someone in sends them a personal \"you're in\" email from vandana@jobpipe.in."
             : "Letting someone in opens your email app with a note to tell them. (Automatic email is off until RESEND_API_KEY is set.)"
         }`}
       />
