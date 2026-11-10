@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { healthSection, type HealthFacts } from "./lib/health";
 
 const NOW = 1_800_000_000_000;
-const base: HealthFacts = { people: 2, runs: [], letIn: 3, paying: 1, trialOver: 0, lockingSoon: 1, aiUsed: 100, aiLimit: 1000, freshSent: 0 };
+const base: HealthFacts = { people: 2, runs: [], letIn: 3, paying: 1, trialOver: 0, lockingSoon: 1, aiUsed: 100, aiLimit: 1000, freshSent: 0, dailySent: 2, dailyOf: 2 };
 const run = (extra = {}) => ({ at: NOW - 3_600_000, added: 10, scored: 24, strong: 2, ...extra });
 
 test("adds up today's run and groups a source's failures under one name", () => {
@@ -30,4 +30,10 @@ test("warns as AI use nears the daily limit", () => {
   const h = healthSection({ ...base, runs: [run(), run()], aiUsed: 800 }, NOW, 24);
   expect(h.alarm).toBe(true);
   expect(h.text).toContain("800 of today's 1000 units");
+});
+
+test("warns when yesterday's daily jobs email reached under half the people", () => {
+  const { text, alarm } = healthSection({ ...base, dailySent: 0, dailyOf: 40 }, Date.now(), 45);
+  expect(alarm).toBe(true);
+  expect(text).toContain("daily jobs email reached only 0 of 40");
 });

@@ -23,7 +23,15 @@ export const healthFacts = internalQuery({
     const config = aiLimit();
     const { value } = await rateLimiter.getValue(ctx, "appAi", { config });
     const fresh = await rateLimiter.getValue(ctx, "freshAlert");
-    const unpaid = rows.filter((r) => (r.paidUntil ?? 0) <= now);
+    // Partner-deal people have paid time but didn't pay in the app, so they don't count as paying.
+    const unpaid = rows.filter((r) => (r.paidUntil ?? 0) <= now || r.partner);
+    let dailyOf = 0;
+    for (const r of rows) {
+      if (r.alertsOff) continue;
+      const track = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", r.userId)).first();
+      if (track) dailyOf++;
+    }
+    const dailySent = rows.filter((r) => !r.alertsOff && r.alertsAt && now - r.alertsAt < 26 * 3_600_000).length;
     return {
       people: profiles.length,
       runs: profiles.flatMap((p) => (p.lastAutopilot ? [p.lastAutopilot] : [])),
@@ -37,6 +45,8 @@ export const healthFacts = internalQuery({
       aiUsed: Math.max(0, Math.round(config.rate - value)),
       aiLimit: config.rate,
       freshSent: Math.max(0, Math.round(FRESH_ALERTS_A_DAY - fresh.value)),
+      dailySent,
+      dailyOf,
     };
   },
 });

@@ -78,10 +78,20 @@ export const due = internalAction({
   handler: async (ctx, { now }): Promise<Person[]> => {
     const ids = await ctx.runQuery(internal.alerts.candidates, { now });
     const out: Person[] = [];
+    let failed = 0;
+    let lastError = "";
     for (const accessId of ids) {
-      const p: Person | null = await ctx.runQuery(internal.alerts.dueFor, { accessId, now });
-      if (p) out.push(p);
+      // One person's list failing to build must not stop everyone else's email.
+      try {
+        const p: Person | null = await ctx.runQuery(internal.alerts.dueFor, { accessId, now });
+        if (p) out.push(p);
+      } catch (err) {
+        failed++;
+        lastError = String(err);
+        console.warn("New-roles list failed for", accessId, lastError);
+      }
     }
+    if (failed) await ctx.runMutation(internal.errors.logServer, { message: `New-roles list couldn't be built for ${failed} people. Last reason: ${lastError}`, page: "new roles email" });
     return out;
   },
 });
@@ -221,7 +231,8 @@ export const report = internalQuery({
       const run = profile?.lastAutopilot;
       const gotDaily = !!r.alertsAt && now - r.alertsAt < DAY;
       const gotFresh = r.freshDay === new Date(now + 19_800_000).toISOString().slice(0, 10) && (r.freshCount ?? 0) > 0;
-      const why = gotDaily || gotFresh ? "" : r.alertsOff ? "asked to stop emails" : !profile?.onboarded ? "hasn't finished setup" : !tracks.length ? "no roles picked" : !profile.autopilot ? "morning search is off" : !run || now - run.at > DAY ? "morning search didn't run for them" : run.failed?.length ? `search had failures: ${run.failed.join(", ")}` : newJobs === 0 ? "search found no new jobs" : "new jobs found, but none fit their roles";
+      // Only the daily email counts here: same-day alerts for strong matches are extra.
+    const why = gotDaily ? "" : r.alertsOff ? "asked to stop emails" : !profile?.onboarded ? "hasn't finished setup" : !tracks.length ? "no roles picked" : !profile.autopilot ? "morning search is off" : !run || now - run.at > DAY ? "morning search hasn't run for them yet (joined after it, or it missed them)" : newJobs === 0 ? "search found no new jobs" : "new jobs found, but none fit their roles";
       out.push({
         email: r.email,
         partner: r.partner?.name ?? "",
@@ -231,11 +242,12 @@ export const report = internalQuery({
         newJobsLast24h: newJobs,
         dailyEmail: day(r.alertsAt),
         alertsToday: gotFresh ? (r.freshCount ?? 0) : 0,
+        searchProblems: run?.failed?.join(", ") ?? "",
         whyNoEmail: why,
       });
     }
     out.sort((a, b) => (a.whyNoEmail ? 0 : 1) - (b.whyNoEmail ? 0 : 1));
     const got = out.filter((p) => !p.whyNoEmail).length;
-    return { summary: `${got} of ${out.length} members got a new-jobs email in the last day`, people: out };
+    return { summary: `${got} of ${out.length} members got the daily new-jobs email in the last day`, people: out };
   },
 });

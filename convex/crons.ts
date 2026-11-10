@@ -30,6 +30,8 @@ crons.cron("weekly progress", "15 5 * * 1", internal.alerts.sendWeekly, {});
 
 // 9:30 IST: each member's best new roles from this morning's search, under their own role groups.
 crons.cron("new roles emails", "0 4 * * *", internal.alerts.send, {});
+// 12:30 IST: a catch-up for anyone the 9:30 run missed. People who got one in the last 20 hours are skipped (alerts.candidates).
+crons.cron("new roles emails catch-up", "0 7 * * *", internal.alerts.send, {});
 
 // 10:30 in India (05:00 UTC): a personal check-in two days before someone's free week ends (trial.ts).
 crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});

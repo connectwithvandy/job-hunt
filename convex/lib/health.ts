@@ -13,6 +13,9 @@ export type HealthFacts = {
   aiUsed: number;
   aiLimit: number;
   freshSent: number;
+  /** Members with their roles set who got the daily new-jobs email in the last 26 hours, and how many have roles set. */
+  dailySent: number;
+  dailyOf: number;
 };
 
 /** Older than this is yesterday's run. The morning email goes out about 75 minutes after the run starts. */
@@ -30,8 +33,11 @@ export function healthSection(f: HealthFacts, now: number, scoreCap: number) {
   const failures = [...failed].sort((a, b) => b[1] - a[1]).map(([name, n]) => `${name} (${n})`);
   const missed = f.people - runs.length;
   const aiHigh = f.aiUsed >= f.aiLimit * AI_WARN;
+  // Yesterday's 9:30 email (and its 12:30 catch-up) should reach most people with roles set. Under half means it broke.
+  const dailyLow = f.dailyOf > 0 && f.dailySent < f.dailyOf / 2;
   const warnings = [
     missed > 0 && `WARNING: the morning run missed ${missed} of ${f.people} people.`,
+    dailyLow && `WARNING: yesterday's daily jobs email reached only ${f.dailySent} of ${f.dailyOf} people.`,
     aiHigh && `WARNING: AI use is at ${f.aiUsed} of today's ${f.aiLimit} units. AI tools stop for everyone at the limit.`,
   ].filter((w): w is string => !!w);
   const text = [
@@ -44,6 +50,7 @@ export function healthSection(f: HealthFacts, now: number, scoreCap: number) {
     `- Accounts: ${f.letIn} let in, ${f.paying} paying, ${f.trialOver} trial ended, ${f.lockingSoon} locking in 3 days`,
     `- AI use: ${f.aiUsed} of ${f.aiLimit} units today`,
     `- Fresh job alerts sent: ${f.freshSent}`,
+    `- Daily jobs email (last 26 hours): ${f.dailySent} of ${f.dailyOf} people with roles set`,
   ].join("\n");
   return { text, alarm: warnings.length > 0, headline: `${runs.length} of ${f.people} ran` };
 }
