@@ -12,6 +12,7 @@ import { ActionButton, attempt, Feedback, type ActionState } from "@/components/
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "people", label: "People" },
+  { key: "partners", label: "Partners" },
   { key: "feedback", label: "Feedback" },
   { key: "errors", label: "Errors" },
 ] as const;
@@ -24,6 +25,7 @@ export default function AdminCentre() {
   const reviews = useQuery(api.cvReviews.list, me?.isOwner ? {} : "skip");
   const errors = useQuery(api.errors.recent, me?.isOwner ? {} : "skip");
   const surveys = useQuery(api.surveys.list, me?.isOwner ? {} : "skip");
+  const partners = useQuery(api.access.partners, me?.isOwner ? {} : "skip");
   const clearErrors = useMutation(api.errors.clear);
   const setApproved = useMutation(api.access.setApproved);
   const setRejected = useMutation(api.access.setRejected);
@@ -63,7 +65,10 @@ export default function AdminCentre() {
           />
         )}
         <div>
-          <div className="font-medium">{a.name ? `${a.name} · ${a.email}` : a.email || "No email"}</div>
+          <div className="font-medium">
+            {a.name ? `${a.name} · ${a.email}` : a.email || "No email"}
+            {a.partner && <span className="ml-2 rounded-full bg-line px-2 py-0.5 text-xs font-normal text-ink-2">{a.partner.name}</span>}
+          </div>
           <div className="text-xs text-ink-3">
             {[a.role, `Signed up ${new Date(a._creationTime).toLocaleDateString()}`, !approve && (a.welcomedAt ? "Welcome email sent" : list.emailOn ? "Welcome email not sent yet" : ""), !approve && (a.paidUntil ? `Paid until ${new Date(a.paidUntil).toLocaleDateString()}` : "Not paid")]
               .filter(Boolean)
@@ -144,6 +149,7 @@ export default function AdminCentre() {
       </div>
       {usageError && <p className="mb-3 text-sm text-bad">Couldn&apos;t count usage: {usageError}</p>}
       {tab === "overview" && <Overview list={list} usage={usage} count={async () => setUsage(await count({}))} />}
+      {tab === "partners" && <Partners groups={partners} usage={usage} />}
       {tab === "people" && (
         <>
       {reset && (
@@ -337,13 +343,16 @@ function Overview({ list, usage, count }: { list: { waiting: Doc<"access">[]; ap
   const day = 86_400_000;
   const active = usage ? usage.usage.filter((u) => u.lastSeenAt && usage.now - u.lastSeenAt < 7 * day).length : null;
   const quiet = usage ? usage.usage.filter((u) => !u.lastSeenAt || usage.now - u.lastSeenAt > 3 * day).length : null;
-  const paid = usage ? list.approved.filter((a) => (a.paidUntil ?? 0) > usage.now).length : null;
+  // Partner people have paid time too, but nobody paid us in the app for it, so they're counted on their own.
+  const paid = usage ? list.approved.filter((a) => (a.paidUntil ?? 0) > usage.now && !a.partner).length : null;
+  const partnered = list.approved.filter((a) => a.partner).length;
   const tiles = [
     { label: "Waiting to be let in", value: list.waiting.length },
     { label: "Let in", value: list.approved.length },
     { label: "Used it in the last 7 days", value: active },
     { label: "Quiet 3+ days or never opened", value: quiet },
     { label: "Paying now", value: paid },
+    ...(partnered ? [{ label: "Through a partner", value: partnered }] : []),
   ];
   return (
     <>
@@ -357,6 +366,56 @@ function Overview({ list, usage, count }: { list: { waiting: Doc<"access">[]; ap
       </div>
       <p className="text-xs text-ink-3">The People tab shows each person&apos;s usage. Red means quiet 3+ days: worth a nudge.</p>
       <Funnel rows={usage?.steps ?? null} count={count} />
+    </>
+  );
+}
+
+type PartnerGroup = {
+  name: string;
+  url: string;
+  people: { email: string; firstName?: string; from: number; until: number; welcomedAt?: number; remindedAt?: number; appliedAt?: number; accessId?: Id<"access"> }[];
+};
+type UsageData = { usage: { accessId: Id<"access">; lastSeenAt?: number; setUp: boolean; jobs: number; scored: number; tailored: number; applied: number }[]; now: number };
+
+/** Each partner's people: did the welcome go out, did they sign up, and what they've done since. */
+function Partners({ groups, usage }: { groups: PartnerGroup[] | undefined; usage: UsageData | null }) {
+  if (!groups) return <Loading />;
+  if (!groups.length) return <p className="text-sm text-ink-3">No partner deals yet.</p>;
+  const day = (at: number) => new Date(at).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return (
+    <>
+      {groups.map((g) => {
+        const signedUp = g.people.filter((p) => p.appliedAt).length;
+        const setUp = g.people.filter((p) => usage?.usage.find((u) => u.accessId === p.accessId)?.setUp).length;
+        return (
+          <section key={g.name} className="mb-10">
+            <h2 className="mb-1 text-sm font-medium text-ink-2">
+              <a className="underline" href={g.url} target="_blank" rel="noreferrer">
+                {g.name}
+              </a>{" "}
+              · {g.people.length} people · {signedUp} signed up · {usage ? `${setUp} set up` : "counting…"}
+            </h2>
+            <ul>
+              {g.people.map((p) => (
+                <li key={p.email} className="border-b border-line py-3">
+                  <div className="font-medium">{p.firstName ? `${p.firstName} · ${p.email}` : p.email}</div>
+                  <div className="text-xs text-ink-3">
+                    {[
+                      `${day(p.from)} to ${day(p.until)}`,
+                      p.welcomedAt ? `Welcome sent ${day(p.welcomedAt)}` : "Welcome not sent yet",
+                      p.remindedAt && `Reminder sent ${day(p.remindedAt)}`,
+                      p.appliedAt ? `Signed up ${day(p.appliedAt)}` : "Hasn't signed up",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                  {usage && p.accessId && <UsageLine now={usage.now} u={usage.usage.find((u) => u.accessId === p.accessId)} />}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </>
   );
 }

@@ -455,3 +455,20 @@ export const partnerStatus = internalQuery({
     return out;
   },
 });
+
+/** Everyone given time through a partner deal, grouped by partner, for the admin Partners tab. Owner only. */
+export const partners = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+    const grants = await ctx.db.query("partnerGrants").take(500);
+    const groups = new Map<string, { name: string; url: string; people: { email: string; firstName?: string; from: number; until: number; welcomedAt?: number; remindedAt?: number; appliedAt?: number; accessId?: Id<"access"> }[] }>();
+    for (const g of grants) {
+      const row = await accessByEmail(ctx, g.email);
+      const group = groups.get(g.name) ?? { name: g.name, url: g.url, people: [] };
+      group.people.push({ email: g.email, firstName: g.firstName, from: g.from, until: g.until, welcomedAt: g.welcomedAt, remindedAt: g.remindedAt, appliedAt: g.appliedAt, accessId: row?._id });
+      groups.set(g.name, group);
+    }
+    return [...groups.values()];
+  },
+});
