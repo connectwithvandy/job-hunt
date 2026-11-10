@@ -251,3 +251,29 @@ export const report = internalQuery({
     return { summary: `${got} of ${out.length} members got the daily new-jobs email in the last day`, people: out };
   },
 });
+
+/**
+ * For the owner: one member's search settings, to see why they get few or no jobs.
+ * npx convex run --prod alerts:searchSetup '{"email":"x@y.com"}'
+ */
+export const searchSetup = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", email.trim())).first();
+    if (!user) return "No account with that email.";
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", user._id)).unique();
+    const tracks = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", user._id)).take(50);
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", user._id)).order("desc").take(2000);
+    const day = (at?: number) => (at ? new Date(at + 19_800_000).toISOString().slice(0, 16).replace("T", " ") : "never");
+    return {
+      location: profile?.location ?? "",
+      markets: profile?.markets ?? "",
+      autopilot: profile?.autopilot ?? false,
+      hasCv: !!profile?.defaultResumeId,
+      lastRun: profile?.lastAutopilot ? { ...profile.lastAutopilot, at: day(profile.lastAutopilot.at) } : null,
+      roles: tracks.map((t) => ({ name: t.name, status: t.status, titles: t.titles.join(", ") })),
+      jobsEver: jobs.length,
+      newestJob: jobs[0] ? `${day(jobs[0]._creationTime)} · ${jobs[0].title} at ${jobs[0].company} (${jobs[0].location})` : "none",
+    };
+  },
+});
