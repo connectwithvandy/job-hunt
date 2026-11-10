@@ -16,6 +16,7 @@ import { CompanyMark, DAY_STARTS_AT, QuickFitPill, likelyScore, ScorePill, Track
 import { fitTier } from "@/lib/jobFilters";
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
+import { PlacesPopup } from "@/components/PlacesPopup";
 import { ActionButton } from "@/components/ui";
 
 const DAY = 86_400_000;
@@ -224,7 +225,9 @@ export default function Today() {
         </h1>
       </header>
 
+      {!me.placesAsked && <PlacesPopup location={me.location} />}
       <SetupGuide
+        hold={!me.placesAsked}
         progress={{
           hasCv: !!me.resume,
           roles: me.tracks.length,

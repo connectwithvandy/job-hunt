@@ -24,7 +24,7 @@ import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, listingGone, searchListings, type Listing } from "./lib/dreamwork";
 import { cvMatch } from "./lib/cvMatch";
 import { withCompanyLinks } from "./lib/directLink";
-import { htmlToText, openTo, readPlace, searchOtherSources, titleMatches, type Found } from "./lib/sources";
+import { htmlToText, openTo, readPlace, searchOtherSources, searchPlace, titleMatches, type Found } from "./lib/sources";
 import type { jobV, liveCheckV, resumeV } from "./lib/validators";
 import { prospectV } from "./lib/validators";
 
@@ -282,13 +282,13 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const [settled, [others, otherFailed]] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : settleLimited(track.titles.slice(0, 16), 5, (title) => searchListings(title, location, 25, 4)),
+        : settleLimited(track.titles.slice(0, 16), 5, (title) => searchListings(title, searchPlace(location), 25, 4)),
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
-            searchOtherSources(track.titles, location, google, adzunaTitles),
+            searchOtherSources(track.titles, searchPlace(location), google, adzunaTitles),
             careerMatches(ctx, track.titles, location),
-            linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, location, linkedin) : Promise.resolve({ jobs: [], failed: false }),
+            linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, searchPlace(location), linkedin) : Promise.resolve({ jobs: [], failed: false }),
           ]).then(([other, careers, li]): [Found[], string[]] => [[...other.jobs, ...careers, ...li.jobs], [...other.failed, ...(li.failed ? ["LinkedIn"] : [])]]),
     ]);
     // Keep the reason in the logs: a search that half worked still gives the person jobs, so nothing else records it.

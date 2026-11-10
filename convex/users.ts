@@ -48,6 +48,8 @@ export const me = query({
       email: user?.email ?? "",
       onboarded: profile?.onboarded ?? false,
       location: profile?.location ?? "India",
+      /** False until they've picked their places since several cities became possible: Today asks once. */
+      placesAsked: !!profile?.placesAskedAt,
       markets: profile?.markets ?? "",
       writingSample: profile?.writingSample ?? "",
       writingRules: profile?.writingRules ?? "",
@@ -213,7 +215,7 @@ export const completeOnboarding = mutation({
     if (row && trialOver(row, Date.now())) await ctx.db.patch("access", row._id, { decidedAt: Date.now(), trialNoteAt: undefined, trialExtendedAt: undefined, trialEndedNoteAt: undefined });
     // Morning autopilot starts on, so new roles arrive (and the new-roles email has something to send) from day one.
     // Someone who turned it off keeps it off.
-    await ctx.db.patch("profiles", profile._id, { onboarded: true, location: args.location.trim() || "India", autopilot: profile.autopilot ?? true });
+    await ctx.db.patch("profiles", profile._id, { onboarded: true, location: args.location.trim() || "India", placesAskedAt: Date.now(), autopilot: profile.autopilot ?? true });
     return null;
   },
 });
@@ -223,7 +225,7 @@ export const setLocation = mutation({
   handler: async (ctx, { location }) => {
     const userId = await requireUserId(ctx);
     const profile = await profileFor(ctx, userId);
-    await ctx.db.patch("profiles", profile._id, { location: location.trim() || "India" });
+    await ctx.db.patch("profiles", profile._id, { location: location.trim() || "India", placesAskedAt: Date.now() });
     return null;
   },
 });
@@ -241,6 +243,8 @@ export const context = internalQuery({
     return {
       email: user?.email ?? "",
       location: profile?.location ?? "India",
+      /** False until they've picked their places since several cities became possible: Today asks once. */
+      placesAsked: !!profile?.placesAskedAt,
       markets: profile?.markets ?? "",
       voice: { sample: profile?.writingSample ?? "", rules: profile?.writingRules ?? "", posts: profile?.linkedinPosts ?? "", messages: profile?.myMessages ?? "" },
       tracks,

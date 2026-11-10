@@ -4,7 +4,7 @@
 // each step comes up. Steps tick themselves off from what the person has done (convex/lib/guide.ts).
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { guideSteps, nextGuideStep, type GuideProgress, type GuideStep } from "../../convex/lib/guide";
 import { ImportConnections } from "@/components/forms";
 
@@ -88,10 +88,12 @@ function StepHelp({ step, jobs, bestJob, foundNote }: { step: GuideStep; jobs: n
   );
 }
 
-export function SetupGuide({ progress, bestJob, foundNote }: { progress: GuideProgress; bestJob?: string; foundNote: string }) {
+/** hold: another pop-up is showing (where to work), so the guide's pop-up waits for the next visit. */
+export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: GuideProgress; bestJob?: string; foundNote: string; hold?: boolean }) {
   const [requested, setRequested] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [popup, setPopup] = useState(false);
+  const heldThisVisit = useRef(false);
   const [picked, setPicked] = useState<GuideStep["key"]>();
   const steps = guideSteps(progress);
   const next = nextGuideStep(steps, requested);
@@ -108,10 +110,12 @@ export function SetupGuide({ progress, bestJob, foundNote }: { progress: GuidePr
 
   // The pop-up shows once per step, a moment after the page opens.
   useEffect(() => {
-    if (!nextKey || remembered(`guide-seen-${nextKey}`)) return;
+    // Once another pop-up has shown this visit, the guide's waits for the next visit: never two in a row.
+    if (hold) heldThisVisit.current = true;
+    if (heldThisVisit.current || !nextKey || remembered(`guide-seen-${nextKey}`)) return;
     const t = setTimeout(() => setPopup(true), 1500);
     return () => clearTimeout(t);
-  }, [nextKey]);
+  }, [nextKey, hold]);
 
   if (!next) return null;
   const closePopup = () => {

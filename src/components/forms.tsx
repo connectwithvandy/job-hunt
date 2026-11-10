@@ -5,7 +5,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { LOCATION_CHOICES, PRESET_TRACKS } from "../../convex/lib/defaults";
+import { CITY_CHOICES, LOCATION_CHOICES, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { liveBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
 import { myOwnMessages, parseMessagesCsv } from "@/lib/linkedinMessages";
@@ -424,40 +424,75 @@ function PayLine({ trackKey, pay }: { trackKey: string; pay?: TrackInput["pay"] 
   );
 }
 
-/** Quick picks for where to search, plus a box for any city or country. */
+const WIDE = (v: string) => LOCATION_CHOICES.find((c) => c.value.toLowerCase() === v.trim().toLowerCase());
+
+/** The cities in a saved place, like "Lucknow, Bengaluru". Empty when it's a wide choice such as "India". */
+export function citiesOf(value: string) {
+  if (WIDE(value)) return [];
+  const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
+  // Old settings like "India, Pune" meant the whole country.
+  return parts.some((p) => p.toLowerCase() === "india") ? [] : parts;
+}
+
+/**
+ * Where to search: any number of cities (tap or type), or one wider choice such as anywhere in India.
+ * Saved as one line, "Lucknow, Bengaluru" or "India", which the search reads (convex/lib/sources.ts readPlace).
+ */
 export function LocationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const isChoice = (v: string) => LOCATION_CHOICES.some((c) => c.value.toLowerCase() === v.trim().toLowerCase());
-  // What you typed stays in the box, even when it starts like a quick pick ("India, Pune").
-  const [typed, setTyped] = useState(() => (isChoice(value) ? "" : value));
-  const picked = typed ? undefined : LOCATION_CHOICES.find((c) => c.value.toLowerCase() === value.trim().toLowerCase());
+  const cities = citiesOf(value);
+  const wide = cities.length ? undefined : (WIDE(value) ?? (value.trim() ? undefined : LOCATION_CHOICES[0]));
+  const [typed, setTyped] = useState("");
+  const has = (c: string) => cities.some((x) => x.toLowerCase() === c.toLowerCase());
+  const setCities = (next: string[]) => onChange(next.length ? next.join(", ") : "India");
+  const toggle = (c: string) => setCities(has(c) ? cities.filter((x) => x.toLowerCase() !== c.toLowerCase()) : [...cities, c]);
+  const add = () => {
+    const c = typed.trim().replace(/,+$/, "");
+    if (c && !has(c)) setCities([...cities, c]);
+    setTyped("");
+  };
+  const extra = cities.filter((c) => !CITY_CHOICES.some((x) => x.toLowerCase() === c.toLowerCase()));
+  const chip = (on: boolean) => `rounded-full border px-4 py-1.5 text-sm ${on ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`;
   return (
     <div>
+      <div className="label mb-2">Cities you&apos;d work in (pick as many as you like)</div>
       <div className="flex flex-wrap gap-2">
-        {LOCATION_CHOICES.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            onClick={() => {
-              setTyped("");
-              onChange(c.value);
-            }}
-            aria-pressed={picked === c}
-            className={`rounded-full border px-4 py-1.5 text-sm ${picked === c ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
-          >
-            {c.value}
+        {[...CITY_CHOICES, ...extra].map((c) => (
+          <button key={c} type="button" onClick={() => toggle(c)} aria-pressed={has(c)} className={chip(has(c))}>
+            {c}
+            {has(c) && extra.includes(c) ? " ×" : ""}
           </button>
         ))}
       </div>
-      <input
-        className="field mt-3 max-w-sm"
-        value={typed}
-        onChange={(e) => {
-          setTyped(e.target.value);
-          onChange(e.target.value);
-        }}
-        placeholder="Or type a city or country, like Bengaluru"
-      />
-      <p className="mt-2 text-xs text-ink-3">{picked ? picked.hint : "Jobs there, plus remote jobs open to that place"}</p>
+      <div className="mt-3 flex max-w-sm gap-2">
+        <input
+          className="field"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder="Add another city, like Lucknow"
+        />
+        <button type="button" className="btn btn-ghost btn-sm" disabled={!typed.trim()} onClick={add}>
+          Add
+        </button>
+      </div>
+      <div className="label mt-5 mb-2">Or search wider</div>
+      <div className="flex flex-wrap gap-2">
+        {LOCATION_CHOICES.map((c) => (
+          <button key={c.value} type="button" onClick={() => onChange(c.value)} aria-pressed={wide === c} className={chip(wide === c)}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-ink-3">
+        {cities.length
+          ? `Jobs in ${cities.join(", ")}, plus jobs open anywhere in India and remote jobs open to India.`
+          : (wide ?? LOCATION_CHOICES[0]).hint}
+      </p>
     </div>
   );
 }

@@ -39,7 +39,16 @@ const COUNTRIES: Record<string, string> = {
   germany: "de", france: "fr", netherlands: "nl", canada: "ca", australia: "au", singapore: "sg", "new zealand": "nz",
   uae: "ae", dubai: "ae", "united arab emirates": "ae",
 };
-const INDIA_CITIES = ["bengaluru", "bangalore", "mumbai", "delhi", "new delhi", "gurugram", "gurgaon", "noida", "pune", "hyderabad", "chennai", "kolkata", "ahmedabad", "jaipur", "kochi"];
+// Any of these means the person is in India, so "anywhere in India" and India-open remote roles reach them too.
+// Smaller cities matter: someone in Lucknow or Vadodara used to get no India-wide roles at all (10 Nov 2026).
+const INDIA_CITIES = [
+  "bengaluru", "bangalore", "mumbai", "navi mumbai", "thane", "delhi", "new delhi", "delhi ncr", "ncr", "gurugram", "gurgaon", "noida", "greater noida",
+  "ghaziabad", "faridabad", "pune", "hyderabad", "secunderabad", "chennai", "kolkata", "ahmedabad", "gandhinagar", "jaipur", "kochi", "cochin",
+  "lucknow", "kanpur", "vadodara", "baroda", "surat", "rajkot", "indore", "bhopal", "nagpur", "nashik", "aurangabad", "chandigarh", "mohali",
+  "ludhiana", "amritsar", "dehradun", "coimbatore", "madurai", "tiruchirappalli", "trichy", "thiruvananthapuram", "trivandrum", "kozhikode",
+  "calicut", "mysuru", "mysore", "mangaluru", "mangalore", "hubli", "belagavi", "visakhapatnam", "vizag", "vijayawada", "bhubaneswar",
+  "guwahati", "patna", "ranchi", "raipur", "jodhpur", "udaipur", "varanasi", "agra", "goa", "panaji", "jamshedpur", "siliguri",
+];
 /** Other names a listing may use for the same Indian city. */
 const CITY_ALIASES: Record<string, string[]> = {
   bengaluru: ["bangalore", "karnataka"],
@@ -51,6 +60,23 @@ const CITY_ALIASES: Record<string, string[]> = {
   noida: ["delhi ncr", "ncr"],
   mumbai: ["bombay", "navi mumbai"],
   kochi: ["cochin"],
+  "delhi ncr": ["delhi", "new delhi", "ncr", "gurugram", "gurgaon", "noida"],
+  ncr: ["delhi", "new delhi", "delhi ncr", "gurugram", "gurgaon", "noida"],
+  vadodara: ["baroda"],
+  baroda: ["vadodara"],
+  hyderabad: ["secunderabad"],
+  mysuru: ["mysore"],
+  mysore: ["mysuru"],
+  mangaluru: ["mangalore"],
+  mangalore: ["mangaluru"],
+  thiruvananthapuram: ["trivandrum"],
+  trivandrum: ["thiruvananthapuram"],
+  visakhapatnam: ["vizag"],
+  vizag: ["visakhapatnam"],
+  tiruchirappalli: ["trichy"],
+  trichy: ["tiruchirappalli"],
+  kozhikode: ["calicut"],
+  calicut: ["kozhikode"],
 };
 /** Words a listing uses for "anywhere in India" rather than one city. */
 const ANY_INDIA = /\b(india|in|pan|anywhere|remote|hybrid|across|all|multiple|locations?|wfh|work from home)\b/g;
@@ -235,6 +261,22 @@ async function hackerNews(title: string, place: Place): Promise<Found[]> {
 }
 
 /** True when a role in this free-text location (or its title) is open to someone searching this place. */
+/** Cities the job boards list plenty of sales roles for, so it's worth asking them for that city alone. */
+const BIG_HUBS = new Set(["bengaluru", "bangalore", "mumbai", "delhi", "new delhi", "gurugram", "gurgaon", "noida", "pune", "hyderabad", "chennai"]);
+
+/**
+ * What to ask the job boards for. Several cities, or one smaller Indian city, ask for all of India: the boards
+ * take one place and list few roles under smaller cities. openTo with the person's own setting then keeps only
+ * their cities, India-wide roles and India-open remote ones.
+ */
+export function searchPlace(location: string) {
+  const place = readPlace(location);
+  if (place.kind !== "place" || place.country !== "in") return location;
+  const cities = location.toLowerCase().split(",").map((p) => p.trim()).filter((p) => p && p !== "india");
+  if (cities.length === 1 && BIG_HUBS.has(cities[0])) return location;
+  return "India";
+}
+
 export function openTo(place: Place, location: string, workSetting?: string, title = "") {
   if (place.kind === "anywhere") return true;
   const where = location.toLowerCase();

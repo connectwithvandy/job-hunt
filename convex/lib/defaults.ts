@@ -56,10 +56,13 @@ export const DAILY_LIMITS = {
 } as const;
 
 /** Quick picks for where to search. "Remote" and "Anywhere" aren't places, so the search maps them to filters. */
+/** Cities offered as one-tap picks. People can pick several, and type any other city. */
+export const CITY_CHOICES = ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Pune", "Chennai"];
+
+/** Wider choices: picking one replaces the cities. */
 export const LOCATION_CHOICES = [
-  { value: "Bengaluru", hint: "Jobs in Bengaluru, plus remote jobs open to India" },
-  { value: "India", hint: "Jobs in India, plus remote jobs open to India" },
-  { value: "United States", hint: "Jobs in the US, plus remote jobs open to the US" },
-  { value: "Remote", hint: "Remote jobs in any country" },
-  { value: "Anywhere", hint: "Any job, any country" },
+  { value: "India", label: "Anywhere in India", hint: "Jobs anywhere in India, plus remote jobs open to India" },
+  { value: "Remote", label: "Remote only", hint: "Remote jobs in any country" },
+  { value: "United States", label: "United States", hint: "Jobs in the US, plus remote jobs open to the US" },
+  { value: "Anywhere", label: "Anywhere in the world", hint: "Any job, any country" },
 ];
