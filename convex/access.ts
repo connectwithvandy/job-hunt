@@ -40,9 +40,62 @@ export const join = mutation({
     const existing = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if (existing) return null;
     const user = await ctx.db.get("users", userId);
-    await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
+    const accessId = await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
+    await applyPartnerGrant(ctx, accessId);
     // The owner hears about new joiners in the one morning email (growth.sendMorning), not one email each.
     return null;
+  },
+});
+
+/**
+ * If a partner gave this person paid time, put it on their account: let them in, set paid-until, and note
+ * the partner for the Billing page. Does nothing without an unused grant for their email.
+ */
+async function applyPartnerGrant(ctx: MutationCtx, accessId: Id<"access">) {
+  const row = await ctx.db.get("access", accessId);
+  if (!row?.email) return;
+  const grant = await ctx.db
+    .query("partnerGrants")
+    .withIndex("by_email", (q) => q.eq("email", row.email.trim().toLowerCase()))
+    .first();
+  if (!grant || grant.appliedAt) return;
+  const now = Date.now();
+  const wasIn = row.approved;
+  await ctx.db.patch("access", accessId, {
+    approved: true,
+    rejected: undefined,
+    decidedAt: row.decidedAt ?? now,
+    paidUntil: Math.max(row.paidUntil ?? 0, grant.until),
+    partner: { name: grant.name, url: grant.url, from: grant.from, until: grant.until },
+  });
+  await ctx.db.patch("partnerGrants", grant._id, { appliedAt: now });
+  if (!wasIn) await queueWelcome(ctx, accessId);
+}
+
+/**
+ * Give people paid time through a partner deal, by sign-up email. Run by the owner from the command line:
+ * npx convex run --prod access:grantPartner '{"emails":[...],"name":"SaasPire","url":"https://saaspire.co/","from":<ms>,"until":<ms>}'
+ * People already signed up get it now; the rest get it when they join. Running it twice doesn't double up.
+ */
+export const grantPartner = internalMutation({
+  args: { emails: v.array(v.string()), name: v.string(), url: v.string(), from: v.number(), until: v.number() },
+  handler: async (ctx, args) => {
+    const result: { email: string; status: "applied" | "waiting for sign-up" | "already granted" }[] = [];
+    for (const raw of args.emails) {
+      const email = raw.trim().toLowerCase();
+      if (!email) continue;
+      const existing = await ctx.db.query("partnerGrants").withIndex("by_email", (q) => q.eq("email", email)).first();
+      if (existing) {
+        result.push({ email, status: "already granted" });
+        continue;
+      }
+      await ctx.db.insert("partnerGrants", { email, name: args.name, url: args.url, from: args.from, until: args.until });
+      const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", email)).first();
+      const row = user ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", user._id)).unique() : null;
+      if (row) await applyPartnerGrant(ctx, row._id);
+      result.push({ email, status: row ? "applied" : "waiting for sign-up" });
+    }
+    return result;
   },
 });
 

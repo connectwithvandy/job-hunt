@@ -91,8 +91,23 @@ export default function Billing() {
       <section className="card mb-6 p-6">
         <div className="label mb-1">Your plan</div>
         <p className="text-lg">
-          {covered ? `Paid until ${date(status.paidUntil!)}.` : status.paidUntil ? `Your paid time ended on ${date(status.paidUntil)}.` : "You haven't paid yet."}
+          {status.partner && status.partner.until > now
+            ? `3-month plan, ${date(status.partner.from)} to ${date(status.partner.until)}. Every feature is included.`
+            : covered
+              ? `Paid until ${date(status.paidUntil!)}.`
+              : status.paidUntil
+                ? `Your paid time ended on ${date(status.paidUntil)}.`
+                : "You haven't paid yet."}
         </p>
+        {status.partner && status.partner.until > now && (
+          <p className="mt-1 text-sm text-ink-2">
+            In partnership with{" "}
+            <a className="underline" href={status.partner.url} target="_blank" rel="noopener noreferrer">
+              {status.partner.name}
+            </a>
+            . Nothing to pay.
+          </p>
+        )}
       </section>
 
       {!status.on ? (

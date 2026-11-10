@@ -101,9 +101,24 @@ export default defineSchema({
     alertsOff: v.optional(v.boolean()),
     /** When the day-21 "3 quick questions" email went out (only to people who skipped the day-12 pop-up), so it goes once. */
     feedbackAskedAt: v.optional(v.number()),
+    /** Paid time given through a partner deal (not paid in the app), shown on the Billing page. */
+    partner: v.optional(v.object({ name: v.string(), url: v.string(), from: v.number(), until: v.number() })),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"]),
+
+  /**
+   * Paid time a partner gave someone, by email (lowercase). Applied straight away if they've signed up,
+   * otherwise the moment they join. appliedAt is set once it's on their account.
+   */
+  partnerGrants: defineTable({
+    email: v.string(),
+    name: v.string(),
+    url: v.string(),
+    from: v.number(),
+    until: v.number(),
+    appliedAt: v.optional(v.number()),
+  }).index("by_email", ["email"]),
 
   /** One Razorpay order each: created when someone presses Pay, marked paid once Razorpay confirms it. */
   payments: defineTable({

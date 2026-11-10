@@ -32,6 +32,7 @@ export const status = query({
     return {
       on: !!keys(),
       paidUntil: row?.paidUntil ?? null,
+      partner: row?.partner ?? null,
       founding,
       prices: { month: { ...priceOf("month", founding), was: wasOf("month", founding) }, pass: { ...priceOf("pass", founding), was: wasOf("pass", founding) } },
       paid: history.filter((p) => p.status === "paid").map((p) => ({ plan: p.plan, amount: p.amount / 100, paidAt: p.paidAt ?? 0, until: p.until ?? 0, paymentId: p.paymentId ?? "" })),
