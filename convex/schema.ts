@@ -117,7 +117,12 @@ export default defineSchema({
     url: v.string(),
     from: v.number(),
     until: v.number(),
+    /** Used to greet them in the partner welcome email. */
+    firstName: v.optional(v.string()),
     appliedAt: v.optional(v.number()),
+    /** When the partner welcome email went out, and the "you haven't signed up yet" reminder, so each goes once. */
+    welcomedAt: v.optional(v.number()),
+    remindedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
   /** One Razorpay order each: created when someone presses Pay, marked paid once Razorpay confirms it. */

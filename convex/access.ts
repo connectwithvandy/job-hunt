@@ -6,7 +6,7 @@ import { action, env, internalAction, internalMutation, internalQuery, mutation,
 import { hasAccess, isOwnerEmail } from "./lib/auth";
 import { PLANS } from "./lib/plans";
 import { trialEnd, trialOver } from "./lib/trial";
-import { appUrl, emailOn, sendEmail, welcomeEmail } from "./lib/email";
+import { appUrl, emailOn, partnerReminderEmail, partnerWelcomeEmail, sendEmail, welcomeEmail } from "./lib/email";
 
 async function requireOwner(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
@@ -60,42 +60,99 @@ async function applyPartnerGrant(ctx: MutationCtx, accessId: Id<"access">) {
     .first();
   if (!grant || grant.appliedAt) return;
   const now = Date.now();
-  const wasIn = row.approved;
   await ctx.db.patch("access", accessId, {
     approved: true,
     rejected: undefined,
     decidedAt: row.decidedAt ?? now,
     paidUntil: Math.max(row.paidUntil ?? 0, grant.until),
     partner: { name: grant.name, url: grant.url, from: grant.from, until: grant.until },
+    // They get the partner welcome email instead of the usual "you're in" one.
+    welcomedAt: row.welcomedAt ?? now,
   });
   await ctx.db.patch("partnerGrants", grant._id, { appliedAt: now });
-  if (!wasIn) await queueWelcome(ctx, accessId);
 }
 
 /**
- * Give people paid time through a partner deal, by sign-up email. Run by the owner from the command line:
- * npx convex run --prod access:grantPartner '{"emails":[...],"name":"SaasPire","url":"https://saaspire.co/","from":<ms>,"until":<ms>}'
- * People already signed up get it now; the rest get it when they join. Running it twice doesn't double up.
+ * Give people paid time through a partner deal, by sign-up email, and send each the partner welcome email.
+ * Run by the owner from the command line, e.g.
+ * npx convex run --prod access:grantPartner '{"people":[{"email":"a@x.com","firstName":"A"}],"name":"SaasPire","url":"https://saaspire.co/","from":<ms>,"until":<ms>}'
+ * People already signed up get the time now; the rest get it when they join, and a reminder after 3 days if they haven't.
+ * Running it twice doesn't double up or email twice.
  */
 export const grantPartner = internalMutation({
-  args: { emails: v.array(v.string()), name: v.string(), url: v.string(), from: v.number(), until: v.number() },
-  handler: async (ctx, args) => {
+  args: {
+    people: v.array(v.object({ email: v.string(), firstName: v.optional(v.string()) })),
+    name: v.string(),
+    url: v.string(),
+    from: v.number(),
+    until: v.number(),
+  },
+  handler: async (ctx, { people, ...deal }) => {
     const result: { email: string; status: "applied" | "waiting for sign-up" | "already granted" }[] = [];
-    for (const raw of args.emails) {
-      const email = raw.trim().toLowerCase();
+    for (const person of people) {
+      const email = person.email.trim().toLowerCase();
       if (!email) continue;
       const existing = await ctx.db.query("partnerGrants").withIndex("by_email", (q) => q.eq("email", email)).first();
       if (existing) {
         result.push({ email, status: "already granted" });
         continue;
       }
-      await ctx.db.insert("partnerGrants", { email, name: args.name, url: args.url, from: args.from, until: args.until });
-      const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", email)).first();
-      const row = user ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", user._id)).unique() : null;
+      const grantId = await ctx.db.insert("partnerGrants", { email, firstName: person.firstName?.trim() || undefined, ...deal });
+      const row = await accessByEmail(ctx, email);
       if (row) await applyPartnerGrant(ctx, row._id);
+      if (emailOn()) {
+        await ctx.scheduler.runAfter(0, internal.access.sendPartnerWelcome, { grantId });
+        if (!row) await ctx.scheduler.runAfter(3 * 86_400_000, internal.access.sendPartnerReminder, { grantId });
+      }
       result.push({ email, status: row ? "applied" : "waiting for sign-up" });
     }
     return result;
+  },
+});
+
+async function accessByEmail(ctx: QueryCtx, email: string) {
+  const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", email)).first();
+  return user ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", user._id)).unique() : null;
+}
+
+/** Who a partner email goes to, and whether they already have an account (sign in) or not (create one). */
+export const partnerTarget = internalQuery({
+  args: { grantId: v.id("partnerGrants") },
+  handler: async (ctx, { grantId }) => {
+    const grant = await ctx.db.get("partnerGrants", grantId);
+    if (!grant) return null;
+    return { ...grant, signedUp: !!(await accessByEmail(ctx, grant.email)) };
+  },
+});
+
+export const markPartnerEmail = internalMutation({
+  args: { grantId: v.id("partnerGrants"), kind: v.union(v.literal("welcome"), v.literal("reminder")) },
+  handler: async (ctx, { grantId, kind }) => {
+    await ctx.db.patch("partnerGrants", grantId, kind === "welcome" ? { welcomedAt: Date.now() } : { remindedAt: Date.now() });
+    return null;
+  },
+});
+
+export const sendPartnerWelcome = internalAction({
+  args: { grantId: v.id("partnerGrants") },
+  handler: async (ctx, { grantId }) => {
+    const g = await ctx.runQuery(internal.access.partnerTarget, { grantId });
+    if (!g || g.welcomedAt) return null;
+    await sendEmail({ to: g.email, ...partnerWelcomeEmail(g) });
+    await ctx.runMutation(internal.access.markPartnerEmail, { grantId, kind: "welcome" });
+    return null;
+  },
+});
+
+/** Three days on, a nudge for anyone who still hasn't created their account. */
+export const sendPartnerReminder = internalAction({
+  args: { grantId: v.id("partnerGrants") },
+  handler: async (ctx, { grantId }) => {
+    const g = await ctx.runQuery(internal.access.partnerTarget, { grantId });
+    if (!g || g.remindedAt || g.signedUp) return null;
+    await sendEmail({ to: g.email, ...partnerReminderEmail(g) });
+    await ctx.runMutation(internal.access.markPartnerEmail, { grantId, kind: "reminder" });
+    return null;
   },
 });
 

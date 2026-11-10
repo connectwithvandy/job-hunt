@@ -438,3 +438,100 @@ ${p.groups
 </div>`;
   return { subject, text, html };
 }
+
+const STYLE = "font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px";
+
+type PartnerPerson = { email: string; firstName?: string; name: string; url: string; signedUp: boolean };
+
+/** Where a partner email sends them: sign in if they have an account, otherwise create one, with their email filled in. */
+function partnerLink(p: PartnerPerson) {
+  return `${appUrl()}/?${p.signedUp ? "signin=1&" : ""}email=${encodeURIComponent(p.email)}`;
+}
+
+/** The welcome email for people given JobPipe through a partner deal, from the founder. */
+export function partnerWelcomeEmail(p: PartnerPerson) {
+  const first = p.firstName?.trim();
+  const link = partnerLink(p);
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const subject = first ? `${first}, your ${p.name} job hunt starts here` : `Your ${p.name} job hunt starts here`;
+  const intro = [
+    `I'm Vandy. I built JobPipe, and I'm really glad to have you here. We've partnered with ${p.name} because we care about the same thing: getting good people into great SaaS sales roles. Your JobPipe access is part of your ${p.name} journey.`,
+    "You've spent the last few weeks learning how to prospect: find the right accounts, research them, and reach out with something worth replying to. Now it's time to point that at your own search. Your next role is the account.",
+    "JobPipe does the groundwork so you can focus on reaching out:",
+  ];
+  const does = [
+    "Finds new SDR and BDR roles every day and scores each one against your CV, with the reason",
+    "Tailors your CV to a job without making anything up",
+    "Shows who you know at each company, so you can go in through a person and not the apply button",
+  ];
+  const steps = [
+    p.signedUp ? `Sign in with ${p.email}: ${link}` : `Create your account with ${p.email}: ${link}`,
+    "Upload your CV",
+    "Pick the roles you're going after",
+  ];
+  const after = [
+    "Once your roles are in, I'll email you when a strong new match turns up, often within hours of it going live.",
+    "If anything feels off, reply here. It comes straight to me.",
+    "All the best for the hunt. Go get picked.",
+  ];
+  const text = `${hello}
+
+${intro.join("\n\n")}
+${does.map((d) => `- ${d}`).join("\n")}
+
+Getting set up takes about 5 minutes:
+${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+${after.join("\n\n")}
+
+Vandy
+Founder, JobPipe
+In partnership with ${p.name} (${p.url})
+`;
+  const html = `<div style="${STYLE}">
+<p>${esc(hello)}</p>
+${intro.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+<ul style="padding-left:20px">${does.map((d) => `<li style="margin-bottom:6px">${esc(d)}</li>`).join("")}</ul>
+<p><b>Getting set up takes about 5 minutes:</b></p>
+<ol style="padding-left:20px">${steps.map((s) => `<li style="margin-bottom:6px">${esc(s.replace(`: ${link}`, ""))}</li>`).join("")}</ol>
+<p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">${p.signedUp ? "Open JobPipe" : "Create my account"}</a></p>
+${after.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+<p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a><br>In partnership with <a href="${esc(p.url)}" style="color:#666">${esc(p.name)}</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
+
+/** Three days after the partner welcome, for anyone who hasn't created their account yet. */
+export function partnerReminderEmail(p: PartnerPerson) {
+  const first = p.firstName?.trim();
+  const link = partnerLink(p);
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const subject = first ? `${first}, your JobPipe account is waiting` : "Your JobPipe account is waiting";
+  const body = [
+    `Quick nudge: your JobPipe access from ${p.name} is ready, but your account isn't set up yet.`,
+    "It takes about 5 minutes. Create your account, upload your CV, pick your roles, and new SDR and BDR jobs start coming in, scored against your CV.",
+    "Stuck on anything? Reply here and I'll help.",
+  ];
+  const text = `${hello}
+
+${body[0]}
+
+${body[1]}
+
+Create your account with ${p.email}: ${link}
+
+${body[2]}
+
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="${STYLE}">
+<p>${esc(hello)}</p>
+<p>${esc(body[0])}</p>
+<p>${esc(body[1])}</p>
+<p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Create my account</a></p>
+<p>${esc(body[2])}</p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
