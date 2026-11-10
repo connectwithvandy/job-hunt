@@ -1,6 +1,6 @@
 "use client";
 
-// Asks people who signed up before several cities were possible where they'd take a job, once.
+// Asks people who signed up before several cities were possible which cities to search, once.
 // Someone in a smaller city often got almost no jobs; adding a big city or two fixes that.
 
 import { useMutation } from "convex/react";
@@ -31,10 +31,10 @@ export function PlacesPopup({ location }: { location: string }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 print:hidden" role="dialog" aria-modal="true" aria-labelledby="places-title">
       <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-6">
         <h2 id="places-title" className="display text-2xl">
-          Where would you take a job?
+          Which cities should we search for jobs in?
         </h2>
         <p className="mt-2 text-sm text-ink-2">
-          You can now pick more than one city. Smaller cities list few sales roles, so adding a big city or two finds you far more jobs.
+          You can now pick more than one. Smaller cities list few sales roles, so adding a big city or two finds you far more jobs.
         </p>
         <div className="mt-5">
           <LocationPicker value={value} onChange={setValue} />

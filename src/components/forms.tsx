@@ -442,6 +442,7 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
   const cities = citiesOf(value);
   const wide = cities.length ? undefined : (WIDE(value) ?? (value.trim() ? undefined : LOCATION_CHOICES[0]));
   const [typed, setTyped] = useState("");
+  const [other, setOther] = useState(false);
   const has = (c: string) => cities.some((x) => x.toLowerCase() === c.toLowerCase());
   const setCities = (next: string[]) => onChange(next.length ? next.join(", ") : "India");
   const toggle = (c: string) => setCities(has(c) ? cities.filter((x) => x.toLowerCase() !== c.toLowerCase()) : [...cities, c]);
@@ -449,12 +450,13 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
     const c = typed.trim().replace(/,+$/, "");
     if (c && !has(c)) setCities([...cities, c]);
     setTyped("");
+    setOther(false);
   };
   const extra = cities.filter((c) => !CITY_CHOICES.some((x) => x.toLowerCase() === c.toLowerCase()));
   const chip = (on: boolean) => `rounded-full border px-4 py-1.5 text-sm ${on ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`;
   return (
     <div>
-      <div className="label mb-2">Cities you&apos;d work in (pick as many as you like)</div>
+      <div className="label mb-2">Pick all that apply</div>
       <div className="flex flex-wrap gap-2">
         {[...CITY_CHOICES, ...extra].map((c) => (
           <button key={c} type="button" onClick={() => toggle(c)} aria-pressed={has(c)} className={chip(has(c))}>
@@ -462,25 +464,31 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
             {has(c) && extra.includes(c) ? " ×" : ""}
           </button>
         ))}
-      </div>
-      <div className="mt-3 flex max-w-sm gap-2">
-        <input
-          className="field"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder="Add another city, like Lucknow"
-        />
-        <button type="button" className="btn btn-ghost btn-sm" disabled={!typed.trim()} onClick={add}>
-          Add
+        <button type="button" onClick={() => setOther(!other)} aria-pressed={other} className={chip(other)}>
+          Other city
         </button>
       </div>
-      <div className="label mt-5 mb-2">Or search wider</div>
+      {other && (
+        <div className="mt-3 flex max-w-sm gap-2">
+          <input
+            autoFocus
+            className="field"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                add();
+              }
+            }}
+            placeholder="Type the city, like Lucknow"
+          />
+          <button type="button" className="btn btn-primary btn-sm" disabled={!typed.trim()} onClick={add}>
+            Add
+          </button>
+        </div>
+      )}
+      <div className="label mt-5 mb-2">Not tied to one city? Pick one of these instead</div>
       <div className="flex flex-wrap gap-2">
         {LOCATION_CHOICES.map((c) => (
           <button key={c.value} type="button" onClick={() => onChange(c.value)} aria-pressed={wide === c} className={chip(wide === c)}>
@@ -511,7 +519,7 @@ export function LocationForm({ location, markets }: { location: string; markets:
         setState(await attempt(async () => (await Promise.all([save({ location: value }), saveMarkets({ markets: pref })]), "Saved.")));
       }}
     >
-      <span className="label mb-3 block">Where you want to work</span>
+      <span className="label mb-3 block">Cities to search for jobs in</span>
       <LocationPicker value={value} onChange={setValue} />
       <label className="mt-4 block">
         <span className="label">Markets and time zones you prefer</span>

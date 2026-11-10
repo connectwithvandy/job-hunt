@@ -221,8 +221,8 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
 function StepWhere({ location, setLocation, onBack, onDone }: { location: string; setLocation: (l: string) => void; onBack: () => void; onDone: () => void }) {
   return (
     <div className="mt-10">
-      <h1 className="display text-4xl md:text-5xl">Where do you want to work?</h1>
-      <p className="mt-3 text-ink-2">Pick every city you'd take a job in. Smaller cities list few sales roles, so adding a big city or two finds you far more.</p>
+      <h1 className="display text-4xl md:text-5xl">Which cities should we search for jobs in?</h1>
+      <p className="mt-3 text-ink-2">Pick all that apply. Smaller cities list few sales roles, so adding a big city or two finds you far more jobs.</p>
       <div className="mt-8">
         <LocationPicker value={location} onChange={setLocation} />
       </div>
