@@ -8,8 +8,8 @@ import { GUIDES_UPDATED, ROLE_PAGES } from "@/lib/rolePages";
 import { RoleLayout } from "../RoleLayout";
 
 export const dynamicParams = false;
-// Rebuilt at most once a day, so the open roles stay fresh for Google without a database read per visitor.
-export const revalidate = 86400;
+// Rebuilt at most every 6 hours, so the open roles stay fresh for Google without a database read per visitor.
+export const revalidate = 21600;
 
 export function generateStaticParams() {
   return ROLE_PAGES.map((r) => ({ slug: r.slug }));

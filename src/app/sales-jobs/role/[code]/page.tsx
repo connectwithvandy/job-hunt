@@ -7,9 +7,9 @@ import { jsonLdGraph } from "@/lib/marketing";
 import { regionsOf } from "@/lib/regions";
 import { RoleLayout } from "../../RoleLayout";
 
-// One page per role listed on the guides. Rebuilt at most once a day; a role the company takes down
+// One page per role listed on the guides. Rebuilt at most every 6 hours; a role the company takes down
 // drops off the guides, so its page turns into "not found", as Google asks for expired jobs.
-export const revalidate = 86400;
+export const revalidate = 21600;
 
 async function find(code: string) {
   const id = code.slice(code.lastIndexOf("-") + 1);

@@ -5,8 +5,8 @@ import { backOffice, titleMatches } from "../../convex/lib/salesRoles";
 import { regionsOf } from "./regions";
 import { ROLE_PAGES, type RolePage } from "./rolePages";
 
-/** Guide pages, job pages and the sitemap rebuild at most once a day. */
-export const GUIDE_REVALIDATE = 86400;
+/** Guide pages, job pages and the sitemap rebuild at most every 6 hours, so closed roles drop off the same day. */
+export const GUIDE_REVALIDATE = 21600;
 
 const DAY = 86_400_000;
 const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
