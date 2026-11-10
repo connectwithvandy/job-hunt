@@ -6,7 +6,7 @@ import { action, env, internalAction, internalMutation, internalQuery, mutation,
 import { hasAccess, isOwnerEmail } from "./lib/auth";
 import { PLANS } from "./lib/plans";
 import { trialEnd, trialOver } from "./lib/trial";
-import { appUrl, emailOn, partnerReminderEmail, partnerWelcomeEmail, sendEmail, welcomeEmail } from "./lib/email";
+import { appUrl, emailOn, partnerReminderEmail, partnerWelcomeEmail, REPLY_TO, sendEmail, welcomeEmail } from "./lib/email";
 
 async function requireOwner(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
@@ -138,19 +138,19 @@ export const sendPartnerWelcome = internalAction({
   handler: async (ctx, { grantId }) => {
     const g = await ctx.runQuery(internal.access.partnerTarget, { grantId });
     if (!g || g.welcomedAt) return null;
-    await sendEmail({ to: g.email, ...partnerWelcomeEmail(g) });
+    await sendEmail({ to: g.email, bcc: REPLY_TO, ...partnerWelcomeEmail(g) });
     await ctx.runMutation(internal.access.markPartnerEmail, { grantId, kind: "welcome" });
     return null;
   },
 });
 
-/** Three days on, a nudge for anyone who still hasn't created their account. */
+/** Three days on, a nudge for anyone who still hasn't created their account. Partner emails copy the owner (bcc), since they don't show in Gmail's Sent. */
 export const sendPartnerReminder = internalAction({
   args: { grantId: v.id("partnerGrants") },
   handler: async (ctx, { grantId }) => {
     const g = await ctx.runQuery(internal.access.partnerTarget, { grantId });
     if (!g || g.remindedAt || g.signedUp) return null;
-    await sendEmail({ to: g.email, ...partnerReminderEmail(g) });
+    await sendEmail({ to: g.email, bcc: REPLY_TO, ...partnerReminderEmail(g) });
     await ctx.runMutation(internal.access.markPartnerEmail, { grantId, kind: "reminder" });
     return null;
   },
