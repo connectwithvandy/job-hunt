@@ -8,6 +8,7 @@ import { FRESH_PER_DAY } from "./lib/defaults";
 import { alertsEmail, emailOn, sendEmail, weeklyEmail } from "./lib/email";
 import { rateLimiter } from "./limits";
 import { trackForTitle } from "./lib/salesRoles";
+import { isOwnerEmail } from "./lib/auth";
 
 const DAY = 86_400_000;
 const PER_EMAIL = 8;
@@ -195,5 +196,46 @@ export const send = internalAction({
     }
     if (sent < people.length) await ctx.runMutation(internal.errors.logServer, { message: `New-roles email failed for ${people.length - sent} of ${people.length} people. Last reason: ${lastError}`, page: "new roles email" });
     return `Sent ${sent} of ${people.length}.`;
+  },
+});
+
+/**
+ * For the owner: did each member get a new-jobs email in the last day, and if not, why not.
+ * npx convex run --prod alerts:report
+ */
+export const report = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const day = (at?: number) => (at ? new Date(at + 19_800_000).toISOString().slice(0, 16).replace("T", " ") : "never");
+    const rows = (await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(300)).filter((r) => !isOwnerEmail(r.email));
+    const out = [];
+    for (const r of rows) {
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", r.userId)).unique();
+      const tracks = (await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", r.userId)).take(50)).filter((t) => t.status === "active");
+      let newJobs = 0;
+      for await (const j of ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", r.userId)).order("desc")) {
+        if (j._creationTime < now - DAY || newJobs >= 500) break;
+        newJobs++;
+      }
+      const run = profile?.lastAutopilot;
+      const gotDaily = !!r.alertsAt && now - r.alertsAt < DAY;
+      const gotFresh = r.freshDay === new Date(now + 19_800_000).toISOString().slice(0, 10) && (r.freshCount ?? 0) > 0;
+      const why = gotDaily || gotFresh ? "" : r.alertsOff ? "asked to stop emails" : !profile?.onboarded ? "hasn't finished setup" : !tracks.length ? "no roles picked" : !profile.autopilot ? "morning search is off" : !run || now - run.at > DAY ? "morning search didn't run for them" : run.failed?.length ? `search had failures: ${run.failed.join(", ")}` : newJobs === 0 ? "search found no new jobs" : "new jobs found, but none fit their roles";
+      out.push({
+        email: r.email,
+        partner: r.partner?.name ?? "",
+        roles: tracks.map((t) => t.name).join(", "),
+        lastSearch: day(run?.at),
+        jobsAddedLastSearch: run?.added ?? 0,
+        newJobsLast24h: newJobs,
+        dailyEmail: day(r.alertsAt),
+        alertsToday: gotFresh ? (r.freshCount ?? 0) : 0,
+        whyNoEmail: why,
+      });
+    }
+    out.sort((a, b) => (a.whyNoEmail ? 0 : 1) - (b.whyNoEmail ? 0 : 1));
+    const got = out.filter((p) => !p.whyNoEmail).length;
+    return { summary: `${got} of ${out.length} members got a new-jobs email in the last day`, people: out };
   },
 });
