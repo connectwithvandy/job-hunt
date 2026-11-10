@@ -73,7 +73,8 @@ export const funnelData = internalQuery({
       if (scored) counts["Scored a job"]++;
       if (tailored) counts["Tailored a CV"]++;
       if (applied) counts["Applied"]++;
-      if ((p.paidUntil ?? 0) > now) counts["Paid"]++;
+      // Partner-deal people didn't pay in the app.
+      if ((p.paidUntil ?? 0) > now && !p.partner) counts["Paid"]++;
       usage.push({ accessId: p._id, lastSeenAt: profile?.lastSeenAt, setUp: !!profile?.onboarded, jobs, scored, tailored, applied });
     }
     return { steps: STEPS.map((step) => ({ step, people: counts[step] })), usage, now };

@@ -23,7 +23,9 @@ triggers.register("jobs", async (ctx, change) => {
   if (!d.jobs && !d.scored && !d.tailored && !d.applied) return;
   const row = await ctx.db.query("usageTotals").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
   if (!row) {
-    // No row yet: the nightly recount starts it from the real numbers.
+    // A new member's first change starts their row, so Admin shows their usage the same day.
+    // The nightly recount corrects it from the real numbers if anything was missed.
+    await ctx.db.insert("usageTotals", { userId, jobs: Math.max(0, d.jobs), scored: Math.max(0, d.scored), tailored: Math.max(0, d.tailored), applied: Math.max(0, d.applied), countedAt: 0 });
     return;
   }
   await ctx.db.patch("usageTotals", row._id, {

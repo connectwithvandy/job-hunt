@@ -31,8 +31,8 @@ test("the recount sets a person's totals, and adding jobs keeps them up to date 
   rateLimiter.register(t);
   const userId = await t.run(async (ctx) => await ctx.db.insert("users", { email: "p@example.com" }));
   await t.mutation(internal.jobs.insertMany, { userId, jobs: [job("a"), job("b")] });
-  // No totals until the first recount.
-  expect(await totals(t)).toBeNull();
+  // A new member's totals start with their first jobs, before any recount.
+  expect(await totals(t)).toEqual({ jobs: 2, scored: 0, tailored: 0, applied: 0 });
   await t.mutation(internal.stats.recountPerson, { userId, cursor: null, sum: { jobs: 0, scored: 0, tailored: 0, applied: 0 } });
   expect(await totals(t)).toEqual({ jobs: 2, scored: 0, tailored: 0, applied: 0 });
   // Changed through a JobPipe mutation: the totals follow without a recount.
