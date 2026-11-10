@@ -429,3 +429,29 @@ export const changePassword = action({
   },
 });
 
+
+/**
+ * Where each person from a partner deal is up to. Run by the owner:
+ * npx convex run --prod access:partnerStatus '{"name":"SaasPire"}'
+ */
+export const partnerStatus = internalQuery({
+  args: { name: v.string() },
+  handler: async (ctx, { name }) => {
+    const grants = await ctx.db.query("partnerGrants").take(500);
+    const out = [];
+    for (const g of grants.filter((g) => g.name.toLowerCase() === name.trim().toLowerCase())) {
+      const row = await accessByEmail(ctx, g.email);
+      const profile = row ? await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique() : null;
+      const day = (at?: number) => (at ? new Date(at + 19_800_000).toISOString().slice(0, 10) : "no");
+      out.push({
+        email: g.email,
+        firstName: g.firstName ?? "",
+        welcomeEmail: day(g.welcomedAt),
+        reminderEmail: day(g.remindedAt),
+        signedUp: day(g.appliedAt),
+        setupDone: !!profile?.onboarded,
+      });
+    }
+    return out;
+  },
+});
