@@ -7,7 +7,7 @@ export const TITLE = "JobPipe: finds sales roles, tailors your CV, gets you the 
 export const DESCRIPTION =
   "Job search for sales and GTM roles in India, the US, APAC and EMEA. Every job scored against your CV, a tailored CV for each one, and who you know there.";
 
-export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, the US, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, scores each job against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in beta, open to sales and GTM professionals: ${PLANS.trialDays}-day free trial, then ₹${PLANS.full}/month or ₹${PLANS.pass.toLocaleString("en-IN")} for a ${PLANS.passMonths}-month pass (₹${PLANS.founding}/month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
+export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, the US, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, scores each job against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in beta, open to sales and GTM professionals: a ${PLANS.trialDays}-day free trial, then a free plan (daily jobs, tracker, a few AI scores and 1 tailored CV a week), or every AI tool for ₹${PLANS.week} a week, ₹${PLANS.full}/month or ₹${PLANS.pass.toLocaleString("en-IN")} for a ${PLANS.passMonths}-month pass (₹${PLANS.founding}/month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
 
 export const STEPS = [
   "Upload your CV and pick the sales roles you want.",
@@ -31,7 +31,7 @@ export const FAQ: [string, string][] = [
   ],
   [
     "How much does JobPipe cost?",
-    `JobPipe costs ₹${PLANS.full} a month after a ${PLANS.trialDays}-day free trial, or ₹${PLANS.pass.toLocaleString("en-IN")} once for a ${PLANS.passMonths}-month Job Hunt Pass with no auto-renewal. The first ${PLANS.foundingSeats} founding members pay ₹${PLANS.founding} a month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the pass. Sales and GTM professionals get access straight away. Pay by UPI, card or net banking through Razorpay.`,
+    `JobPipe has a free plan you keep after a ${PLANS.trialDays}-day free trial: daily sales jobs, a tracker, a few AI fit scores a day and 1 tailored CV a week. Every AI tool costs ₹${PLANS.week} for a ${PLANS.weekDays}-day Week Pass, ₹${PLANS.full} a month, or ₹${PLANS.pass.toLocaleString("en-IN")} once for a ${PLANS.passMonths}-month Job Hunt Pass with no auto-renewal. The first ${PLANS.foundingSeats} founding members pay ₹${PLANS.founding} a month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the pass. Sales and GTM professionals get access straight away. Pay by UPI, card or net banking through Razorpay.`,
   ],
   [
     "Who is JobPipe for?",
@@ -79,6 +79,8 @@ export function landingJsonLd() {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       offers: [
+        { "@type": "Offer", name: "Free plan", price: 0, priceCurrency: "INR" },
+        { "@type": "Offer", name: "Week Pass", price: PLANS.week, priceCurrency: "INR" },
         { "@type": "Offer", name: "Founding member", price: PLANS.founding, priceCurrency: "INR" },
         { "@type": "Offer", name: "Full", price: PLANS.full, priceCurrency: "INR" },
         { "@type": "Offer", name: "Job Hunt Pass (3 months)", price: PLANS.pass, priceCurrency: "INR" },

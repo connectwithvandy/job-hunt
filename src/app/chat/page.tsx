@@ -6,6 +6,7 @@ import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
+import { PassButton } from "@/components/ui";
 import { errorMessage } from "@/lib/errors";
 
 const STARTERS = [
@@ -154,7 +155,12 @@ function Chat() {
             void submit(draft);
           }}
         >
-          {error && <p className="mb-2 text-sm text-bad">{error}</p>}
+          {error && (
+            <div className="mb-2 text-sm text-bad">
+              {error}
+              <PassButton error={error} />
+            </div>
+          )}
           <div className="card flex items-end gap-2 p-2">
             <textarea
               className="field min-h-[44px] flex-1 resize-none !border-0 text-sm"

@@ -4,7 +4,7 @@ import { useAction, useQuery } from "convex/react";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
-import { PLANS, type PlanKey } from "../../../convex/lib/plans";
+import { FREE, PLANS, type PlanKey } from "../../../convex/lib/plans";
 import { PageHead } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { Feedback, Spinner, type ActionState } from "@/components/ui";
@@ -80,13 +80,14 @@ export default function Billing() {
 
   const covered = status.paidUntil && status.paidUntil > now;
   const plans: { key: PlanKey; note: string }[] = [
+    { key: "week", note: "Seven days of every AI tool, for a week you're applying hard. Nothing renews by itself." },
     { key: "month", note: "Pay a month at a time. Nothing renews by itself: pay again when you want another month." },
     { key: "pass", note: "One payment for three months, a typical search. Nothing renews by itself." },
   ];
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHead title="Plan & billing" sub="Pay by UPI, card or net banking through Razorpay. Every plan has every feature." />
+      <PageHead title="Plan & billing" sub="Pay by UPI, card or net banking through Razorpay. Every paid plan has every feature." />
 
       <section className="card mb-6 p-6">
         <div className="label mb-1">Your plan</div>
@@ -99,6 +100,12 @@ export default function Billing() {
                 ? `Your paid time ended on ${date(status.paidUntil)}.`
                 : "You haven't paid yet."}
         </p>
+        {!covered && !(status.partner && status.partner.until > now) && (
+          <p className="mt-2 text-sm text-ink-2">
+            Free plan, yours to keep: daily jobs, your tracker, the fit guess on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsPerWeek} tailored CV a week. A paid plan adds
+            more scores and CVs, company research, interview prep, referral and hiring-manager messages, and the chat.
+          </p>
+        )}
         {status.partner && status.partner.until > now && (
           <p className="mt-1 text-sm text-ink-2">
             In partnership with{" "}
@@ -113,7 +120,7 @@ export default function Billing() {
       {!status.on ? (
         <p className="card p-6 text-ink-2">Payments aren&apos;t switched on yet. Nothing to do for now.</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {plans.map(({ key, note }) => {
             const p = status.prices[key];
             return (
@@ -124,11 +131,11 @@ export default function Billing() {
                   <span className="display text-4xl">₹{p.rupees.toLocaleString("en-IN")}</span>
                   {p.was && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent">{p.was.percentOff}% off</span>}
                 </p>
-                {status.founding && <p className="mt-1 text-xs text-good">Founding offer for the first {PLANS.foundingSeats} people, kept while you stay.</p>}
+                {status.founding && key !== "week" && <p className="mt-1 text-xs text-good">Founding offer for the first {PLANS.foundingSeats} people, kept while you stay.</p>}
                 <p className="mt-2 flex-1 text-sm text-ink-2">{note}</p>
                 <button className="btn btn-primary mt-4" disabled={busy !== null} onClick={() => void pay(key)}>
                   {busy === key && <Spinner />}
-                  {busy === key ? "Opening payment…" : covered ? `Add ${key === "pass" ? p.label : "1 month"}` : `Pay ₹${p.rupees.toLocaleString("en-IN")}`}
+                  {busy === key ? "Opening payment…" : covered ? `Add ${key === "month" ? "1 month" : p.label}` : `Pay ₹${p.rupees.toLocaleString("en-IN")}`}
                 </button>
               </section>
             );
@@ -146,7 +153,7 @@ export default function Billing() {
             {status.paid.map((p) => (
               <li key={p.paymentId} className="flex flex-wrap justify-between gap-2 p-3">
                 <span>
-                  {date(p.paidAt)} · {p.plan === "pass" ? "3-month pass" : "1 month"} · ₹{p.amount.toLocaleString("en-IN")}
+                  {date(p.paidAt)} · {p.plan === "pass" ? "3-month pass" : p.plan === "week" ? "Week Pass" : "1 month"} · ₹{p.amount.toLocaleString("en-IN")}
                 </span>
                 <span className="text-ink-3">covers to {date(p.until)} · {p.paymentId}</span>
               </li>

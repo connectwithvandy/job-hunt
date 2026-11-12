@@ -129,7 +129,7 @@ export default defineSchema({
   payments: defineTable({
     userId: v.id("users"),
     orderId: v.string(),
-    plan: v.union(v.literal("month"), v.literal("pass")),
+    plan: v.union(v.literal("week"), v.literal("month"), v.literal("pass")),
     /** In paise, as Razorpay counts it. */
     amount: v.number(),
     founding: v.boolean(),

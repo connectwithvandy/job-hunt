@@ -3,15 +3,27 @@ import { ConvexError, v } from "convex/values";
 import { components } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { DataModel } from "./_generated/dataModel";
-import { env, internalMutation, type QueryCtx } from "./_generated/server";
+import { env, internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import { DAILY_LIMITS } from "./lib/defaults";
+import { FREE, PAYWALL_MARK, PLANS } from "./lib/plans";
 import { trialOver } from "./lib/trial";
 
 const DAY = 24 * HOUR;
 
-/** What still works once the free trial is over: searching for jobs, and adding a CV. */
+/** What the free plan keeps once the trial is over: searching and CV uploads as usual, plus small AI allowances. */
 const OPEN_AFTER_TRIAL: string[] = ["search", "readCv"];
+const FREE_ALLOWANCE = { score: "freeScore", tailor: "freeTailor", addJob: "freeAddJob" } as const;
+
+/** What each paid-only tool is called in the "needs a pass" message. */
+const PAID_ONLY: Record<string, string> = {
+  notes: "Referral notes, messages and quick writing",
+  research: "Company research",
+  prep: "Interview prep",
+  chat: "The chat",
+  findEmail: "Finding emails",
+};
+const passLine = `Get the ${PAYWALL_MARK} (₹${PLANS.week} for 7 days) to turn every AI tool back on.`;
 
 export const FRESH_ALERTS_A_DAY = 40;
 
@@ -26,6 +38,10 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   chat: { kind: "fixed window", rate: DAILY_LIMITS.chat, period: DAY },
   search: { kind: "fixed window", rate: DAILY_LIMITS.search, period: DAY },
   findEmail: { kind: "fixed window", rate: DAILY_LIMITS.findEmail, period: DAY },
+  // The free plan, after the trial: on top of the daily limits above.
+  freeScore: { kind: "fixed window", rate: FREE.scoresPerDay, period: DAY },
+  freeTailor: { kind: "fixed window", rate: FREE.tailorsPerWeek, period: 7 * DAY },
+  freeAddJob: { kind: "fixed window", rate: FREE.addedJobsPerDay, period: DAY },
   // The free CV review on /cv-review, for everyone together: caps what strangers can spend on AI in a day.
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
   // Error reports from browsers: enough to spot a real crash, not enough for a loop to flood the table.
@@ -33,6 +49,13 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   /** Fresh job alerts for the whole app, leaving room in the email plan's daily limit for everything else. */
   freshAlert: { kind: "fixed window", rate: FRESH_ALERTS_A_DAY, period: DAY },
 });
+
+/** What the free plan says when its allowance is used up. */
+const FREE_USED: Record<(typeof FREE_ALLOWANCE)[keyof typeof FREE_ALLOWANCE], string> = {
+  freeScore: `The free plan scores ${FREE.scoresPerDay} jobs a day, and today's are used.`,
+  freeTailor: `The free plan writes ${FREE.tailorsPerWeek} tailored CV a week, and this week's is used.`,
+  freeAddJob: `The free plan adds ${FREE.addedJobsPerDay} jobs a day by hand, and today's are used.`,
+};
 
 const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
   readCv: "CV uploads",
@@ -75,7 +98,13 @@ export const consume = internalMutation({
     if (isOwnerEmail(user?.email)) return null;
     if (!OPEN_AFTER_TRIAL.includes(kind)) {
       const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
-      if (trialOver(row, Date.now())) throw new ConvexError("Your free trial has ended. You can still search for jobs. To use this, pick a plan on the Plan & billing page.");
+      if (trialOver(row, Date.now())) {
+        const free = FREE_ALLOWANCE[kind as keyof typeof FREE_ALLOWANCE];
+        if (!free) throw new ConvexError(`${PAID_ONLY[kind] ?? "This"} ${kind === "notes" ? "are" : "is"} part of the paid plan. ${passLine}`);
+        const freeArgs = { key: userId, count: count ?? 1 };
+        const { ok } = checkOnly ? await rateLimiter.check(ctx, free, freeArgs) : await rateLimiter.limit(ctx, free, freeArgs);
+        if (!ok) throw new ConvexError(`${FREE_USED[free]} ${passLine}`);
+      }
     }
     const units = (AI_UNITS[kind] ?? 0) * (count ?? 1);
     if (units) {
@@ -154,6 +183,17 @@ export const releaseHunter = internalMutation({
     const row = await ctx.db.query("hunterUsage").withIndex("by_month", (q) => q.eq("month", month)).unique();
     if (row && row.count > 0) await ctx.db.patch("hunterUsage", row._id, { count: row.count - 1 });
     return null;
+  },
+});
+
+/** True for people on the free plan: trial over, nothing paid. Lets AI extras skip quietly instead of failing. */
+export const onFreePlan = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get("users", userId);
+    if (isOwnerEmail(user?.email)) return false;
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    return trialOver(row, Date.now());
   },
 });
 

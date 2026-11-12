@@ -114,7 +114,7 @@ function AccountLink({ active }: { active: boolean }) {
     : me.paidUntil && me.paidUntil > now
       ? `Paid until ${new Date(me.paidUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
       : me.trialOver
-        ? "Trial ended"
+        ? "Free plan"
         : me.trialEndsAt && me.trialEndsAt > now
         ? `Free trial · ${daysLeft(me.trialEndsAt - now)}`
         : "Free beta";

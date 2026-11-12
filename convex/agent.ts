@@ -765,6 +765,8 @@ export const tailorQuestions = action({
   args: { jobId: v.id("jobs"), resumeId: v.optional(v.id("resumes")) },
   handler: async (ctx, { jobId, resumeId }): Promise<{ question: string; why: string }[]> => {
     const { userId, resume, resumes, resumeFor, tracks, facts } = await setup(ctx);
+    // The free plan's one tailored CV a week goes straight to writing: the questions are a paid extra.
+    if (await ctx.runQuery(internal.limits.onFreePlan, { userId })) return [];
     const job = await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
     // The same CV tailoring would use: the one picked, else the best-scoring track's, else the default.
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;

@@ -15,7 +15,7 @@ export default function Terms() {
       <h2 className="display text-xl text-ink">AI drafts</h2>
       <p>Drafts are written by AI from your own CV and the job posting. We instruct it to use only facts from your CV and flag numbers that don&apos;t match, but it can still make mistakes. Fit scores and pay estimates are guidance, not promises.</p>
       <h2 className="display text-xl text-ink">Payments</h2>
-      <p>Paid plans are billed monthly in Indian rupees after a {PLANS.trialDays}-day free trial. Daily limits on AI features keep the service fair for everyone. See the refund and cancellation policy for how cancelling works.</p>
+      <p>Everyone gets a {PLANS.trialDays}-day free trial, then a free plan with limited AI features. Paid plans (a {PLANS.weekDays}-day Week Pass, a month, or a {PLANS.passMonths}-month pass) are one-time payments in Indian rupees that don&apos;t renew by themselves. Daily limits on AI features keep the service fair for everyone. See the refund and cancellation policy for how cancelling works.</p>
       <h2 className="display text-xl text-ink">Fair use</h2>
       <p>Don&apos;t misuse the service: no scraping, reselling access, sending spam with it, or trying to get around the daily limits. We may suspend accounts that do.</p>
       <h2 className="display text-xl text-ink">Changes and contact</h2>

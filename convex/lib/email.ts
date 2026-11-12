@@ -2,6 +2,7 @@
 // Off when RESEND_API_KEY is missing: the waitlist page then falls back to opening your own email app.
 
 import { env } from "../_generated/server";
+import { FREE, PLANS } from "./plans";
 
 export const FROM = "Vandy from JobPipe <vandana@jobpipe.in>";
 export const REPLY_TO = "vandana@jobpipe.in";
@@ -281,7 +282,7 @@ export function trialExtendedEmail(p: { name?: string; month: number; pass: numb
   const paras = [
     "Your free week on JobPipe ended today, and job hunts rarely fit into a week, so I've added 3 more days for you.",
     "If you haven't tried it yet, star a job you like and open its tailored CV. That's where it saves the most time.",
-    `After that you can still search for jobs, but tailored CVs, fit scores, referral notes and interview prep will need a plan: ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own.`,
+    `After that you move to the free plan: daily jobs, your tracker, ${FREE.scoresPerDay} fit scores a day and ${FREE.tailorsPerWeek} tailored CV a week. Everything else needs a pass: ${rupees(PLANS.week)} for a week, ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own.`,
     "If it isn't helping, reply and tell me what's missing. It comes straight to me, and I read every one.",
   ];
   return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See plans", `${appUrl()}/billing`) };
@@ -294,12 +295,12 @@ export function trialEndedEmail(p: { name?: string; month: number; pass: number 
   const rupees = (r: number) => `₹${r.toLocaleString("en-IN")}`;
   const subject = first ? `${first}, your JobPipe trial has ended` : "Your JobPipe trial has ended";
   const paras = [
-    "Your free trial on JobPipe has ended. Your jobs, CVs and notes are all still there, and you can keep searching for jobs.",
-    "Tailored CVs, fit scores, referral notes, interview prep and the chat are now paused.",
-    `To turn them back on, it's ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works.`,
+    "Your free trial on JobPipe has ended. Your jobs, CVs and notes are all still there, and you're now on the free plan.",
+    `The free plan keeps going for as long as you like: new jobs every day, your tracker, ${FREE.scoresPerDay} AI fit scores a day and ${FREE.tailorsPerWeek} tailored CV a week.`,
+    `Company research, interview prep, referral notes and the chat need a pass. A week you're applying hard is ${rupees(PLANS.week)} for the Week Pass, or it's ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works.`,
     "If the price or something else is in the way, reply and tell me. It comes straight to me.",
   ];
-  return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "Pick a plan", `${appUrl()}/billing`) };
+  return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See the Week Pass", `${appUrl()}/billing`) };
 }
 
 /** Mondays: the week in numbers, and the one thing most worth doing next. */

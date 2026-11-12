@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { PLANS } from "@/lib/legal";
+import { FREE } from "../../../convex/lib/plans";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Everything included: job search, fit scores, tailored CVs, referral notes and interview prep. 7-day free trial, then ₹999/month or ₹2,499 for 3 months.",
+    "Free forever: daily sales jobs, a tracker, 5 fit scores a day and 1 tailored CV a week. Every AI tool from ₹349 for a week, ₹999/month or ₹2,499 for 3 months.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -13,11 +14,32 @@ export default function Pricing() {
   return (
     <LegalPage title="Pricing">
       <p>
-        Every plan includes everything: job search across boards and company
-        careers pages, fit scores for every role you want, tailored CVs and
-        cover letters, referral and hiring-manager messages, interview prep and
-        the morning summary.
+        Every paid plan includes everything: job search across boards and
+        company careers pages, fit scores for every role you want, tailored CVs
+        and cover letters, referral and hiring-manager messages, interview prep
+        and the morning summary.
       </p>
+      <div className="card p-6 text-ink">
+        <div className="label">Free plan</div>
+        <div className="display mt-2 text-4xl">₹0</div>
+        <p className="mt-2 text-sm text-ink-2">
+          Yours to keep after the {PLANS.trialDays}-day trial: daily sales jobs,
+          your application tracker, a fit guess on every job,{" "}
+          {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsPerWeek}{" "}
+          tailored CV a week.
+        </p>
+      </div>
+      <div className="card p-6 text-ink">
+        <div className="label">Week Pass</div>
+        <div className="display mt-2 text-4xl">
+          ₹{PLANS.week}
+          <span className="text-base text-ink-2"> once</span>
+        </div>
+        <p className="mt-2 text-sm text-ink-2">
+          {PLANS.weekDays} days of every AI tool, for a week you&apos;re applying
+          hard. No auto-renewal.
+        </p>
+      </div>
       <div className="card p-6 text-ink">
         <div className="label">Monthly</div>
         <Price now={PLANS.founding} was={PLANS.full} unit="/ month" />
@@ -47,8 +69,9 @@ export default function Pricing() {
         </p>
       </div>
       <p>
-        Every plan starts with a {PLANS.trialDays}-day free trial. Prices
-        include all features; GST is added where it applies. Cancel anytime.
+        Everyone starts with a {PLANS.trialDays}-day free trial of every
+        feature, then keeps the free plan. Paid plans don&apos;t renew by
+        themselves; GST is added where it applies.
       </p>
     </LegalPage>
   );

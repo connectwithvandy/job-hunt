@@ -113,7 +113,7 @@ test("the lock comes on day 10, not for payers, and not for anyone with no let-i
   expect(trialOver({ approved: true }, NOW)).toBe(false);
 });
 
-test("after the trial, search still works but tailoring and the other AI tools don't", async () => {
+test("after the trial, the free plan: search, one CV a week, a few scores; the chat needs a pass", async () => {
   const t = setup();
   const start = Date.now();
   const ids = await t.run(async (ctx) => {
@@ -127,7 +127,11 @@ test("after the trial, search still works but tailoring and the other AI tools d
   const use = (userId: typeof ids.over, kind: "search" | "readCv" | "tailor" | "score" | "chat") => t.mutation(internal.limits.consume, { userId, kind });
   await expect(use(ids.over, "search")).resolves.toBe(null);
   await expect(use(ids.over, "readCv")).resolves.toBe(null);
-  for (const kind of ["tailor", "score", "chat"] as const) await expect(use(ids.over, kind)).rejects.toThrow("free trial has ended");
+  await expect(use(ids.over, "tailor")).resolves.toBe(null);
+  await expect(use(ids.over, "tailor")).rejects.toThrow("Week Pass");
+  await expect(use(ids.over, "score")).resolves.toBe(null);
+  await expect(use(ids.over, "chat")).rejects.toThrow("part of the paid plan");
+  await expect(use(ids.paid, "tailor")).resolves.toBe(null);
   await expect(use(ids.paid, "tailor")).resolves.toBe(null);
   await expect(use(ids.fresh, "tailor")).resolves.toBe(null);
 });
@@ -145,5 +149,6 @@ test("the trial-ended email goes once, to people set up who haven't paid", async
   expect(await t.query(internal.trial.endedDue, { now: NOW })).toEqual([]);
   const mail = trialEndedEmail({ name: "Asha", month: 499, pass: 1299 });
   expect(mail.subject).toBe("Asha, your JobPipe trial has ended");
-  expect(mail.text).toContain("keep searching for jobs");
+  expect(mail.text).toContain("free plan");
+  expect(mail.text).toContain("₹349 for the Week Pass");
 });

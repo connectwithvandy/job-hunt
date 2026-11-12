@@ -126,3 +126,50 @@ describe("D. The whole app's daily AI limit", () => {
     expect(f.letIn).toBe(1);
   });
 });
+
+describe("E. The free plan after the trial", () => {
+  async function ended(t: Awaited<ReturnType<typeof setup>>["t"], paidUntil?: number) {
+    return await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", { email: "free@example.com" });
+      await ctx.db.insert("access", { userId: id, email: "free@example.com", approved: true, decidedAt: Date.now() - 11 * 86_400_000, paidUntil });
+      return id;
+    });
+  }
+
+  test("5 scores a day, then a pass message", async () => {
+    const { t } = await setup();
+    const free = await ended(t);
+    await t.mutation(internal.limits.consume, { userId: free, kind: "score", count: 4 });
+    await t.mutation(internal.limits.consume, { userId: free, kind: "score", checkOnly: true });
+    await t.mutation(internal.limits.consume, { userId: free, kind: "score" });
+    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "score" })).rejects.toThrow("Week Pass");
+  });
+
+  test("1 tailored CV a week and 2 added jobs a day", async () => {
+    const { t } = await setup();
+    const free = await ended(t);
+    await t.mutation(internal.limits.consume, { userId: free, kind: "tailor" });
+    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "tailor" })).rejects.toThrow("1 tailored CV a week");
+    await t.mutation(internal.limits.consume, { userId: free, kind: "addJob", count: 2 });
+    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "addJob" })).rejects.toThrow("Week Pass");
+  });
+
+  test("research, prep, notes, chat and email lookups need a pass; search stays open", async () => {
+    const { t } = await setup();
+    const free = await ended(t);
+    for (const kind of ["research", "prep", "notes", "chat", "findEmail"] as const) {
+      await expect(t.mutation(internal.limits.consume, { userId: free, kind })).rejects.toThrow("part of the paid plan");
+    }
+    await t.mutation(internal.limits.consume, { userId: free, kind: "search" });
+    await t.mutation(internal.limits.consume, { userId: free, kind: "readCv" });
+    expect(await t.query(internal.limits.onFreePlan, { userId: free })).toBe(true);
+  });
+
+  test("paying lifts the free limits", async () => {
+    const { t } = await setup();
+    const paid = await ended(t, Date.now() + 86_400_000);
+    await t.mutation(internal.limits.consume, { userId: paid, kind: "tailor", count: 2 });
+    await t.mutation(internal.limits.consume, { userId: paid, kind: "research" });
+    expect(await t.query(internal.limits.onFreePlan, { userId: paid })).toBe(false);
+  });
+});

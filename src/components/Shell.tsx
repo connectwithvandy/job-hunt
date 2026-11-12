@@ -2,6 +2,7 @@
 
 import { useConvexAuth, useQuery } from "convex/react";
 import Link from "next/link";
+import { FREE, PLANS } from "../../convex/lib/plans";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { api } from "../../convex/_generated/api";
@@ -32,9 +33,11 @@ function TrialOverNotice() {
   if (!account?.trialOver) return null;
   return (
     <div className="card mx-auto mb-6 flex max-w-3xl flex-wrap items-center justify-between gap-3 p-4 text-sm">
-      <p className="text-ink-2">Your free trial has ended. You can still search for jobs, but tailored CVs, fit scores and the other AI tools are paused.</p>
+      <p className="text-ink-2">
+        Your trial has ended, so you&apos;re on the free plan: daily jobs, your tracker, {FREE.scoresPerDay} fit scores a day and {FREE.tailorsPerWeek} tailored CV a week. Research, interview prep, messages and the chat need a pass.
+      </p>
       <Link href="/billing" className="btn btn-primary btn-sm">
-        Pick a plan
+        Get the Week Pass · ₹{PLANS.week}
       </Link>
     </div>
   );

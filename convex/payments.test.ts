@@ -40,6 +40,18 @@ test("founding and full prices", () => {
   expect(priceOf("month", false)).toMatchObject({ rupees: 999, days: 30 });
   expect(priceOf("pass", true)).toMatchObject({ rupees: 1299, days: 90 });
   expect(priceOf("pass", false)).toMatchObject({ rupees: 2499, days: 90 });
+  expect(priceOf("week", true)).toMatchObject({ rupees: 349, days: 7 });
+  expect(priceOf("week", false)).toMatchObject({ rupees: 349, days: 7 });
+});
+
+test("the Week Pass adds 7 days", async () => {
+  const t = setup();
+  const userId = await member(t, "w@example.com");
+  await t.mutation(internal.payments.recordOrder, { userId, orderId: "order_w", plan: "week", amount: 34_900, founding: false });
+  const start = Date.now();
+  const until = await t.mutation(internal.payments.markPaid, { orderId: "order_w", paymentId: "pay_w" });
+  expect(until! - start).toBeGreaterThanOrEqual(7 * DAY - 1000);
+  expect(until! - start).toBeLessThan(7 * DAY + 5000);
 });
 
 test("a payment adds its days once, on top of time already paid; a short payment adds nothing", async () => {

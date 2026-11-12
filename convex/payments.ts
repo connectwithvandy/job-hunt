@@ -10,7 +10,7 @@ import { PLANS, priceOf, wasOf, type PlanKey } from "./lib/plans";
 import { paymentGenuine } from "./lib/razorpay";
 
 const DAY = 86_400_000;
-const planV = v.union(v.literal("month"), v.literal("pass"));
+const planV = v.union(v.literal("week"), v.literal("month"), v.literal("pass"));
 
 const keys = () => (env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET ? { id: env.RAZORPAY_KEY_ID, secret: env.RAZORPAY_KEY_SECRET } : null);
 
@@ -34,7 +34,7 @@ export const status = query({
       paidUntil: row?.paidUntil ?? null,
       partner: row?.partner ?? null,
       founding,
-      prices: { month: { ...priceOf("month", founding), was: wasOf("month", founding) }, pass: { ...priceOf("pass", founding), was: wasOf("pass", founding) } },
+      prices: { week: { ...priceOf("week", founding), was: wasOf("week", founding) }, month: { ...priceOf("month", founding), was: wasOf("month", founding) }, pass: { ...priceOf("pass", founding), was: wasOf("pass", founding) } },
       paid: history.filter((p) => p.status === "paid").map((p) => ({ plan: p.plan, amount: p.amount / 100, paidAt: p.paidAt ?? 0, until: p.until ?? 0, paymentId: p.paymentId ?? "" })),
     };
   },
@@ -65,7 +65,9 @@ export const createOrder = action({
     const k = keys();
     if (!k) throw new ConvexError("Payments aren't switched on yet.");
     const facts: { founding: boolean; email: string; name: string } = await ctx.runQuery(internal.payments.orderFacts, { userId });
-    const price = priceOf(plan, facts.founding);
+    // The Week Pass has one price and doesn't take one of the founding seats.
+    const founding = plan !== "week" && facts.founding;
+    const price = priceOf(plan, founding);
     const amount = price.rupees * 100;
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
@@ -77,7 +79,7 @@ export const createOrder = action({
       throw new ConvexError("The payment couldn't start. Try again in a minute.");
     }
     const order = (await res.json()) as { id: string };
-    await ctx.runMutation(internal.payments.recordOrder, { userId, orderId: order.id, plan, amount, founding: facts.founding });
+    await ctx.runMutation(internal.payments.recordOrder, { userId, orderId: order.id, plan, amount, founding });
     return { keyId: k.id, orderId: order.id, amount, label: price.label, email: facts.email, name: facts.name };
   },
 });

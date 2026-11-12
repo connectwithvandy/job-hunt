@@ -2,8 +2,10 @@
 
 import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import { useQuery } from "convex/react";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { api } from "../../convex/_generated/api";
+import { PAYWALL_MARK, PLANS } from "../../convex/lib/plans";
 import { errorMessage, reportError } from "@/lib/errors";
 
 export type ActionState = { error?: string; message?: string } | null;
@@ -56,7 +58,18 @@ export function Feedback({ state }: { state: ActionState }) {
   return (
     <span className={`text-xs ${state.error ? "text-bad" : "text-good"}`} role="status">
       {state.error ?? state.message}
+      {state.error && <PassButton error={state.error} />}
     </span>
+  );
+}
+
+/** Under a "needs a pass" message: the way to pay, one tap away, instead of a dead end. */
+export function PassButton({ error }: { error: string }) {
+  if (!error.includes(PAYWALL_MARK)) return null;
+  return (
+    <Link href="/billing" className="btn btn-primary btn-sm mt-2 flex w-fit">
+      Get the {PAYWALL_MARK} · ₹{PLANS.week}
+    </Link>
   );
 }
 
