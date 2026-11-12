@@ -31,6 +31,8 @@ export function healthSection(f: HealthFacts, now: number, scoreCap: number) {
   const failed = new Map<string, number>();
   for (const r of runs) for (const name of r.failed ?? []) failed.set(name.split(" (")[0], (failed.get(name.split(" (")[0]) ?? 0) + 1);
   const failures = [...failed].sort((a, b) => b[1] - a[1]).map(([name, n]) => `${name} (${n})`);
+  // Why a whole role's search broke, like "Dreamwork (fetch failed)", so the cause shows without the logs.
+  const reasons = [...new Set(runs.flatMap((r) => (r.failed ?? []).filter((x) => x.startsWith("Dreamwork (")).map((x) => x.slice(11, -1))))].slice(0, 5);
   const missed = f.people - runs.length;
   const aiHigh = f.aiUsed >= f.aiLimit * AI_WARN;
   // Yesterday's 9:30 email (and its 12:30 catch-up) should reach most people with roles set. Under half means it broke.
@@ -47,6 +49,7 @@ export function healthSection(f: HealthFacts, now: number, scoreCap: number) {
     `- Jobs: ${sum((r) => r.added)} added, ${sum((r) => r.scored)} scored, ${sum((r) => r.strong)} strong matches`,
     `- People: ${runs.filter((r) => !r.strong).length} with no strong match, ${runs.filter((r) => r.added <= 1).length} with 0 or 1 new jobs, ${runs.filter((r) => r.scored >= scoreCap).length} at the ${scoreCap} score limit`,
     `- Sources that failed: ${failures.join(", ") || "none"}`,
+    ...(reasons.length ? [`- Why searches broke: ${reasons.join("; ")}`] : []),
     `- Accounts: ${f.letIn} let in, ${f.paying} paying, ${f.trialOver} trial ended, ${f.lockingSoon} locking in 3 days`,
     `- AI use: ${f.aiUsed} of ${f.aiLimit} units today`,
     `- Fresh job alerts sent: ${f.freshSent}`,

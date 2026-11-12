@@ -17,6 +17,23 @@ function modelFor(tier: Tier) {
   return { model: env.JOBHUNT_MODEL ?? "claude-opus-5-5", effort: "medium" as const, fallback: true };
 }
 
+/**
+ * When the AI company can't serve us (our credit ran out, its servers are busy, our key is wrong), people see
+ * a plain message instead of "Something went wrong", and the log says the cause so the morning check finds it.
+ */
+export function aiOutage(err: unknown): ConvexError<string> | null {
+  const status = (err as { status?: number })?.status;
+  const text = String((err as Error)?.message ?? err);
+  const credit = /credit balance is too low/i.test(text);
+  if (!credit && status !== 401 && status !== 429 && status !== 529 && !(status && status >= 500)) return null;
+  console.error(`AI unavailable (${credit ? "out of credit" : `status ${status}`}):`, text.slice(0, 300));
+  return new ConvexError(
+    credit || status === 401
+      ? "Our AI is paused for a short while and we're fixing it. Please try again in an hour."
+      : "The AI is busy right now. Please try again in a few minutes.",
+  );
+}
+
 /** People read this text as it is, so a failed search must not show up in it. */
 const SEARCH_NOTE = "Never mention searching, tools, or a search failing in your answer. If you couldn't confirm something, leave it out or say it's unknown.";
 
@@ -55,6 +72,8 @@ export async function askJSON<T extends z.ZodType>(opts: { system: string; promp
       output_config: { effort, format: { type: "json_schema", schema } },
       ...(opts.webSearch ? { tools: [{ type: "web_search_20260209", name: "web_search", max_uses: opts.webSearch }] } : {}),
       messages,
+    }).catch((err: unknown) => {
+      throw aiOutage(err) ?? err;
     });
     if (response.stop_reason !== "pause_turn" || turn >= 3) break;
     messages.push({ role: "assistant", content: response.content });
@@ -106,16 +125,20 @@ export async function streamChat(opts: {
       messages,
     });
     let lastIndex = -1;
-    for await (const event of stream) {
-      if (event.type === "content_block_start" && event.content_block.type === "text") {
-        // Separate the text before and after a web search with a paragraph break.
-        if (text && lastIndex !== event.index) text += "\n\n";
-        lastIndex = event.index;
+    try {
+      for await (const event of stream) {
+        if (event.type === "content_block_start" && event.content_block.type === "text") {
+          // Separate the text before and after a web search with a paragraph break.
+          if (text && lastIndex !== event.index) text += "\n\n";
+          lastIndex = event.index;
+        }
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          text += event.delta.text;
+          opts.onText(text);
+        }
       }
-      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-        text += event.delta.text;
-        opts.onText(text);
-      }
+    } catch (err) {
+      throw aiOutage(err) ?? err;
     }
     const final = await stream.finalMessage();
     const u = final.usage;

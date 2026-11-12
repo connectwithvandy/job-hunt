@@ -590,7 +590,9 @@ export const autopilotFor = internalAction({
           for (const f of found.failed) failed.add(f);
         } catch (err) {
           console.warn("Autopilot search failed", track.key, String(err));
-          failed.add("Dreamwork");
+          // The reason rides along in brackets so the morning health email shows it (it counts by the name before them).
+          const reason = (err instanceof ConvexError ? String(err.data) : String((err as Error)?.message ?? err)).replace(/[()\n]/g, " ").slice(0, 80);
+          failed.add(`Dreamwork (${reason})`);
         }
       }
       let scored = 0;
