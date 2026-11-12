@@ -9,6 +9,7 @@ import { resumeV, trackFields } from "./lib/validators";
 import { internal } from "./_generated/api";
 import { pickOwnMessages } from "./lib/chats";
 import { SALES_LEADER_EXTRAS } from "./lib/salesRoles";
+import { normalizePlace, readWorkModes } from "./lib/defaults";
 
 async function findProfile(ctx: QueryCtx, userId: Id<"users">) {
   return await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
@@ -48,6 +49,7 @@ export const me = query({
       email: user?.email ?? "",
       onboarded: profile?.onboarded ?? false,
       location: profile?.location ?? "India",
+      workModes: readWorkModes(profile?.location ?? "India", profile?.workModes),
       /** False until they've picked their places since several cities became possible: Today asks once. */
       placesAsked: !!profile?.placesAskedAt,
       markets: profile?.markets ?? "",
@@ -195,8 +197,10 @@ export const saveTrack = mutation({
   },
 });
 
+const modeV = v.union(v.literal("onsite"), v.literal("hybrid"), v.literal("remote"));
+
 export const completeOnboarding = mutation({
-  args: { tracks: v.array(v.object(trackFields)), location: v.string() },
+  args: { tracks: v.array(v.object(trackFields)), location: v.string(), workModes: v.optional(v.array(modeV)) },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     if (!args.tracks.length) throw new ConvexError("Pick at least one kind of role.");
@@ -215,22 +219,31 @@ export const completeOnboarding = mutation({
     if (row && trialOver(row, Date.now())) await ctx.db.patch("access", row._id, { decidedAt: Date.now(), trialNoteAt: undefined, trialExtendedAt: undefined, trialEndedNoteAt: undefined });
     // Morning autopilot starts on, so new roles arrive (and the new-roles email has something to send) from day one.
     // Someone who turned it off keeps it off.
-    await ctx.db.patch("profiles", profile._id, { onboarded: true, location: args.location.trim() || "India", placesAskedAt: Date.now(), autopilot: profile.autopilot ?? true });
+    await ctx.db.patch("profiles", profile._id, { onboarded: true, ...normalizePlace(args.location, args.workModes), placesAskedAt: Date.now(), autopilot: profile.autopilot ?? true });
     return null;
   },
 });
 
 export const setLocation = mutation({
-  args: { location: v.string() },
-  handler: async (ctx, { location }) => {
+  args: { location: v.string(), workModes: v.optional(v.array(modeV)) },
+  handler: async (ctx, { location, workModes }) => {
     const userId = await requireUserId(ctx);
     const profile = await profileFor(ctx, userId);
-    await ctx.db.patch("profiles", profile._id, { location: location.trim() || "India", placesAskedAt: Date.now() });
+    await ctx.db.patch("profiles", profile._id, { ...normalizePlace(location, workModes ?? profile.workModes), placesAskedAt: Date.now() });
     return null;
   },
 });
 
 // ---------- For actions ----------
+
+/** The work types a search keeps: in office, hybrid, remote. */
+export const workModesFor = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const profile = await findProfile(ctx, userId);
+    return readWorkModes(profile?.location ?? "India", profile?.workModes);
+  },
+});
 
 export const context = internalQuery({
   args: { userId: v.id("users") },
@@ -243,6 +256,7 @@ export const context = internalQuery({
     return {
       email: user?.email ?? "",
       location: profile?.location ?? "India",
+      workModes: readWorkModes(profile?.location ?? "India", profile?.workModes),
       /** False until they've picked their places since several cities became possible: Today asks once. */
       placesAsked: !!profile?.placesAskedAt,
       markets: profile?.markets ?? "",

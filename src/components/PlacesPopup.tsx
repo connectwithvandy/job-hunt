@@ -8,19 +8,21 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { LocationPicker } from "./forms";
 import { errorMessage } from "@/lib/errors";
+import type { WorkMode } from "../../convex/lib/defaults";
 
-export function PlacesPopup({ location }: { location: string }) {
+export function PlacesPopup({ location, workModes }: { location: string; workModes: WorkMode[] }) {
   const save = useMutation(api.users.setLocation);
   const [value, setValue] = useState(location);
+  const [modes, setModes] = useState(workModes);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [closed, setClosed] = useState(false);
   if (closed) return null;
-  const done = async (place: string) => {
+  const done = async (place: string, kinds: WorkMode[]) => {
     setBusy(true);
     setError("");
     try {
-      await save({ location: place });
+      await save({ location: place, workModes: kinds });
       setClosed(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -31,20 +33,20 @@ export function PlacesPopup({ location }: { location: string }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 print:hidden" role="dialog" aria-modal="true" aria-labelledby="places-title">
       <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-6">
         <h2 id="places-title" className="display text-2xl">
-          Which cities should we search for jobs in?
+          Where should we search for jobs?
         </h2>
         <p className="mt-2 text-sm text-ink-2">
-          You can now pick more than one. Smaller cities list few sales roles, so adding a big city or two finds you far more jobs.
+          Pick as many cities and work types as you like. Smaller cities list few sales roles, so adding a big city or two finds you far more jobs.
         </p>
         <div className="mt-5">
-          <LocationPicker value={value} onChange={setValue} />
+          <LocationPicker value={value} modes={modes} onChange={(p, m) => (setValue(p), setModes(m))} />
         </div>
         {error && <p className="mt-3 text-sm text-bad">{error}</p>}
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void done(value)}>
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void done(value, modes)}>
             {busy ? "Saving…" : "Save"}
           </button>
-          <button type="button" className="text-sm text-ink-3 hover:text-ink" disabled={busy} onClick={() => void done(location)}>
+          <button type="button" className="text-sm text-ink-3 hover:text-ink" disabled={busy} onClick={() => void done(location, workModes)}>
             Keep it as it is
           </button>
         </div>

@@ -61,8 +61,52 @@ export const CITY_CHOICES = ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "P
 
 /** Wider choices: picking one replaces the cities. */
 export const LOCATION_CHOICES = [
-  { value: "India", label: "Anywhere in India", hint: "Jobs anywhere in India, plus remote jobs open to India" },
-  { value: "Remote", label: "Remote only", hint: "Remote jobs in any country" },
-  { value: "United States", label: "United States", hint: "Jobs in the US, plus remote jobs open to the US" },
-  { value: "Anywhere", label: "Anywhere in the world", hint: "Any job, any country" },
+  { value: "India", label: "Anywhere in India" },
+  { value: "United States", label: "United States" },
+  { value: "Anywhere", label: "Anywhere in the world" },
 ];
+
+/** How the job is worked, like the On-site / Hybrid / Remote filter on job sites. People pick any of them. */
+export const WORK_MODES = [
+  { value: "onsite", label: "In office" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "remote", label: "Remote" },
+] as const;
+export type WorkMode = (typeof WORK_MODES)[number]["value"];
+export const ALL_MODES: WorkMode[] = WORK_MODES.map((m) => m.value);
+
+/**
+ * The saved place and work types. Before 12 Nov 2026 "Remote" was a place of its own; it now means
+ * anywhere in the world with only remote work, and is still saved as "Remote" because the search reads it that way.
+ * All three work types are saved as nothing (no filter).
+ */
+export function readWorkModes(location: string, saved?: string[]): WorkMode[] {
+  if (saved?.length) return ALL_MODES.filter((m) => saved.includes(m));
+  return /^remote$/i.test(location.trim()) ? ["remote"] : ALL_MODES;
+}
+
+export function normalizePlace(location: string, modes?: string[]): { location: string; workModes?: WorkMode[] } {
+  let place = location.trim() || "India";
+  const picked = modes?.length ? ALL_MODES.filter((m) => modes.includes(m)) : readWorkModes(place);
+  if (/^remote$/i.test(place)) place = "Anywhere";
+  if (place === "Anywhere" && picked.length === 1 && picked[0] === "remote") place = "Remote";
+  return { location: place, workModes: picked.length && picked.length < ALL_MODES.length ? picked : undefined };
+}
+
+/** How a listing is worked. A listing that doesn't say is most often in an office, sometimes hybrid. */
+export function jobMode(location: string, workSetting?: string, title = ""): WorkMode | "unknown" {
+  const s = (workSetting ?? "").toLowerCase();
+  const text = `${location} ${title}`.toLowerCase();
+  if (s.includes("remote") || /\b(remote|distributed|work from home|wfh)\b/.test(text)) return "remote";
+  if (s.includes("hybrid") || /\bhybrid\b/.test(text)) return "hybrid";
+  if (/on.?site|office/.test(s)) return "onsite";
+  return "unknown";
+}
+
+/** Whether a listing's work type is one the person picked. */
+export function fitsModes(modes: WorkMode[] | undefined, location: string, workSetting?: string, title = "") {
+  if (!modes?.length || modes.length >= ALL_MODES.length) return true;
+  const mode = jobMode(location, workSetting, title);
+  if (mode === "unknown") return modes.includes("onsite") || modes.includes("hybrid");
+  return modes.includes(mode);
+}

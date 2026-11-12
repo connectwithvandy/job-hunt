@@ -174,6 +174,8 @@ export default defineSchema({
     autopilot: v.optional(v.boolean()),
     /** When they last picked where they'd work (setup, Roles page or the one-time pop-up on Today). */
     placesAskedAt: v.optional(v.number()),
+    /** Work types they want: onsite, hybrid, remote. Missing means all three. */
+    workModes: v.optional(v.array(v.union(v.literal("onsite"), v.literal("hybrid"), v.literal("remote")))),
     /** When the first AI scoring after sign-up started, so it runs once even with several roles searching at once. */
     firstScoredAt: v.optional(v.number()),
     /** When you last opened the app, and the visit before, for "New since your last visit". */

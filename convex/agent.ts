@@ -15,7 +15,7 @@ import { unverifiedNumbers } from "./lib/facts";
 import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { companyKey } from "./lib/company";
-import { AUTOPILOT_SCORES, FRESH_FIT, FRESH_SCORES, MAX_STORIES } from "./lib/defaults";
+import { AUTOPILOT_SCORES, FRESH_FIT, FRESH_SCORES, MAX_STORIES, fitsModes, type WorkMode } from "./lib/defaults";
 import { emailOn, freshEmail, sendEmail } from "./lib/email";
 import { settleLimited } from "./lib/pool";
 import { pdfText } from "./lib/pdfText";
@@ -43,6 +43,8 @@ type Context = {
   facts: { question: string; answer: string; at: number }[];
   resumeFor: Record<string, Resume | null>;
   location: string;
+  /** In office, hybrid, remote: the ones they want. */
+  workModes: WorkMode[];
   markets: string;
   /** A sample of the candidate's own writing and their rules, so letters and messages sound like them. */
   voice: Voice;
@@ -304,8 +306,10 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const all = [...listings.map((l) => fromListing(l, track.key)), ...others.map((f) => fromFound(f, track.key))];
     // Every board's results meet the same place rule, so a role in another city or country doesn't slip in.
     const place = readPlace(location);
+    // In office, hybrid or remote, as the person picked. A company they named keeps every role.
+    const modes: WorkMode[] = await ctx.runQuery(internal.users.workModesFor, { userId });
     const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()].filter(
-      (j) => !!track.company || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title),
+      (j) => !!track.company || ((j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title)) && fitsModes(modes, j.location, j.workSetting, j.title)),
     );
     // Only jobs that open the company's own posting are kept (see lib/directLink.ts).
     const linked = await withCompanyLinks(unique, async (company) => {
@@ -686,7 +690,7 @@ export const freshFor = internalAction({
       const start = Date.now();
       const jobs = new Map<string, NewJob>();
       for (const track of me.tracks.filter((t) => t.status === "active" && !t.company)) {
-        const mine = rows.filter((r) => track.titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title));
+        const mine = rows.filter((r) => track.titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title) && fitsModes(me.workModes, r.location, r.workSetting, r.title));
         for (const f of await withCareerTexts(ctx, mine)) {
           const job = fromFound(f, track.key);
           if (!jobs.has(job.externalId)) jobs.set(job.externalId, job);

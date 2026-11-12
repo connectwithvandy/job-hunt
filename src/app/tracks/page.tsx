@@ -24,7 +24,7 @@ export default function Tracks() {
     <div className="mx-auto max-w-5xl">
       <PageHead title="Roles" sub="The kinds of roles you want. Each one searches its job titles and is pitched from its own CV. Switch one off to stop searching for it." />
       <div className="mb-5 max-w-xl">
-        <LocationForm location={me.location} markets={me.markets} />
+        <LocationForm location={me.location} workModes={me.workModes} markets={me.markets} />
       </div>
       <div className="grid gap-5 md:grid-cols-2">
         {me.tracks.map((t) => (

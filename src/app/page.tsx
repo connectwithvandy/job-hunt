@@ -225,7 +225,7 @@ export default function Today() {
         </h1>
       </header>
 
-      {!me.placesAsked && <PlacesPopup location={me.location} />}
+      {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
       <SetupGuide
         hold={!me.placesAsked}
         progress={{

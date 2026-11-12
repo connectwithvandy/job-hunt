@@ -9,6 +9,7 @@ import { CUSTOM_COLORS, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
 import { AnswersForm, AutofillLink, LocationPicker } from "./forms";
+import type { WorkMode } from "../../convex/lib/defaults";
 import { Spinner } from "./ui";
 
 type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
@@ -31,6 +32,7 @@ export function Onboarding({ me }: { me: Me }) {
   // Starts with the role they named on the waitlist already ticked.
   const [chosen, setChosen] = useState<Choice[]>(() => PRESET_TRACKS.filter((p) => p.key === WAITLIST_ROLE[me.waitlist.role]));
   const [location, setLocation] = useState(me.location || "India");
+  const [modes, setModes] = useState<WorkMode[]>(me.workModes);
   // Application answers typed on step 4, kept here so Back and Next don't lose them.
   const [answers, setAnswers] = useState<{ question: string; answer: string }[] | null>(null);
 
@@ -46,8 +48,8 @@ export function Onboarding({ me }: { me: Me }) {
       </ol>
       {step === 1 && <StepCv me={me} onDone={() => setStep(2)} />}
       {step === 2 && <StepRoles chosen={chosen} setChosen={setChosen} onBack={() => setStep(1)} onDone={() => setStep(3)} />}
-      {step === 3 && <StepWhere location={location} setLocation={setLocation} onBack={() => setStep(2)} onDone={() => setStep(4)} />}
-      {step === 4 && <StepAnswers me={me} location={location} chosen={chosen} rows={answers} setRows={setAnswers} onBack={() => setStep(3)} />}
+      {step === 3 && <StepWhere location={location} modes={modes} onChange={(p, m) => (setLocation(p), setModes(m))} onBack={() => setStep(2)} onDone={() => setStep(4)} />}
+      {step === 4 && <StepAnswers me={me} location={location} modes={modes} chosen={chosen} rows={answers} setRows={setAnswers} onBack={() => setStep(3)} />}
     </div>
   );
 }
@@ -218,13 +220,13 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
   );
 }
 
-function StepWhere({ location, setLocation, onBack, onDone }: { location: string; setLocation: (l: string) => void; onBack: () => void; onDone: () => void }) {
+function StepWhere({ location, modes, onChange, onBack, onDone }: { location: string; modes: WorkMode[]; onChange: (place: string, modes: WorkMode[]) => void; onBack: () => void; onDone: () => void }) {
   return (
     <div className="mt-10">
-      <h1 className="display text-4xl md:text-5xl">Which cities should we search for jobs in?</h1>
-      <p className="mt-3 text-ink-2">Pick all that apply. Smaller cities list few sales roles, so adding a big city or two finds you far more jobs.</p>
+      <h1 className="display text-4xl md:text-5xl">Where should we search for jobs?</h1>
+      <p className="mt-3 text-ink-2">Pick as many cities and work types as you like. Smaller cities list few sales roles, so adding a big city or two finds you far more jobs.</p>
       <div className="mt-8">
-        <LocationPicker value={location} onChange={setLocation} />
+        <LocationPicker value={location} modes={modes} onChange={onChange} />
       </div>
       <div className="mt-8 flex items-center gap-4">
         <button className="btn btn-primary" onClick={onDone}>
@@ -239,6 +241,7 @@ function StepWhere({ location, setLocation, onBack, onDone }: { location: string
 }
 
 function StepAnswers({
+  modes,
   me,
   location,
   chosen,
@@ -248,6 +251,7 @@ function StepAnswers({
 }: {
   me: Me;
   location: string;
+  modes: WorkMode[];
   chosen: Choice[];
   rows: { question: string; answer: string }[] | null;
   setRows: (rows: { question: string; answer: string }[]) => void;
@@ -301,7 +305,7 @@ function StepAnswers({
             setError("");
             try {
               if (rows && filled.length) await saveAnswers({ answers: filled });
-              await complete({ tracks: chosen.map((c) => ({ ...c, status: "active" as const })), location });
+              await complete({ tracks: chosen.map((c) => ({ ...c, status: "active" as const })), location, workModes: modes });
               if (morning) await setAutopilot({ on: true });
               // Start the first searches; results stream into the Jobs page as they land, and Today says so meanwhile.
               try {

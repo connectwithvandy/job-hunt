@@ -5,7 +5,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { CITY_CHOICES, LOCATION_CHOICES, PRESET_TRACKS } from "../../convex/lib/defaults";
+import { ALL_MODES, CITY_CHOICES, LOCATION_CHOICES, PRESET_TRACKS, WORK_MODES, type WorkMode } from "../../convex/lib/defaults";
 import { liveBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
 import { myOwnMessages, parseMessagesCsv } from "@/lib/linkedinMessages";
@@ -428,23 +428,41 @@ const WIDE = (v: string) => LOCATION_CHOICES.find((c) => c.value.toLowerCase() =
 
 /** The cities in a saved place, like "Lucknow, Bengaluru". Empty when it's a wide choice such as "India". */
 export function citiesOf(value: string) {
-  if (WIDE(value)) return [];
+  if (WIDE(value) || /^remote$/i.test(value.trim())) return [];
   const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
   // Old settings like "India, Pune" meant the whole country.
   return parts.some((p) => p.toLowerCase() === "india") ? [] : parts;
 }
 
+/** Plain words for what a place and work types will search, shown under the picker. */
+function placeHint(cities: string[], wide: string, modes: WorkMode[]) {
+  const kinds = modes.length === ALL_MODES.length ? "" : WORK_MODES.filter((m) => modes.includes(m.value)).map((m) => m.label.toLowerCase()).join(" or ");
+  const only = (what: string) => (kinds ? `${kinds[0].toUpperCase()}${kinds.slice(1)} jobs ${what}` : `Jobs ${what}`);
+  const remote = modes.includes("remote");
+  if (cities.length) {
+    const inCities = modes.some((m) => m !== "remote") ? `in ${cities.join(", ")}` : "";
+    if (!inCities) return "Remote jobs open to people in India.";
+    return `${only(inCities)}${remote ? ", plus remote jobs open to India." : "."}`;
+  }
+  if (wide === "Anywhere") return only("in any country.");
+  if (wide === "United States") return `${only("in the US")}${remote ? ", plus remote jobs open to the US." : "."}`;
+  return `${only("anywhere in India")}${remote ? ", plus remote jobs open to India." : "."}`;
+}
+
 /**
- * Where to search: any number of cities (tap or type), or one wider choice such as anywhere in India.
- * Saved as one line, "Lucknow, Bengaluru" or "India", which the search reads (convex/lib/sources.ts readPlace).
+ * Where to search and how the job is worked, the way job sites ask it: any number of cities (or one wider area),
+ * then any of In office, Hybrid and Remote. The place is saved as one line, "Lucknow, Bengaluru" or "India",
+ * which the search reads (convex/lib/sources.ts readPlace); work types are saved beside it.
  */
-export function LocationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const cities = citiesOf(value);
-  const wide = cities.length ? undefined : (WIDE(value) ?? (value.trim() ? undefined : LOCATION_CHOICES[0]));
+export function LocationPicker({ value, modes, onChange }: { value: string; modes: WorkMode[]; onChange: (place: string, modes: WorkMode[]) => void }) {
+  // "Remote" used to be a place of its own: it shows as anywhere in the world, remote only.
+  const place = /^remote$/i.test(value.trim()) ? "Anywhere" : value;
+  const cities = citiesOf(place);
+  const wide = cities.length ? "" : (WIDE(place)?.value ?? "India");
   const [typed, setTyped] = useState("");
   const [other, setOther] = useState(false);
   const has = (c: string) => cities.some((x) => x.toLowerCase() === c.toLowerCase());
-  const setCities = (next: string[]) => onChange(next.length ? next.join(", ") : "India");
+  const setCities = (next: string[]) => onChange(next.length ? next.join(", ") : "India", modes);
   const toggle = (c: string) => setCities(has(c) ? cities.filter((x) => x.toLowerCase() !== c.toLowerCase()) : [...cities, c]);
   const add = () => {
     const c = typed.trim().replace(/,+$/, "");
@@ -452,11 +470,16 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
     setTyped("");
     setOther(false);
   };
+  // At least one work type stays on: none would find nothing.
+  const toggleMode = (m: WorkMode) => {
+    const next = modes.includes(m) ? modes.filter((x) => x !== m) : ALL_MODES.filter((x) => x === m || modes.includes(x));
+    if (next.length) onChange(place, next);
+  };
   const extra = cities.filter((c) => !CITY_CHOICES.some((x) => x.toLowerCase() === c.toLowerCase()));
   const chip = (on: boolean) => `rounded-full border px-4 py-1.5 text-sm ${on ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`;
   return (
     <div>
-      <div className="label mb-2">Pick all that apply</div>
+      <div className="label mb-2">Cities · pick all that apply</div>
       <div className="flex flex-wrap gap-2">
         {[...CITY_CHOICES, ...extra].map((c) => (
           <button key={c} type="button" onClick={() => toggle(c)} aria-pressed={has(c)} className={chip(has(c))}>
@@ -488,27 +511,32 @@ export function LocationPicker({ value, onChange }: { value: string; onChange: (
           </button>
         </div>
       )}
-      <div className="label mt-5 mb-2">Not tied to one city? Pick one of these instead</div>
+      <div className="label mt-4 mb-2">Or a wider area</div>
       <div className="flex flex-wrap gap-2">
         {LOCATION_CHOICES.map((c) => (
-          <button key={c.value} type="button" onClick={() => onChange(c.value)} aria-pressed={wide === c} className={chip(wide === c)}>
+          <button key={c.value} type="button" onClick={() => onChange(c.value, modes)} aria-pressed={wide === c.value} className={chip(wide === c.value)}>
             {c.label}
           </button>
         ))}
       </div>
-      <p className="mt-3 text-xs text-ink-3">
-        {cities.length
-          ? `Jobs in ${cities.join(", ")}, plus jobs open anywhere in India and remote jobs open to India.`
-          : (wide ?? LOCATION_CHOICES[0]).hint}
-      </p>
+      <div className="label mt-5 mb-2">Work type · pick all that apply</div>
+      <div className="flex flex-wrap gap-2">
+        {WORK_MODES.map((m) => (
+          <button key={m.value} type="button" onClick={() => toggleMode(m.value)} aria-pressed={modes.includes(m.value)} className={chip(modes.includes(m.value))}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-ink-3">{placeHint(cities, wide, modes)}</p>
     </div>
   );
 }
 
-export function LocationForm({ location, markets }: { location: string; markets: string }) {
+export function LocationForm({ location, workModes, markets }: { location: string; workModes: WorkMode[]; markets: string }) {
   const save = useMutation(api.users.setLocation);
   const saveMarkets = useMutation(api.users.setMarkets);
   const [value, setValue] = useState(location);
+  const [modes, setModes] = useState(workModes);
   const [pref, setPref] = useState(markets);
   const [state, setState] = useState<ActionState>(null);
   return (
@@ -516,11 +544,11 @@ export function LocationForm({ location, markets }: { location: string; markets:
       className="card p-6"
       onSubmit={async (e) => {
         e.preventDefault();
-        setState(await attempt(async () => (await Promise.all([save({ location: value }), saveMarkets({ markets: pref })]), "Saved.")));
+        setState(await attempt(async () => (await Promise.all([save({ location: value, workModes: modes }), saveMarkets({ markets: pref })]), "Saved.")));
       }}
     >
-      <span className="label mb-3 block">Cities to search for jobs in</span>
-      <LocationPicker value={value} onChange={setValue} />
+      <span className="label mb-3 block">Where to search for jobs</span>
+      <LocationPicker value={value} modes={modes} onChange={(p, m) => (setValue(p), setModes(m))} />
       <label className="mt-4 block">
         <span className="label">Markets and time zones you prefer</span>
         <input className="field mt-1" value={pref} onChange={(e) => setPref(e.target.value)} placeholder="e.g. APAC and EMEA first, North America second" />
