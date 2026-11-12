@@ -40,6 +40,11 @@ crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
 // 11:30 IST: ask anyone who just reached an interview or offer for a LinkedIn shoutout, once each.
 crons.cron("shoutout asks", "0 6 * * *", internal.shoutout.sendAsks, {});
 
+// 7:30, 12:30 and 17:30 IST: is the AI, Dreamwork or Apify down? Emails the owner only if so (serviceCheck.ts).
+crons.cron("service watch morning", "0 2 * * *", internal.serviceCheck.watch, {});
+crons.cron("service watch midday", "0 7 * * *", internal.serviceCheck.watch, {});
+crons.cron("service watch evening", "0 12 * * *", internal.serviceCheck.watch, {});
+
 // 9:15 IST: the owner's one morning email: who's waiting, today's LinkedIn post, open-to-work people, errors (growth.ts).
 // It replaces the separate jobs post, open-to-work list, waitlist and hourly error emails.
 crons.cron("owner morning email", "45 3 * * *", internal.growth.sendMorning, {});

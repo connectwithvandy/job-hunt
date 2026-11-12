@@ -493,7 +493,7 @@ export const sendMorning = internalAction({
     const now = Date.now();
     // One section failing mustn't stop the whole email: it's how the owner hears about failures.
     let postError = "";
-    const [waitingList, post, seekers, errors, facts] = await Promise.all([
+    const [waitingList, post, seekers, errors, facts, services] = await Promise.all([
       ctx.runQuery(internal.growth.waiting, {}),
       jobsPostSection(ctx).catch((err) => {
         postError = String(err);
@@ -502,10 +502,11 @@ export const sendMorning = internalAction({
       pickSeekers(ctx).catch((err) => `failed: ${String(err)}`),
       ctx.runQuery(internal.errors.unsent, {}),
       ctx.runQuery(internal.stats.healthFacts, { now }),
+      ctx.runAction(internal.serviceCheck.section, {}).catch((err) => ({ text: `SERVICES\nWARNING: the service check itself failed: ${cut(String(err), 200)}`, alarm: true })),
     ]);
     const picked = typeof seekers === "string" ? [] : seekers.picked;
     const health = healthSection(facts, now, AUTOPILOT_SCORES);
-    const parts: string[] = [health.text];
+    const parts: string[] = [health.text, services.text];
     if (waitingList.length) {
       parts.push(`WAITING TO BE LET IN (${waitingList.length}): ${appUrl()}/admin
 ${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not given"} · ${w.email}${w.linkedin ? ` · ${w.linkedin}` : ""}`).join("\n")}`);
@@ -524,7 +525,7 @@ ${errors.slice(0, 5).map((r) => `- ${new Date(r._creationTime).toISOString().sli
     }
     if (typeof seekers === "string") parts.push(`(Open-to-work search: ${seekers})`);
     if (postError) parts.push(`(LinkedIn post failed: ${cut(postError, 200)})`);
-    const bits = [health.alarm && "NEEDS A LOOK", health.headline, waitingList.length && `${waitingList.length} waiting`, post && "LinkedIn post", picked.length && `${picked.length} to comment on`, errors.length && `${errors.length} error${errors.length === 1 ? "" : "s"}`].filter(Boolean);
+    const bits = [(health.alarm || services.alarm) && "NEEDS A LOOK", health.headline, waitingList.length && `${waitingList.length} waiting`, post && "LinkedIn post", picked.length && `${picked.length} to comment on`, errors.length && `${errors.length} error${errors.length === 1 ? "" : "s"}`].filter(Boolean);
     const subject = `JobPipe this morning: ${bits.join(", ")}`;
     const text = `${parts.join("\n\n\n")}\n`;
     if (dryRun) return `${subject}\n\n${text}`;

@@ -150,6 +150,16 @@ export const reserveGoogle = internalMutation({
   },
 });
 
+/** Google Jobs searches used by everyone this month, and the month's budget, for the owner's service check. */
+export const googleUsed = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const month = new Date().toISOString().slice(0, 7);
+    const rows = await ctx.db.query("googleUsage").withIndex("by_month_userId", (q) => q.eq("month", month)).take(500);
+    return { used: rows.reduce((n, r) => n + r.count, 0), budget: Number(env.JSEARCH_MONTHLY ?? 190) };
+  },
+});
+
 // ---------- Hunter.io: one free monthly quota for everyone ----------
 
 /** The most emails the whole app may find with Hunter.io this month; defaults to 25 (the free plan has 50 credits). */
