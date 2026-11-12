@@ -53,8 +53,11 @@ const LABELS: Record<keyof typeof DAILY_LIMITS, string> = {
  */
 const AI_UNITS: Partial<Record<keyof typeof LABELS, number>> = { readCv: 1, score: 1, addJob: 1, notes: 2, chat: 2, research: 5, prep: 5, tailor: 15 };
 
-/** The whole app's daily AI limit, so a bug can't run up a big bill. Raise it with AI_DAILY_UNITS, no deploy needed. */
-export const aiLimit = () => ({ kind: "fixed window" as const, rate: Number(env.AI_DAILY_UNITS ?? 3000), period: DAY });
+/**
+ * The whole app's daily AI limit, so a bug or a busy day can't run up a big bill. A unit is roughly $0.01
+ * (one job score); 800 is about $8 a day. Raise it with AI_DAILY_UNITS, no deploy needed.
+ */
+export const aiLimit = () => ({ kind: "fixed window" as const, rate: Number(env.AI_DAILY_UNITS ?? 800), period: DAY });
 
 /**
  * Spend `count` of today's allowance, or throw a friendly error. The owner has no limit.

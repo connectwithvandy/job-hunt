@@ -189,7 +189,9 @@ export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => 
     cvs.length === 1
       ? `Candidate's master CV:\n${resumeText(cvs[0])}`
       : cvs.map((r, i) => `Candidate's CV ${i + 1} (same person, a different angle):\n${resumeText(r)}`).join("\n\n");
+  // Scoring is reading and judging, not writing: light thinking keeps each of the many daily calls cheap.
   return askJSON({
+    effort: "low",
     schema: ScoreSchema,
     system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role. Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them. ${whereRule(location, markets)}`,
     // The CV and tracks are the same for every job scored, so they're cached; only the job changes.

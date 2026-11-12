@@ -91,6 +91,10 @@ export const markSeen = mutation({
     const now = Date.now();
     if (profile.lastSeenAt && now - profile.lastSeenAt < 30 * 60_000) return null;
     await ctx.db.patch("profiles", profile._id, { prevSeenAt: profile.lastSeenAt ?? now, lastSeenAt: now });
+    // Back after a while: score their best few new jobs now, since the morning run skips people who are away.
+    if (profile.onboarded && (!profile.lastSeenAt || now - profile.lastSeenAt > 12 * 3_600_000)) {
+      await ctx.scheduler.runAfter(0, internal.agent.scoreOnVisit, { userId });
+    }
     return null;
   },
 });
@@ -235,6 +239,23 @@ export const setLocation = mutation({
 });
 
 // ---------- For actions ----------
+
+/**
+ * How much automatic AI scoring someone gets (each score is a paid AI call, about $0.01):
+ * paid (in the app or through a partner) and the owner get the full morning batch; people who used the app in the
+ * last 3 days get a few; everyone else gets none until they come back, when their visit scores their top jobs.
+ */
+export const scoringTier = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<"paid" | "active" | "idle"> => {
+    const user = await ctx.db.get("users", userId);
+    if (isOwnerEmail(user?.email)) return "paid";
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if ((row?.paidUntil ?? 0) > Date.now()) return "paid";
+    const profile = await findProfile(ctx, userId);
+    return profile?.lastSeenAt && Date.now() - profile.lastSeenAt < 3 * 86_400_000 ? "active" : "idle";
+  },
+});
 
 /** The work types a search keeps: in office, hybrid, remote. */
 export const workModesFor = internalQuery({

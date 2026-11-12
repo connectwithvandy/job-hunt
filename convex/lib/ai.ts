@@ -41,7 +41,7 @@ const SEARCH_NOTE = "Never mention searching, tools, or a search failing in your
  * Ask Claude for JSON matching `schema`. With `webSearch`, Claude may search the web that many times first.
  * `shared` is text that repeats across calls (like the CV); it goes first and is cached, so repeats cost a tenth.
  */
-export async function askJSON<T extends z.ZodType>(opts: { system: string; prompt: string; schema: T; webSearch?: number; tier?: Tier; shared?: string }): Promise<z.infer<T>> {
+export async function askJSON<T extends z.ZodType>(opts: { system: string; prompt: string; schema: T; webSearch?: number; tier?: Tier; shared?: string; effort?: "low" | "medium" }): Promise<z.infer<T>> {
   if (!env.ANTHROPIC_API_KEY) {
     throw new ConvexError("The AI tools aren't available right now. Please try again later.");
   }
@@ -69,7 +69,7 @@ export async function askJSON<T extends z.ZodType>(opts: { system: string; promp
       ...(fallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
       // System text is the same on every call of a kind, so cache it too.
       system: [{ type: "text", text: opts.webSearch ? `${opts.system}\n${SEARCH_NOTE}` : opts.system, cache_control: { type: "ephemeral" } }],
-      output_config: { effort, format: { type: "json_schema", schema } },
+      output_config: { effort: opts.effort ?? effort, format: { type: "json_schema", schema } },
       ...(opts.webSearch ? { tools: [{ type: "web_search_20260209", name: "web_search", max_uses: opts.webSearch }] } : {}),
       messages,
     }).catch((err: unknown) => {

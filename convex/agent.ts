@@ -184,7 +184,7 @@ export const findJobs = action({
 
 const FIRST_SCORING_WAIT = 20_000;
 /** How many jobs the first scoring after sign-up does: one batch, from the day's allowance. */
-export const FIRST_SCORES = 12;
+export const FIRST_SCORES = 6;
 
 /** Once per person, after their first search: AI-scores the best first guesses. */
 export const scoreFirstJobs = internalAction({
@@ -204,6 +204,29 @@ export const scoreFirstJobs = internalAction({
     }
     const { failed, lastError } = await scoreIds(ctx, me, ids);
     if (failed) console.warn("First scoring failed for some jobs", failed, lastError);
+    return null;
+  },
+});
+
+/** How many of the best new jobs get an AI score when someone comes back, and each morning for recent visitors. */
+const VISIT_SCORES = 5;
+
+/** When someone opens the app after a while: AI-scores their best few unscored jobs, so Today shows real fit scores. */
+export const scoreOnVisit = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    if (!(await ctx.runQuery(internal.access.allowed, { userId }))) return null;
+    const me = await contextFor(ctx, userId);
+    if (!me.resume) return null;
+    const ids: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit: VISIT_SCORES });
+    if (!ids.length) return null;
+    try {
+      await spend(ctx, userId, "score", ids.length);
+    } catch {
+      // Out of today's scores, past the trial, or the app's daily AI limit: the free first guess still ranks the list.
+      return null;
+    }
+    await scoreIds(ctx, me, ids);
     return null;
   },
 });
@@ -596,7 +619,10 @@ export const autopilotFor = internalAction({
         }
       }
       let scored = 0;
-      const unscored: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit: AUTOPILOT_SCORES });
+      // Paid people get the full morning batch; recent visitors a few; people who are away none (their next visit scores).
+      const tier: "paid" | "active" | "idle" = await ctx.runQuery(internal.users.scoringTier, { userId });
+      const limit = tier === "paid" ? AUTOPILOT_SCORES : tier === "active" ? VISIT_SCORES : 0;
+      const unscored: Id<"jobs">[] = limit ? await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit }) : [];
       if (unscored.length && me.resume) {
         // Twelve at a time, so a nearly used-up allowance still scores what it can.
         for (let i = 0; i < unscored.length; i += 12) {
@@ -700,6 +726,10 @@ export const freshFor = internalAction({
       }
       if (!jobs.size) return null;
       await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [...jobs.values()] });
+      // Scoring new roles the hour they appear (and the alert email it can send) is a paid perk: it ran up to
+      // 45 AI calls a day per person. Everyone else's new roles get scored on their next visit.
+      const tier: "paid" | "active" | "idle" = await ctx.runQuery(internal.users.scoringTier, { userId });
+      if (tier !== "paid") return null;
       const ids: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredSince, { userId, since: start, limit: FRESH_SCORES });
       if (!ids.length) return null;
       try {
