@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import { JobsByEmail } from "./JobsByEmail";
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { LEGAL, PLANS } from "@/lib/legal";
@@ -380,6 +381,12 @@ export function SignIn() {
         <p className="mt-4 text-center text-xs text-ink-3">An example morning. Every score comes with the reasons behind it.</p>
       </div>
 
+
+      <section className="border-t border-line py-20">
+        <div className="mx-auto max-w-2xl">
+          <JobsByEmail heading="Not ready to sign up? Get new sales jobs by email" />
+        </div>
+      </section>
 
       <section className="border-t border-line py-20">
         <p className="label text-accent">Why it works</p>

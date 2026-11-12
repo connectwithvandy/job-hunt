@@ -5,7 +5,9 @@ import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { contactsLoadedAt } from "./contacts";
 import { FRESH_PER_DAY } from "./lib/defaults";
-import { alertsEmail, emailOn, sendEmail, weeklyEmail } from "./lib/email";
+import { alertsEmail, emailOn, sendEmail, unsubscribeLink, weeklyEmail } from "./lib/email";
+import { ALL_MODES, readWorkModes, WORK_MODES } from "./lib/defaults";
+import { trialOver } from "./lib/trial";
 import { rateLimiter } from "./limits";
 import { trackForTitle } from "./lib/salesRoles";
 import { isOwnerEmail } from "./lib/auth";
@@ -16,7 +18,16 @@ const PER_EMAIL = 8;
 const RELEVANT = 60;
 
 const jobV = v.object({ title: v.string(), company: v.string(), where: v.string(), fit: v.optional(v.number()), id: v.string() });
-const personV = v.object({ accessId: v.id("access"), email: v.string(), name: v.optional(v.string()), groups: v.array(v.object({ track: v.string(), jobs: v.array(jobV) })) });
+const personV = v.object({
+  accessId: v.id("access"),
+  email: v.string(),
+  name: v.optional(v.string()),
+  groups: v.array(v.object({ track: v.string(), jobs: v.array(jobV) })),
+  /** "Bengaluru, Mumbai · Hybrid or Remote": where they search, so they can see why these roles. */
+  searching: v.optional(v.string()),
+  /** On the free plan: the email ends with one line about the Week Pass. */
+  free: v.optional(v.boolean()),
+});
 
 type Person = Infer<typeof personV>;
 
@@ -67,7 +78,19 @@ export const dueFor = internalQuery({
       list.push({ title: j.title, company: j.company, where: j.location || "Not listed", fit, id: j._id });
       byTrack.set(name, list);
     }
-    return { accessId: row._id, email: row.email, name: row.name, groups: [...byTrack].map(([track, jobs]) => ({ track, jobs })) };
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+    const place = profile?.location?.trim() || "India";
+    const modes = readWorkModes(place, profile?.workModes);
+    const modeText = modes.length < ALL_MODES.length ? ` · ${modes.map((m) => WORK_MODES.find((w) => w.value === m)!.label).join(" or ")}` : "";
+    const user = await ctx.db.get("users", row.userId);
+    return {
+      accessId: row._id,
+      email: row.email,
+      name: row.name,
+      groups: [...byTrack].map(([track, jobs]) => ({ track, jobs })),
+      searching: `${place === "Anywhere" ? "Anywhere" : place}${modeText}`,
+      free: !isOwnerEmail(user?.email) && trialOver(row, now),
+    };
   },
 });
 
@@ -195,7 +218,9 @@ export const send = internalAction({
     let lastError = "";
     for (const p of people) {
       try {
-        await sendEmail({ to: p.email, ...alertsEmail(p) });
+        const key: string = await ctx.runMutation(internal.subscribers.memberKey, { accessId: p.accessId });
+        const { url, headers } = unsubscribeLink(key);
+        await sendEmail({ to: p.email, headers, ...alertsEmail({ ...p, unsubscribeUrl: url }) });
         await ctx.runMutation(internal.alerts.markSent, { accessId: p.accessId });
         sent++;
       } catch (err) {

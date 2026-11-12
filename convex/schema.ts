@@ -103,9 +103,28 @@ export default defineSchema({
     feedbackAskedAt: v.optional(v.number()),
     /** Paid time given through a partner deal (not paid in the app), shown on the Billing page. */
     partner: v.optional(v.object({ name: v.string(), url: v.string(), from: v.number(), until: v.number() })),
+    /** The secret in this person's one-click unsubscribe link, made the first time a daily email goes out. */
+    unsubKey: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
-    .index("by_approved", ["approved"]),
+    .index("by_approved", ["approved"])
+    .index("by_unsubKey", ["unsubKey"]),
+
+  /**
+   * People who get the daily sales jobs email without an account: up to 3 titles, one place, their email (lowercase).
+   * `key` is the secret in their unsubscribe link. `off` once they unsubscribe; signing up again turns it back on.
+   */
+  subscribers: defineTable({
+    email: v.string(),
+    titles: v.array(v.string()),
+    location: v.string(),
+    key: v.string(),
+    off: v.optional(v.boolean()),
+    /** When the last jobs email went out, so the next one only holds roles found since. */
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_email", ["email"])
+    .index("by_key", ["key"]),
 
   /**
    * Paid time a partner gave someone, by email (lowercase). Applied straight away if they've signed up,

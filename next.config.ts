@@ -6,7 +6,11 @@ const nextConfig: NextConfig = {
   // The app moved to jobpipe.in: old addresses go there, except Google's ownership file, which must stay reachable.
   // Google's Connect Gmail screen names the address it returns to; this lets it be jobpipe.in, not the backend's.
   async rewrites() {
-    return [{ source: "/google/callback", destination: "https://cautious-sheep-495.convex.site/google/callback" }];
+    return [
+      { source: "/google/callback", destination: "https://cautious-sheep-495.convex.site/google/callback" },
+      // One-click unsubscribe from the jobs emails, on our own domain.
+      { source: "/unsubscribe", destination: "https://cautious-sheep-495.convex.site/unsubscribe" },
+    ];
   },
   async redirects() {
     return ["myjobpipe.vercel.app", "www.jobpipe.in"].map((host) => ({

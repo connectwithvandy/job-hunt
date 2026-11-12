@@ -16,7 +16,7 @@ export const appUrl = () => (env.APP_URL ?? "https://jobpipe.in").replace(/\/$/,
 export const EMAIL_RETRY_WAITS = [1000, 3000];
 
 /** Sends one email, trying again if Resend is busy or can't be reached. Throws with Resend's reason when it fails. */
-export async function sendEmail(msg: { to: string; subject: string; text: string; html?: string; bcc?: string }) {
+export async function sendEmail(msg: { to: string; subject: string; text: string; html?: string; bcc?: string; headers?: Record<string, string> }) {
   if (!env.RESEND_API_KEY) throw new Error("Email is off: RESEND_API_KEY isn't set.");
   // The same key on every try, so a try that worked but lost its reply can't send the email twice.
   const key = crypto.randomUUID();
@@ -26,7 +26,7 @@ export async function sendEmail(msg: { to: string; subject: string; text: string
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": key },
-        body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html, ...(msg.bcc ? { bcc: [msg.bcc] } : {}) }),
+        body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html, ...(msg.bcc ? { bcc: [msg.bcc] } : {}), ...(msg.headers ? { headers: msg.headers } : {}) }),
       });
       if (res.ok) return;
       const failure = new Error(`Resend said ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -401,41 +401,57 @@ Don't want these? Reply "stop" and I'll turn them off.
   return { subject, text };
 }
 
-export function alertsEmail(p: { name?: string; groups: { track: string; jobs: { title: string; company: string; where: string; fit?: number; id: string }[] }[] }) {
+export function alertsEmail(p: {
+  name?: string;
+  groups: { track: string; jobs: { title: string; company: string; where: string; fit?: number; id: string }[] }[];
+  searching?: string;
+  free?: boolean;
+  unsubscribeUrl?: string;
+}) {
   const word = p.name?.trim().split(/\s+/)[0];
   const first = word && word[0].toUpperCase() + word.slice(1).toLowerCase();
   const count = p.groups.reduce((n, g) => n + g.jobs.length, 0);
-  const subject = `${count} new ${count === 1 ? "role" : "roles"} for you today${first ? `, ${first}` : ""}`;
+  // Led by the role group with the most, like "SDR / BDR: 4 new, plus 2 more", so the subject says what's inside.
+  const lead = [...p.groups].sort((a, b) => b.jobs.length - a.jobs.length)[0];
+  const more = count - (lead?.jobs.length ?? 0);
+  const subject = lead
+    ? `${first ? `${first}, ` : ""}${lead.track}: ${lead.jobs.length} new ${lead.jobs.length === 1 ? "role" : "roles"}${more ? ` + ${more} more` : ""}`
+    : `${count} new roles for you today`;
   const url = appUrl();
   const line = (j: { title: string; company: string; where: string; fit?: number }) => `${j.title}, ${j.company} (${j.where})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}`;
+  const where = p.searching ? `Searching: ${p.searching}. Change it on your Roles page.` : "";
+  const upsell = p.free ? `On the free plan, ${FREE.scoresPerDay} of these get an AI score a day. The Week Pass (₹${PLANS.week}) scores them all and writes a tailored CV for each.` : "";
+  const stop = p.unsubscribeUrl ? `Don't want these? Unsubscribe in one click: ${p.unsubscribeUrl}` : `Don't want these? Reply "stop" and I'll turn them off.`;
   const text = `${first ? `Hi ${first},` : "Hi,"}
 
 New roles matching your titles since yesterday, best first:
 
-${p.groups.map((g) => `${g.track}\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}`).join("\n")}`).join("\n\n")}
+${p.groups.map((g) => `${g.track} (${g.jobs.length} new)\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}`).join("\n")}`).join("\n\n")}
 
 Open one to see why it fits, tailor your CV and find who to ask for an intro.
-
+${where ? `\n${where}\n` : ""}${upsell ? `\n${upsell} ${url}/billing\n` : ""}
 All your roles: ${url}/jobs
 
 Vandy
 Founder, JobPipe
 
-Don't want these? Reply "stop" and I'll turn them off.
+${stop}
 `;
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
 <p>${esc(first ? `Hi ${first},` : "Hi,")}</p>
 <p>New roles matching your titles since yesterday, best first:</p>
 ${p.groups
   .map(
-    (g) => `<p style="margin:20px 0 6px;font-weight:600">${esc(g.track)}</p>
+    (g) => `<p style="margin:20px 0 6px;font-weight:600">${esc(g.track)} <span style="color:#666;font-weight:400">(${g.jobs.length} new)</span></p>
 <ul style="margin:0;padding-left:18px">${g.jobs.map((j) => `<li style="margin:4px 0"><a href="${esc(`${url}/jobs/${j.id}`)}" style="color:#1a1a1a;font-weight:600">${esc(j.title)}</a>, ${esc(j.company)} <span style="color:#666">(${esc(j.where)})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}</span></li>`).join("")}</ul>`,
   )
   .join("\n")}
 <p>Open one to see why it fits, tailor your CV and find who to ask for an intro.</p>
+${where ? `<p style="color:#666;font-size:13px">${esc(where)}</p>` : ""}
+${upsell ? `<p style="background:#f4ffe0;border-radius:8px;padding:10px 14px">${esc(upsell)} <a href="${esc(`${url}/billing`)}" style="color:#1a1a1a;font-weight:600">Get the Week Pass</a></p>` : ""}
 <p style="margin:24px 0"><a href="${esc(`${url}/jobs`)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">See all your roles</a></p>
 <p>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a></span></p>
-<p style="color:#999;font-size:12px">Don't want these? Reply "stop" and I'll turn them off.</p>
+<p style="color:#999;font-size:12px">${p.unsubscribeUrl ? `Don't want these? <a href="${esc(p.unsubscribeUrl)}" style="color:#999">Unsubscribe in one click</a>.` : `Don't want these? Reply "stop" and I'll turn them off.`}</p>
 </div>`;
   return { subject, text, html };
 }
@@ -533,6 +549,64 @@ Founder, JobPipe
 <p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Create my account</a></p>
 <p>${esc(body[2])}</p>
 <p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
+
+/** The link that stops jobs emails in one click, and the headers that let Gmail show its own Unsubscribe button. */
+export function unsubscribeLink(key: string) {
+  const url = `${appUrl()}/unsubscribe?k=${encodeURIComponent(key)}`;
+  return { url, headers: { "List-Unsubscribe": `<${url}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } };
+}
+
+type SubJob = { title: string; company: string; where: string; url: string };
+
+/**
+ * The jobs email for people without an account: roles grouped under the titles they picked, straight to each
+ * company's own posting, and one line on what an account adds. `first` is the email sent the moment they sign up.
+ */
+export function subscriberEmail(p: { email: string; place: string; groups: { title: string; jobs: SubJob[] }[]; unsubscribeUrl: string; first?: boolean }) {
+  const count = p.groups.reduce((n, g) => n + g.jobs.length, 0);
+  const where = /^(anywhere|india)$/i.test(p.place) ? "in India" : /^remote$/i.test(p.place) ? "remote and open to India" : `in ${p.place}`;
+  const lead = p.groups.find((g) => g.jobs.length) ?? p.groups[0];
+  const more = count - (lead?.jobs.length ?? 0);
+  const subject = p.first
+    ? count
+      ? `${count} open sales ${count === 1 ? "job" : "jobs"} to start with`
+      : "You're signed up for new sales jobs"
+    : `${lead.title}: ${lead.jobs.length} new ${lead.jobs.length === 1 ? "job" : "jobs"}${more ? `, plus ${more} more` : ""}`;
+  const intro = p.first
+    ? count
+      ? `You're signed up. Here are open jobs for your titles, ${where}, right now. From tomorrow you'll only get new ones, once a day.`
+      : `You're signed up. Nothing open ${where} matches your titles right now, so I'll email you as soon as a new one appears.`
+    : `New sales jobs for your titles, ${where}, since yesterday, straight from each company's careers page:`;
+  const signUp = `${appUrl()}/?email=${encodeURIComponent(p.email)}`;
+  const pitch = "Want each job scored against your CV, and your CV tailored for it in one click? That's what a free JobPipe account does. Try it free for 7 days:";
+  const groups = p.groups.filter((g) => g.jobs.length);
+  const text = `Hi,
+
+${intro}
+
+${groups.map((g) => `${g.title} (${g.jobs.length})\n${g.jobs.map((j) => `- ${j.title}, ${j.company} (${j.where})\n  ${j.url}`).join("\n")}`).join("\n\n")}${groups.length ? "\n\n" : ""}${pitch} ${signUp}
+
+Vandy
+Founder, JobPipe
+
+You signed up for these at jobpipe.in. Unsubscribe in one click: ${p.unsubscribeUrl}
+`;
+  const html = `<div style="${STYLE}">
+<p>Hi,</p>
+<p>${esc(intro)}</p>
+${groups
+  .map(
+    (g) => `<p style="margin:20px 0 6px;font-weight:600">${esc(g.title)} (${g.jobs.length})</p>
+<ul style="margin:0;padding-left:18px">${g.jobs.map((j) => `<li style="margin:4px 0"><a href="${esc(j.url)}" style="color:#1a1a1a;font-weight:600">${esc(j.title)}</a>, ${esc(j.company)} <span style="color:#666">(${esc(j.where)})</span></li>`).join("")}</ul>`,
+  )
+  .join("\n")}
+<p style="margin-top:24px">${esc(pitch)}</p>
+<p style="margin:16px 0 24px"><a href="${esc(signUp)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Try JobPipe free</a></p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a></span></p>
+<p style="color:#999;font-size:12px">You signed up for these at jobpipe.in. <a href="${esc(p.unsubscribeUrl)}" style="color:#999">Unsubscribe in one click</a>.</p>
 </div>`;
   return { subject, text, html };
 }

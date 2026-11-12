@@ -33,6 +33,9 @@ crons.cron("new roles emails", "0 4 * * *", internal.alerts.send, {});
 // 12:30 IST: a catch-up for anyone the 9:30 run missed. People who got one in the last 20 hours are skipped (alerts.candidates).
 crons.cron("new roles emails catch-up", "0 7 * * *", internal.alerts.send, {});
 
+// 9:45 IST: new sales jobs for people signed up by email without an account (subscriberSend.ts).
+crons.cron("subscriber jobs emails", "15 4 * * *", internal.subscriberSend.sendDaily, {});
+
 // 10:30 in India (05:00 UTC): a personal check-in two days before someone's free week ends (trial.ts).
 crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
 

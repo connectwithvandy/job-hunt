@@ -78,6 +78,8 @@ import type * as serviceCheck from "../serviceCheck.js";
 import type * as shoutout from "../shoutout.js";
 import type * as stats from "../stats.js";
 import type * as stories from "../stories.js";
+import type * as subscriberSend from "../subscriberSend.js";
+import type * as subscribers from "../subscribers.js";
 import type * as surveys from "../surveys.js";
 import type * as trial from "../trial.js";
 import type * as users from "../users.js";
@@ -159,6 +161,8 @@ declare const fullApi: ApiFromModules<{
   shoutout: typeof shoutout;
   stats: typeof stats;
   stories: typeof stories;
+  subscriberSend: typeof subscriberSend;
+  subscribers: typeof subscribers;
   surveys: typeof surveys;
   trial: typeof trial;
   users: typeof users;

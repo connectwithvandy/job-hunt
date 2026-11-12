@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LEGAL } from "@/lib/legal";
 import { ROLE_PAGES } from "@/lib/rolePages";
+import { JobsByEmail } from "@/components/JobsByEmail";
 
 /** The frame around the sales-jobs guides: logo, sign-up and free review buttons, links to the other guides. */
 export function RoleLayout({ children, current }: { children: React.ReactNode; current?: string }) {
@@ -16,7 +17,10 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
         </Link>
       </header>
       <main className="mt-12">{children}</main>
-      <section className="card mt-14 p-8">
+      <div className="mt-14">
+        <JobsByEmail />
+      </div>
+      <section className="card mt-6 p-8">
         <h2 className="display text-2xl">Let JobPipe run the search for you</h2>
         <p className="mt-2 text-ink-2">
           Upload your CV and pick your roles. Every morning JobPipe finds new jobs, scores each one against your CV with a reason, tailors your CV and shows who you know there.

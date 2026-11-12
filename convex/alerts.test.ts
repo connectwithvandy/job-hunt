@@ -50,9 +50,14 @@ test("new-roles email: today's new jobs with a title in their groups, unless the
     { track: "Sales Development Leadership", jobs: [expect.objectContaining({ title: "Sales Development Manager" })] },
   ]);
   expect(due[0].groups[1].jobs[0].fit).toBeUndefined();
-  const mail = alertsEmail(due[0]);
-  expect(mail.subject).toBe("2 new roles for you today, Asha");
+  expect(due[0].searching).toBeTruthy();
+  expect(due[0].free).toBe(false);
+  const mail = alertsEmail({ ...due[0], unsubscribeUrl: "https://jobpipe.in/unsubscribe?k=abc" });
+  expect(mail.subject).toBe("Asha, SDR / BDR: 1 new role + 1 more");
   expect(mail.text).toContain("/jobs/");
+  expect(mail.text).toContain("Unsubscribe in one click: https://jobpipe.in/unsubscribe?k=abc");
+  expect(mail.text).not.toContain("Week Pass");
+  expect(alertsEmail({ ...due[0], free: true }).text).toContain("Week Pass (₹349)");
 });
 
 test("no email when nothing new is relevant", async () => {

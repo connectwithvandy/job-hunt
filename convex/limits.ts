@@ -44,6 +44,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   freeAddJob: { kind: "fixed window", rate: FREE.addedJobsPerDay, period: DAY },
   // The free CV review on /cv-review, for everyone together: caps what strangers can spend on AI in a day.
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
+  // Sign-ups to the jobs email without an account, for everyone together: stops a script filling the list with strangers.
+  subscribe: { kind: "fixed window", rate: 100, period: DAY },
   // Error reports from browsers: enough to spot a real crash, not enough for a loop to flood the table.
   appError: { kind: "fixed window", rate: 30, period: DAY },
   /** Fresh job alerts for the whole app, leaving room in the email plan's daily limit for everything else. */

@@ -76,4 +76,40 @@ http.route({
   }),
 });
 
+/**
+ * Unsubscribe from the jobs emails (jobpipe.in/unsubscribe rewrites here). Opening the link only shows a button,
+ * because mail scanners open links on their own; pressing it, or Gmail's one-click Unsubscribe (a POST), stops them.
+ */
+const page = (title: string, body: string) =>
+  new Response(
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · JobPipe</title><meta name="robots" content="noindex"></head><body style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;background:#0b0b0f;color:#f2f2f2;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:16px"><div style="max-width:420px;text-align:center"><h1 style="font-size:22px">${title}</h1>${body}<p style="margin-top:28px"><a href="https://jobpipe.in" style="color:#c6ff3d">jobpipe.in</a></p></div></body></html>`,
+    { headers: { "content-type": "text/html; charset=utf-8" } },
+  );
+
+const keyOf = (req: Request) => (new URL(req.url).searchParams.get("k") ?? "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 64);
+
+http.route({
+  path: "/unsubscribe",
+  method: "GET",
+  handler: httpAction(async (_ctx, req) => {
+    const k = keyOf(req);
+    if (!k) return page("Link not complete", "<p>This unsubscribe link is missing its code. Reply to any of our emails with \"stop\" and I'll turn them off.</p>");
+    return page(
+      "Stop the jobs emails?",
+      `<form method="post" action="/unsubscribe?k=${k}"><button style="background:#c6ff3d;color:#0b0b0f;border:0;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:600;cursor:pointer">Unsubscribe</button></form>`,
+    );
+  }),
+});
+
+http.route({
+  path: "/unsubscribe",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const done = await ctx.runMutation(internal.subscribers.unsubscribe, { key: keyOf(req) });
+    return done
+      ? page("You're unsubscribed", "<p>No more jobs emails. Changed your mind? Sign up again any time on jobpipe.in.</p>")
+      : page("Link not recognised", "<p>This link may be old. Reply to any of our emails with \"stop\" and I'll turn them off.</p>");
+  }),
+});
+
 export default http;
