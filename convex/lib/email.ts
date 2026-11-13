@@ -648,3 +648,21 @@ ${outro.map((t) => `<p>${esc(t)}</p>`).join("\n")}
 </div>`;
   return { subject, text, html };
 }
+
+/**
+ * A short hand-written note from the founder as a proper email: paragraphs flow (no breaks mid-sentence),
+ * and a closing "Vandy" becomes the signature with the JobPipe name in its colours. Text, not an image,
+ * so it shows in every inbox, and small, so a personal note doesn't read like a newsletter.
+ */
+export function noteEmail(text: string) {
+  const paras = text.trim().split(/\n\s*\n/).map((p) => p.replace(/\s*\n\s*/g, " ").trim());
+  const body = /^vandy$/i.test(paras[paras.length - 1] ?? "") ? paras.slice(0, -1) : paras;
+  const url = appUrl();
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+${body.map((p) => `<p style="margin:0 0 14px">${esc(p)}</p>`).join("\n")}
+<p style="margin:22px 0 0">Vandy<br><span style="color:#666;font-size:13px">Founder, <a href="${url}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
+<p style="margin:14px 0 0"><a href="${url}" style="text-decoration:none;font-weight:800;letter-spacing:1px;font-size:14px;color:#ffffff;background:#0b0b0f;padding:4px 9px;border-radius:5px">JOBPIPE<span style="color:#c6ff3d">.</span></a></p>
+</div>`;
+  const plain = `${body.join("\n\n")}\n\nVandy\nFounder, JobPipe\n${url}`;
+  return { text: plain, html };
+}

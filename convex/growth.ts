@@ -11,7 +11,7 @@ import { healthSection } from "./lib/health";
 import { CAREER_BOARDS } from "./lib/careerBoards";
 import { AGGREGATORS, companyKey, roleKey } from "./lib/company";
 import { searchJobs, searchPosts } from "./lib/apify";
-import { appUrl, emailOn, feedbackEmail, sendEmail, setupNudgeEmail, setupReminderEmail } from "./lib/email";
+import { appUrl, emailOn, feedbackEmail, noteEmail, sendEmail, setupNudgeEmail, setupReminderEmail } from "./lib/email";
 import { isLender } from "./lib/quickFit";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
@@ -657,7 +657,7 @@ export const sendNote = internalAction({
       console.log("Note skipped, already set up:", note.email);
       return null;
     }
-    await sendEmail({ to: note.email, subject: note.subject, text: note.text });
+    await sendEmail({ to: note.email, subject: note.subject, ...noteEmail(note.text) });
     console.log("Note sent:", note.email);
     return null;
   },
