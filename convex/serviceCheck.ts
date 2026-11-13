@@ -70,7 +70,12 @@ export const watch = internalAction({
   args: { dryRun: v.optional(v.boolean()) },
   returns: v.string(),
   handler: async (ctx, { dryRun }) => {
-    const facts = await check(ctx);
+    let facts = await check(ctx);
+    // A passing blip (13 Nov: one Dreamwork timeout) isn't worth an email: look again 2 minutes later.
+    if (servicesDown(facts) && !dryRun) {
+      await new Promise((done) => setTimeout(done, 120_000));
+      facts = await check(ctx);
+    }
     const { text } = servicesSection(facts);
     if (!servicesDown(facts)) return `All up.\n${text}`;
     const owner = (env.OWNER_EMAILS ?? "").split(",").map((s) => s.trim()).filter(Boolean)[0];
