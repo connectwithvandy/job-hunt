@@ -135,7 +135,7 @@ export default function Billing() {
                 <p className="mt-2 flex-1 text-sm text-ink-2">{note}</p>
                 <button className="btn btn-primary mt-4" disabled={busy !== null} onClick={() => void pay(key)}>
                   {busy === key && <Spinner />}
-                  {busy === key ? "Opening payment…" : covered ? `Add ${key === "month" ? "1 month" : p.label}` : `Pay ₹${p.rupees.toLocaleString("en-IN")}`}
+                  {busy === key ? "Opening payment…" : covered ? { week: "Add a week", month: "Add 1 month", pass: "Add 3 months" }[key] : `Pay ₹${p.rupees.toLocaleString("en-IN")}`}
                 </button>
               </section>
             );
