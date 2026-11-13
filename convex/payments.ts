@@ -104,6 +104,11 @@ export const markPaid = internalMutation({
     // Paying early adds to the time already paid for, so nobody loses days.
     const until = Math.max(now, row?.paidUntil ?? 0) + priceOf(payment.plan as PlanKey, payment.founding).days * DAY;
     if (row) await ctx.db.patch("access", row._id, { paidUntil: until });
+    else {
+      // Paid before joining the list: make their row now so the money still turns the plan on.
+      const user = await ctx.db.get("users", payment.userId);
+      await ctx.db.insert("access", { userId: payment.userId, email: user?.email ?? "", approved: true, paidUntil: until });
+    }
     await ctx.db.patch("payments", payment._id, { status: "paid", paymentId, paidAt: now, until });
     return until;
   },

@@ -84,3 +84,13 @@ test("founding prices stop after the founding seats fill, but stay for those who
   expect((await t.query(internal.payments.orderFacts, { userId: late })).founding).toBe(false);
   expect((await t.query(internal.payments.orderFacts, { userId: ids[0] })).founding).toBe(true);
 });
+
+test("paying before joining the list still turns the plan on", async () => {
+  const t = setup();
+  const userId = await t.run(async (ctx) => await ctx.db.insert("users", { email: "early@example.com" }));
+  await t.mutation(internal.payments.recordOrder, { userId, orderId: "order_e", plan: "week", amount: 34_900, founding: false });
+  const until = await t.mutation(internal.payments.markPaid, { orderId: "order_e", paymentId: "pay_e" });
+  const row = await t.run(async (ctx) => await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique());
+  expect(row?.paidUntil).toBe(until);
+  expect(row?.approved).toBe(true);
+});
