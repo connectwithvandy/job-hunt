@@ -610,3 +610,41 @@ ${groups
 </div>`;
   return { subject, text, html };
 }
+
+/**
+ * Two days after a free CV review, once: their score, five open roles for the role they picked, and why each
+ * job needs its own version of the CV. Signed by the founder; replies come to her.
+ */
+export function cvFollowUpEmail(p: { role: string; score: number; jobs: { title: string; company: string; where: string; url: string }[] }) {
+  const subject = p.jobs.length ? `Your CV review, and ${p.jobs.length} ${p.role} roles open now` : "Your CV review: the next step";
+  const link = `${appUrl()}/?signin=1`;
+  const intro = [
+    `Recently you had your CV reviewed on JobPipe for ${p.role} roles. It scored ${p.score} out of 100.`,
+    "Fixing the CV is step one. Step two is a version of it for each job: hiring managers look for their own words, so the same CV sent everywhere gets passed over.",
+  ];
+  const listIntro = p.jobs.length ? `Here are ${p.jobs.length} ${p.role} roles open in India right now:` : "";
+  const outro = [
+    "JobPipe finds roles like these every morning, scores each against your CV, and writes a version of your CV for each job. It's free to start.",
+    "This is the only follow-up I'll send about your review. If you have a question, just reply: it comes to me.",
+  ];
+  const text = `Hi,
+
+${intro.join("\n\n")}
+${listIntro ? `\n${listIntro}\n\n${p.jobs.map((j) => `- ${j.title} at ${j.company} (${j.where})\n  ${j.url}`).join("\n")}\n` : ""}
+${outro.join("\n\n")}
+
+Start free: ${link}
+
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>Hi,</p>
+${intro.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+${listIntro ? `<p>${esc(listIntro)}</p>\n<ul style="padding-left:18px">${p.jobs.map((j) => `<li style="margin-bottom:6px"><a href="${esc(j.url)}" style="color:#1a1a1a;font-weight:600">${esc(j.title)}</a> at ${esc(j.company)} <span style="color:#666">(${esc(j.where)})</span></li>`).join("")}</ul>` : ""}
+${outro.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+<p style="margin:24px 0"><a href="${esc(link)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Start free</a></p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${appUrl()}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
+</div>`;
+  return { subject, text, html };
+}

@@ -39,6 +39,9 @@ crons.cron("new roles emails catch-up", "0 7 * * *", internal.alerts.send, {});
 // 9:45 IST: new sales jobs for people signed up by email without an account (subscriberSend.ts).
 crons.cron("subscriber jobs emails", "15 4 * * *", internal.subscriberSend.sendDaily, {});
 
+// 10:15 IST: one follow-up to people who had a free CV review 2+ days ago and haven't joined (cvReviewFollowUp.ts).
+crons.cron("cv review follow-ups", "45 4 * * *", internal.cvReviewFollowUp.send, {});
+
 // 10:30 in India (05:00 UTC): a personal check-in two days before someone's free week ends (trial.ts).
 crons.cron("trial check-ins", "0 5 * * *", internal.trial.sendCheckIns, {});
 

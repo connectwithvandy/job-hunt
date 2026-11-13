@@ -63,6 +63,8 @@ export default defineSchema({
     role: v.string(),
     score: v.number(),
     review: reviewValidator,
+    /** When the one follow-up email went (cvReviewFollowUp.ts), so nobody gets two. */
+    followedUpAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
   access: defineTable({

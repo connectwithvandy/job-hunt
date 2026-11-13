@@ -21,6 +21,7 @@ import type * as chats from "../chats.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
 import type * as cvReview from "../cvReview.js";
+import type * as cvReviewFollowUp from "../cvReviewFollowUp.js";
 import type * as cvReviews from "../cvReviews.js";
 import type * as cvTopJobs from "../cvTopJobs.js";
 import type * as emailFinder from "../emailFinder.js";
@@ -109,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   contacts: typeof contacts;
   crons: typeof crons;
   cvReview: typeof cvReview;
+  cvReviewFollowUp: typeof cvReviewFollowUp;
   cvReviews: typeof cvReviews;
   cvTopJobs: typeof cvTopJobs;
   emailFinder: typeof emailFinder;
