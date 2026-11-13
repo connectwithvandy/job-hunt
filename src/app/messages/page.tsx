@@ -50,7 +50,7 @@ export default function Messages() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <PageHead title="Messages" sub="Every note, email and referral ask you've written, across all your jobs. Send after you apply, mark what you sent, and follow up a week later: over half of replies come to a follow-up." />
+      <PageHead title="Messages" sub="Every note, email and referral ask you've written, across all your jobs. Send after you apply and mark what you sent. Follow up on a referral ask after 2 days and a hiring manager after a week: over half of replies come to a follow-up." />
       <div className="mb-5 flex flex-wrap gap-2">
         {tab("todo", "To send")}
         {tab("followup", "Follow up")}

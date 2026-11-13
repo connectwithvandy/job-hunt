@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 import { allGuideRoles, roleHref } from "@/lib/guideRoles";
 import { GUIDES_UPDATED, ROLE_PAGES } from "@/lib/rolePages";
 
-// Roles close during the day, so the sitemap is rebuilt every 6 hours; once a day left about 1 in 10 links dead.
-export const revalidate = 21600;
+// Roles close during the day, so the sitemap is rebuilt every hour: every 6 hours still left 24 of 225 links dead (13 Nov).
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const guides = ["/sales-jobs", ...ROLE_PAGES.map((r) => `/sales-jobs/${r.slug}`)];

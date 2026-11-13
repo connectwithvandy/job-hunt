@@ -683,7 +683,8 @@ export const messages = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(400);
+    // As many as the Jobs list reads: at 400, older jobs' referral asks and their follow-ups went missing (13 Nov).
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
     // Only jobs with something written need their details loaded.
     const written = jobs.filter((j) => j.status !== "dismissed" && (j.hasPack || j.pack || j.outreach.length)).slice(0, 150);
     const full = await Promise.all(written.map((j) => withDetails(ctx, j)));
