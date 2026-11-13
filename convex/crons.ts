@@ -16,6 +16,9 @@ crons.interval("quick job check", { minutes: 15 }, internal.careersRefresh.quick
 // Every hour: the boards too heavy to check that often.
 crons.cron("fresh jobs", "30 * * * *", internal.careersRefresh.refresh, { fresh: true });
 
+// 7:35 in India: today's Google Jobs sales roles (Naukri, Indeed and company pages) into the shared list.
+crons.cron("google pool", "5 2 * * *", internal.careersRefresh.googlePool, {});
+
 // 7:40 in India: today's LinkedIn sales roles into the same shared list, before the morning run reads it.
 crons.cron("linkedin pool", "10 2 * * *", internal.careersRefresh.linkedInPool, {});
 

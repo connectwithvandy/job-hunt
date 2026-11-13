@@ -125,3 +125,48 @@ export async function searchJobs(queries: string[], where: string | undefined, r
     }];
   });
 }
+
+type RawGoogleJob = {
+  jobId?: string;
+  title?: string;
+  companyName?: string;
+  location?: string;
+  remote?: boolean;
+  description?: string;
+  applyUrl?: string;
+  applyLinks?: { board?: string; url?: string }[] | null;
+  postedDate?: string;
+  salaryRaw?: string | null;
+};
+
+export type GoogleJob = {
+  id: string; title: string; company: string; location: string; workSetting?: string;
+  salary?: string; postedAt?: string; links: string[]; description?: string;
+};
+
+/**
+ * Google Jobs listings in India for one search, posted today: Google gathers Naukri, Indeed, LinkedIn and
+ * companies' own pages, so this reaches roles our careers-board readers miss. About $2.50 per 1,000 jobs
+ * plus $0.005 a run (actor memo23/google-jobs-scraper); `maxUsd` caps each run.
+ */
+export async function searchGoogleJobs(query: string, max: number, maxUsd: number): Promise<GoogleJob[]> {
+  const rows = await run<RawGoogleJob>("memo23~google-jobs-scraper", { keywords: [query], locations: [], country: "in", language: "en", datePosted: "today", maxItems: max }, maxUsd);
+  const seen = new Set<string>();
+  return rows.flatMap((j): GoogleJob[] => {
+    if (!j.jobId || !j.title || !j.companyName || seen.has(j.jobId)) return [];
+    seen.add(j.jobId);
+    // Apify sends null for missing fields; the database takes a missing field, never null.
+    const links = [j.applyUrl, ...(j.applyLinks ?? []).map((l) => l.url)].filter((u): u is string => !!u && /^https?:\/\//i.test(u));
+    return [{
+      id: j.jobId,
+      title: j.title.trim(),
+      company: j.companyName.trim(),
+      location: j.location?.trim() || "India",
+      workSetting: j.remote ? "remote" : undefined,
+      salary: j.salaryRaw || undefined,
+      postedAt: j.postedDate || undefined,
+      links: [...new Set(links)],
+      description: j.description || undefined,
+    }];
+  });
+}

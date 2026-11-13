@@ -3,7 +3,7 @@
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { type ActionCtx, env, internalAction } from "./_generated/server";
-import { searchJobs } from "./lib/apify";
+import { searchGoogleJobs, searchJobs } from "./lib/apify";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { boardFingerprint, boardKey, FAST_ATS, readBoard, type CareerJob } from "./lib/careers";
 import { AGGREGATORS } from "./lib/company";
@@ -60,6 +60,54 @@ export const linkedInPool = internalAction({
     for (let i = 0; i < old.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: old.slice(i, i + 200) });
     console.log(`LinkedIn pool: ${found.length} found, ${jobs.length} saved, ${old.length} old ones removed.`);
     return null;
+  },
+});
+
+// [search, how many to read]. India, posted today. SDR/BDR and AE first: most members' roles, and the ones
+// careers boards list least (13 Nov: 131 SDR roles in India from boards). About $2.50 per 1,000 jobs.
+const GOOGLE_SEARCHES: [string, number][] = [
+  ["sales development representative OR business development representative OR inside sales", 60],
+  ["account executive OR sales executive", 60],
+  ["sales manager OR business development manager OR account manager", 40],
+];
+
+/**
+ * Before the morning run: today's Google Jobs sales roles in India, saved beside the careers-board and LinkedIn
+ * roles so everyone's search finds them. About $0.40 a day, capped at $0.50. Like LinkedIn's, only roles with
+ * the company's own apply link are kept, because every saved job has to open the company's posting (lib/directLink.ts).
+ */
+export const googlePool = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    if (!env.APIFY_TOKEN) return null;
+    const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
+    if (!titles.length) return null;
+    const settled = await Promise.allSettled(GOOGLE_SEARCHES.map(([q, n]) => searchGoogleJobs(q, n, (n / 1000) * 3 + 0.01)));
+    settled.forEach((r, i) => r.status === "rejected" && console.warn("Google pool search failed:", i, String(r.reason)));
+    const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    const jobs = [...new Map(found.map((j) => [j.id, j])).values()]
+      .map((j) => ({ ...j, link: j.links.find((u) => isCompanyLink(u)) }))
+      .filter((j) => !!j.link && !AGGREGATORS.test(j.company) && titles.some((t) => titleMatches(t, j.title)))
+      .map((j) => ({
+        // "gjobs:", not "google:": Google's own careers board already uses that.
+        externalId: `gjobs:${j.id}`.slice(0, 200),
+        company: j.company,
+        title: j.title,
+        location: j.location,
+        workSetting: j.workSetting,
+        salary: j.salary,
+        postedAt: j.postedAt,
+        url: j.link!,
+        india: openTo(INDIA, j.location, j.workSetting, j.title),
+        description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, ""),
+      }))
+      .filter((j) => j.india);
+    for (let i = 0; i < jobs.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: jobs.slice(i, i + 50) });
+    const old: string[] = await ctx.runQuery(internal.careers.oldGoogle, { before: Date.now() - KEEP_LINKEDIN_DAYS * 86_400_000 });
+    for (let i = 0; i < old.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: old.slice(i, i + 200) });
+    const boardOnly = found.filter((j) => !j.links.some((u) => isCompanyLink(u))).length;
+    console.log(`Google pool: ${found.length} found, ${jobs.length} saved, ${boardOnly} only on job boards, ${old.length} old ones removed.`);
+    return { found: found.length, saved: jobs.length, boardOnly };
   },
 });
 

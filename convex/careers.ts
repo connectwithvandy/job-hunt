@@ -110,8 +110,20 @@ const careerJobV = v.object({
 
 /** Starts the id of a role saved from the shared LinkedIn search. These stay inside the app, off the public guide pages. */
 const LINKEDIN_ROLE = "linkedin:";
+/** Roles from the shared daily searches (LinkedIn, Google Jobs): not on any careers board, so a board refresh leaves them alone. */
+const POOLED = [LINKEDIN_ROLE, "gjobs:"];
 
 /** Roles from the shared LinkedIn search saved before this time, oldest first. */
+/** Google Jobs pool roles saved before `before`: taken out after a month, like LinkedIn's. */
+export const oldGoogle = internalQuery({
+  args: { before: v.number() },
+  returns: v.array(v.string()),
+  handler: async (ctx, { before }) => {
+    const rows = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.gte("externalId", "gjobs:").lt("externalId", "gjobs;")).take(1000);
+    return rows.filter((r) => r._creationTime < before).map((r) => r.externalId);
+  },
+});
+
 export const oldLinkedIn = internalQuery({
   args: { before: v.number() },
   returns: v.array(v.string()),
@@ -166,8 +178,8 @@ export const linksFor = internalQuery({
   args: { company: v.string() },
   handler: async (ctx, { company }) => {
     const rows = await ctx.db.query("careerJobs").withIndex("by_company", (q) => q.eq("company", company)).take(3000);
-    // Roles from the shared LinkedIn search aren't on the company's board list, so a board refresh must not close them.
-    return rows.filter((r) => !r.externalId.startsWith(LINKEDIN_ROLE)).map((r) => ({ externalId: r.externalId, url: r.url }));
+    // Roles from the shared LinkedIn and Google searches aren't on the company's board list, so a board refresh must not close them.
+    return rows.filter((r) => !POOLED.some((p) => r.externalId.startsWith(p))).map((r) => ({ externalId: r.externalId, url: r.url }));
   },
 });
 
@@ -187,7 +199,7 @@ export const addJobs = internalMutation({
       }
       await ctx.db.insert("careerJobs", job);
       // A LinkedIn role's apply link often opens the company's own board: read that board every morning from now on.
-      if (job.externalId.startsWith("linkedin:")) await noteBoard(ctx, job.company, [job.url]);
+      if (POOLED.some((p) => job.externalId.startsWith(p))) await noteBoard(ctx, job.company, [job.url]);
       if (description) await ctx.db.insert("careerJobTexts", { externalId: job.externalId, description });
       // The same title back after it was taken down is a repost.
       const key = roleKey(job.company, job.title);
