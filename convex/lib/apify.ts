@@ -5,14 +5,14 @@ import { ConvexError } from "convex/values";
 import { env } from "../_generated/server";
 
 /** Runs an Apify actor and waits for its results. `maxUsd` stops it charging past that. */
-async function run<T>(actor: string, input: Record<string, unknown>, maxUsd: number): Promise<T[]> {
+async function run<T>(actor: string, input: Record<string, unknown>, maxUsd: number, seconds = 150): Promise<T[]> {
   if (!env.APIFY_TOKEN) throw new ConvexError("LinkedIn reading isn't switched on: add an Apify token first.");
-  const params = new URLSearchParams({ timeout: "150", maxTotalChargeUsd: String(maxUsd) });
+  const params = new URLSearchParams({ timeout: String(seconds), maxTotalChargeUsd: String(maxUsd) });
   const res = await fetch(`https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?${params}`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${env.APIFY_TOKEN}` },
     body: JSON.stringify(input),
-    signal: AbortSignal.timeout(170_000),
+    signal: AbortSignal.timeout((seconds + 20) * 1000),
   }).catch(() => null);
   if (!res) throw new ConvexError("Apify didn't answer. Try again in a minute.");
   if (!res.ok) {
@@ -111,6 +111,8 @@ export async function searchJobs(queries: string[], where: string | undefined, r
     "harvestapi~linkedin-job-search",
     { jobTitles: queries, ...(where ? { locations: [where] } : {}), ...(remote ? { workplaceType: ["remote"] } : {}), postedLimit: since, sortBy: "date", maxItems: perQuery },
     maxUsd,
+    // The shared pool reads up to 120 a search, which ran past 150 seconds (13 Nov: 3 of 5 timed out).
+    shared ? 300 : 150,
   );
   const seen = new Set<string>();
   return rows.flatMap((j): LinkedInJob[] => {
@@ -157,7 +159,7 @@ export type GoogleJob = {
  * plus $0.005 a run (actor memo23/google-jobs-scraper); `maxUsd` caps each run.
  */
 export async function searchGoogleJobs(queries: string[], max: number, maxUsd: number): Promise<GoogleJob[]> {
-  const rows = await run<RawGoogleJob>("memo23~google-jobs-scraper", { keywords: queries, locations: [], country: "in", language: "en", datePosted: "3days", maxItems: max }, maxUsd);
+  const rows = await run<RawGoogleJob>("memo23~google-jobs-scraper", { keywords: queries, locations: [], country: "in", language: "en", datePosted: "3days", maxItems: max }, maxUsd, 300);
   const seen = new Set<string>();
   return rows.flatMap((j): GoogleJob[] => {
     if (!j.jobId || !j.title || !j.companyName || seen.has(j.jobId)) return [];
