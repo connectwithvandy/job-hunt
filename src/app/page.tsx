@@ -29,7 +29,6 @@ const APPLIES_A_DAY = 5;
 
 /** Jobs still worth chasing: not closed, not set aside. */
 const stillChasing = (status: string) => status !== "rejected" && status !== "dismissed" && status !== "offer";
-const LIVE = new Set(["applying", "applied", "screening", "interview", "offer"]);
 
 function msSince(when: number) {
   return Date.now() - when;
@@ -77,16 +76,8 @@ export default function Today() {
   // The name on the account first, so the greeting matches the menu; the CV name only if none was given.
   const firstName = (account?.name || me.resume?.name || "").split(" ")[0];
 
-  const stats = me.tracks.map((t) => {
-    const mine = jobs.filter((j) => jobTrackKey(j, me.tracks) === t.key && j.status !== "dismissed");
-    const applied = mine.filter((j) => LIVE.has(j.status) && j.status !== "applying");
-    const asks = mine.flatMap((j) => j.outreach.filter((o) => o.status !== "draft"));
-    const replies = asks.filter((o) => o.status === "replied" || o.status === "referred");
-    const interviews = mine.filter((j) => j.status === "interview" || j.status === "offer");
-    // Worth a look, not everything saved: AI 60+, or a strong first guess not scored yet (13 Nov: "In play 294" said nothing).
-    const good = mine.filter((j) => (j.status === "new" || j.status === "applying") && ((bestScore(j)?.score ?? -1) >= 60 || (!j.scores?.length && (j.quickFit ?? 0) >= 70)));
-    return { t, found: mine.length, good: good.length, applied: applied.length, asks: asks.length, replies: replies.length, interviews: interviews.length };
-  });
+  // An active role whose titles find nothing: worth fixing before anything else in step 2.
+  const emptyRoles = me.tracks.filter((t) => t.status === "active" && !jobs.some((j) => jobTrackKey(j, me.tracks) === t.key));
 
   const unscored = jobs.filter((j) => j.status === "new" && !j.scores?.length);
   // Found today isn't new: a role posted months ago is likely filled, and one in another city isn't for you.
@@ -185,6 +176,7 @@ export default function Today() {
       href: `/jobs/${j._id}`,
     }));
   const apply: Todo[] = [
+    ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
     // The free first guess is rough, so scoring comes before applying.
     ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} new ${freshUnscored === 1 ? "job" : "jobs"} first`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
     // AI-scored jobs first, new then older; first guesses after them, never ahead of a real score.
@@ -236,6 +228,7 @@ export default function Today() {
           {greeting()}
           {firstName ? `, ${firstName}` : ""}
         </h1>
+        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} />
       </header>
 
       {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
@@ -309,50 +302,13 @@ export default function Today() {
         empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections under People to see who you know at each company."}
       />
 
-      <Autopilot on={me.autopilot} last={me.lastAutopilot} />
 
       {/* Closed unless opened: Today is the to-do list. New jobs are step 2, so they aren't listed again here (13 Nov). */}
       <details className="mt-8">
         <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">
-          See more: your roles, what&apos;s working{learn ? ` (${noes} noes and silences to learn from)` : ""}, newly funded companies
+          See more: what&apos;s working{learn ? ` (${noes} noes and silences to learn from)` : ""}, newly funded companies
         </summary>
         <div className="mt-6">
-          <section className="mb-12">
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="display text-3xl">Your roles</h2>
-              <Link href="/tracks" className="text-sm text-ink-3 hover:text-ink">
-                Edit roles
-              </Link>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {stats.map(({ t, found, good, applied, asks, replies, interviews }) => (
-                <Link key={t._id} href={`/jobs?track=${t.key}`} className={`card group relative overflow-hidden p-5 transition-shadow hover:shadow-md ${t.status === "paused" ? "opacity-55" : ""}`}>
-                  <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.color, boxShadow: `0 0 18px ${t.color}` }} />
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="display text-xl leading-tight">{t.name}</h3>
-                    {t.status === "paused" && <span className="text-[11px] text-ink-3">Paused</span>}
-                  </div>
-                  <dl className="mt-5 grid grid-cols-2 gap-y-3 text-sm">
-                    <Stat label="Good fits" value={good} />
-                    <Stat label="Applied" value={applied} />
-                    <Stat label="Referrals asked" value={asks} />
-                    <Stat label="Replies" value={replies} />
-                  </dl>
-                  <p className="mt-4 border-t border-line pt-3 text-xs text-ink-2">
-                    {!found && t.status !== "paused"
-                      ? "No jobs found for this role yet. Edit its job titles to widen the search."
-                      : interviews
-                        ? `${interviews} in interviews`
-                        : asks >= SURE
-                          ? `${Math.round((replies / asks) * 100)}% reply rate`
-                          : asks
-                            ? `${replies} of ${asks} replied so far`
-                            : "No referral asks yet"}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </section>
           <WhatsWorking jobs={jobs} tracks={me.tracks} lessons={me.lessons} />
           <JustRaised prospects={prospects ?? []} />
         </div>
@@ -437,6 +393,7 @@ const VERB_TONE: Record<string, string> = {
   Send: "text-violet",
   Score: "text-pink",
   Prepare: "text-pink",
+  Fix: "text-pink",
   Connect: "text-ink-3",
 };
 
@@ -456,6 +413,8 @@ function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
 const SHOWN = 5;
 /** A percentage means something from this many results; below it, "1 of 3" says it honestly. */
 const SURE = 5;
+/** Splits by role, fit score and habit need this many results before they show a pattern (13 Nov: 9 results showed noise). */
+const PATTERNS = 10;
 
 /** The first five things to do, the rest one tap away: more read as a wall (13 Nov). */
 function TodoList({ items }: { items: Todo[] }) {
@@ -575,6 +534,7 @@ function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; tracks: 
         {total >= 3 ? "Fit scores now lean toward what gets replies." : "After three results, fit scores start learning from them too."}
       </p>
       <LessonsCard jobs={jobs} lessons={lessons} now={now} />
+      {total >= PATTERNS ? (
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
           <h3 className="font-medium">By role</h3>
@@ -602,6 +562,9 @@ function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; tracks: 
           <ul className="divide-y divide-line">{[...source].map(([label, t]) => line(label, t))}</ul>
         </div>
       </div>
+      ) : (
+        <p className="text-sm text-ink-3">Patterns by role, fit score and habit show after {PATTERNS} results. You have {total}.</p>
+      )}
     </section>
   );
 }
@@ -646,39 +609,37 @@ function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Les
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <dt className="text-xs text-ink-3">{label}</dt>
-      <dd className="display text-3xl leading-none tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
 /** The morning search-and-score switch, and what the last run found. */
-function Autopilot({ on, last }: { on: boolean; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
+function Autopilot({ on, last, now }: { now: number; on: boolean; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
-  return (
-    <section className="card mb-10 flex flex-wrap items-center gap-4 p-5">
-      <div className="flex-1">
-        <div className="font-medium">Morning autopilot {on ? "is on" : "is off"}</div>
-        <p className="mt-0.5 text-sm text-ink-2">
-          {!on
-            ? "Turn it on and every morning at 8 the app searches all your roles and scores what's new, so you start with a ranked list."
-            : last
-              ? `Last run ${timeAgo(new Date(last.at).toISOString())}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} new strong ${last.strong === 1 ? "fit" : "fits"} (75+)${last.funded ? `, ${last.funded} newly funded ${last.funded === 1 ? "company" : "companies"}` : ""}.`
-              : `First run is ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning, India time.`}
-        </p>
+  // Off: a clear card, since nothing arrives without it.
+  if (!on) {
+    return (
+      <div className="card mt-4 flex flex-wrap items-center gap-3 p-4 text-sm">
+        <p className="flex-1 text-ink-2">Morning search is off. Turn it on and every morning at 8 we search all your roles and score what&apos;s new.</p>
+        <button className="btn btn-primary btn-sm" onClick={() => void setAutopilot({ on: true })}>
+          Turn on
+        </button>
       </div>
-      {on && last && last.strong > 0 && (
-        <Link href="/jobs?fit=strong" className="btn btn-ghost btn-sm">
+    );
+  }
+  // On: one line under the greeting, what this morning brought, before the to-dos (13 Nov: it sat at the bottom).
+  return (
+    <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
+      <span>
+        {last
+          ? `${dayStart(now) <= last.at ? "This morning" : `Last search ${timeAgo(new Date(last.at).toISOString())}`}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"} (75+).`
+          : `Your first search runs ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
+      </span>
+      {last && last.strong > 0 && (
+        <Link href="/jobs?fit=strong" className="text-accent underline">
           See strong fits
         </Link>
       )}
-      <button className={`btn btn-sm ${on ? "btn-ghost" : "btn-primary"}`} onClick={() => void setAutopilot({ on: !on })}>
-        {on ? "Turn off" : "Turn on"}
+      <button className="text-xs text-ink-3 underline hover:text-ink" onClick={() => void setAutopilot({ on: false })}>
+        Turn off morning search
       </button>
-    </section>
+    </p>
   );
 }
 
