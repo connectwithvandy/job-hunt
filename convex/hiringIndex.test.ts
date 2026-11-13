@@ -48,3 +48,11 @@ test("two boards of one company merge only when they list the same roles", () =>
   expect(m("Metabase")).toBe("Metabase");
   expect(cleanCompany("3m")).toBe("3M");
 });
+
+test("two names with exactly the same roles are one company, under the longer name", () => {
+  const roles = ["AE", "SDR", "Sales Manager"];
+  const postings = roles.flatMap((title) => ["JCI", "Johnson Controls"].map((company) => ({ company, title, location: "Pune" })));
+  const m = mergeCompanies(["JCI", "Johnson Controls"], postings);
+  expect(m("JCI")).toBe("Johnson Controls");
+  expect(m("Johnson Controls")).toBe("Johnson Controls");
+});

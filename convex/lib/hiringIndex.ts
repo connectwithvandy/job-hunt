@@ -46,12 +46,17 @@ export function mergeCompanies(names: string[], postings: { company: string; tit
   for (const a of names) {
     for (const b of names) {
       const [ka, kb] = [a.toLowerCase().replace(/[^a-z0-9]/g, ""), b.toLowerCase().replace(/[^a-z0-9]/g, "")];
-      if (a === b || kb.length < 4 || !ka.startsWith(kb) || ka === kb) continue;
+      if (a === b || ka === kb) continue;
       const ra = roleSet.get(a);
       const rb = roleSet.get(b);
       if (!ra || !rb) continue;
       const shared = [...ra].filter((x) => rb.has(x)).length;
-      if (shared >= Math.min(ra.size, rb.size) / 2) same.set(a, b);
+      if (kb.length >= 4 && ka.startsWith(kb)) {
+        if (shared >= Math.min(ra.size, rb.size) / 2) same.set(a, b);
+      } else if (shared >= 3 && shared === ra.size && shared === rb.size && (b.length > a.length || (b.length === a.length && b < a))) {
+        // Exactly the same 3+ roles and places under two names ("JCI" and "Johnson Controls"): one company. The longer name stays.
+        same.set(a, b);
+      }
     }
   }
   return (name: string) => same.get(name) ?? (/\s/.test(name) ? (single.get(name.split(/\s+/)[0].toLowerCase()) ?? name) : name);
