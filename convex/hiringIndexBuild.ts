@@ -14,7 +14,7 @@ import { openTo, readPlace } from "./lib/sources";
 /** Job boards that repost other companies' roles aren't employers (as on the guides). */
 const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
 /** Recruitment agencies post for their clients, and a bare legal word isn't a company name: neither goes on a public page. */
-const NOT_EMPLOYER = /\b(hr solutions|hr services|human resources|hiring solutions|staffing|placements?|recruit\w*|consultan\w*|manpower|headhunt\w*|talent solutions|search partners|2coms)\b|hire$/i;
+const NOT_EMPLOYER = /\b(hr solutions|hr services|human resources|hiring solutions|staffing|placements?|recruit\w*|consultan\w*|manpower|headhunt\w*|talent solutions|search partners|2coms)\b|hire$|\bjobs$/i;
 const BAD_NAME = /^(llp|pvt|pvt ltd|ltd|inc|limited|private limited|company|careers?)$/i;
 const CITIES = [...CITY_CHOICES, "Remote"];
 
@@ -48,8 +48,15 @@ export const build = internalAction({
       }
       cursor = page.cursor;
     } while (cursor);
-    const merged = mergeCompanies([...new Set(roles.map((r) => r.company))]);
+    const merged = mergeCompanies([...new Set(roles.map((r) => r.company))], roles);
     for (const r of roles) r.company = merged(r.company);
+    // The same posting read from two boards of one company counts once.
+    const seenPosting = new Set<string>();
+    for (let i = roles.length - 1; i >= 0; i--) {
+      const k = `${roles[i].company}|${roles[i].title.toLowerCase()}|${roles[i].location.toLowerCase()}`;
+      if (seenPosting.has(k)) roles.splice(i, 1);
+      else seenPosting.add(k);
+    }
     const reposts = new Map<string, number>();
     const keys = [...new Set(roles.map((r) => r.key))];
     for (let i = 0; i < keys.length; i += 1000) {

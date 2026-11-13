@@ -26,6 +26,8 @@ export function cleanCompany(name: string) {
   let n = name.replace(/&amp;/gi, "&").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').trim();
   n = n.replace(/[\s,]+(private limited|pvt\.? ?ltd\.?|limited|ltd\.?|inc\.?|llp|llc)$/i, "").trim();
   if (n.length > 4 && n === n.toUpperCase() && /[A-Z]{4}/.test(n)) n = n.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+  // Short names are initials: "3m" is 3M.
+  if (n.length <= 3 && n === n.toLowerCase()) n = n.toUpperCase();
   // Some boards repeat the name ("Gamlaa Gamlaa").
   return n.replace(/^(.+?)\s+\1$/i, "$1");
 }
@@ -34,9 +36,25 @@ export function cleanCompany(name: string) {
  * One name per company: "Paytm Payments Services" goes under "Paytm" when both appear, because its first word is
  * another company's whole name. Single words never merge ("Metabase" stays apart from "Meta").
  */
-export function mergeCompanies(names: string[]) {
+export function mergeCompanies(names: string[], postings: { company: string; title: string; location: string }[] = []) {
   const single = new Map(names.filter((n) => !/\s/.test(n)).map((n) => [n.toLowerCase(), n]));
-  return (name: string) => (/\s/.test(name) ? (single.get(name.split(/\s+/)[0].toLowerCase()) ?? name) : name);
+  // "Dentsuaegis" and "Dentsu": one name starts with the other and they list the same roles, so they're one company
+  // read from two boards. Without the shared roles they stay apart ("Metabase" and "Meta").
+  const roleSet = new Map<string, Set<string>>();
+  for (const p of postings) roleSet.set(p.company, (roleSet.get(p.company) ?? new Set()).add(`${baseTitle(p.title)}|${p.location.toLowerCase()}`));
+  const same = new Map<string, string>();
+  for (const a of names) {
+    for (const b of names) {
+      const [ka, kb] = [a.toLowerCase().replace(/[^a-z0-9]/g, ""), b.toLowerCase().replace(/[^a-z0-9]/g, "")];
+      if (a === b || kb.length < 4 || !ka.startsWith(kb) || ka === kb) continue;
+      const ra = roleSet.get(a);
+      const rb = roleSet.get(b);
+      if (!ra || !rb) continue;
+      const shared = [...ra].filter((x) => rb.has(x)).length;
+      if (shared >= Math.min(ra.size, rb.size) / 2) same.set(a, b);
+    }
+  }
+  return (name: string) => same.get(name) ?? (/\s/.test(name) ? (single.get(name.split(/\s+/)[0].toLowerCase()) ?? name) : name);
 }
 
 /**

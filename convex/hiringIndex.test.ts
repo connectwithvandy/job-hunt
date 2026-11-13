@@ -35,3 +35,16 @@ test("one role in many cities is one role; company names are cleaned and merged"
   expect(m("Paytm Payments Services")).toBe("Paytm");
   expect(m("Metabase")).toBe("Metabase");
 });
+
+test("two boards of one company merge only when they list the same roles", () => {
+  const postings = [
+    { company: "Dentsu", title: "Sales Manager", location: "Mumbai" },
+    { company: "Dentsuaegis", title: "Sales Manager", location: "Mumbai" },
+    { company: "Meta", title: "Account Executive", location: "Gurugram" },
+    { company: "Metabase", title: "SDR", location: "Remote" },
+  ];
+  const m = mergeCompanies(["Dentsu", "Dentsuaegis", "Meta", "Metabase"], postings);
+  expect(m("Dentsuaegis")).toBe("Dentsu");
+  expect(m("Metabase")).toBe("Metabase");
+  expect(cleanCompany("3m")).toBe("3M");
+});
