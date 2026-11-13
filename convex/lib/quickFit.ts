@@ -115,13 +115,17 @@ export function quickFitParts(
   // A fresher or apprentice job shares the title but not the level: for someone years in, it's a poor fit.
   // And the other way: a director or VP role for a CV that shows no senior title and under five years.
   const level = senior && juniorTitle(job.title) ? 0.5 : !senior && vocab.size > 0 && LEADER_TITLE.test(job.title) ? 0.6 : 1;
-  return { titleShare, shared, cvShare, cvWeight, place, language, industry, level, reach };
+  // Kinds of job that share the title words but that the AI scores low for nearly everyone (13 Nov, 1,533 scored
+  // jobs): field sales by area or territory (4% scored 60+), a bare "Sales Manager" (5%), and partner, ops and
+  // customer success roles (10-15%). Shown lower, so they don't fill the top of the list.
+  const kind = (FIELD_SALES.test(job.title) ? 0.5 : 1) * (BARE_SALES_MANAGER.test(job.title) ? 0.7 : 1) * (SIDE_FUNCTION.test(job.title) ? 0.7 : 1);
+  return { titleShare, shared, cvShare, cvWeight, place, language, industry, level, reach, kind };
 }
 
 export type FitParts = Exclude<ReturnType<typeof quickFitParts>, number>;
 
 export function combineFit(p: FitParts) {
-  return Math.round((p.titleShare * 50 + p.cvShare * p.cvWeight + p.place * 15) * p.language * p.industry * p.level * p.reach);
+  return Math.round((p.titleShare * 50 + p.cvShare * p.cvWeight + p.place * 15) * p.language * p.industry * p.level * p.reach * p.kind);
 }
 
 // A bank or lender by name, and lending products by title. A title alone saying "Banking" is often a tech
@@ -135,5 +139,9 @@ export function isLender(title: string, company = "") {
   return (LENDER_COMPANY.test(company.replace(/_/g, " ")) || LENDER_TITLE.test(t)) && !TECH.test(t);
 }
 const TECH = /\b(saas|b2b|software|cloud|api|apis|startup|subscription|arr|cybersecurity|devops|martech|fintech|edtech|ai|artificial intelligence|machine learning|tech (company|startup|platform)|technology (company|platform))\b/i;
+
+const FIELD_SALES = /\b(area|regional|territory|zonal|branch|cluster|circle)\s+(sales|business|manager|head)\b|\bfield sales\b/i;
+const BARE_SALES_MANAGER = /^\s*((senior|sr\.?)\s+)?sales manager(\s+i{1,3})?\s*($|[-–(,])/i;
+const SIDE_FUNCTION = /\b(customer success|partners?|partnerships?|alliances?|channel|operations|ops)\b/i;
 
 const LANGUAGE = /\b(spanish|french|german|italian|portuguese|dutch|japanese|korean|mandarin|chinese|cantonese|arabic|turkish|polish|russian|swedish|danish|norwegian|finnish|hebrew|thai|vietnamese|indonesian|bahasa)\b|\b(dach|nordics|benelux)\b/i;

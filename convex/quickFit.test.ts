@@ -62,3 +62,13 @@ describe("place and work type follow the person's choices", () => {
     expect(office).toBeLessThan(any);
   });
 });
+
+test("field sales, a bare Sales Manager and side functions sit below a plain sales title", () => {
+  const titles = ["Sales Manager", "Business Development Manager", "Account Manager", "Partner Manager"];
+  const fit = (title: string) => quickFit({ title, location: "Bengaluru, India" }, new Set(), titles, "Bengaluru");
+  const plain = fit("Business Development Manager");
+  expect(fit("Area Sales Manager")).toBeLessThan(plain);
+  expect(fit("Senior Sales Manager")).toBeLessThan(plain);
+  expect(fit("Sales Manager II")).toBeLessThan(plain);
+  expect(fit("Partner Manager")).toBeLessThan(plain);
+});

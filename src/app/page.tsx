@@ -618,8 +618,9 @@ const APPLIED = new Set(["applied", "screening", "interview", "offer", "rejected
 
 function funnelOf(jobs: Doc<"jobs">[]): Funnel {
   const live = jobs.filter((j) => j.status !== "dismissed");
-  // Worth a look: AI 60+, or a strong first guess not scored yet. Not every saved job ("294 in play" said nothing).
-  const good = live.filter((j) => (j.status === "new" || j.status === "applying") && ((bestScore(j)?.score ?? -1) >= 60 || (!j.scores?.length && (j.quickFit ?? 0) >= 70)));
+  // Worth a look: AI 60+. Not every saved job ("294 in play" said nothing), and not first guesses: two in three
+  // guesses of 70+ were scored under 60 by the AI (13 Nov, 1,533 jobs).
+  const good = live.filter((j) => (j.status === "new" || j.status === "applying") && (bestScore(j)?.score ?? -1) >= 60);
   // Messages you sent: referral asks and notes to hiring managers.
   const messaged = (j: Doc<"jobs">) => j.outreach.some((o) => o.status !== "draft") || (j.hiringContacts ?? []).some((c) => c.sentAt);
   // Heard back, per job: someone answered your message, or the company moved you on or said no.
