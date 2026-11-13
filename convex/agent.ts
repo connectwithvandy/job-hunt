@@ -310,7 +310,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const [settled, [others, otherFailed]] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : settleLimited(track.titles.slice(0, 16), 5, (title) => searchListings(title, searchPlace(location), 25, 4)),
+        : settleLimited(track.titles.slice(0, 16), 3, (title) => searchListings(title, searchPlace(location), 25, 4)),
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
@@ -343,7 +343,14 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
       return rows.map((r) => ({ title: r.title, url: r.url }));
     });
     const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: linked });
-    const failed = settled.some((r) => r.status === "rejected") ? ["Dreamwork", ...otherFailed] : [...otherFailed];
+    // Dreamwork counts as failed when most titles got nothing; a few misses are named apart, so the morning
+    // email doesn't call a search that mostly worked a failure (13 Nov: one title of 16 marked a person failed).
+    const missed = settled.filter((r) => r.status === "rejected").length;
+    const why = (r?: PromiseSettledResult<unknown>) => {
+      const err = r?.status === "rejected" ? r.reason : null;
+      return (err instanceof ConvexError ? String(err.data) : String((err as Error)?.message ?? err)).replace(/[()\n]/g, " ").slice(0, 80);
+    };
+    const failed = [...(missed === 0 ? [] : missed * 2 > settled.length ? [`Dreamwork (${why(settled.find((r) => r.status === "rejected"))})`] : ["Dreamwork, some titles"]), ...otherFailed];
     if (!track.company && env.JSEARCH_API_KEY && google < Math.min(googleTitles, track.titles.length)) failed.push("Google Jobs (this month's free searches are used up)");
     return { added, failed };
 }
@@ -591,8 +598,9 @@ export const dailyRun = internalAction({
   args: { light: v.optional(v.boolean()) },
   handler: async (ctx, { light }) => {
     const userIds: Id<"users">[] = await ctx.runQuery(internal.users.autopilotUsers, {});
-    // One run per person, a little apart, so one slow person can't stop the rest.
-    for (const [i, userId] of userIds.entries()) await ctx.scheduler.runAfter(i * 30_000, internal.agent.autopilotFor, { userId, light });
+    // One run per person, 45 seconds apart, so one slow person can't stop the rest and Dreamwork isn't asked
+    // by many people at once (failures came after 08:16 on busy mornings). 60 people end by about 8:45 IST.
+    for (const [i, userId] of userIds.entries()) await ctx.scheduler.runAfter(i * 45_000, internal.agent.autopilotFor, { userId, light });
     return null;
   },
 });

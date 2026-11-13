@@ -28,29 +28,52 @@ export type ListingDetail = {
   sourceUrl?: string | null;
 };
 
-async function callTool<T>(name: string, args: Record<string, unknown>): Promise<T> {
+async function connect() {
   const client = new Client({ name: "job-hunt", version: "0.1.0" });
   // A slow Dreamwork request should fail fast, not leave the button spinning forever.
   await client.connect(new StreamableHTTPClientTransport(new URL(DREAMWORK_MCP)), { timeout: 15_000 });
+  return client;
+}
+
+async function ask<T>(client: Client, name: string, args: Record<string, unknown>): Promise<T> {
+  const result = await client.callTool({ name, arguments: args }, undefined, { timeout: 25_000 });
+  if (result.isError) {
+    const text = (result.content as { text?: string }[])?.[0]?.text ?? "unknown error";
+    // Dreamwork explains refusals in plain words, like an unknown place; pass that on.
+    let reason = text;
+    try {
+      reason = (JSON.parse(text) as { error?: string }).error ?? text;
+    } catch {}
+    throw new ConvexError(reason);
+  }
+  return (result.structuredContent ?? JSON.parse((result.content as { text: string }[])[0].text)) as T;
+}
+
+async function callTool<T>(name: string, args: Record<string, unknown>): Promise<T> {
+  const client = await connect();
   try {
-    const result = await client.callTool({ name, arguments: args }, undefined, { timeout: 25_000 });
-    if (result.isError) {
-      const text = (result.content as { text?: string }[])?.[0]?.text ?? "unknown error";
-      // Dreamwork explains refusals in plain words, like an unknown place; pass that on.
-      let reason = text;
-      try {
-        reason = (JSON.parse(text) as { error?: string }).error ?? text;
-      } catch {}
-      throw new ConvexError(reason);
-    }
-    return (result.structuredContent ??
-      JSON.parse((result.content as { text: string }[])[0].text)) as T;
+    return await ask<T>(client, name, args);
   } finally {
     await client.close();
   }
 }
 
-const RETRY_WAIT = 1500;
+/**
+ * Tries again after a passing failure (a time-out, a dropped connection, a busy server), waiting longer each
+ * time, with a little randomness so many searches failing together don't all come back at once.
+ * Dreamwork's own refusals (a ConvexError, like an unknown place) won't change on a retry.
+ */
+async function withRetry<T>(run: () => Promise<T>, waits = RETRY_WAITS): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await run();
+    } catch (err) {
+      if (err instanceof ConvexError || i >= waits.length) throw err;
+      await new Promise((done) => setTimeout(done, waits[i] + Math.random() * 1000));
+    }
+  }
+}
+const RETRY_WAITS = [2000, 5000];
 
 /** Without a key Dreamwork sends 25 at a time, so a busy title like "Account Executive" needs a few pages. */
 export async function searchListings(search: string, location: string, limit = 10, pages = 1) {
@@ -63,25 +86,39 @@ export async function searchListings(search: string, location: string, limit = 1
   };
   const all: Listing[] = [];
   let cursor: string | undefined;
-  for (let i = 0; i < pages; i++) {
-    const args = cursor ? { ...filters, cursor } : filters;
-    type Page = { listings: Listing[]; nextCursor?: string | null };
-    let page: Page;
-    try {
-      // One more try after a short wait: most failures here are a passing hiccup.
-      page = await callTool<Page>("browse_listings", args).catch(async () => {
-        await new Promise((done) => setTimeout(done, RETRY_WAIT));
-        return await callTool<Page>("browse_listings", args);
-      });
-    } catch (err) {
-      // A later page failing shouldn't lose the pages already read.
-      if (!all.length) throw err;
-      console.warn("Dreamwork stopped early", search, String(err));
-      break;
+  // One connection for all the pages of a search: opening one per page doubled the calls on a busy morning.
+  let client: Client | null = null;
+  try {
+    for (let i = 0; i < pages; i++) {
+      const args = cursor ? { ...filters, cursor } : filters;
+      type Page = { listings: Listing[]; nextCursor?: string | null };
+      let page: Page;
+      try {
+        page = await withRetry(async () => {
+          try {
+            client ??= await connect();
+            return await ask<Page>(client, "browse_listings", args);
+          } catch (err) {
+            // A broken connection is dropped, so the next try starts a fresh one.
+            if (!(err instanceof ConvexError) && client) {
+              await client.close().catch(() => {});
+              client = null;
+            }
+            throw err;
+          }
+        });
+      } catch (err) {
+        // A later page failing shouldn't lose the pages already read.
+        if (!all.length) throw err;
+        console.warn("Dreamwork stopped early", search, String(err));
+        break;
+      }
+      all.push(...page.listings);
+      cursor = page.nextCursor ?? undefined;
+      if (!cursor) break;
     }
-    all.push(...page.listings);
-    cursor = page.nextCursor ?? undefined;
-    if (!cursor) break;
+  } finally {
+    await (client as Client | null)?.close().catch(() => {});
   }
   return all;
 }
