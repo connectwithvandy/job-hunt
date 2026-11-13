@@ -15,7 +15,14 @@ async function run<T>(actor: string, input: Record<string, unknown>, maxUsd: num
     signal: AbortSignal.timeout(170_000),
   }).catch(() => null);
   if (!res) throw new ConvexError("Apify didn't answer. Try again in a minute.");
-  if (!res.ok) throw new ConvexError(`Apify answered ${res.status}. Check the token and the account's credit.`);
+  if (!res.ok) {
+    // Apify says why in the body ("actor-is-not-rented", "invalid-input"): keep it, so a failure can be fixed without guessing (13 Nov).
+    const why = await res
+      .json()
+      .then((b: { error?: { type?: string; message?: string } }) => [b.error?.type, b.error?.message].filter(Boolean).join(": "))
+      .catch(() => "");
+    throw new ConvexError(`Apify answered ${res.status}${why ? ` (${why.slice(0, 200)})` : ""}. Check the token and the account's credit.`);
+  }
   const items = (await res.json()) as unknown;
   return Array.isArray(items) ? (items as T[]) : [];
 }
