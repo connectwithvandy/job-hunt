@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useSetStatus } from "@/components/Celebrate";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { linkedInPeopleSearch } from "../../../../convex/lib/company";
+import { linkedInPeopleSearch, applyBoard } from "../../../../convex/lib/company";
 import { RECHECK_AFTER, ghostSigns, skipReason } from "../../../../convex/lib/posting";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { CvMatch } from "@/components/CvMatch";
@@ -159,7 +159,7 @@ export default function JobPage() {
             {job.postedAt && <span className="text-ink-3">Posted {timeAgo(job.postedAt)}</span>}
             {(job.sourceUrl || job.url) && (
               <a className="text-ink-2 underline" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
-                Original posting
+                {applyBoard(job.sourceUrl || job.url) ? `Posting on ${applyBoard(job.sourceUrl || job.url)}` : "Original posting"}
               </a>
             )}
           </div>

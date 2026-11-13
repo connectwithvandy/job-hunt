@@ -6,7 +6,7 @@ import { type ActionCtx, env, internalAction } from "./_generated/server";
 import { searchGoogleJobs, searchJobs } from "./lib/apify";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { boardFingerprint, boardKey, FAST_ATS, readBoard, type CareerJob } from "./lib/careers";
-import { AGGREGATORS } from "./lib/company";
+import { AGGREGATORS, applyBoard } from "./lib/company";
 import { isCompanyLink } from "./lib/directLink";
 import { findBoard } from "./lib/boardFinder";
 import { atsV } from "./careers";
@@ -28,8 +28,8 @@ const KEEP_LINKEDIN_DAYS = 30;
 
 /**
  * Before the morning run: today's LinkedIn sales roles in India, saved beside the careers-board roles so everyone's
- * search finds them. About $0.45 a day, capped at $0.49. Only roles with the company's own apply link are kept,
- * because every saved job has to open the company's posting (lib/directLink.ts).
+ * search finds them. About $0.45 a day, capped at $0.49. Roles open the company's own apply link when LinkedIn gives one,
+ * else LinkedIn's own page (lib/directLink.ts).
  */
 export const linkedInPool = internalAction({
   args: {},
@@ -41,7 +41,8 @@ export const linkedInPool = internalAction({
     settled.forEach((r, i) => r.status === "rejected" && console.warn("LinkedIn pool search failed:", i, String(r.reason)));
     const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
     const jobs = [...new Map(found.map((j) => [j.id, j])).values()]
-      .filter((j) => isCompanyLink(j.applyUrl) && !AGGREGATORS.test(j.company) && titles.some((t) => titleMatches(t, j.title)))
+      // Easy Apply jobs (no company link) are kept with their LinkedIn link since 13 Nov: 171 of 235 a day were dropped.
+      .filter((j) => !AGGREGATORS.test(j.company) && titles.some((t) => titleMatches(t, j.title)))
       .map((j) => ({
         externalId: `linkedin:${j.id}`,
         company: j.company,
@@ -50,7 +51,7 @@ export const linkedInPool = internalAction({
         workSetting: j.workSetting,
         salary: j.salary,
         postedAt: j.postedAt,
-        url: j.applyUrl!,
+        url: isCompanyLink(j.applyUrl) ? j.applyUrl! : j.url,
         india: openTo(INDIA, j.location, j.workSetting, j.title),
         description: j.description?.slice(0, 8000).replace(/[\uD800-\uDBFF]$/, ""),
       }))
@@ -75,8 +76,8 @@ const GOOGLE_SEARCHES: [string[], number][] = [
 /**
  * Before the morning run: today's Google Jobs sales roles in India, saved beside the careers-board and LinkedIn
  * roles so everyone's search finds them. About $0.40 a day. Apify won't start this actor with a cap under $0.50
- * a run, so each run's cap is $0.50; the job count (`n`) is what really limits the spend, at about $0.16 a run. Like LinkedIn's, only roles with
- * the company's own apply link are kept, because every saved job has to open the company's posting (lib/directLink.ts).
+ * a run, so each run's cap is $0.50; the job count (`n`) is what really limits the spend, at about $0.16 a run. Like LinkedIn's, roles open
+ * the company's own apply link first, else LinkedIn, Naukri or Indeed (lib/directLink.ts).
  */
 export const googlePool = internalAction({
   args: {},
@@ -88,7 +89,8 @@ export const googlePool = internalAction({
     settled.forEach((r, i) => r.status === "rejected" && console.warn("Google pool search failed:", i, String(r.reason)));
     const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
     const jobs = [...new Map(found.map((j) => [j.id, j])).values()]
-      .map((j) => ({ ...j, link: j.links.find((u) => isCompanyLink(u)) }))
+      // The company's own link first; else LinkedIn, Naukri or Indeed (kept since 13 Nov: 29 of 70 were only there).
+      .map((j) => ({ ...j, link: j.links.find((u) => isCompanyLink(u)) ?? j.links.find((u) => applyBoard(u)) }))
       .filter((j) => !!j.link && !AGGREGATORS.test(j.company) && titles.some((t) => titleMatches(t, j.title)))
       .map((j) => ({
         // "gjobs:", not "google:": Google's own careers board already uses that.
@@ -107,9 +109,9 @@ export const googlePool = internalAction({
     for (let i = 0; i < jobs.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: jobs.slice(i, i + 50) });
     const old: string[] = await ctx.runQuery(internal.careers.oldGoogle, { before: Date.now() - KEEP_LINKEDIN_DAYS * 86_400_000 });
     for (let i = 0; i < old.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: old.slice(i, i + 200) });
-    const boardOnly = found.filter((j) => !j.links.some((u) => isCompanyLink(u))).length;
+    const boardOnly = found.filter((j) => !j.links.some((u) => isCompanyLink(u)) && j.links.some((u) => applyBoard(u))).length;
     const otherTitles = found.filter((j) => !titles.some((t) => titleMatches(t, j.title))).length;
-    console.log(`Google pool: ${found.length} found, ${jobs.length} saved, ${boardOnly} only on job boards, ${otherTitles} titles nobody searches, ${old.length} old ones removed.`);
+    console.log(`Google pool: ${found.length} found, ${jobs.length} saved, ${boardOnly} kept with a job-board link, ${otherTitles} titles nobody searches, ${old.length} old ones removed.`);
     return { found: found.length, saved: jobs.length, boardOnly, otherTitles };
   },
 });

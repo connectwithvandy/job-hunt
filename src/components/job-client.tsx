@@ -8,6 +8,7 @@ import { useSetStatus } from "./Celebrate";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
+import { applyBoard } from "../../convex/lib/company";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../convex/lib/followups";
 import { tidyMessage } from "../../convex/lib/messageText";
@@ -29,6 +30,8 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
   const setStatus = useMutation(api.jobs.setStatus);
   const [done, setDone] = useState("");
   const link = job.sourceUrl || job.url;
+  // A job only listed on a board opens there; say which, so the sign-in page isn't a surprise.
+  const board = applyBoard(link);
   if (!link) return null;
   return (
     <div className="space-y-2">
@@ -55,7 +58,7 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
           );
         }}
       >
-        Apply ↗
+        {board ? `Apply on ${board} ↗` : "Apply ↗"}
       </button>
       {done && <p className="text-sm text-ink-2">{done}</p>}
     </div>

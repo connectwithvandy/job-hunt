@@ -68,3 +68,30 @@ export function sameRoleKey(company: string, title: string) {
  * board, not the employer, and the same role comes back under new ids: kept out of every list.
  */
 export const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
+
+// Job boards whose own page is a fine place to apply when the company's isn't known: since 13 Nov their
+// listings are kept (most India SDR roles are only there). Reposting boards (AGGREGATORS) still aren't.
+const APPLY_BOARDS: [RegExp, string][] = [
+  [/(^|\.)linkedin\.com$/i, "LinkedIn"],
+  [/(^|\.)naukri\.com$/i, "Naukri"],
+  [/(^|\.)indeed\.[a-z.]+$/i, "Indeed"],
+  [/(^|\.)foundit\.[a-z.]+$/i, "Foundit"],
+  [/(^|\.)instahyre\.com$/i, "Instahyre"],
+  [/(^|\.)iimjobs\.com$/i, "iimjobs"],
+  [/(^|\.)hirist\.[a-z.]+$/i, "Hirist"],
+  [/(^|\.)cutshort\.io$/i, "Cutshort"],
+  [/(^|\.)wellfound\.com$/i, "Wellfound"],
+  [/(^|\.)glassdoor\.[a-z.]+$/i, "Glassdoor"],
+  [/(^|\.)shine\.com$/i, "Shine"],
+];
+
+/** "Naukri" for a Naukri link: the job board a link opens, when it's one people apply through. Null otherwise. */
+export function applyBoard(url?: string | null) {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname;
+    return APPLY_BOARDS.find(([re]) => re.test(host))?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}

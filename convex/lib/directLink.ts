@@ -1,9 +1,11 @@
 "use node";
 
-// Every saved job should open the company's own posting, not a job board's copy of it.
-// Board links (Himalayas, LinkedIn, Indeed and the like) are swapped for the company's link,
-// found on the company's own careers board; a job with no company link is left out.
+// Every saved job should open the company's own posting when there is one, not a job board's copy of it.
+// Board links (Himalayas, LinkedIn, Indeed and the like) are swapped for the company's link, found on the
+// company's own careers board. With none found, a job on a board people apply through (LinkedIn, Naukri,
+// Indeed: lib/company applyBoard) keeps that link; any other job with no company link is left out.
 import { findBoard } from "./boardFinder";
+import { applyBoard } from "./company";
 import { readBoard, type CareerJob } from "./careers";
 
 /** Sites that list other companies' jobs. Anything else is taken to be the company's own page or careers system. */
@@ -74,7 +76,11 @@ export async function withCompanyLinks<T extends Linkable>(
 
   const linked = todo.flatMap((j) => {
     const match = sameRole(j.title, roles.get(j.company) ?? []);
-    return match && isCompanyLink(match.url) ? [{ ...j, sourceUrl: match.url }] : [];
+    if (match && isCompanyLink(match.url)) return [{ ...j, sourceUrl: match.url }];
+    // No company link found: a job on LinkedIn, Naukri or Indeed opens there (owner's call, 13 Nov: dropping
+    // them lost most India SDR roles). Other boards' copies still drop.
+    const board = [j.sourceUrl, j.url].find((u) => applyBoard(u));
+    return board ? [{ ...j, sourceUrl: board }] : [];
   });
   return [...ready, ...linked];
 }
