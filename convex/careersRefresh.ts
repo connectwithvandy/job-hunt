@@ -73,7 +73,8 @@ const GOOGLE_SEARCHES: [string, number][] = [
 
 /**
  * Before the morning run: today's Google Jobs sales roles in India, saved beside the careers-board and LinkedIn
- * roles so everyone's search finds them. About $0.40 a day, capped at $0.50. Like LinkedIn's, only roles with
+ * roles so everyone's search finds them. About $0.40 a day. Apify won't start this actor with a cap under $0.50
+ * a run, so each run's cap is $0.50; the job count (`n`) is what really limits the spend, at about $0.16 a run. Like LinkedIn's, only roles with
  * the company's own apply link are kept, because every saved job has to open the company's posting (lib/directLink.ts).
  */
 export const googlePool = internalAction({
@@ -82,7 +83,7 @@ export const googlePool = internalAction({
     if (!env.APIFY_TOKEN) return null;
     const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
     if (!titles.length) return null;
-    const settled = await Promise.allSettled(GOOGLE_SEARCHES.map(([q, n]) => searchGoogleJobs(q, n, (n / 1000) * 3 + 0.01)));
+    const settled = await Promise.allSettled(GOOGLE_SEARCHES.map(([q, n]) => searchGoogleJobs(q, n, Math.max(0.5, (n / 1000) * 3 + 0.01))));
     settled.forEach((r, i) => r.status === "rejected" && console.warn("Google pool search failed:", i, String(r.reason)));
     const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
     const jobs = [...new Map(found.map((j) => [j.id, j])).values()]
