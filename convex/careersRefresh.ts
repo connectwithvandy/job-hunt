@@ -6,6 +6,7 @@ import { type ActionCtx, env, internalAction } from "./_generated/server";
 import { searchJobs } from "./lib/apify";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { boardFingerprint, boardKey, FAST_ATS, readBoard, type CareerJob } from "./lib/careers";
+import { AGGREGATORS } from "./lib/company";
 import { isCompanyLink } from "./lib/directLink";
 import { findBoard } from "./lib/boardFinder";
 import { atsV } from "./careers";
@@ -14,18 +15,20 @@ import { openTo, readPlace, titleMatches } from "./lib/sources";
 const INDIA = readPlace("India");
 
 // One LinkedIn search per kind of role, shared by everyone: searching per person would cost about 20 times more.
-const LINKEDIN_SEARCHES = [
-  `"Sales Development Representative" OR "SDR" OR "Business Development Representative" OR "BDR" OR "Inside Sales"`,
-  `"Account Executive" OR "Sales Executive" OR "Business Development Executive"`,
-  `"Sales Manager" OR "Sales Development Manager" OR "Business Development Manager" OR "Head of Sales"`,
-  `"Account Manager" OR "Customer Success Manager" OR "Partnerships Manager"`,
-  `"Solutions Engineer" OR "Sales Engineer" OR "Revenue Operations" OR "GTM"`,
+// [search, how many to read]. SDR/BDR and AE are most members' roles and filled their 50 every day
+// (13 Nov: 235 of 250), so they read 120. About $1.20 per 1,000 jobs read.
+const LINKEDIN_SEARCHES: [string, number][] = [
+  [`"Sales Development Representative" OR "SDR" OR "Business Development Representative" OR "BDR" OR "Inside Sales"`, 120],
+  [`"Account Executive" OR "Sales Executive" OR "Business Development Executive"`, 120],
+  [`"Sales Manager" OR "Sales Development Manager" OR "Business Development Manager" OR "Head of Sales"`, 50],
+  [`"Account Manager" OR "Customer Success Manager" OR "Partnerships Manager"`, 50],
+  [`"Solutions Engineer" OR "Sales Engineer" OR "Revenue Operations" OR "GTM"`, 50],
 ];
 const KEEP_LINKEDIN_DAYS = 30;
 
 /**
  * Before the morning run: today's LinkedIn sales roles in India, saved beside the careers-board roles so everyone's
- * search finds them. About $0.25 a day, capped at $0.30. Only roles with the company's own apply link are kept,
+ * search finds them. About $0.45 a day, capped at $0.49. Only roles with the company's own apply link are kept,
  * because every saved job has to open the company's posting (lib/directLink.ts).
  */
 export const linkedInPool = internalAction({
@@ -34,11 +37,11 @@ export const linkedInPool = internalAction({
     if (!env.APIFY_TOKEN) return null;
     const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
     if (!titles.length) return null;
-    const settled = await Promise.allSettled(LINKEDIN_SEARCHES.map((q) => searchJobs([q], "India", false, "24h", 50, 0.06, true)));
+    const settled = await Promise.allSettled(LINKEDIN_SEARCHES.map(([q, n]) => searchJobs([q], "India", false, "24h", n, (n / 1000) * 1.25, true)));
     settled.forEach((r, i) => r.status === "rejected" && console.warn("LinkedIn pool search failed:", i, String(r.reason)));
     const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
     const jobs = [...new Map(found.map((j) => [j.id, j])).values()]
-      .filter((j) => isCompanyLink(j.applyUrl) && titles.some((t) => titleMatches(t, j.title)))
+      .filter((j) => isCompanyLink(j.applyUrl) && !AGGREGATORS.test(j.company) && titles.some((t) => titleMatches(t, j.title)))
       .map((j) => ({
         externalId: `linkedin:${j.id}`,
         company: j.company,
@@ -69,7 +72,7 @@ async function syncBoard(ctx: ActionCtx, board: CareerBoard, titles: string[]) {
   // Workday roles already saved come back as ids only; they're still open.
   const stillOpen = read.filter((j) => "known" in j).map((j) => j.externalId);
   // Only roles in India or remote, with a title someone's tracks ask for; the rest drop out on the next run.
-  const jobs = read
+  const jobs = (AGGREGATORS.test(board.name) ? [] : read)
     .filter((j): j is CareerJob => !("known" in j))
     .map((j) => ({ ...j, india: openTo(INDIA, j.location, j.workSetting, j.title) }))
     .filter((j) => j.india || j.workSetting === "remote" || /remote|distributed/i.test(j.location))

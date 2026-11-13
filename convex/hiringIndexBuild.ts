@@ -7,12 +7,11 @@ import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { CITY_CHOICES, jobMode } from "./lib/defaults";
 import { buildIndex, cleanCompany, mergeCompanies, type IndexRole } from "./lib/hiringIndex";
-import { roleKey } from "./lib/company";
+import { AGGREGATORS, roleKey } from "./lib/company";
 import { SALES_ROLES, trackForTitle } from "./lib/salesRoles";
 import { openTo, readPlace } from "./lib/sources";
 
 /** Job boards that repost other companies' roles aren't employers (as on the guides). */
-const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
 /** Recruitment agencies post for their clients, and a bare legal word isn't a company name: neither goes on a public page. */
 const NOT_EMPLOYER = /\b(hr solutions|hr services|human resources|hiring solutions|staffing|placements?|recruit\w*|consultan\w*|manpower|headhunt\w*|talent solutions|search partners|2coms)\b|hire$|\bjobs$/i;
 const BAD_NAME = /^(llp|pvt|pvt ltd|ltd|inc|limited|private limited|company|careers?)$/i;

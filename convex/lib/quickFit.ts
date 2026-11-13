@@ -2,7 +2,8 @@
 // the AI score arrives, and decides which jobs the AI scores first.
 
 import type { Infer } from "convex/values";
-import { inBengaluru, remoteForIndia } from "./places";
+import { jobMode } from "./defaults";
+import { placeFit } from "./places";
 import { backOffice, otherFunction, titleMatches } from "./salesRoles";
 import type { resumeV } from "./validators";
 
@@ -48,11 +49,15 @@ const SENIOR_ROLE = /\b(senior|sr|manager|lead(?!\s*gen)|leader|head|director|vp
 export function juniorTitle(title: string) {
   return JUNIOR_TITLE.test(title.replace(/_/g, " ")) || /\b0\s*(-|–|to)\s*[12]\+?\s*(years?|yrs?)\b/i.test(title);
 }
-const JUNIOR_TITLE = /\b(freshers?|apprentices?|apprenticeship|interns?|internship|trainees?|graduates?|entry[\s-]level|junior|jr)\b/i;
+const LEADER_TITLE = /\b(director|vp|vice president|head of|chief|cro|avp)\b/i;
+const JUNIOR_TITLE =/\b(freshers?|apprentices?|apprenticeship|interns?|internship|trainees?|graduates?|entry[\s-]level|junior|jr)\b/i;
 
 /**
  * 0 to 100: title against the track titles (50), CV words found in the job (35), and place (15).
- * `home` is the person's own location, like "Bengaluru, India".
+ * `home` is where the person wants to work, as saved: "Bengaluru, Pune", "India", "Remote" or "Anywhere".
+ * `modes` is the work types they picked (onsite, hybrid, remote). A job outside their place or work type
+ * stays low whatever its title, because the AI score marks those as ones to skip (13 Nov: 66% of guesses
+ * of 70+ were scored under 60 by the AI, most of them roles abroad).
  */
 export function quickFit(
   job: { title: string; company?: string; description?: string; location: string; workSetting?: string },
@@ -60,6 +65,7 @@ export function quickFit(
   titles: string[],
   home: string,
   senior = false,
+  modes?: string[],
 ) {
   // An accounts or payroll job shares words with "Account Executive" but none of the work.
   if (backOffice(job.title) && !titles.some(backOffice)) return 5;
@@ -84,16 +90,11 @@ export function quickFit(
   const shared = [...vocab].filter((w) => jobWords.has(w)).length;
   // Forty-five shared words is about as good as it gets; a job with no description can only reach part way.
   const cvShare = Math.min(1, shared / 45);
-  const where = `${job.location} ${job.title}`;
-  const homeCity = home.split(",")[0].trim().toLowerCase();
-  const place =
-    (homeCity && where.toLowerCase().includes(homeCity)) || (/bengaluru|bangalore/i.test(home) && inBengaluru(where))
-      ? 1
-      : remoteForIndia(job.location, job.workSetting, job.title)
-        ? 0.9
-        : /\bindia\b/i.test(where)
-          ? 0.5
-          : 0;
+  const place = placeFit(job, home);
+  // Not open to where they want to work, or not a work type they picked: shown low, so it's never a top pick.
+  const mode = jobMode(job.location, job.workSetting, job.title);
+  const wrongMode = !!modes?.length && modes.length < 3 && mode !== "unknown" && !modes.includes(mode);
+  const reach = place === 0 ? 0.35 : wrongMode ? 0.5 : 1;
   // A role for speakers of another language says so in the title: "Account Executive - Spanish".
   const language = LANGUAGE.test(job.title) ? 0.4 : 1;
   // A sales job at a hotel, bank or builder shares the title but not the work: a full description
@@ -106,8 +107,9 @@ export function quickFit(
   // a bank's "Acquisition Manager" in Bengaluru shouldn't reach the apply list on words and place alone.
   const cvWeight = titleShare >= 0.6 ? 35 : 15;
   // A fresher or apprentice job shares the title but not the level: for someone years in, it's a poor fit.
-  const level = senior && juniorTitle(job.title) ? 0.5 : 1;
-  return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry * level);
+  // And the other way: a director or VP role for a CV that shows no senior title and under five years.
+  const level = senior && juniorTitle(job.title) ? 0.5 : !senior && vocab.size > 0 && LEADER_TITLE.test(job.title) ? 0.6 : 1;
+  return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry * level * reach);
 }
 
 // A bank or lender by name, and lending products by title. A title alone saying "Banking" is often a tech

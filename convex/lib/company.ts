@@ -60,3 +60,9 @@ export function sameRoleKey(company: string, title: string) {
     .replace(/[^a-z0-9]/g, "");
   return `${ALIASES[c] ?? c}|${t}`;
 }
+
+/**
+ * Job boards that repost other companies' roles under their own name (Jobgether, beBee). Their link opens the
+ * board, not the employer, and the same role comes back under new ids: kept out of every list.
+ */
+export const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;

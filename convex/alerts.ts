@@ -16,6 +16,10 @@ const DAY = 86_400_000;
 const PER_EMAIL = 8;
 /** Below this AI score the app says skip the job, so it stays out of the email. Roles not scored yet still go in. */
 const RELEVANT = 60;
+/** A role with no AI score yet goes in only if its free guess reaches this (13 Nov: roles abroad filled emails). */
+const GUESS_FLOOR = 40;
+/** Jobs saved before the free guess existed have none; they aren't held back. */
+const j0 = (j: { quickFit?: number }) => j.quickFit === undefined;
 
 const jobV = v.object({ title: v.string(), company: v.string(), where: v.string(), fit: v.optional(v.number()), id: v.string() });
 const personV = v.object({
@@ -67,7 +71,8 @@ export const dueFor = internalQuery({
     // Scored roles first, then by the free first guess. The guess only sorts: at most 55, it would look like a poor fit.
     const best = fresh
       .map((j) => ({ j, fit: aiFit(j), guess: j.quickFit ?? 0, key: j.trackKey ?? trackForTitle(tracks, j.title) }))
-      .filter((x) => (x.fit === undefined || x.fit >= RELEVANT) && tracks.some((t) => t.key === x.key))
+      // Not scored yet: the free guess must clear GUESS_FLOOR, which a role outside their place or work type can't.
+      .filter((x) => (x.fit === undefined ? x.guess >= GUESS_FLOOR || j0(x.j) : x.fit >= RELEVANT) && tracks.some((t) => t.key === x.key))
       .sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1) || b.guess - a.guess)
       .slice(0, PER_EMAIL);
     if (!best.length) return null;

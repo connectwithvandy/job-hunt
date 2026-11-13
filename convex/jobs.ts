@@ -12,6 +12,7 @@ import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
 import { cvSenior, cvWords, isLender, quickFit } from "./lib/quickFit";
+import { readWorkModes } from "./lib/defaults";
 import { backOffice, shopFloor } from "./lib/salesRoles";
 import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
 
@@ -354,7 +355,7 @@ async function quickFitFor(ctx: MutationCtx, userId: Id<"users">) {
   // A paused role isn't wanted right now, so its titles don't lift a job.
   const titles = tracks.filter((t) => t.status === "active").flatMap((t) => t.titles);
   const senior = resumeDoc ? cvSenior(resumeDoc.resume) : false;
-  return (job: { title: string; company?: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "", senior);
+  return (job: { title: string; company?: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "", senior, readWorkModes(profile?.location ?? "", profile?.workModes));
 }
 
 // Matches the Jobs page, which moves new jobs older than this to "Older than 45 days".

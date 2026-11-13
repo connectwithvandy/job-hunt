@@ -14,7 +14,7 @@ import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
 import { unverifiedNumbers } from "./lib/facts";
 import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
-import { companyKey } from "./lib/company";
+import { AGGREGATORS, companyKey } from "./lib/company";
 import { AUTOPILOT_SCORES, FRESH_FIT, FRESH_SCORES, MAX_STORIES, fitsModes, type WorkMode } from "./lib/defaults";
 import { emailOn, freshEmail, sendEmail } from "./lib/email";
 import { settleLimited } from "./lib/pool";
@@ -332,7 +332,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     // In office, hybrid or remote, as the person picked. A company they named keeps every role.
     const modes: WorkMode[] = await ctx.runQuery(internal.users.workModesFor, { userId });
     const unique = [...new Map(all.reverse().map((j) => [sameRole(j), j])).values()].filter(
-      (j) => !!track.company || ((j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title)) && fitsModes(modes, j.location, j.workSetting, j.title)),
+      (j) => !!track.company || (!AGGREGATORS.test(j.company) && (j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title)) && fitsModes(modes, j.location, j.workSetting, j.title)),
     );
     // Only jobs that open the company's own posting are kept (see lib/directLink.ts).
     const linked = await withCompanyLinks(unique, async (company) => {

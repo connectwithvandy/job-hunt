@@ -9,7 +9,7 @@ import { isOwnerEmail } from "./lib/auth";
 import { AUTOPILOT_SCORES } from "./lib/defaults";
 import { healthSection } from "./lib/health";
 import { CAREER_BOARDS } from "./lib/careerBoards";
-import { companyKey, roleKey } from "./lib/company";
+import { AGGREGATORS, companyKey, roleKey } from "./lib/company";
 import { searchJobs, searchPosts } from "./lib/apify";
 import { appUrl, emailOn, feedbackEmail, sendEmail, setupNudgeEmail, setupReminderEmail } from "./lib/email";
 import { isLender } from "./lib/quickFit";
@@ -56,7 +56,8 @@ export function postedInLastDay(postedAt: string | undefined, now: number) {
 
 /** Which part of the post a job belongs to: SDRs, AEs or sales managers. Null keeps it out of the post. */
 export function postGroup(title: string): "sdr" | "ae" | "manager" | null {
-  if (/operations|enablement|engineer|marketing|partner|channel|customer success/i.test(title)) return null;
+  // "Lead Generation Virtual Assistant" shares words with an SDR role but is admin work.
+  if (/operations|enablement|engineer|marketing|partner|channel|customer success|assistant|virtual|catering/i.test(title)) return null;
   if (/\b(manager|head|director|vp|vice president|lead)\b/i.test(title)) return /\b(sales|sdr|bdr|business development|revenue)\b/i.test(title) ? "manager" : null;
   if (/\b(sdr|bdr|bde|sales development|business development|inside sales|lead development|market development|account development|outbound sales)\b/i.test(title)) return "sdr";
   if (/\b(account executive|ae|sales executive)\b/i.test(title)) return "ae";
@@ -98,7 +99,7 @@ export const newSalesJobs = internalQuery({
       if (j._creationTime < now - DAY) break;
       // Internships aren't what sales people following the post are after.
       if (!j.india || !isSalesTitle(j.title) || /\bintern(ship)?\b/i.test(j.title)) continue;
-      if (!isTechCompany(j.company, j.title, j.url)) continue;
+      if (AGGREGATORS.test(j.company) || !isTechCompany(j.company, j.title, j.url)) continue;
       // The post promises the last 24 hours. A board seen for the first time brings old roles too,
       // and no date could mean months old, so both stay out.
       if (!postedInLastDay(j.postedAt, now)) continue;
@@ -153,7 +154,7 @@ async function linkedInPostJobs(ctx: ActionCtx, now: number): Promise<PostJob[]>
   for (const r of settled) if (r.status === "rejected") console.warn("Post job search failed:", String(r.reason));
   const rows = settled
     .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
-    .filter((j) => isSalesTitle(j.title) && postGroup(j.title) && !/\bintern(ship)?\b/i.test(j.title) && !isLender(j.title, j.company))
+    .filter((j) => !AGGREGATORS.test(j.company) && isSalesTitle(j.title) && postGroup(j.title) && !/\bintern(ship)?\b/i.test(j.title) && !isLender(j.title, j.company))
     .filter((j) => !j.postedAt || postedInLastDay(j.postedAt, now));
   // A LinkedIn link says nothing about the company, so the AI picks out the tech ones by name.
   const names = [...new Set(rows.map((j) => j.company))];

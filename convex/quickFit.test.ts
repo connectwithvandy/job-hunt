@@ -1,5 +1,6 @@
-import { expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { cvSenior, juniorTitle, quickFit } from "./lib/quickFit";
+import { placeFit } from "./lib/places";
 
 const cv = (roles: { role: string; start: string; end: string }[]) => ({
   name: "Test",
@@ -34,4 +35,30 @@ test("a fresher job falls below the line for someone senior, not for someone sta
   expect(senior).toBeLessThan(60);
   // A job at their level isn't touched.
   expect(quickFit({ ...job, title: "Business Development Representative" }, new Set(), titles, "Bengaluru, India", true)).toBe(starting);
+});
+
+describe("place and work type follow the person's choices", () => {
+  const titles = ["Account Executive"];
+  const ae = (location: string, workSetting?: string) => ({ title: "Account Executive", location, workSetting });
+  it("a role abroad stays low, however well the title fits", () => {
+    expect(quickFit(ae("Berlin; Munich (Remote)", "remote"), new Set(), titles, "India")).toBeLessThan(40);
+    expect(quickFit(ae("New York, NY"), new Set(), titles, "Bengaluru")).toBeLessThan(40);
+    expect(quickFit(ae("Bengaluru, Karnataka, India"), new Set(), titles, "Bengaluru")).toBeGreaterThanOrEqual(60);
+  });
+  it("counts every city they picked, not just the first", () => {
+    expect(placeFit(ae("Pune, Maharashtra, India"), "Bengaluru, Pune")).toBe(1);
+    expect(placeFit(ae("Gurgaon, Haryana"), "Gurugram")).toBe(1);
+    expect(placeFit(ae("Mumbai, India"), "Bengaluru")).toBeLessThan(0.5);
+  });
+  it("remote means open to someone in India", () => {
+    expect(placeFit(ae("Remote (United States)", "remote"), "Remote")).toBe(0);
+    expect(placeFit(ae("India (Remote)", "remote"), "Remote")).toBe(1);
+    expect(placeFit(ae("US (Remote)", "remote"), "Anywhere")).toBe(0);
+    expect(placeFit(ae("London, UK"), "Anywhere")).toBe(1);
+  });
+  it("a work type they didn't pick counts for less", () => {
+    const office = quickFit(ae("Bengaluru, India", "remote"), new Set(), titles, "Bengaluru", false, ["onsite", "hybrid"]);
+    const any = quickFit(ae("Bengaluru, India", "remote"), new Set(), titles, "Bengaluru");
+    expect(office).toBeLessThan(any);
+  });
 });

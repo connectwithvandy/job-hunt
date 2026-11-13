@@ -4,6 +4,7 @@
 // then each morning with roles the careers boards turned up since their last email.
 
 import { v } from "convex/values";
+import { AGGREGATORS } from "./lib/company";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { env, internalAction, type ActionCtx } from "./_generated/server";
@@ -18,7 +19,6 @@ const PER_EMAIL = 10;
 export type Role = { externalId: string; company: string; title: string; location: string; workSetting?: string; url: string };
 
 /** Job boards that run their own careers page: they aren't the employer, so their roles stay out (as on the guides). */
-const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
 
 /**
  * Whether a role is in the place someone picked. "Remote" means remote and open to India: a remote role tied to

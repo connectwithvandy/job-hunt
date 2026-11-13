@@ -16,6 +16,7 @@ import { applyFilters, FILTERS, fitFor, fitTier, inRole } from "@/lib/jobFilters
 import { payPerYearInr, payText, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
 import { sameRoleKey } from "../../../convex/lib/company";
+import { ScoreTipPopup } from "@/components/ScoreTipPopup";
 
 type ListJob = FunctionReturnType<typeof api.jobs.list>[number];
 // First guesses this low are almost never worth opening; they fold away under the list.
@@ -150,6 +151,7 @@ function Jobs() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHead title="Jobs" sub="Every role you're considering, sorted by how well it fits your best role." />
+      {!me.isOwner && !show && <ScoreTipPopup unscored={unscored.length} />}
 
       {/* On a phone the two forms fold away, so the jobs come first. */}
       <details className="mb-6 md:hidden">
