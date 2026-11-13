@@ -22,6 +22,7 @@ import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
 import type * as cvReview from "../cvReview.js";
 import type * as cvReviews from "../cvReviews.js";
+import type * as cvTopJobs from "../cvTopJobs.js";
 import type * as emailFinder from "../emailFinder.js";
 import type * as errors from "../errors.js";
 import type * as feedback from "../feedback.js";
@@ -105,6 +106,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   cvReview: typeof cvReview;
   cvReviews: typeof cvReviews;
+  cvTopJobs: typeof cvTopJobs;
   emailFinder: typeof emailFinder;
   errors: typeof errors;
   feedback: typeof feedback;

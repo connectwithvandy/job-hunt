@@ -46,6 +46,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
   // Sign-ups to the jobs email without an account, for everyone together: stops a script filling the list with strangers.
   subscribe: { kind: "fixed window", rate: 100, period: DAY },
+  // "Your top 5 jobs" from a CV on the homepage, for everyone together. No AI, but each one reads a file and many roles.
+  cvTop: { kind: "fixed window", rate: 300, period: DAY },
   // Error reports from browsers: enough to spot a real crash, not enough for a loop to flood the table.
   appError: { kind: "fixed window", rate: 30, period: DAY },
   /** Fresh job alerts for the whole app, leaving room in the email plan's daily limit for everything else. */
@@ -221,3 +223,10 @@ async function myKey(ctx: QueryCtx) {
 export const { getRateLimit: scoresLeft, getServerTime } = rateLimiter.hookAPI<DataModel>("score", { key: myKey });
 export const { getRateLimit: cvsLeft } = rateLimiter.hookAPI<DataModel>("tailor", { key: myKey });
 export const { getRateLimit: notesLeft } = rateLimiter.hookAPI<DataModel>("notes", { key: myKey });
+
+/** Takes one of today's homepage CV matches for everyone together; false when they're used up. */
+export const takeCvTop = internalMutation({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => (await rateLimiter.limit(ctx, "cvTop")).ok,
+});

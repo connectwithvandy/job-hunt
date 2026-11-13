@@ -2,6 +2,7 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { JobsByEmail } from "./JobsByEmail";
+import { CvTopJobs } from "./CvTopJobs";
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { LEGAL, PLANS } from "@/lib/legal";
@@ -172,8 +173,11 @@ export function SignIn() {
           Searching for <Rotate words={["Account Executive", "SDR Manager", "Head of Sales", "GTM Lead", "Founder's Office", "BDR"]} />
         </p>
         <p style={{ animationDelay: "160ms" }} className="rise mt-6 max-w-xl text-lg leading-relaxed text-ink-2">{pitch}</p>
-        <Link href="/cv-review" style={{ animationDelay: "240ms" }} className="rise mt-6 inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline">
-          Not ready to join? Get a free CV review for sales roles →
+        <a href="#top-jobs" style={{ animationDelay: "240ms" }} className="rise mt-6 flex w-fit items-center gap-2 text-sm font-medium text-accent hover:underline">
+          Not ready to join? See your top 5 sales jobs from your CV →
+        </a>
+        <Link href="/cv-review" style={{ animationDelay: "260ms" }} className="rise mt-2 flex w-fit items-center gap-2 text-sm text-ink-2 hover:text-accent hover:underline">
+          Or get a free CV review for sales roles
         </Link>
         <p style={{ animationDelay: "300ms" }} className="rise mt-6 text-sm text-ink-3">Never invents facts · No spam applying · Open source</p>
         </section>
@@ -302,14 +306,18 @@ export function SignIn() {
             </button>
             {flow === "signUp" && (
               <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
-                {PLANS.trialDays}-day free trial once you&apos;re in, then ₹
-                {PLANS.full}/month (₹{PLANS.founding} for the first{" "}
-                {PLANS.foundingSeats} members). No card needed to join. Your CV is
+                {PLANS.trialDays} days of everything once you&apos;re in, then a
+                free plan that stays free. Every AI tool from ₹{PLANS.week} a
+                week. No card needed to join. Your CV is
                 used only to run your search; we don&apos;t sell your data or use
                 it for ads.
               </p>
             )}
           </form>
+      </div>
+
+      <div className="mx-auto max-w-3xl pb-20">
+        <CvTopJobs />
       </div>
 
       {/* A picture of the app, so people see what they get before signing up. */}

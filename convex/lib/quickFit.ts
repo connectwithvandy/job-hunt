@@ -14,6 +14,15 @@ const STOP = new Set(
 
 const words = (text: string) => new Set((text.toLowerCase().match(/[a-z][a-z0-9+#.-]{3,}/g) ?? []).filter((w) => !STOP.has(w)));
 
+/** The words of any text, as the fit guess counts them: for a CV read straight from its file. */
+export const textWords = (text: string) => words(text);
+
+/** Five years and more between the earliest and latest year in a CV's text (Present counts as this year). */
+export function textSenior(text: string, year = new Date().getFullYear()) {
+  const years = [...(text.match(/\b(19[89]\d|20[0-4]\d)\b/g) ?? []).map(Number), ...(/\b(present|current)\b/i.test(text) ? [year] : [])].filter((y) => y <= year);
+  return years.length > 1 && Math.max(...years) - Math.min(...years) >= 5;
+}
+
 /** The CV's own vocabulary: skills, roles, headline and achievements. */
 export function cvWords(cv: Resume) {
   return words(

@@ -295,3 +295,16 @@ export const texts = internalQuery({
     return out;
   },
 });
+
+/** The saved descriptions of these roles, for the fit guess. Roles without one are left out. */
+export const textsFor = internalQuery({
+  args: { externalIds: v.array(v.string()) },
+  handler: async (ctx, { externalIds }) => {
+    const out: { externalId: string; description: string }[] = [];
+    for (const id of externalIds.slice(0, 80)) {
+      const t = await ctx.db.query("careerJobTexts").withIndex("by_externalId", (q) => q.eq("externalId", id)).first();
+      if (t) out.push({ externalId: id, description: t.description });
+    }
+    return out;
+  },
+});

@@ -15,26 +15,34 @@ import { openTo, readPlace } from "./lib/sources";
 const DAY = 86_400_000;
 const PER_EMAIL = 10;
 
-type Role = { externalId: string; company: string; title: string; location: string; workSetting?: string; url: string };
+export type Role = { externalId: string; company: string; title: string; location: string; workSetting?: string; url: string };
 
-/**
- * The roles that fit someone's titles and place, under the first title each one fits. Each title gets a fair
- * share of the PER_EMAIL places, and a role posted twice (same title, same company) shows once.
- */
 /** Job boards that run their own careers page: they aren't the employer, so their roles stay out (as on the guides). */
 const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
 
+/**
+ * Whether a role is in the place someone picked. "Remote" means remote and open to India: a remote role tied to
+ * New York is no use to these readers. Job boards reposting other companies' roles never count.
+ */
+export function placeCheck(location: string) {
+  const remoteOnly = /^remote$/i.test(location.trim());
+  const place = readPlace(remoteOnly ? "India" : location);
+  return (r: Role) =>
+    !AGGREGATORS.test(r.company) && openTo(place, r.location, r.workSetting, r.title) && (!remoteOnly || jobMode(r.location, r.workSetting, r.title) === "remote");
+}
+
+/**
+ * The roles that fit someone's titles and place, under the picked title closest to each. Each title gets a fair
+ * share of the PER_EMAIL places, and a role posted twice (same title, same company) shows once.
+ */
 export function matchRoles(sub: { titles: string[]; location: string }, roles: Role[]) {
-  // "Remote" here means remote and open to India: a remote role tied to New York is no use to these readers.
-  const remoteOnly = /^remote$/i.test(sub.location.trim());
-  const place = readPlace(remoteOnly ? "India" : sub.location);
+  const inPlace = placeCheck(sub.location);
   const groups = sub.titles.map((title) => ({ title, jobs: [] as { title: string; company: string; where: string; url: string }[] }));
   const share = Math.ceil(PER_EMAIL / Math.max(1, groups.length));
   const seen = new Set<string>();
   for (const r of roles) {
     const key = `${r.title}|${r.company}`.toLowerCase().replace(/\s+/g, " ");
-    if (seen.has(key) || AGGREGATORS.test(r.company) || !openTo(place, r.location, r.workSetting, r.title)) continue;
-    if (remoteOnly && jobMode(r.location, r.workSetting, r.title) !== "remote") continue;
+    if (seen.has(key) || !inPlace(r)) continue;
     // The picked title closest to the job's ("Sales Manager" over "Head of Sales" for a Sales Manager role).
     const best = trackForTitle(groups.map((x) => ({ key: x.title, titles: [x.title] })), r.title);
     const g = groups.find((x) => x.title === best && !otherFunction(x.title, r.title));
@@ -58,7 +66,7 @@ const inIndia = (location: string) => {
  * Roles for a first email: the last 3 days' new ones first, then the title search. The search alone can be
  * swamped by one company's repeats ("Customer Service / Sales Executive" for "Customer Success Manager").
  */
-async function openNow(ctx: ActionCtx, titles: string[], location: string): Promise<Role[]> {
+export async function openNow(ctx: ActionCtx, titles: string[], location: string): Promise<Role[]> {
   const [recent, found] = await Promise.all([
     ctx.runQuery(internal.subscribers.newRoles, { since: Date.now() - 3 * DAY }),
     ctx.runQuery(internal.careers.search, { titles, india: inIndia(location) }),

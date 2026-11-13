@@ -7,11 +7,11 @@ import { CITY_CHOICES } from "../../convex/lib/defaults";
 import { errorMessage } from "@/lib/errors";
 
 /** The titles most sales people search for; anything else goes in the box. */
-const TITLES = ["SDR / BDR", "SDR Manager", "Account Executive", "Enterprise Account Executive", "Account Manager", "Sales Manager", "Head of Sales", "Customer Success Manager"];
-const MAX = 3;
+export const TITLES = ["SDR / BDR", "SDR Manager", "Account Executive", "Enterprise Account Executive", "Account Manager", "Sales Manager", "Head of Sales", "Customer Success Manager"];
+export const MAX = 3;
 
 /** "SDR / BDR" is a menu label; the search reads it as the full title. */
-const searchTitle = (t: string) => (t === "SDR / BDR" ? "Sales Development Representative" : t);
+export const searchTitle = (t: string) => (t === "SDR / BDR" ? "Sales Development Representative" : t);
 
 /** Daily sales jobs by email, no account needed: up to 3 titles, one place, an email. */
 export function JobsByEmail({ heading = "Get new sales jobs by email", compact = false }: { heading?: string; compact?: boolean }) {
