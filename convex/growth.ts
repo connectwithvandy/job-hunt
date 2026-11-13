@@ -622,7 +622,7 @@ export const notSetUp = internalQuery({
   },
 });
 
-const noteV = v.object({ email: v.string(), subject: v.string(), text: v.string() });
+const noteV = v.object({ email: v.string(), subject: v.string(), text: v.string(), button: v.optional(v.string()) });
 
 /**
  * The owner's hand-written notes, sent one at a time from `startAt`, `gapMinutes` apart.
@@ -657,8 +657,27 @@ export const sendNote = internalAction({
       console.log("Note skipped, already set up:", note.email);
       return null;
     }
-    await sendEmail({ to: note.email, subject: note.subject, ...noteEmail(note.text) });
+    // The button signs them in with their email filled in, like the welcome email's link.
+    const button = note.button ? { label: note.button, url: `${appUrl()}/?signin=1&email=${encodeURIComponent(note.email)}` } : undefined;
+    await sendEmail({ to: note.email, subject: note.subject, ...noteEmail(note.text, button) });
     console.log("Note sent:", note.email);
     return null;
+  },
+});
+
+/** Cancels every hand-written note still waiting to go, so they can be rewritten and scheduled again. */
+export const cancelNotes = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // Newest first: the notes were scheduled recently, behind weeks of finished morning runs.
+    const waiting = await ctx.db.system.query("_scheduled_functions").order("desc").take(2000);
+    let cancelled = 0;
+    for (const job of waiting) {
+      if (job.name.includes("sendNote") && job.state.kind === "pending") {
+        await ctx.scheduler.cancel(job._id);
+        cancelled++;
+      }
+    }
+    return { cancelled };
   },
 });

@@ -650,31 +650,42 @@ ${outro.map((t) => `<p>${esc(t)}</p>`).join("\n")}
 }
 
 /**
- * A short hand-written note from the founder as a proper email: one sentence to a paragraph so it reads like a
- * quick personal note, a leading "Easiest fix:" in bold so the ask stands out, and a closing "Vandy" turned into
- * a compact signature with the JobPipe name in its colours (text, not an image, so every inbox shows it).
+ * A short hand-written note from the founder as a proper email: paragraphs as written (no breaks mid-sentence),
+ * numbered lines ("1. ...") as a list with the optional button right under it, a leading "One step left:"-style
+ * label in bold, and a closing "Vandy" turned into a compact signature with the JobPipe name in its colours
+ * (text, not an image, so every inbox shows it).
  */
-export function noteEmail(text: string) {
-  const paras = text.trim().split(/\n\s*\n/).map((p) => p.replace(/\s*\n\s*/g, " ").trim());
-  const body = (/^vandy$/i.test(paras[paras.length - 1] ?? "") ? paras.slice(0, -1) : paras)
-    // "Hi Neeraj," stays whole; the rest splits at each sentence end.
-    .flatMap((p) => p.split(/(?<=[.?!])\s+(?=[A-Z"])/))
-    // "Vandy here, I built JobPipe." alone reads choppy: it opens the next sentence's paragraph.
-    .reduce<string[]>((out, p) => (out.length && /^vandy here\b[^.]*\.$/i.test(out[out.length - 1]) ? [...out.slice(0, -1), `${out[out.length - 1]} ${p}`] : [...out, p]), []);
+export function noteEmail(text: string, button?: { label: string; url: string }) {
+  const blocks = text.trim().split(/\n\s*\n/);
+  const signed = /^vandy$/i.test((blocks[blocks.length - 1] ?? "").trim());
+  type Block = { list: string[] } | { para: string };
+  const body: Block[] = (signed ? blocks.slice(0, -1) : blocks).flatMap((b): Block[] => {
+    const lines = b.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length && lines.every((l) => /^\d+\.\s/.test(l))) return [{ list: lines.map((l) => l.replace(/^\d+\.\s+/, "")) }];
+    return [{ para: lines.join(" ") }];
+  });
   const url = appUrl();
   const line = (p: string) => {
-    // A short label before a colon at the start, like "Easiest fix:", in bold.
     const m = p.match(/^([A-Z][^:.?!]{0,20}:)\s(.*)$/);
     return m ? `<b>${esc(m[1])}</b> ${esc(m[2])}` : esc(p);
   };
+  const btn = button ? `<p style="margin:4px 0 18px"><a href="${esc(button.url)}" style="background:#c6ff3d;color:#0b0b0f;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${esc(button.label)}</a></p>` : "";
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.45;color:#1a1a1a;max-width:520px">
-${body.map((p) => `<p style="margin:0 0 12px">${line(p)}</p>`).join("\n")}
+${body
+  .map((b) =>
+    "list" in b
+      ? `<ol style="margin:0 0 14px;padding-left:22px">${b.list.map((l) => `<li style="margin:0 0 6px">${line(l)}</li>`).join("")}</ol>${btn}`
+      : `<p style="margin:0 0 12px">${line(b.para)}</p>`,
+  )
+  .join("\n")}
+${body.some((b) => "list" in b) ? "" : btn}
 <div style="margin-top:22px;border-top:1px solid #e6e6e6"></div>
 <table cellpadding="0" cellspacing="0" style="margin-top:14px"><tr>
 <td style="padding:0 12px 0 0;vertical-align:middle"><a href="${url}" style="text-decoration:none;font-weight:800;letter-spacing:1px;font-size:12px;color:#ffffff;background:#0b0b0f;padding:5px 8px;border-radius:5px;white-space:nowrap">JOBPIPE<span style="color:#c6ff3d">.</span></a></td>
 <td style="vertical-align:middle;font-size:14px;line-height:1.3"><b>Vandy</b><br><span style="color:#777;font-size:12px">Founder, <a href="${url}" style="color:#777">jobpipe.in</a> &middot; <a href="${FOUNDER_LINKEDIN}" style="color:#777">LinkedIn</a></span></td>
 </tr></table>
 </div>`;
-  const plain = `${body.join("\n\n")}\n\nVandy\nFounder, JobPipe\n${url}`;
+  const plainBody = body.map((b) => ("list" in b ? b.list.map((l, i) => `${i + 1}. ${l}`).join("\n") : b.para)).join("\n\n");
+  const plain = `${plainBody}${button ? `\n\n${button.label}: ${button.url}` : ""}\n\nVandy\nFounder, JobPipe\n${url}`;
   return { text: plain, html };
 }
