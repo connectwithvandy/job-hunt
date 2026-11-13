@@ -59,7 +59,13 @@ const JUNIOR_TITLE =/\b(freshers?|apprentices?|apprenticeship|interns?|internshi
  * stays low whatever its title, because the AI score marks those as ones to skip (13 Nov: 66% of guesses
  * of 70+ were scored under 60 by the AI, most of them roles abroad).
  */
-export function quickFit(
+export function quickFit(...args: Parameters<typeof quickFitParts>) {
+  const p = quickFitParts(...args);
+  return typeof p === "number" ? p : combineFit(p);
+}
+
+/** The pieces of the guess, kept apart so they can be checked against AI scores. A number is a final answer. */
+export function quickFitParts(
   job: { title: string; company?: string; description?: string; location: string; workSetting?: string },
   vocab: Set<string>,
   titles: string[],
@@ -109,7 +115,13 @@ export function quickFit(
   // A fresher or apprentice job shares the title but not the level: for someone years in, it's a poor fit.
   // And the other way: a director or VP role for a CV that shows no senior title and under five years.
   const level = senior && juniorTitle(job.title) ? 0.5 : !senior && vocab.size > 0 && LEADER_TITLE.test(job.title) ? 0.6 : 1;
-  return Math.round((titleShare * 50 + cvShare * cvWeight + place * 15) * language * industry * level * reach);
+  return { titleShare, shared, cvShare, cvWeight, place, language, industry, level, reach };
+}
+
+export type FitParts = Exclude<ReturnType<typeof quickFitParts>, number>;
+
+export function combineFit(p: FitParts) {
+  return Math.round((p.titleShare * 50 + p.cvShare * p.cvWeight + p.place * 15) * p.language * p.industry * p.level * p.reach);
 }
 
 // A bank or lender by name, and lending products by title. A title alone saying "Banking" is often a tech

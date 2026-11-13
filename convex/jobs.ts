@@ -11,7 +11,7 @@ import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
-import { cvSenior, cvWords, isLender, quickFit } from "./lib/quickFit";
+import { cvSenior, cvWords, isLender, quickFit, quickFitParts } from "./lib/quickFit";
 import { readWorkModes } from "./lib/defaults";
 import { backOffice, shopFloor } from "./lib/salesRoles";
 import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
@@ -346,7 +346,7 @@ export const contactsForAction = internalQuery({
 
 /** Insert jobs that aren't already in the list. Returns how many were new. */
 /** Scores jobs for one person with the free quick fit: their default CV, track titles and location. */
-async function quickFitFor(ctx: MutationCtx, userId: Id<"users">) {
+async function fitInputs(ctx: QueryCtx, userId: Id<"users">) {
   const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
   const resumeDoc =
     (profile?.defaultResumeId && (await ctx.db.get("resumes", profile.defaultResumeId))) ||
@@ -356,8 +356,43 @@ async function quickFitFor(ctx: MutationCtx, userId: Id<"users">) {
   // A paused role isn't wanted right now, so its titles don't lift a job.
   const titles = tracks.filter((t) => t.status === "active").flatMap((t) => t.titles);
   const senior = resumeDoc ? cvSenior(resumeDoc.resume) : false;
-  return (job: { title: string; company?: string; description?: string; location: string; workSetting?: string }) => quickFit(job, vocab, titles, profile?.location ?? "", senior, readWorkModes(profile?.location ?? "", profile?.workModes));
+  const modes = readWorkModes(profile?.location ?? "", profile?.workModes);
+  return [vocab, titles, profile?.location ?? "", senior, modes] as const;
 }
+type FitJob = { title: string; company?: string; description?: string; location: string; workSetting?: string };
+async function quickFitFor(ctx: QueryCtx, userId: Id<"users">) {
+  const a = await fitInputs(ctx, userId);
+  return (job: FitJob) => quickFit(job, ...a);
+}
+
+/**
+ * Read-only check of the free guess: for AI-scored jobs, the guess's parts beside the AI score, a page at a time.
+ * npx convex run --prod jobs:fitAudit '{}' then pass back the cursor until done.
+ */
+export const fitAudit = internalQuery({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").order("desc").paginate({ cursor: cursor ?? null, numItems: 400 });
+    const fits = new Map<Id<"users">, Awaited<ReturnType<typeof fitInputs>>>();
+    const rows = [];
+    for (const job of page.page) {
+      if (!job.scores?.length) continue;
+      if (!fits.has(job.userId)) fits.set(job.userId, await fitInputs(ctx, job.userId));
+      const details = await ctx.db.query("jobDetails").withIndex("by_jobId", (q) => q.eq("jobId", job._id)).unique();
+      const description = details?.description ?? job.description ?? "";
+      rows.push({
+        u: job.userId.slice(-4),
+        title: job.title,
+        loc: job.location,
+        ai: Math.max(...job.scores.map((s) => s.score)),
+        guess: job.quickFit ?? null,
+        len: description.length,
+        p: quickFitParts({ ...job, description }, ...fits.get(job.userId)!),
+      });
+    }
+    return { rows, cursor: page.isDone ? null : page.continueCursor };
+  },
+});
 
 // Matches the Jobs page, which moves new jobs older than this to "Older than 45 days".
 const STALE_AFTER = 45 * 86_400_000;
