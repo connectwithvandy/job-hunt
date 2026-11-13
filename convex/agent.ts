@@ -623,7 +623,8 @@ export const autopilotFor = internalAction({
           console.warn("Autopilot search failed", track.key, String(err));
           // The reason rides along in brackets so the morning health email shows it (it counts by the name before them).
           const reason = (err instanceof ConvexError ? String(err.data) : String((err as Error)?.message ?? err)).replace(/[()\n]/g, " ").slice(0, 80);
-          failed.add(`Dreamwork (${reason})`);
+          // Named for what broke: Dreamwork's own refusals and time-outs, or "Saving jobs" for our side (13 Nov: a read limit was filed as Dreamwork).
+          failed.add(`${/documents read|bytes read|too many|Uncaught/i.test(reason) ? "Saving jobs" : "Dreamwork"} (${reason})`);
         }
       }
       let scored = 0;

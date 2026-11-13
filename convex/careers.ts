@@ -20,7 +20,8 @@ async function saveBoard(ctx: MutationCtx, company: string, board: { ats: Career
     (await ctx.db.query("discoveredBoards").withIndex("by_ats_and_slug", (q) => q.eq("ats", board.ats).eq("slug", board.slug)).first()) ??
     (await ctx.db.query("discoveredBoards").withIndex("by_key", (q) => q.eq("key", key)).first());
   if (seen) return;
-  if ((await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED)).length >= MAX_DISCOVERED) return;
+  // No count of all boards here: it read every board for each saved job, and on 13 Nov (past 1,000 boards) that broke
+  // the morning save for 22 people. The morning read takes the first MAX_DISCOVERED; the table only grows by real boards.
   await ctx.db.insert("discoveredBoards", { key, name: company.trim(), ...board });
 }
 

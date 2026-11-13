@@ -32,7 +32,7 @@ export function healthSection(f: HealthFacts, now: number, scoreCap: number) {
   for (const r of runs) for (const name of r.failed ?? []) failed.set(name.split(" (")[0], (failed.get(name.split(" (")[0]) ?? 0) + 1);
   const failures = [...failed].sort((a, b) => b[1] - a[1]).map(([name, n]) => `${name} (${n})`);
   // Why a whole role's search broke, like "Dreamwork (fetch failed)", so the cause shows without the logs.
-  const reasons = [...new Set(runs.flatMap((r) => (r.failed ?? []).filter((x) => x.startsWith("Dreamwork (")).map((x) => x.slice(11, -1))))].slice(0, 5);
+  const reasons = [...new Set(runs.flatMap((r) => (r.failed ?? []).filter((x) => /^(Dreamwork|Saving jobs) \(/.test(x)).map((x) => x.split(" (")[0] + ": " + x.slice(x.indexOf("(") + 1, -1))))].slice(0, 5);
   const missed = f.people - runs.length;
   const aiHigh = f.aiUsed >= f.aiLimit * AI_WARN;
   // Yesterday's 9:30 email (and its 12:30 catch-up) should reach most people with roles set. Under half means it broke.
