@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
-import { nextFollowUp } from "../../../convex/lib/followups";
+import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../../convex/lib/followups";
 import { PageHead } from "@/components/bits";
 import { DirectNote, EmailDraft, HiringContacts, OutreachCard } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
@@ -24,7 +24,7 @@ export default function Messages() {
     const drafts = r.outreach.filter((o) => o.status === "draft");
     const contacted = r.hiringContacts.filter((c) => c.sentAt);
     const due = [
-      ...r.outreach.map((o) => nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps })),
+      ...r.outreach.map((o) => nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps }, REFERRAL_FOLLOW_UP_AFTER)),
       ...r.hiringContacts.map((c) => nextFollowUp({ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps })),
     ].some((f) => f && f.dueAt <= now);
     if (due) return "followup";

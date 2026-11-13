@@ -3,13 +3,14 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useSetStatus } from "./Celebrate";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
-import { nextFollowUp } from "../../convex/lib/followups";
+import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../convex/lib/followups";
+import { tidyMessage } from "../../convex/lib/messageText";
 import { setApplying } from "@/lib/applying";
 import { downloadDocx, downloadLetterDocx } from "@/lib/docx";
 import { timeAgo } from "./bits";
@@ -726,6 +727,7 @@ export function FollowUpBox({
   write,
   markSent,
   name = "",
+  autoWrite = false,
 }: {
   thread: { sentAt?: number; replied: boolean; followUps?: FollowUp[] };
   channel: "linkedin" | "email";
@@ -734,12 +736,14 @@ export function FollowUpBox({
   markSent: (index: number, text: string) => Promise<void>;
   /** Their name, so LinkedIn's "To" box can be named in the hint. */
   name?: string;
+  /** Write the follow-up as soon as this shows, when it's due and none is written (Today's "Follow up" row). */
+  autoWrite?: boolean;
 }) {
   const run = useAction(api.agent.followUp);
   const [now] = useState(() => Date.now());
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
-  const next = nextFollowUp(thread);
+  const next = nextFollowUp(thread, write.kind === "referral" ? REFERRAL_FOLLOW_UP_AFTER : undefined);
   const index = (thread.followUps ?? []).filter((f) => f.sentAt).length;
   const draft = thread.followUps?.[index];
   const [text, setText] = useState(draft?.text ?? "");
@@ -750,12 +754,22 @@ export function FollowUpBox({
     setText(draft.text);
   }
   const sentOnes = (thread.followUps ?? []).filter((f) => f.sentAt);
+  const writeIt = () => start(async () => setState(await attempt(async () => void (await run(write)))));
+  // Today's row writes it on opening, once: a failed write shows its message and waits for a click.
+  const autoTried = useRef(false);
+  const dueNow = !!next && next.dueAt <= now;
+  useEffect(() => {
+    if (!autoWrite || !dueNow || draft || autoTried.current) return;
+    autoTried.current = true;
+    writeIt();
+    // writeIt is rebuilt each render; the guard keeps this to one try.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoWrite, dueNow, draft]);
   if (!next) {
     return sentOnes.length && !thread.replied ? <p className="mt-2 text-xs text-ink-3">Both follow-ups sent. Leave this one now: silence is an answer too.</p> : null;
   }
   const days = Math.ceil((next.dueAt - now) / 86_400_000);
   const when = days <= 0 ? "due now" : `due in ${days} ${days === 1 ? "day" : "days"}`;
-  const writeIt = () => start(async () => setState(await attempt(async () => void (await run(write)))));
   return (
     <div className={`mt-3 rounded-lg border p-3 ${days <= 0 ? "border-accent" : "border-line"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -771,13 +785,13 @@ export function FollowUpBox({
       {draft && (
         <div className="mt-2">
           {draft.subject && <p className="mb-1 text-xs text-ink-3">Subject: {draft.subject}</p>}
-          <textarea className="field h-28 text-sm leading-relaxed" value={text} onChange={(e) => setText(e.target.value)} />
+          <textarea className="field h-48 text-sm leading-7" value={text} onChange={(e) => setText(e.target.value)} />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {url ? (
               <CopyAndOpen
                 text={text}
                 url={url}
-                label={channel === "email" ? "Copy & open email" : write.kind === "referral" ? "Open LinkedIn with message ready" : "Copy & open LinkedIn"}
+                label={channel === "email" ? "Copy & open email" : write.kind === "referral" && name ? `Copy & open ${name.split(" ")[0]}'s profile` : "Copy & open LinkedIn"}
                 compose={channel !== "email" && write.kind === "referral" ? name.split(" ")[0] || "their name" : undefined}
               />
             ) : (
@@ -791,6 +805,22 @@ export function FollowUpBox({
       )}
       <Feedback state={busy ? null : state} />
     </div>
+  );
+}
+
+/** A referral ask's next follow-up, written and ready to copy: for Today's "Follow up" rows. */
+export function ReferralFollowUp({ jobId, o }: { jobId: Id<"jobs">; o: Outreach }) {
+  const sendFollowUp = useMutation(api.jobs.sendOutreachFollowUp);
+  return (
+    <FollowUpBox
+      thread={{ sentAt: o.sentAt, replied: false, followUps: o.followUps }}
+      channel="linkedin"
+      url={o.url}
+      write={{ jobId, contactId: o.contactId, kind: "referral" }}
+      name={o.name}
+      autoWrite
+      markSent={async (index, text) => void (await sendFollowUp({ jobId, contactId: o.contactId, index, text }))}
+    />
   );
 }
 
@@ -898,7 +928,7 @@ const OUTREACH_FLOW: { status: OutreachStatus; label: string }[] = [
 export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outreach; cvName: string }) {
   const setOutreach = useMutation(api.jobs.setOutreach);
   const sendFollowUp = useMutation(api.jobs.sendOutreachFollowUp);
-  const [message, setMessage] = useState(o.message);
+  const [message, setMessage] = useState(() => tidyMessage(o.message));
   const [saved, setSaved] = useState("");
   const sentLabel = o.sentAt ? ` ${new Date(o.sentAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : "";
   return (
@@ -913,7 +943,7 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
         </span>
       </div>
       <textarea
-        className="field h-36 text-sm leading-relaxed"
+        className="field h-64 text-sm leading-7"
         value={message}
         onChange={(e) => {
           setMessage(e.target.value);
@@ -922,8 +952,8 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
       />
       {cvName && <p className="mt-1 text-xs text-ink-3">Attach {cvName} in LinkedIn before you send.</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <CopyAndOpen text={message} url={o.url} label="Open LinkedIn with message ready" compose={o.name.split(" ")[0]} />
-        {message !== o.message && (
+        <CopyAndOpen text={message} url={o.url} label={`Copy note & open ${o.name.split(" ")[0]}'s profile`} compose={o.name.split(" ")[0]} />
+        {message !== tidyMessage(o.message) && (
           <button
             className="btn btn-ghost btn-sm"
             onClick={async () => {

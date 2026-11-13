@@ -15,6 +15,7 @@ import { unverifiedNumbers } from "./lib/facts";
 import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { AGGREGATORS, companyKey } from "./lib/company";
+import { tidyMessage } from "./lib/messageText";
 import { AUTOPILOT_SCORES, FRESH_FIT, FRESH_SCORES, MAX_STORIES, fitsModes, type WorkMode } from "./lib/defaults";
 import { emailOn, freshEmail, sendEmail } from "./lib/email";
 import { settleLimited } from "./lib/pool";
@@ -925,7 +926,7 @@ export const followUp = action({
     const write = async (n: number, person: { name: string; title: string; commonGround?: { point: string; use: string }[] }, channel: "linkedin" | "email", first: { subject?: string; text: string }, earlier: string[]) => {
       await spend(ctx, userId, "notes");
       const out = await writeFollowUp({ n, channel, person, referral: kind === "referral", job: about, first, earlier, cvs, research: job?.research, commonGround: person.commonGround, voice });
-      return { text: out.text, subject: channel === "email" ? out.subject || `Re: ${first.subject ?? about.title}` : undefined, writtenAt: Date.now() };
+      return { text: channel === "linkedin" ? tidyMessage(out.text) : out.text, subject: channel === "email" ? out.subject || `Re: ${first.subject ?? about.title}` : undefined, writtenAt: Date.now() };
     };
 
     if (kind === "referral") {

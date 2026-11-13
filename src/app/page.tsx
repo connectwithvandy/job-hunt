@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
-import { nextFollowUp, replyTiming } from "../../convex/lib/followups";
+import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER, replyTiming } from "../../convex/lib/followups";
 import { openDoors, SKIP_BELOW } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
@@ -18,6 +18,7 @@ import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
 import { ActionButton } from "@/components/ui";
+import { ReferralFollowUp } from "@/components/job-client";
 
 const DAY = 86_400_000;
 /** After this long, Today asks for a fresh connections file: people keep connecting. */
@@ -101,8 +102,8 @@ export default function Today() {
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
   // Follow-ups that are due: referral asks and messages to hiring managers that got no reply in a week.
   const followUps = jobs.flatMap((j) => [
-    ...j.outreach.map((o) => ({ j, name: o.name, n: nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps }) })),
-    ...(j.hiringContacts ?? []).map((c) => ({ j, name: c.name, n: nextFollowUp({ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps }) })),
+    ...j.outreach.map((o) => ({ j, name: o.name, o, n: nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps }, REFERRAL_FOLLOW_UP_AFTER) })),
+    ...(j.hiringContacts ?? []).map((c) => ({ j, name: c.name, o: undefined, n: nextFollowUp({ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps }) })),
   ]).filter((f) => f.n && f.n.dueAt <= now && stillChasing(f.j.status));
   const quiet = jobs.filter((j) => j.status === "applied" && j.appliedAt && msSince(j.appliedAt) > 10 * DAY);
   const raised = (prospects ?? [])
@@ -195,7 +196,15 @@ export default function Today() {
   // 3. Messages and applications with no answer yet.
   const chase: Todo[] = [
     ...drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `Drafted, not sent yet · ${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
-    ...followUps.map(({ j, name, n }) => ({ key: `f${j._id}${name}${n!.n}`, verb: "Follow up", main: name, sub: `Follow-up ${n!.n} about ${j.title} at ${j.company}, no reply yet`, href: `/jobs/${j._id}` })),
+    // A referral ask's follow-up opens right here, written and ready to copy.
+    ...followUps.map(({ j, name, n, o }) => ({
+      key: `f${j._id}${name}${n!.n}`,
+      verb: "Follow up",
+      main: name,
+      sub: `Follow-up ${n!.n} about ${j.title} at ${j.company}, no reply yet`,
+      href: `/jobs/${j._id}`,
+      panel: o ? <ReferralFollowUp jobId={j._id} o={o} /> : undefined,
+    })),
     ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
   ];
 
@@ -288,7 +297,7 @@ export default function Today() {
 
       <Step n={1} title={answer.some((t) => t.verb === "Reply" || t.verb === "Apply") ? "Answer people who wrote back" : "Replies and interviews"} items={answer} empty="No one waiting on a reply from you." />
       <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits in the last 24 hours. Run a search on the Jobs page." />
-      <Step n={3} title="Follow up" items={chase} empty="No follow-ups due today." />
+      <Step n={3} title="Follow-ups to do today" items={chase} empty="No follow-ups due today." />
       <Step
         n={4}
         title="Open up new companies"
@@ -343,7 +352,8 @@ export default function Today() {
   );
 }
 
-type Todo = { key: string; verb: string; main: string; sub: string; href: string };
+/** `panel` opens in place on a click instead of going to `href`. */
+type Todo = { key: string; verb: string; main: string; sub: string; href: string; panel?: React.ReactNode };
 
 /** Steps forward that happened without a click (Gmail moved a job, a recruiter replied), celebrated once each. */
 function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
@@ -453,23 +463,48 @@ const VERB_TONE: Record<string, string> = {
   Connect: "text-ink-3",
 };
 
+function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
+  return (
+    <>
+      <span className={`w-20 shrink-0 text-xs font-medium uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{t.main}</span>
+        <span className="block truncate text-xs text-ink-2">{t.sub}</span>
+      </span>
+      <span className="nudge text-ink-3">{arrow}</span>
+    </>
+  );
+}
+
 /** The first eight things to do, the rest one tap away. */
 function TodoList({ items }: { items: Todo[] }) {
   const [all, setAll] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
   const shown = all ? items : items.slice(0, 8);
   return (
     <div className="card p-2">
       <ul className="divide-y divide-line">
         {shown.map((t) => (
           <li key={t.key}>
-            <Link href={t.href} className="group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
-              <span className={`w-20 shrink-0 text-xs font-medium uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{t.main}</span>
-                <span className="block truncate text-xs text-ink-2">{t.sub}</span>
-              </span>
-              <span className="nudge text-ink-3">→</span>
-            </Link>
+            {t.panel ? (
+              <>
+                <button type="button" onClick={() => setOpen(open === t.key ? null : t.key)} className="group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-soft" aria-expanded={open === t.key}>
+                  <TodoRow t={t} arrow={open === t.key ? "▴" : "▾"} />
+                </button>
+                {open === t.key && (
+                  <div className="px-3 pb-3">
+                    {t.panel}
+                    <Link href={t.href} className="mt-2 inline-block text-xs text-ink-3 underline hover:text-ink">
+                      Open the job
+                    </Link>
+                  </div>
+                )}
+              </>
+            ) : (
+              <Link href={t.href} className="group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
+                <TodoRow t={t} arrow="→" />
+              </Link>
+            )}
           </li>
         ))}
       </ul>

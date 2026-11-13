@@ -1,6 +1,7 @@
 "use node";
 
 import { z } from "zod";
+import { tidyMessage } from "./messageText";
 import { askJSON } from "./ai";
 import { unverifiedNumbers } from "./facts";
 import type { Infer } from "convex/values";
@@ -604,7 +605,7 @@ Write one message for each of these connections (use their contactId):
 ${people.map((p) => `- contactId ${p._id}: ${p.firstName} ${p.lastName}, ${p.position} at ${p.company}, connected ${p.connectedOn}\n${chatHistory(p)}`).join("\n")}${voiceBlock(voice)}`,
   });
   const edited = await polishTexts(out.messages.map((m) => m.message), `LinkedIn referral asks for ${job.title} at ${job.company}, each under 80 words`, voice?.rules);
-  return out.messages.map((m, i) => ({ ...m, message: edited[i] }));
+  return out.messages.map((m, i) => ({ ...m, message: tidyMessage(edited[i]) }));
 }
 
 // ---------- Follow-ups ----------

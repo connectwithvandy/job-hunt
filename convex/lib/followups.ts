@@ -3,18 +3,20 @@
 
 const DAY = 86_400_000;
 
-/** A week between the first message and each follow-up. */
+/** A week between the first message and each follow-up to a hiring manager. */
 export const FOLLOW_UP_AFTER = 7 * DAY;
+/** A referral ask goes to someone you know, and the role may close soon: two days (owner's call, 13 Nov). Still two at most. */
+export const REFERRAL_FOLLOW_UP_AFTER = 2 * DAY;
 export const MAX_FOLLOW_UPS = 2;
 
 type Thread = { sentAt?: number; replied: boolean; followUps?: { sentAt?: number }[] };
 
 /** The next follow-up for a sent message: which one (1 or 2), and from when it's due. Null when replied, unsent, or done. */
-export function nextFollowUp(t: Thread): { n: number; dueAt: number } | null {
+export function nextFollowUp(t: Thread, after = FOLLOW_UP_AFTER): { n: number; dueAt: number } | null {
   if (!t.sentAt || t.replied) return null;
   const sent = (t.followUps ?? []).filter((f) => f.sentAt);
   if (sent.length >= MAX_FOLLOW_UPS) return null;
-  return { n: sent.length + 1, dueAt: (sent.at(-1)?.sentAt ?? t.sentAt) + FOLLOW_UP_AFTER };
+  return { n: sent.length + 1, dueAt: (sent.at(-1)?.sentAt ?? t.sentAt) + after };
 }
 
 /** How many sent messages got a reply, split by whether the reply came to the first message or a follow-up. */

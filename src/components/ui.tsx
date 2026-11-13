@@ -81,11 +81,15 @@ export function Spinner() {
 export const linkedinCompose = (text: string) => `https://www.linkedin.com/messaging/compose/?body=${encodeURIComponent(text)}`;
 
 /**
- * Copy a message, then open LinkedIn so it can be sent by hand. With `compose` (people you're already connected to),
- * LinkedIn opens a new message with the text filled in, and you type their name in "To". Otherwise it opens their profile to paste into.
+ * Copy a message, then open LinkedIn so it can be sent by hand. With their profile link, it opens that person's
+ * profile, so the message can only go to them: click Message there and paste. LinkedIn's "new message" page
+ * can't be addressed to someone by link, and people picked the wrong person in "To" (13 Nov), so it's used only
+ * when there's no profile link. `compose` is their first name, for the hint.
  */
 export function CopyAndOpen({ text, url, label = "Copy note & open LinkedIn", compose }: { text: string; url: string; label?: string; compose?: string }) {
   const [copied, setCopied] = useState(false);
+  const profile = /linkedin\.com\/in\//i.test(url);
+  const blank = !!compose && !profile;
   return (
     <button
       type="button"
@@ -93,12 +97,18 @@ export function CopyAndOpen({ text, url, label = "Copy note & open LinkedIn", co
       onClick={async () => {
         await navigator.clipboard.writeText(text);
         setCopied(true);
-        if (compose) window.open(linkedinCompose(text), "_blank", "noopener");
+        if (blank) window.open(linkedinCompose(text), "_blank", "noopener");
         else if (url) window.open(url, "_blank", "noopener");
-        setTimeout(() => setCopied(false), compose ? 6000 : 2500);
+        setTimeout(() => setCopied(false), 8000);
       }}
     >
-      {copied ? (compose ? `Message ready. Type ${compose} in "To" and send` : "Copied. Paste it in LinkedIn") : label}
+      {copied
+        ? blank
+          ? `Message ready. Type ${compose} in "To" and send`
+          : compose
+            ? `Copied. On ${compose}'s profile, click Message and paste`
+            : "Copied. Paste it in LinkedIn"
+        : label}
     </button>
   );
 }
