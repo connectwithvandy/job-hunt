@@ -3,7 +3,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
-import { companyKey } from "./lib/company";
+import { cleanCompany, companyKey } from "./lib/company";
 import { SKIP_BELOW } from "./lib/posting";
 import { contactsAt } from "./jobs";
 import { chatRowV, withChats } from "./lib/chats";
@@ -135,7 +135,7 @@ export const warmCompanies = query({
       const job = { _id: j._id, title: j.title, status: j.status, outreach: j.outreach, skipped: j.skipped ?? [], fit };
       const e = byCompany.get(k);
       if (e) e.jobs.push(job);
-      else byCompany.set(k, { company: j.company, jobs: [job] });
+      else byCompany.set(k, { company: cleanCompany(j.company) || j.company, jobs: [job] });
     }
     const out = [];
     // Each company costs several lookups; the 100 you have most jobs at are plenty for this page.

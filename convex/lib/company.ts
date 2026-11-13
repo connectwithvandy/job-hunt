@@ -41,7 +41,9 @@ export function cleanCompany(name: string) {
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&quot;/gi, '"')
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    // Some boards repeat the name: "GoKwik GoKwik".
+    .replace(/^(.+?) \1$/i, "$1");
   return NO_NAME.test(fixed) ? "" : fixed;
 }
 
