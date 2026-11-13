@@ -83,7 +83,9 @@ export default function Today() {
     const asks = mine.flatMap((j) => j.outreach.filter((o) => o.status !== "draft"));
     const replies = asks.filter((o) => o.status === "replied" || o.status === "referred");
     const interviews = mine.filter((j) => j.status === "interview" || j.status === "offer");
-    return { t, inPlay: mine.length, applied: applied.length, asks: asks.length, replies: replies.length, interviews: interviews.length };
+    // Worth a look, not everything saved: AI 60+, or a strong first guess not scored yet (13 Nov: "In play 294" said nothing).
+    const good = mine.filter((j) => (j.status === "new" || j.status === "applying") && ((bestScore(j)?.score ?? -1) >= 60 || (!j.scores?.length && (j.quickFit ?? 0) >= 70)));
+    return { t, found: mine.length, good: good.length, applied: applied.length, asks: asks.length, replies: replies.length, interviews: interviews.length };
   });
 
   const unscored = jobs.filter((j) => j.status === "new" && !j.scores?.length);
@@ -323,7 +325,7 @@ export default function Today() {
               </Link>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              {stats.map(({ t, inPlay, applied, asks, replies, interviews }) => (
+              {stats.map(({ t, found, good, applied, asks, replies, interviews }) => (
                 <Link key={t._id} href={`/jobs?track=${t.key}`} className={`card group relative overflow-hidden p-5 transition-shadow hover:shadow-md ${t.status === "paused" ? "opacity-55" : ""}`}>
                   <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.color, boxShadow: `0 0 18px ${t.color}` }} />
                   <div className="flex items-start justify-between gap-2">
@@ -331,13 +333,21 @@ export default function Today() {
                     {t.status === "paused" && <span className="text-[11px] text-ink-3">Paused</span>}
                   </div>
                   <dl className="mt-5 grid grid-cols-2 gap-y-3 text-sm">
-                    <Stat label="In play" value={inPlay} />
+                    <Stat label="Good fits" value={good} />
                     <Stat label="Applied" value={applied} />
                     <Stat label="Referrals asked" value={asks} />
                     <Stat label="Replies" value={replies} />
                   </dl>
                   <p className="mt-4 border-t border-line pt-3 text-xs text-ink-2">
-                    {interviews ? `${interviews} in interviews` : asks ? `${Math.round((replies / asks) * 100)}% reply rate` : "No asks yet"}
+                    {!found && t.status !== "paused"
+                      ? "No jobs found for this role yet. Edit its job titles to widen the search."
+                      : interviews
+                        ? `${interviews} in interviews`
+                        : asks >= SURE
+                          ? `${Math.round((replies / asks) * 100)}% reply rate`
+                          : asks
+                            ? `${replies} of ${asks} replied so far`
+                            : "No referral asks yet"}
                   </p>
                 </Link>
               ))}
@@ -444,6 +454,8 @@ function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
 }
 
 const SHOWN = 5;
+/** A percentage means something from this many results; below it, "1 of 3" says it honestly. */
+const SURE = 5;
 
 /** The first five things to do, the rest one tap away: more read as a wall (13 Nov). */
 function TodoList({ items }: { items: Todo[] }) {
@@ -521,7 +533,7 @@ function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; tracks: 
           {label}
         </span>
         <span className="tabular-nums text-ink-2">
-          {t.responses} of {t.total} replied <b className="ml-1 text-ink">{rate(t)}%</b>
+          {t.responses} of {t.total} replied {t.total >= SURE && <b className="ml-1 text-ink">{rate(t)}%</b>}
         </span>
       </li>
     );
