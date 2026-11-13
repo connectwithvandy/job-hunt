@@ -37,6 +37,13 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
       <nav className="mt-14 border-t border-line pt-6">
         <h2 className="text-sm font-medium text-ink-2">More sales job guides</h2>
         <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          {current !== "india-sales-hiring-index" && (
+            <li>
+              <Link href="/sales-jobs/india-sales-hiring-index" className="font-medium text-accent hover:underline">
+                India Sales Hiring Index: this week
+              </Link>
+            </li>
+          )}
           {ROLE_PAGES.filter((r) => r.slug !== current).map((r) => (
             <li key={r.slug}>
               <Link href={`/sales-jobs/${r.slug}`} className="text-ink-2 hover:text-accent">

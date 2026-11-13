@@ -331,3 +331,16 @@ export const discoveredCounts = internalQuery({
     return { total: rows.length, byAts: Object.entries(by).sort((a, b) => b[1] - a[1]).map(([ats, n]) => `${ats} ${n}`).join(", ") };
   },
 });
+
+/** How many times each of these roles was taken down and posted again (roleKey keys). */
+export const repostsFor = internalQuery({
+  args: { keys: v.array(v.string()) },
+  handler: async (ctx, { keys }) => {
+    const out: { key: string; reposts: number; firstSeen: number }[] = [];
+    for (const key of keys.slice(0, 1000)) {
+      const s = await ctx.db.query("roleSightings").withIndex("by_key", (q) => q.eq("key", key)).first();
+      if (s) out.push({ key, reposts: s.reposts, firstSeen: s.firstSeen });
+    }
+    return out;
+  },
+});

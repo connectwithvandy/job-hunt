@@ -295,6 +295,9 @@ export default defineSchema({
   /** Each careers-board role by company and title, so a role taken down and put up again shows as a repost. */
   // People already in the owner's open-to-work email (by profile link), so the weekly search doesn't repeat them.
   seekersSent: defineTable({ key: v.string(), at: v.number() }).index("by_key", ["key"]),
+  /** The weekly India Sales Hiring Index (hiringIndex.ts): one snapshot a week, as JSON, read by the public page. */
+  hiringIndex: defineTable({ week: v.string(), builtAt: v.number(), data: v.string() }).index("by_week", ["week"]),
+
   roleSightings: defineTable({ key: v.string(), firstSeen: v.number(), reposts: v.number(), lastClosedAt: v.optional(v.number()) }).index("by_key", ["key"]),
 
   /** Gmail messages already read, so the hourly script never counts one twice. */

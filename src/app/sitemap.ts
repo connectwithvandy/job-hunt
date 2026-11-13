@@ -7,6 +7,8 @@ export const revalidate = 21600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const guides = ["/sales-jobs", ...ROLE_PAGES.map((r) => `/sales-jobs/${r.slug}`)];
+  // Rebuilt every Monday.
+  const index = { url: "https://jobpipe.in/sales-jobs/india-sales-hiring-index", changeFrequency: "weekly" as const, priority: 0.7 };
   const pages: MetadataRoute.Sitemap = ["", "/cv-review", ...guides, "/compare", "/about", "/pricing", "/terms", "/privacy", "/refunds", "/contact"].map((path) => ({
     url: `https://jobpipe.in${path}`,
     // Guides say when their text last changed, so search engines know to read them again.
@@ -21,5 +23,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily" as const,
     priority: 0.4,
   }));
-  return [...pages, ...roles];
+  return [...pages, index, ...roles];
 }

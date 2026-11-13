@@ -52,6 +52,9 @@ crons.cron("service watch evening", "0 12 * * *", internal.serviceCheck.watch, {
 // It replaces the separate jobs post, open-to-work list, waitlist and hourly error emails.
 crons.cron("owner morning email", "45 3 * * *", internal.growth.sendMorning, {});
 
+// Mondays 6:30 IST: this week's India Sales Hiring Index, for the public page (hiringIndexBuild.ts).
+crons.weekly("hiring index", { dayOfWeek: "monday", hourUTC: 1, minuteUTC: 0 }, internal.hiringIndexBuild.build, {});
+
 // Mondays 9:00 IST: sales roles that keep getting reposted, as a ready LinkedIn post for the owner.
 crons.cron("weekly repost post", "30 3 * * 1", internal.growth.sendRepostPost, {});
 
