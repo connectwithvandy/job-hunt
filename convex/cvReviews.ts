@@ -13,7 +13,7 @@ export const reserve = internalMutation({
       const used = await ctx.db.query("cvReviews").withIndex("by_email", (q) => q.eq("email", email)).first();
       if (used) {
         throw new ConvexError(
-          "You've had your free review. Re-checks after every change, and a CV tailored for each job, come with JobPipe: join the waitlist on the home page.",
+          "You've had your free review. Sign up on JobPipe, free, for re-checks after every change and a CV tailored to each job.",
         );
       }
     }
