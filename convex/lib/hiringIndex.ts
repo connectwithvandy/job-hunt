@@ -16,13 +16,36 @@ export type HiringIndex = {
 
 const WEEK = 7 * 86_400_000;
 
+/** A title without the place or team tacked on: "Field Sales Executive - Patna" and "... (Pune)" are one role. */
+export function baseTitle(title: string) {
+  return title.split(/\s+[-–—|]\s+|\s*[,(/]\s*/)[0].toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** "PHONEPE LIMITED" as "PhonePe"-ish "Phonepe", "Acme Pvt. Ltd." as "Acme", "&amp;" as "&". */
+export function cleanCompany(name: string) {
+  let n = name.replace(/&amp;/gi, "&").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').trim();
+  n = n.replace(/[\s,]+(private limited|pvt\.? ?ltd\.?|limited|ltd\.?|inc\.?|llp|llc)$/i, "").trim();
+  if (n.length > 4 && n === n.toUpperCase() && /[A-Z]{4}/.test(n)) n = n.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+  // Some boards repeat the name ("Gamlaa Gamlaa").
+  return n.replace(/^(.+?)\s+\1$/i, "$1");
+}
+
+/**
+ * One name per company: "Paytm Payments Services" goes under "Paytm" when both appear, because its first word is
+ * another company's whole name. Single words never merge ("Metabase" stays apart from "Meta").
+ */
+export function mergeCompanies(names: string[]) {
+  const single = new Map(names.filter((n) => !/\s/.test(n)).map((n) => [n.toLowerCase(), n]));
+  return (name: string) => (/\s/.test(name) ? (single.get(name.split(/\s+/)[0].toLowerCase()) ?? name) : name);
+}
+
 /**
  * Companies by how many different roles they have open, biggest first, at most `n`. Different titles, not postings:
  * one role posted in twenty cities counts once, so a company copying the same ad everywhere can't top the list.
  */
 function top(roles: { company: string; title: string }[], n: number) {
   const by = new Map<string, Set<string>>();
-  for (const r of roles) by.set(r.company, (by.get(r.company) ?? new Set()).add(r.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()));
+  for (const r of roles) by.set(r.company, (by.get(r.company) ?? new Set()).add(baseTitle(r.title)));
   return [...by].map(([c, t]) => [c, t.size] as const).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
 }
 

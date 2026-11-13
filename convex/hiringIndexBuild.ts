@@ -6,7 +6,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { CITY_CHOICES, jobMode } from "./lib/defaults";
-import { buildIndex, type IndexRole } from "./lib/hiringIndex";
+import { buildIndex, cleanCompany, mergeCompanies, type IndexRole } from "./lib/hiringIndex";
 import { roleKey } from "./lib/company";
 import { SALES_ROLES, trackForTitle } from "./lib/salesRoles";
 import { openTo, readPlace } from "./lib/sources";
@@ -14,7 +14,7 @@ import { openTo, readPlace } from "./lib/sources";
 /** Job boards that repost other companies' roles aren't employers (as on the guides). */
 const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
 /** Recruitment agencies post for their clients, and a bare legal word isn't a company name: neither goes on a public page. */
-const NOT_EMPLOYER = /\b(hr solutions|hr services|staffing|placements?|recruit\w*|consultan\w*|manpower|headhunt\w*|talent solutions|search partners)\b/i;
+const NOT_EMPLOYER = /\b(hr solutions|hr services|human resources|hiring solutions|staffing|placements?|recruit\w*|consultan\w*|manpower|headhunt\w*|talent solutions|search partners|2coms)\b|hire$/i;
 const BAD_NAME = /^(llp|pvt|pvt ltd|ltd|inc|limited|private limited|company|careers?)$/i;
 const CITIES = [...CITY_CHOICES, "Remote"];
 
@@ -42,12 +42,14 @@ export const build = internalAction({
         if (!family) continue;
         const cities = places.filter(([, p]) => openTo(p, r.location, r.workSetting, r.title)).map(([c]) => c);
         if (jobMode(r.location, r.workSetting, r.title) === "remote") cities.push("Remote");
-        // Some boards repeat the name ("Gamlaa Gamlaa").
-        const company = r.company.trim().replace(/^(.+?)\s+\1$/i, "$1");
-        roles.push({ ...r, company, family: SALES_ROLES.find((s) => s.key === family)!.name, cities, key: roleKey(r.company, r.title) });
+        const company = cleanCompany(r.company);
+        if (NOT_EMPLOYER.test(company) || BAD_NAME.test(company)) continue;
+        roles.push({ ...r, company, title: r.title.replace(/&amp;/gi, "&"), family: SALES_ROLES.find((s) => s.key === family)!.name, cities, key: roleKey(r.company, r.title) });
       }
       cursor = page.cursor;
     } while (cursor);
+    const merged = mergeCompanies([...new Set(roles.map((r) => r.company))]);
+    for (const r of roles) r.company = merged(r.company);
     const reposts = new Map<string, number>();
     const keys = [...new Set(roles.map((r) => r.key))];
     for (let i = 0; i < keys.length; i += 1000) {

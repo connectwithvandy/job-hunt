@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { buildIndex } from "./lib/hiringIndex";
+import { baseTitle, buildIndex, cleanCompany, mergeCompanies } from "./lib/hiringIndex";
 
 const NOW = Date.UTC(2026, 10, 16);
 const role = (company: string, title: string, family: string, cities: string[], daysOld: number, salary?: string) => ({
@@ -22,4 +22,16 @@ test("counts roles by type and city, companies by different roles, and keeps rep
   expect(x.bengaluru[0].companies).toEqual([{ company: "Acme", open: 1 }]);
   expect(x.reposted).toEqual([{ company: "Acme", title: "Account Executive", reposts: 2 }]);
   expect(x.salaries[0].salary).toBe("₹20L");
+});
+
+test("one role in many cities is one role; company names are cleaned and merged", () => {
+  expect(baseTitle("Field Sales Executive - Patna")).toBe(baseTitle("Field Sales Executive (Pune)"));
+  expect(baseTitle("Account Executive, Mid-Market")).toBe("account executive");
+  expect(cleanCompany("N Human Resources &amp; Management Systems")).toBe("N Human Resources & Management Systems");
+  expect(cleanCompany("PHONEPE LIMITED")).toBe("Phonepe");
+  expect(cleanCompany("Acme Pvt. Ltd.")).toBe("Acme");
+  expect(cleanCompany("Gamlaa Gamlaa")).toBe("Gamlaa");
+  const m = mergeCompanies(["Paytm", "Paytm Payments Services", "Meta", "Metabase", "Google"]);
+  expect(m("Paytm Payments Services")).toBe("Paytm");
+  expect(m("Metabase")).toBe("Metabase");
 });
