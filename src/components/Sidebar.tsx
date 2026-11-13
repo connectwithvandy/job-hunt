@@ -60,11 +60,12 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
   const path = usePathname();
   const { signOut } = useAuthActions();
   return (
-    <aside className="no-print sticky top-0 z-30 bg-paper md:static md:w-56 md:shrink-0 md:min-h-screen border-b md:border-b-0 md:border-r border-line px-4 py-3 md:px-5 md:py-10 flex flex-wrap md:flex-nowrap md:flex-col gap-x-4 gap-y-2 md:gap-6 items-center md:items-stretch">
+    <aside className="no-print z-30 bg-paper md:static md:w-56 md:shrink-0 md:min-h-screen border-b md:border-b-0 md:border-r border-line px-4 py-3 md:px-5 md:py-10 flex flex-wrap md:flex-nowrap md:flex-col gap-x-4 gap-y-2 md:gap-6 items-center md:items-stretch">
       <Link href="/" className="display text-lg uppercase leading-none tracking-wide">
         JobPipe<span className="breathe text-accent">.</span>
       </Link>
-      {/* On a phone every page is in view: the links wrap onto a second row instead of scrolling off the side. */}
+      {/* On a phone every page is in view: the links wrap onto a second row instead of scrolling off the side.
+          The whole menu scrolls away with the page there, so it doesn't keep a fifth of a small screen. */}
       <nav className="order-last flex w-full flex-wrap gap-1 text-sm md:order-none md:w-auto md:flex-col">
         {NAV.map((n) => {
           const active = n.pages.some((p) => isOn(path, p.href));
@@ -82,7 +83,7 @@ export function Sidebar({ isOwner }: { isOwner: boolean }) {
         })}
       </nav>
       {/* Right under the menu, not at the bottom of a tall screen where nobody finds it. */}
-      <div className="ml-auto flex gap-4 md:ml-0 md:flex-col md:gap-3 md:border-t md:border-line md:px-3 md:pt-5">
+      <div className="ml-auto flex items-center gap-3 md:items-stretch md:ml-0 md:flex-col md:gap-3 md:border-t md:border-line md:px-3 md:pt-5">
         <AccountLink active={ACCOUNT.pages.some((p) => isOn(path, p.href))} />
         {!isOwner && <FeedbackButton />}
         {isOwner && (
@@ -137,7 +138,8 @@ function FeedbackButton() {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="text-left text-sm text-ink-2 hover:text-ink">
-        Send feedback
+        <span className="md:hidden">Feedback</span>
+        <span className="hidden md:inline">Send feedback</span>
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setOpen(false)}>

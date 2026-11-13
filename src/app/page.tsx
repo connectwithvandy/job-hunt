@@ -405,7 +405,8 @@ function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
       <span className={`w-20 shrink-0 text-xs font-medium uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{t.main}</span>
-        <span className="block truncate text-xs text-ink-2">{t.sub}</span>
+        {/* Whole on a phone: one cut-off line showed a third of "Recruiter replies…" at 390px (13 Nov). */}
+        <span className="block text-xs text-ink-2 md:truncate">{t.sub}</span>
       </span>
       <span className="nudge text-ink-3">{arrow}</span>
     </>

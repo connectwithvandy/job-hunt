@@ -75,7 +75,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen md:flex">
       {!bare && <Sidebar isOwner={me.isOwner} />}
-      <main className="min-w-0 flex-1 px-5 py-8 md:px-12 md:py-12 print:p-0">
+      {/* Room at the bottom so the floating Ask JobPipe button never sits on the last line. */}
+      <main className="min-w-0 flex-1 px-5 pt-8 pb-24 md:px-12 md:pt-12 md:pb-24 print:p-0">
         {!bare && <TrialOverNotice />}
         {!bare && <SubTabs />}
         {children}

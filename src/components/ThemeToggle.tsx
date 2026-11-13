@@ -43,7 +43,8 @@ export function ThemeToggle({ className = "", labelled = false }: { className?: 
           <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
         )}
       </svg>
-      {labelled && (next === "light" ? "Light mode" : "Dark mode")}
+      {/* On a phone the icon alone, so the top row fits on one line. */}
+      {labelled && <span className="sr-only md:not-sr-only">{next === "light" ? "Light mode" : "Dark mode"}</span>}
     </button>
   );
 }
