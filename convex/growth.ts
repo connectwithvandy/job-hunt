@@ -587,3 +587,37 @@ export const sendFeedbackAsks = internalAction({
     return null;
   },
 });
+
+/**
+ * Everyone let in who hasn't finished setup, with how far they got, for the owner to write to by hand.
+ * Read-only: npx convex run --prod growth:notSetUp
+ */
+export const notSetUp = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
+    const out = [];
+    for (const row of rows) {
+      if (!row.email || isOwnerEmail(row.email)) continue;
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+      if (profile?.onboarded) continue;
+      const cv = await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", row.userId)).first();
+      const roles = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", row.userId)).take(5);
+      const days = (t?: number) => (t ? Math.floor((now - t) / DAY) : null);
+      out.push({
+        name: row.name ?? "",
+        email: row.email,
+        waitlistRole: row.role ?? "",
+        linkedin: row.linkedin ?? "",
+        partner: row.partner?.name ?? "",
+        daysSinceLetIn: days(row.decidedAt),
+        lastSeenDaysAgo: days(profile?.lastSeenAt),
+        hasCv: !!cv,
+        roles: roles.map((t) => t.name),
+        nudges: [row.setupNudgeAt && "first", row.setupNudge2At && "second"].filter(Boolean),
+      });
+    }
+    return out.sort((a, b) => (a.daysSinceLetIn ?? 0) - (b.daysSinceLetIn ?? 0));
+  },
+});
