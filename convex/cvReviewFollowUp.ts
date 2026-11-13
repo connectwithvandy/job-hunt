@@ -16,7 +16,7 @@ import { isTechCompany } from "./growth";
 /** The review page's role choices, as job titles to search. */
 const TITLES: Record<string, string[]> = {
   "SDR / BDR": ["Sales Development Representative", "Business Development Representative"],
-  "SDR / BDR leadership": ["Sales Development Manager", "SDR Manager"],
+  "SDR / BDR leadership": ["Sales Development Manager", "SDR Manager", "Head of Sales Development", "Inside Sales Manager"],
   "Account Executive": ["Account Executive"],
   "Sales leadership": ["Head of Sales", "Sales Director"],
   "Customer Success / Account Management": ["Customer Success Manager", "Account Manager"],
@@ -62,7 +62,9 @@ export const send = internalAction({
     let sent = 0;
     for (const r of due.slice(0, PER_RUN)) {
       const titles = TITLES[r.role] ?? [r.role];
-      const jobs = pick(titles, await openNow(ctx, titles, "India"));
+      // An SDR pick must be about sales development: plain "Business Development Manager" roles filled the list (13 Nov).
+      const sdr = /SDR/.test(r.role);
+      const jobs = pick(titles, (await openNow(ctx, titles, "India")).filter((j) => !sdr || /sales development|\bsdr\b|\bbdr\b|inside sales|lead generation/i.test(j.title)));
       if (dryRun) {
         lines.push(`${r.email}: ${r.role}, scored ${r.score}, ${jobs.length} jobs (${jobs.map((j) => `${j.title} at ${j.company}`).join("; ")})`);
         continue;
