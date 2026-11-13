@@ -11,7 +11,7 @@ import { companyKey } from "./company";
 export type CareerBoard = {
   name: string;
   website: string;
-  ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google";
+  ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google" | "workable" | "recruitee" | "teamtailor" | "bamboohr";
   slug: string;
   /** The company's own careers page, when its board's hosted page is switched off (Cursor's Ashby page is a 404). */
   careersUrl?: string;
@@ -135,6 +135,14 @@ export function boardUrl(b: Pick<CareerBoard, "ats" | "slug">): string | null {
       const [host, , site] = b.slug.split("/");
       return host && site ? `https://${host}.myworkdayjobs.com/${site}` : null;
     }
+    case "workable":
+      return `https://apply.workable.com/${b.slug}/`;
+    case "recruitee":
+      return `https://${b.slug}.recruitee.com/`;
+    case "teamtailor":
+      return `https://${b.slug}/jobs`;
+    case "bamboohr":
+      return `https://${b.slug}.bamboohr.com/careers`;
     case "google":
       return "https://www.google.com/about/careers/applications/jobs/results";
     default:

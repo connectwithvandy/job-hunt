@@ -17,6 +17,7 @@ const app = defineApp({
     /** Google Jobs through RapidAPI (lib/sources.ts). Off when missing. */
     JSEARCH_API_KEY: v.optional(v.string()),
     SUBSCRIBER_DAILY: v.optional(v.string()),
+    APIFY_OWNER_EXTRAS: v.optional(v.string()),
     /** Connect Gmail (convex/google.ts): the Google Cloud OAuth client. Off when missing. */
     GOOGLE_CLIENT_ID: v.optional(v.string()),
     GOOGLE_CLIENT_SECRET: v.optional(v.string()),

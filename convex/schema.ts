@@ -274,7 +274,7 @@ export default defineSchema({
   discoveredBoards: defineTable({
     key: v.string(),
     name: v.string(),
-    ats: v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google")),
+    ats: v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"), v.literal("workable"), v.literal("recruitee"), v.literal("teamtailor"), v.literal("bamboohr")),
     slug: v.string(),
   })
     .index("by_ats_and_slug", ["ats", "slug"])

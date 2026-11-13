@@ -7,9 +7,10 @@ import { companyKey, roleKey } from "./lib/company";
 import { fullTitle } from "./lib/salesRoles";
 
 // Discovered boards are capped so the morning download stays a few minutes long.
-const MAX_DISCOVERED = 1000;
+// Each one is read every morning; 2,500 keeps the morning read inside its time.
+const MAX_DISCOVERED = 2500;
 
-const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"));
+export const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"), v.literal("workable"), v.literal("recruitee"), v.literal("teamtailor"), v.literal("bamboohr"));
 
 async function saveBoard(ctx: MutationCtx, company: string, board: { ats: CareerBoard["ats"]; slug: string }) {
   // Roles are filed by company name, so one board per name.
@@ -184,6 +185,8 @@ export const addJobs = internalMutation({
         continue;
       }
       await ctx.db.insert("careerJobs", job);
+      // A LinkedIn role's apply link often opens the company's own board: read that board every morning from now on.
+      if (job.externalId.startsWith("linkedin:")) await noteBoard(ctx, job.company, [job.url]);
       if (description) await ctx.db.insert("careerJobTexts", { externalId: job.externalId, description });
       // The same title back after it was taken down is a repost.
       const key = roleKey(job.company, job.title);

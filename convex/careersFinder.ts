@@ -8,7 +8,8 @@ import { companyKey } from "./lib/company";
 import { findBoard, type Candidate } from "./lib/boardFinder";
 
 // The weekly finder: looks up B2B, SaaS and AI startups on every careers system we read
-// (Ashby, Greenhouse, Lever, Keka, Zoho Recruit, Freshteam, SmartRecruiters, Rippling; Workday has no guessable address), and adds
+// (Ashby, Greenhouse, Lever, Keka, Zoho Recruit, Freshteam, SmartRecruiters, Rippling, Workable, Recruitee,
+// Teamtailor, BambooHR; Workday has no guessable address), and adds
 // the ones it finds to the morning download. Each company is looked up about once a month.
 
 
@@ -17,7 +18,8 @@ const YC_HIRING = "https://yc-oss.github.io/api/companies/hiring.json";
 type YcCompany = { name: string; slug: string; website: string; industry: string; tags: string[]; regions: string[]; status: string };
 
 const B2B_TAGS = /\b(b2b|saas|artificial intelligence|generative ai|ai|developer tools|enterprise|sales|marketing|analytics|infrastructure|security|fintech)\b/i;
-const OPEN_TO_INDIA = new Set(["India", "South Asia", "Remote", "Fully Remote"]);
+// "Partly Remote" and Southeast Asia added 13 Nov: many of these also hire sales in India or APAC.
+const OPEN_TO_INDIA = new Set(["India", "South Asia", "Southeast Asia", "Remote", "Fully Remote", "Partly Remote"]);
 
 async function ycCandidates(): Promise<Candidate[]> {
   const res = await fetch(YC_HIRING, { signal: AbortSignal.timeout(30_000) });

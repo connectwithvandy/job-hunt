@@ -32,6 +32,7 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly AI_DAILY_UNITS: string | undefined;
   readonly ANTHROPIC_API_KEY: string | undefined;
+  readonly APIFY_OWNER_EXTRAS: string | undefined;
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;

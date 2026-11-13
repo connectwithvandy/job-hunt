@@ -300,6 +300,146 @@ async function readGoogle(board: CareerBoard, titles: string[]): Promise<CareerJ
   return [...jobs.values()];
 }
 
+type Known = { externalId: string; known: true };
+
+/** Opens up to 300 roles, 8 at a time. */
+async function inBatches<T>(items: T[], open: (item: T) => Promise<CareerJob | Known>) {
+  const list = items.slice(0, 300);
+  const out: (CareerJob | Known)[] = [];
+  for (let i = 0; i < list.length; i += 8) out.push(...(await Promise.all(list.slice(i, i + 8).map(open))));
+  return out;
+}
+
+const placeLine = (places: string, remote: boolean) => (remote ? `${places || "Anywhere"} (Remote)` : places || "Not listed");
+
+type WorkableHit = { shortcode: string; title: string; remote?: boolean; workplace?: string; published?: string; location?: { city?: string; country?: string }; locations?: { city?: string; country?: string }[] };
+
+/**
+ * Workable searches its board in pages, without descriptions; each new role is opened for one.
+ * Roles already saved (`known`) come back as ids only.
+ */
+async function readWorkable(board: CareerBoard, known: Set<string>): Promise<(CareerJob | Known)[]> {
+  const hits: WorkableHit[] = [];
+  let token: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const res = await fetch(`https://apply.workable.com/api/v3/accounts/${board.slug}/jobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "", location: [], department: [], worktype: [], remote: [], ...(token ? { token } : {}) }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw new Error(`apply.workable.com answered ${res.status}`);
+    const body = (await res.json()) as { results: WorkableHit[]; nextPage?: string };
+    hits.push(...body.results);
+    if (!body.nextPage) break;
+    token = body.nextPage;
+  }
+  return await inBatches(hits, async (h) => {
+    const externalId = `workable:${board.slug}:${h.shortcode}`;
+    if (known.has(externalId)) return { externalId, known: true };
+    const j = await getJson<{ description?: string; requirements?: string }>(`https://apply.workable.com/api/v2/accounts/${board.slug}/jobs/${h.shortcode}`).catch(() => null);
+    const places = [...new Set([h.location, ...(h.locations ?? [])].flatMap((l) => [l?.city, l?.country]).filter(Boolean))].join(", ");
+    const remote = !!h.remote || h.workplace === "remote";
+    return {
+      externalId,
+      company: board.name,
+      title: h.title.trim(),
+      location: placeLine(places, remote),
+      workSetting: remote ? "remote" : h.workplace === "hybrid" ? "hybrid" : undefined,
+      postedAt: h.published,
+      url: `https://apply.workable.com/${board.slug}/j/${h.shortcode}/`,
+      description: cut(htmlToText([j?.description, j?.requirements].filter(Boolean).join("\n\n"))),
+    };
+  });
+}
+
+type RecruiteeOffer = {
+  id: number; title: string; location?: string; city?: string; country?: string; remote?: boolean; hybrid?: boolean;
+  careers_url: string; published_at?: string; description?: string; requirements?: string; status?: string;
+};
+
+/** Recruitee lists every open role with its description in one public feed. */
+async function readRecruitee(board: CareerBoard): Promise<CareerJob[]> {
+  const { offers } = await getJson<{ offers: RecruiteeOffer[] }>(`https://${board.slug}.recruitee.com/api/offers/`);
+  return offers.filter((o) => !o.status || o.status === "published").map((o) => {
+    const places = o.location || [o.city, o.country].filter(Boolean).join(", ");
+    const remote = !!o.remote;
+    return {
+      externalId: `recruitee:${board.slug}:${o.id}`,
+      company: board.name,
+      title: o.title.trim(),
+      location: placeLine(places, remote),
+      workSetting: remote ? "remote" : o.hybrid ? "hybrid" : undefined,
+      // "2026-11-11 13:21:40 UTC" as a standard date.
+      postedAt: o.published_at && !Number.isNaN(Date.parse(o.published_at.replace(" UTC", "Z").replace(" ", "T"))) ? new Date(o.published_at.replace(" UTC", "Z").replace(" ", "T")).toISOString() : undefined,
+      url: o.careers_url,
+      description: cut(htmlToText([o.description, o.requirements].filter(Boolean).join("\n\n"))),
+    };
+  });
+}
+
+/** Teamtailor has no open feed of JSON, but every careers site has an RSS list with descriptions. The slug is the site's host. */
+async function readTeamtailor(board: CareerBoard): Promise<CareerJob[]> {
+  const res = await fetch(`https://${board.slug}/jobs.rss`, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`${board.slug} answered ${res.status}`);
+  const xml = await res.text();
+  const tag = (block: string, name: string) => block.match(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`))?.[1]?.trim() ?? "";
+  const out: CareerJob[] = [];
+  for (const item of xml.split("<item>").slice(1)) {
+    const block = item.split("</item>")[0];
+    const title = htmlToText(unescape(tag(block, "title")));
+    const link = tag(block, "link");
+    if (!title || !link) continue;
+    const id = link.match(/\/jobs\/(\d+)/)?.[1] ?? tag(block, "guid");
+    const places = [...new Set([...block.matchAll(/<tt:location>([\s\S]*?)<\/tt:location>/g)].flatMap((m) => [tag(m[1], "tt:city"), tag(m[1], "tt:country")]).filter(Boolean))].join(", ");
+    const status = tag(block, "remoteStatus").toLowerCase();
+    const remote = status === "fully" || status.includes("remote");
+    const posted = tag(block, "pubDate");
+    out.push({
+      externalId: `teamtailor:${board.slug}:${id}`,
+      company: board.name,
+      title,
+      location: placeLine(places, remote),
+      workSetting: remote ? "remote" : status === "hybrid" ? "hybrid" : undefined,
+      postedAt: posted ? new Date(posted).toISOString() : undefined,
+      url: link,
+      description: cut(htmlToText(unescape(tag(block, "description")))),
+    });
+  }
+  return out;
+}
+
+type BambooHit = { id: string; jobOpeningName: string; location?: { city?: string | null; state?: string | null }; atsLocation?: { country?: string | null; city?: string | null }; isRemote?: boolean | null; locationType?: string };
+
+/** BambooHR lists roles without descriptions; each new role is opened for one. Roles already saved come back as ids only. */
+async function readBamboo(board: CareerBoard, known: Set<string>): Promise<(CareerJob | Known)[]> {
+  const base = `https://${board.slug}.bamboohr.com/careers`;
+  const res = await fetch(`${base}/list`, { headers: { Accept: "application/json" }, redirect: "manual", signal: AbortSignal.timeout(30_000) });
+  if (res.status !== 200) throw new Error(`${board.slug}.bamboohr.com answered ${res.status}`);
+  const { result } = (await res.json()) as { result: BambooHit[] };
+  return await inBatches(result, async (h) => {
+    const externalId = `bamboohr:${board.slug}:${h.id}`;
+    if (known.has(externalId)) return { externalId, known: true };
+    const detail = await fetch(`${base}/${h.id}/detail`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30_000) })
+      .then((r) => (r.ok ? (r.json() as Promise<{ result?: { jobOpening?: { description?: string; datePosted?: string; location?: { addressCountry?: string } } } }>) : null))
+      .catch(() => null);
+    const job = detail?.result?.jobOpening;
+    const places = [...new Set([h.location?.city ?? h.atsLocation?.city, h.location?.state, job?.location?.addressCountry ?? h.atsLocation?.country].filter(Boolean))].join(", ");
+    // BambooHR's location types: 0 in office, 1 remote, 2 hybrid.
+    const remote = !!h.isRemote || h.locationType === "1";
+    return {
+      externalId,
+      company: board.name,
+      title: h.jobOpeningName.trim(),
+      location: placeLine(places, remote),
+      workSetting: remote ? "remote" : h.locationType === "2" ? "hybrid" : undefined,
+      postedAt: job?.datePosted,
+      url: `${base}/${h.id}`,
+      description: cut(job?.description && htmlToText(job.description)),
+    };
+  });
+}
+
 /** Whether the company has switched off its jobs.ashbyhq.com page (it answers "Page not found"). */
 async function ashbyPageOff(slug: string) {
   try {
@@ -337,6 +477,10 @@ export async function readBoard(board: CareerBoard, titles: string[] = [], known
   if (board.ats === "keka") return await readKeka(board);
   if (board.ats === "zoho") return await readZoho(board);
   if (board.ats === "freshteam") return await readFreshteam(board);
+  if (board.ats === "workable") return await readWorkable(board, known);
+  if (board.ats === "recruitee") return await readRecruitee(board);
+  if (board.ats === "teamtailor") return await readTeamtailor(board);
+  if (board.ats === "bamboohr") return await readBamboo(board, known);
   const id = (jobId: string | number) => `${board.ats}:${board.slug}:${jobId}`;
   if (board.ats === "ashby") {
     const body = await getJson<{ jobs: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`);

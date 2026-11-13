@@ -1,4 +1,4 @@
-// Finds a company's own careers board (Ashby, Greenhouse, Lever and others) from its name and website,
+// Finds a company's own careers board (Ashby, Greenhouse, Lever, Workable, Recruitee, Teamtailor, BambooHR and others) from its name and website,
 // by trying the addresses those systems use and keeping the first one with open roles.
 import type { CareerBoard } from "./careerBoards";
 
@@ -26,6 +26,21 @@ async function ok(url: string) {
   }
 }
 
+/** Workable only answers a search, sent as a POST. */
+async function workableHasJobs(slug: string) {
+  try {
+    const res = await fetch(`https://apply.workable.com/api/v3/accounts/${slug}/jobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "", location: [], department: [], worktype: [], remote: [] }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    return res.ok && !!((await res.json()) as { results?: unknown[] }).results?.length;
+  } catch {
+    return false;
+  }
+}
+
 /** The first careers board that answers with at least one open role. */
 export async function findBoard(c: Candidate): Promise<{ ats: CareerBoard["ats"]; slug: string } | null> {
   for (const slug of guesses(c)) {
@@ -50,6 +65,14 @@ export async function findBoard(c: Candidate): Promise<{ ats: CareerBoard["ats"]
     if (sr && (JSON.parse(sr) as { totalFound?: number }).totalFound) return { ats: "smartrecruiters", slug };
     const rippling = await ok(`https://api.rippling.com/platform/api/ats/v1/board/${slug}/jobs`);
     if (rippling && rippling.startsWith("[") && (JSON.parse(rippling) as unknown[]).length) return { ats: "rippling", slug };
+    if (await workableHasJobs(slug)) return { ats: "workable", slug };
+    const recruitee = await ok(`https://${slug}.recruitee.com/api/offers/`);
+    if (recruitee && (JSON.parse(recruitee) as { offers?: unknown[] }).offers?.length) return { ats: "recruitee", slug };
+    const teamtailor = await ok(`https://${slug}.teamtailor.com/jobs.rss`);
+    if (teamtailor && teamtailor.includes("<item>")) return { ats: "teamtailor", slug: `${slug}.teamtailor.com` };
+    // BambooHR sends unknown names elsewhere; a real board answers with its list.
+    const bamboo = await ok(`https://${slug}.bamboohr.com/careers/list`);
+    if (bamboo && bamboo.startsWith("{") && (JSON.parse(bamboo) as { result?: unknown[] }).result?.length) return { ats: "bamboohr", slug };
   }
   return null;
 }

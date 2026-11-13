@@ -7,6 +7,8 @@ import { searchJobs } from "./lib/apify";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { boardFingerprint, boardKey, FAST_ATS, readBoard, type CareerJob } from "./lib/careers";
 import { isCompanyLink } from "./lib/directLink";
+import { findBoard } from "./lib/boardFinder";
+import { atsV } from "./careers";
 import { openTo, readPlace, titleMatches } from "./lib/sources";
 
 const INDIA = readPlace("India");
@@ -32,7 +34,7 @@ export const linkedInPool = internalAction({
     if (!env.APIFY_TOKEN) return null;
     const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
     if (!titles.length) return null;
-    const settled = await Promise.allSettled(LINKEDIN_SEARCHES.map((q) => searchJobs([q], "India", false, "24h", 50, 0.06)));
+    const settled = await Promise.allSettled(LINKEDIN_SEARCHES.map((q) => searchJobs([q], "India", false, "24h", 50, 0.06, true)));
     settled.forEach((r, i) => r.status === "rejected" && console.warn("LinkedIn pool search failed:", i, String(r.reason)));
     const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
     const jobs = [...new Map(found.map((j) => [j.id, j])).values()]
@@ -161,5 +163,22 @@ export const quickCheck = internalAction({
     if (added) await ctx.scheduler.runAfter(0, internal.agent.freshRun, { since });
     console.log(`Quick check: ${boards.length} boards, ${changed.length} changed, ${added} new roles, ${failed} failed.`);
     return null;
+  },
+});
+
+/**
+ * For the owner: read one board by hand, or find one from a company's name and website, to check before adding it.
+ * npx convex run careersRefresh:tryBoard '{"ats":"workable","slug":"huggingface"}'
+ * npx convex run careersRefresh:tryBoard '{"name":"Hugging Face","website":"huggingface.co"}'
+ */
+export const tryBoard = internalAction({
+  args: { ats: v.optional(atsV), slug: v.optional(v.string()), name: v.optional(v.string()), website: v.optional(v.string()) },
+  returns: v.string(),
+  handler: async (_ctx, { ats, slug, name, website }) => {
+    const found = ats && slug ? { ats, slug } : await findBoard({ name: name ?? "", website: website ?? "" });
+    if (!found) return "No board found.";
+    const jobs = (await readBoard({ ...found, name: name ?? found.slug, website: website ?? "" })).filter((j): j is CareerJob => !("known" in j));
+    const sample = jobs.slice(0, 3).map((j) => `- ${j.title} · ${j.location} · ${j.workSetting ?? "-"} · ${j.postedAt ?? "no date"} · ${j.description ? `${j.description.length} chars` : "no description"}\n  ${j.url}`);
+    return `${found.ats}:${found.slug}: ${jobs.length} roles\n${sample.join("\n")}`;
   },
 });

@@ -52,14 +52,24 @@ function toPost(p: RawPost): Post | null {
   };
 }
 
-/** A person's latest posts, newest first. About $0.01 for five. */
+/**
+ * The owner-only uses (her own LinkedIn job search, the morning-email jobs post, open-to-work people, hiring posts,
+ * contacts' recent posts) are off unless APIFY_OWNER_EXTRAS is "on": together they used up the free $9 a month by
+ * 12 Nov and stopped the shared LinkedIn pool that everyone's search uses. Off, they return nothing.
+ */
+export const ownerExtrasOn = () => env.APIFY_OWNER_EXTRAS === "on";
+
+/** A person's latest posts, newest first. About $0.01 for five. Owner-only. */
 export async function recentPosts(profileUrl: string, max = 5) {
+  if (!ownerExtrasOn()) return [];
   const rows = await run<RawPost>("harvestapi~linkedin-profile-posts", { targetUrls: [profileUrl], maxPosts: max, includeReposts: false }, 0.05);
   return rows.map(toPost).filter((p): p is Post => !!p).slice(0, max);
 }
 
 /** Posts from the last week (or day) matching each search, like "hiring sales manager bengaluru". About $0.02 per ten. */
 export async function searchPosts(queries: string[], perQuery = 10, since: "24h" | "week" = "week") {
+  // Owner-only: see ownerExtrasOn.
+  if (!ownerExtrasOn()) return [];
   const rows = await run<RawPost>("harvestapi~linkedin-post-search", { searchQueries: queries, maxPosts: perQuery, postedLimit: since, sortBy: "date", profileScraperMode: "short" }, 0.25);
   const seen = new Set<string>();
   return rows.map(toPost).filter((p): p is Post => !!p && !seen.has(p.id) && !!seen.add(p.id));
@@ -85,9 +95,11 @@ export type LinkedInJob = {
 
 /**
  * LinkedIn job listings for each search, which can join titles with OR. About $0.001 a job, and
- * `maxUsd` caps the run. `where` is a place LinkedIn knows ("Bengaluru", "India"); `remote` keeps remote roles only.
+ * `maxUsd` caps the run. `shared` marks the pool everyone uses. `where` is a place LinkedIn knows ("Bengaluru", "India"); `remote` keeps remote roles only.
  */
-export async function searchJobs(queries: string[], where: string | undefined, remote: boolean, since: "24h" | "week" | "month", perQuery: number, maxUsd: number) {
+export async function searchJobs(queries: string[], where: string | undefined, remote: boolean, since: "24h" | "week" | "month", perQuery: number, maxUsd: number, shared = false) {
+  // Only the shared pool runs unless the owner's extras are on (ownerExtrasOn).
+  if (!shared && !ownerExtrasOn()) return [];
   const rows = await run<RawJob>(
     "harvestapi~linkedin-job-search",
     { jobTitles: queries, ...(where ? { locations: [where] } : {}), ...(remote ? { workplaceType: ["remote"] } : {}), postedLimit: since, sortBy: "date", maxItems: perQuery },
