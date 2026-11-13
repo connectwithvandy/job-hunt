@@ -757,11 +757,17 @@ export function FollowUpBox({
   const writeIt = () => start(async () => setState(await attempt(async () => void (await run(write)))));
   // Today's row writes it on opening, once: a failed write shows its message and waits for a click.
   const autoTried = useRef(false);
+  // The AI can take 10-20 seconds: say so, or the box looks stuck (13 Nov test).
+  const [autoWriting, setAutoWriting] = useState(false);
   const dueNow = !!next && next.dueAt <= now;
   useEffect(() => {
     if (!autoWrite || !dueNow || draft || autoTried.current) return;
     autoTried.current = true;
-    writeIt();
+    setAutoWriting(true);
+    start(async () => {
+      setState(await attempt(async () => void (await run(write))));
+      setAutoWriting(false);
+    });
     // writeIt is rebuilt each render; the guard keeps this to one try.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoWrite, dueNow, draft]);
@@ -781,7 +787,12 @@ export function FollowUpBox({
           {busy ? "Writing…" : draft ? "Write another" : `Write follow-up ${next.n}`}
         </button>
       </div>
-      {!draft && <p className="mt-1 text-xs text-ink-3">{next.n === 1 ? "A new reason to reply, not a nudge." : "The last one: short, kind, with an easy out."}</p>}
+      {!draft && autoWriting && (
+        <p className="mt-2 flex items-center gap-2 text-sm text-ink-2">
+          <Spinner /> Writing your follow-up to {name.split(" ")[0] || "them"}… about 15 seconds.
+        </p>
+      )}
+      {!draft && !autoWriting && <p className="mt-1 text-xs text-ink-3">{next.n === 1 ? "A new reason to reply, not a nudge." : "The last one: short, kind, with an easy out."}</p>}
       {draft && (
         <div className="mt-2">
           {draft.subject && <p className="mb-1 text-xs text-ink-3">Subject: {draft.subject}</p>}
@@ -943,7 +954,7 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
         </span>
       </div>
       <textarea
-        className="field h-64 text-sm leading-7"
+        className="field h-80 text-sm leading-7"
         value={message}
         onChange={(e) => {
           setMessage(e.target.value);
