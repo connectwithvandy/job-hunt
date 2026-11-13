@@ -308,3 +308,26 @@ export const textsFor = internalQuery({
     return out;
   },
 });
+
+/** One page of the shared careers-board roles, slim, for reports and the hiring index. */
+export const jobsPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("careerJobs").paginate({ numItems: 2000, cursor });
+    return {
+      rows: page.page.map((r) => ({ externalId: r.externalId, company: r.company, title: r.title, location: r.location, workSetting: r.workSetting, salary: r.salary, url: r.url, india: r.india, at: r._creationTime })),
+      cursor: page.isDone ? null : page.continueCursor,
+    };
+  },
+});
+
+/** Boards found by the finder or from job links, by careers system. */
+export const discoveredCounts = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED);
+    const by: Record<string, number> = {};
+    for (const r of rows) by[r.ats] = (by[r.ats] ?? 0) + 1;
+    return { total: rows.length, byAts: Object.entries(by).sort((a, b) => b[1] - a[1]).map(([ats, n]) => `${ats} ${n}`).join(", ") };
+  },
+});

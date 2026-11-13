@@ -182,3 +182,44 @@ export const tryBoard = internalAction({
     return `${found.ats}:${found.slug}: ${jobs.length} roles\n${sample.join("\n")}`;
   },
 });
+
+/**
+ * For the owner: how big the shared job list is and how fast it grows. npx convex run --prod careersRefresh:report
+ * Sources are the part of each id before the first colon (ashby, greenhouse, linkedin...).
+ */
+export const report = internalAction({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    let cursor: string | null = null;
+    let total = 0;
+    let india = 0;
+    let day = 0;
+    let week = 0;
+    const bySource = new Map<string, { all: number; day: number }>();
+    do {
+      const page: { rows: { externalId: string; india: boolean; at: number }[]; cursor: string | null } = await ctx.runQuery(internal.careers.jobsPage, { cursor });
+      for (const r of page.rows) {
+        total++;
+        if (r.india) india++;
+        const fresh = now - r.at < 86_400_000;
+        if (fresh) day++;
+        if (now - r.at < 7 * 86_400_000) week++;
+        const src = r.externalId.split(":")[0];
+        const s = bySource.get(src) ?? { all: 0, day: 0 };
+        s.all++;
+        if (fresh) s.day++;
+        bySource.set(src, s);
+      }
+      cursor = page.cursor;
+    } while (cursor);
+    const boards: { total: number; byAts: string } = await ctx.runQuery(internal.careers.discoveredCounts, {});
+    const sources = [...bySource].sort((a, b) => b[1].all - a[1].all).map(([k, s]) => `${k} ${s.all} (+${s.day})`).join(", ");
+    return [
+      `Open roles: ${total} (${india} in or open to India). New: ${day} in 24h, ${week} in 7 days.`,
+      `By source (open, +new in 24h): ${sources}`,
+      `Boards: ${CAREER_BOARDS.length} built in + ${boards.total} found (${boards.byAts}).`,
+    ].join("\n");
+  },
+});
