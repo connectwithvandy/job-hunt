@@ -612,7 +612,7 @@ function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Les
 }
 
 /** One role's search, or all of them together: what's worth applying to, then each step after it. */
-type Funnel = { good: number; applied: number; asked: number; replies: number; interviews: number };
+type Funnel = { good: number; applied: number; asked: number; heard: number; tried: number; interviews: number };
 
 const APPLIED = new Set(["applied", "screening", "interview", "offer", "rejected"]);
 
@@ -620,31 +620,36 @@ function funnelOf(jobs: Doc<"jobs">[]): Funnel {
   const live = jobs.filter((j) => j.status !== "dismissed");
   // Worth a look: AI 60+, or a strong first guess not scored yet. Not every saved job ("294 in play" said nothing).
   const good = live.filter((j) => (j.status === "new" || j.status === "applying") && ((bestScore(j)?.score ?? -1) >= 60 || (!j.scores?.length && (j.quickFit ?? 0) >= 70)));
-  // Messages you sent: referral asks and notes to hiring managers. A reply is anyone who wrote back.
-  const sent = live.flatMap((j) => [
-    ...j.outreach.filter((o) => o.status !== "draft").map((o) => o.status === "replied" || o.status === "referred"),
-    ...(j.hiringContacts ?? []).filter((c) => c.sentAt).map((c) => !!c.repliedAt),
-  ]);
+  // Messages you sent: referral asks and notes to hiring managers.
+  const messaged = (j: Doc<"jobs">) => j.outreach.some((o) => o.status !== "draft") || (j.hiringContacts ?? []).some((c) => c.sentAt);
+  // Heard back, per job: someone answered your message, or the company moved you on or said no.
+  // Counting only message replies showed "0 replies" beside an interview (13 Nov).
+  const heard = (j: Doc<"jobs">) =>
+    ["screening", "interview", "offer", "rejected"].includes(j.status) ||
+    j.outreach.some((o) => o.status === "replied" || o.status === "referred") ||
+    (j.hiringContacts ?? []).some((c) => c.repliedAt);
+  const tried = live.filter((j) => APPLIED.has(j.status) || messaged(j));
   return {
     good: good.length,
     applied: live.filter((j) => APPLIED.has(j.status)).length,
-    asked: sent.length,
-    replies: sent.filter(Boolean).length,
+    asked: live.reduce((n, j) => n + j.outreach.filter((o) => o.status !== "draft").length + (j.hiringContacts ?? []).filter((c) => c.sentAt).length, 0),
+    heard: tried.filter(heard).length,
+    tried: tried.length,
     interviews: live.filter((j) => j.status === "interview" || j.status === "offer").length,
   };
 }
 
-/** "1 of 3 replied" until there are enough messages for a percentage to mean something. */
+/** Of the jobs you applied to or messaged about, how many answered: "1 of 3" until 5 make a rate meaningful. */
 function replyNote(f: Funnel) {
-  if (!f.asked) return "No messages sent yet";
-  return f.asked >= SURE ? `${Math.round((f.replies / f.asked) * 100)}% reply rate` : `${f.replies} of ${f.asked} replied`;
+  if (!f.tried) return "Nothing sent yet";
+  return f.tried >= SURE ? `Heard back on ${Math.round((f.heard / f.tried) * 100)}%` : `Heard back on ${f.heard} of ${f.tried}`;
 }
 
 const STAGES: { key: keyof Funnel; label: string }[] = [
   { key: "good", label: "Good fits" },
   { key: "applied", label: "Applied" },
   { key: "asked", label: "Messages sent" },
-  { key: "replies", label: "Replies" },
+  { key: "heard", label: "Heard back" },
   { key: "interviews", label: "Interviews" },
 ];
 
@@ -684,7 +689,7 @@ function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">
                   {f.good + f.applied === 0 ? (
                     <span className="text-pink">Finds no jobs yet: widen its titles on Setup</span>
                   ) : (
-                    `${f.good} good fits · ${f.applied} applied · ${f.asked} messages · ${f.replies} ${f.replies === 1 ? "reply" : "replies"}`
+                    `${f.good} good fits · ${f.applied} applied · ${f.asked} messages · heard back on ${f.heard}`
                   )}
                 </div>
               </Link>
