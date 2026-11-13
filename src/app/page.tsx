@@ -12,8 +12,7 @@ import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useCelebrateNewWins, WIN_WORDS } from "@/components/Celebrate";
-import { CompanyMark, DAY_STARTS_AT, QuickFitPill, likelyScore, ScorePill, TrackTag, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
-import { fitTier } from "@/lib/jobFilters";
+import { DAY_STARTS_AT, likelyScore, ScorePill, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
@@ -222,7 +221,6 @@ export default function Today() {
       };
     }),
     ...raised.map((p) => ({ key: `r${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
-    ...(learn ? [{ key: "learn", verb: "Learn", main: "What keeps costing you", sub: `${noes} noes and silences so far. See the pattern.`, href: "/#whats-working" }] : []),
   ];
 
   // The job the guide points to: the best fit still open, else any open one.
@@ -311,10 +309,12 @@ export default function Today() {
 
       <Autopilot on={me.autopilot} last={me.lastAutopilot} />
 
-      <details className="mt-8" open={learn || undefined}>
-        <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">See more: new jobs, your roles, what&apos;s working, newly funded companies</summary>
+      {/* Closed unless opened: Today is the to-do list. New jobs are step 2, so they aren't listed again here (13 Nov). */}
+      <details className="mt-8">
+        <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">
+          See more: your roles, what&apos;s working{learn ? ` (${noes} noes and silences to learn from)` : ""}, newly funded companies
+        </summary>
         <div className="mt-6">
-          {me.prevSeenAt && <NewSinceVisit since={me.prevSeenAt} jobs={jobs} prospects={prospects ?? []} tracks={me.tracks} />}
           <section className="mb-12">
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="display text-3xl">Your roles</h2>
@@ -640,57 +640,6 @@ function Stat({ label, value }: { label: string; value: number }) {
       <dt className="text-xs text-ink-3">{label}</dt>
       <dd className="display text-3xl leading-none tabular-nums">{value}</dd>
     </div>
-  );
-}
-
-function JobRow({ j, track, dream }: { j: Pick<Doc<"jobs">, "_id" | "title" | "company" | "companyLogo" | "scores" | "quickFit">; track?: Doc<"tracks">; dream?: boolean }) {
-  return (
-    <li>
-      <Link href={`/jobs/${j._id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-soft">
-        <CompanyMark job={j} size={30} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{j.title}</div>
-          <div className="text-xs text-ink-2">{j.company}</div>
-        </div>
-        {dream && <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[11px] text-on-accent">Dream company</span>}
-        <TrackTag track={track} />
-        {bestScore(j) ? <ScorePill score={bestScore(j)!.score} /> : <QuickFitPill score={j.quickFit} />}
-      </Link>
-    </li>
-  );
-}
-
-/** Roles found since your last visit: your dream companies first, then the best fits. */
-function NewSinceVisit({ since, jobs, prospects, tracks }: { since: number; jobs: Doc<"jobs">[]; prospects: Doc<"prospects">[]; tracks: Doc<"tracks">[] }) {
-  const dreams = new Set(prospects.filter((p) => p.dream && p.status !== "skip").map((p) => p.key));
-  const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
-  const fresh = jobs
-    .filter((j) => j._creationTime > since && j.status === "new")
-    .map((j) => ({ j, dream: dreams.has(companyKey(j.company)) }))
-    // AI scores at the line or above rank above first guesses, which run high.
-    .sort((a, b) => Number(b.dream) - Number(a.dream) || fitTier(bestScore(b.j)?.score ?? -1) - fitTier(bestScore(a.j)?.score ?? -1) || fit(b.j) - fit(a.j));
-  if (!fresh.length) return null;
-  const atDreams = fresh.filter((f) => f.dream).length;
-  return (
-    <section className="card mb-10 p-6">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="display text-2xl">New since your last visit</h2>
-        <span className="text-sm text-ink-2">
-          {fresh.length} {fresh.length === 1 ? "role" : "roles"}
-          {atDreams ? `, ${atDreams} at your dream companies` : ""} · since {timeAgo(since)}
-        </span>
-      </div>
-      <ul>
-        {fresh.slice(0, 8).map(({ j, dream }) => (
-          <JobRow key={j._id} j={j} track={tracks.find((t) => t.key === jobTrackKey(j, tracks))} dream={dream} />
-        ))}
-      </ul>
-      {fresh.length > 8 && (
-        <Link href="/jobs?sort=added" className="mt-2 inline-block text-sm text-ink-2 underline">
-          See all {fresh.length} in Jobs
-        </Link>
-      )}
-    </section>
   );
 }
 
