@@ -63,12 +63,13 @@ export const linkedInPool = internalAction({
   },
 });
 
-// [search, how many to read]. India, posted today. SDR/BDR and AE first: most members' roles, and the ones
-// careers boards list least (13 Nov: 131 SDR roles in India from boards). About $2.50 per 1,000 jobs.
-const GOOGLE_SEARCHES: [string, number][] = [
-  ["sales development representative OR business development representative OR inside sales", 60],
-  ["account executive OR sales executive", 60],
-  ["sales manager OR business development manager OR account manager", 40],
+// [plain searches, how many to read per run]. India, last 3 days (repeats are skipped when saved). SDR/BDR and AE
+// first: most members' roles, and the ones careers boards list least (13 Nov: 131 SDR roles in India from boards).
+// Plain titles, not "a OR b": Google read the OR searches literally and found 27 roles of 160 (13 Nov).
+// About $2.50 per 1,000 jobs plus $0.005 a run.
+const GOOGLE_SEARCHES: [string[], number][] = [
+  [["sales development representative", "business development representative", "inside sales", "business development executive"], 80],
+  [["account executive", "enterprise account executive", "sales manager", "business development manager"], 80],
 ];
 
 /**
@@ -107,8 +108,9 @@ export const googlePool = internalAction({
     const old: string[] = await ctx.runQuery(internal.careers.oldGoogle, { before: Date.now() - KEEP_LINKEDIN_DAYS * 86_400_000 });
     for (let i = 0; i < old.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: old.slice(i, i + 200) });
     const boardOnly = found.filter((j) => !j.links.some((u) => isCompanyLink(u))).length;
-    console.log(`Google pool: ${found.length} found, ${jobs.length} saved, ${boardOnly} only on job boards, ${old.length} old ones removed.`);
-    return { found: found.length, saved: jobs.length, boardOnly };
+    const otherTitles = found.filter((j) => !titles.some((t) => titleMatches(t, j.title))).length;
+    console.log(`Google pool: ${found.length} found, ${jobs.length} saved, ${boardOnly} only on job boards, ${otherTitles} titles nobody searches, ${old.length} old ones removed.`);
+    return { found: found.length, saved: jobs.length, boardOnly, otherTitles };
   },
 });
 

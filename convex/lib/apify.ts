@@ -152,12 +152,12 @@ export type GoogleJob = {
 };
 
 /**
- * Google Jobs listings in India for one search, posted today: Google gathers Naukri, Indeed, LinkedIn and
+ * Google Jobs listings in India for these searches, posted in the last 3 days: Google gathers Naukri, Indeed, LinkedIn and
  * companies' own pages, so this reaches roles our careers-board readers miss. About $2.50 per 1,000 jobs
  * plus $0.005 a run (actor memo23/google-jobs-scraper); `maxUsd` caps each run.
  */
-export async function searchGoogleJobs(query: string, max: number, maxUsd: number): Promise<GoogleJob[]> {
-  const rows = await run<RawGoogleJob>("memo23~google-jobs-scraper", { keywords: [query], locations: [], country: "in", language: "en", datePosted: "today", maxItems: max }, maxUsd);
+export async function searchGoogleJobs(queries: string[], max: number, maxUsd: number): Promise<GoogleJob[]> {
+  const rows = await run<RawGoogleJob>("memo23~google-jobs-scraper", { keywords: queries, locations: [], country: "in", language: "en", datePosted: "3days", maxItems: max }, maxUsd);
   const seen = new Set<string>();
   return rows.flatMap((j): GoogleJob[] => {
     if (!j.jobId || !j.title || !j.companyName || seen.has(j.jobId)) return [];
