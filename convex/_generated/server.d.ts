@@ -36,6 +36,7 @@ type Env = {
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
+  readonly FRESH_SCORING: string | undefined;
   readonly GOOGLE_CLIENT_ID: string | undefined;
   readonly GOOGLE_CLIENT_SECRET: string | undefined;
   readonly GOOGLE_REDIRECT_URI: string | undefined;

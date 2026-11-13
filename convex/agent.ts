@@ -217,6 +217,8 @@ export const scoreOnVisit = internalAction({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     if (!(await ctx.runQuery(internal.access.allowed, { userId }))) return null;
+    // Paying people only since 13 Nov: everyone else scores what they pick, as the Jobs page tip says.
+    if ((await ctx.runQuery(internal.users.scoringTier, { userId })) !== "paid") return null;
     const me = await contextFor(ctx, userId);
     if (!me.resume) return null;
     const ids: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit: VISIT_SCORES });
@@ -551,10 +553,12 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, loc
     const cvFor = (t: { key: string }) => resumeFor[t.key] ?? cv;
     let failed = 0;
     let lastError = "";
-    // Four at a time, so twelve jobs take about as long as three.
-    for (let i = 0; i < ids.length; i += 4) {
+    // The first job alone, so the CV and roles it saves for reuse are there for the rest; then four at a time.
+    // Four at once from the start each paid to save the same 20,000 words and none reused them (13 Nov logs).
+    const batches = ids.length > 1 ? [ids.slice(0, 1), ...Array.from({ length: Math.ceil((ids.length - 1) / 4) }, (_, k) => ids.slice(1 + k * 4, 5 + k * 4))] : [ids];
+    for (const batch of batches) {
       await Promise.all(
-        ids.slice(i, i + 4).map(async (jobId) => {
+        batch.map(async (jobId) => {
           try {
             const job = await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
             const s = await scoreJob(job, cvFor, tracks, location, markets, past);
@@ -631,7 +635,8 @@ export const autopilotFor = internalAction({
       let scored = 0;
       // Paid people get the full morning batch; recent visitors a few; people who are away none (their next visit scores).
       const tier: "paid" | "active" | "idle" = await ctx.runQuery(internal.users.scoringTier, { userId });
-      const limit = tier === "paid" ? AUTOPILOT_SCORES : tier === "active" ? VISIT_SCORES : 0;
+      // Only paying people get morning scores; the rest tick the jobs they want scored (13 Nov cost cut).
+      const limit = tier === "paid" ? AUTOPILOT_SCORES : 0;
       const unscored: Id<"jobs">[] = limit ? await ctx.runQuery(internal.jobs.unscoredIds, { userId, limit }) : [];
       if (unscored.length && me.resume) {
         // Twelve at a time, so a nearly used-up allowance still scores what it can.
@@ -738,6 +743,8 @@ export const freshFor = internalAction({
       await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [...jobs.values()] });
       // Scoring new roles the hour they appear (and the alert email it can send) is a paid perk: it ran up to
       // 45 AI calls a day per person. Everyone else's new roles get scored on their next visit.
+      // Off unless FRESH_SCORING is "on": scoring new roles every hour cost 3-10 cents a call with nobody paying (13 Nov).
+      if (env.FRESH_SCORING !== "on") return null;
       const tier: "paid" | "active" | "idle" = await ctx.runQuery(internal.users.scoringTier, { userId });
       if (tier !== "paid") return null;
       const ids: Id<"jobs">[] = await ctx.runQuery(internal.jobs.unscoredSince, { userId, since: start, limit: FRESH_SCORES });

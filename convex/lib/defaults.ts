@@ -29,10 +29,13 @@ export const PIPELINE: { status: string; label: string }[] = [
 export const MAX_STORIES = 20;
 
 /** Daily allowance per person, so a public app can't run up an unbounded AI bill. */
-/** AI scores each person gets from the morning run. */
-export const AUTOPILOT_SCORES = 24;
+/**
+ * AI scores a paying person gets from the morning run. Everyone else scores by ticking jobs on the Jobs page.
+ * 13 Nov: automatic scoring for every recent visitor cost $5-7 a day at 3-10 cents a score, with ₹6,000 earned.
+ */
+export const AUTOPILOT_SCORES = 5;
 
-/** New roles scored for one person each time the careers boards are read during the day. */
+/** New roles scored for one person each time the careers boards are read during the day: off (see agent.freshFor). */
 export const FRESH_SCORES = 3;
 
 /** Fit that earns an alert straight away: the same line as a strong fit everywhere else. */

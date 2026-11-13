@@ -248,8 +248,7 @@ export const setLocation = mutation({
 export const scoringTier = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }): Promise<"paid" | "active" | "idle"> => {
-    const user = await ctx.db.get("users", userId);
-    if (isOwnerEmail(user?.email)) return "paid";
+    // The owner scores by ticking too: her account was the biggest automatic scorer (13 Nov).
     const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if ((row?.paidUntil ?? 0) > Date.now()) return "paid";
     const profile = await findProfile(ctx, userId);

@@ -18,6 +18,8 @@ const app = defineApp({
     JSEARCH_API_KEY: v.optional(v.string()),
     SUBSCRIBER_DAILY: v.optional(v.string()),
     APIFY_OWNER_EXTRAS: v.optional(v.string()),
+    // "on" turns back hourly AI scoring of new roles for paying people (agent.freshFor). Off since 13 Nov.
+    FRESH_SCORING: v.optional(v.string()),
     /** Connect Gmail (convex/google.ts): the Google Cloud OAuth client. Off when missing. */
     GOOGLE_CLIENT_ID: v.optional(v.string()),
     GOOGLE_CLIENT_SECRET: v.optional(v.string()),
