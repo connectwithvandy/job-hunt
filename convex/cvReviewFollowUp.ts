@@ -35,7 +35,8 @@ const NOT_EMPLOYER = /\b(consult\w*|staffing|recruit\w*|placements?|manpower|hr 
  */
 function pick(titles: string[], roles: Role[]) {
   const clean = roles
-    .map((r) => ({ ...r, company: cleanCompany(r.company).replace(/^us\s*:\s*/i, "") || r.company }))
+    // Titles can carry "&amp;" from the boards; the email shows plain "&".
+    .map((r) => ({ ...r, title: r.title.replace(/&amp;/gi, "&").replace(/\s+/g, " ").trim(), company: cleanCompany(r.company).replace(/^us\s*:\s*/i, "") || r.company }))
     .filter((r) => !NOT_FOR_THEM.test(r.title) && !NOT_EMPLOYER.test(r.company));
   // Tech companies first, then the rest, each in the search's order.
   const ordered = [...clean.filter((r) => isTechCompany(r.company, r.title, r.url)), ...clean.filter((r) => !isTechCompany(r.company, r.title, r.url))];
