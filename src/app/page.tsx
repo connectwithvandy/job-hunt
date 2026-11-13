@@ -304,6 +304,8 @@ export default function Today() {
 
 
       {/* Closed unless opened: Today is the to-do list. New jobs are step 2, so they aren't listed again here (13 Nov). */}
+      <Pipeline jobs={jobs} tracks={me.tracks} />
+
       <details className="mt-8">
         <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">
           See more: what&apos;s working{learn ? ` (${noes} noes and silences to learn from)` : ""}, newly funded companies
@@ -606,6 +608,91 @@ function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Les
         <p className="mt-2 text-sm text-ink-2">You have {noes} noes and silences. One read finds the gaps that come up again and again, and what to do about each.</p>
       )}
     </div>
+  );
+}
+
+/** One role's search, or all of them together: what's worth applying to, then each step after it. */
+type Funnel = { good: number; applied: number; asked: number; replies: number; interviews: number };
+
+const APPLIED = new Set(["applied", "screening", "interview", "offer", "rejected"]);
+
+function funnelOf(jobs: Doc<"jobs">[]): Funnel {
+  const live = jobs.filter((j) => j.status !== "dismissed");
+  // Worth a look: AI 60+, or a strong first guess not scored yet. Not every saved job ("294 in play" said nothing).
+  const good = live.filter((j) => (j.status === "new" || j.status === "applying") && ((bestScore(j)?.score ?? -1) >= 60 || (!j.scores?.length && (j.quickFit ?? 0) >= 70)));
+  // Messages you sent: referral asks and notes to hiring managers. A reply is anyone who wrote back.
+  const sent = live.flatMap((j) => [
+    ...j.outreach.filter((o) => o.status !== "draft").map((o) => o.status === "replied" || o.status === "referred"),
+    ...(j.hiringContacts ?? []).filter((c) => c.sentAt).map((c) => !!c.repliedAt),
+  ]);
+  return {
+    good: good.length,
+    applied: live.filter((j) => APPLIED.has(j.status)).length,
+    asked: sent.length,
+    replies: sent.filter(Boolean).length,
+    interviews: live.filter((j) => j.status === "interview" || j.status === "offer").length,
+  };
+}
+
+/** "1 of 3 replied" until there are enough messages for a percentage to mean something. */
+function replyNote(f: Funnel) {
+  if (!f.asked) return "No messages sent yet";
+  return f.asked >= SURE ? `${Math.round((f.replies / f.asked) * 100)}% reply rate` : `${f.replies} of ${f.asked} replied`;
+}
+
+const STAGES: { key: keyof Funnel; label: string }[] = [
+  { key: "good", label: "Good fits" },
+  { key: "applied", label: "Applied" },
+  { key: "asked", label: "Messages sent" },
+  { key: "replies", label: "Replies" },
+  { key: "interviews", label: "Interviews" },
+];
+
+/** Your whole search at a glance, then role by role, so you can see which role is moving and which is stuck. */
+function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">[] }) {
+  const active = tracks.filter((t) => t.status === "active");
+  const total = funnelOf(jobs);
+  if (!active.length) return null;
+  const rows = active.map((t) => ({ t, f: funnelOf(jobs.filter((j) => jobTrackKey(j, tracks) === t.key)) }));
+  return (
+    <section className="card mt-2 mb-8 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="display text-2xl">Your search so far</h2>
+        <span className="text-sm text-ink-2">{replyNote(total)}</span>
+      </div>
+      <ol className="mt-4 grid grid-cols-5 gap-1 text-center">
+        {STAGES.map((s, i) => (
+          <li key={s.key} className={`rounded-lg px-1 py-3 ${i === 0 ? "bg-soft" : ""}`}>
+            <div className="display text-2xl tabular-nums sm:text-3xl">{total[s.key]}</div>
+            <div className="mt-1 text-[11px] leading-tight text-ink-3 sm:text-xs">{s.label}</div>
+          </li>
+        ))}
+      </ol>
+      {rows.length > 1 && (
+        <ul className="mt-4 divide-y divide-line border-t border-line text-sm">
+          {rows.map(({ t, f }) => (
+            <li key={t._id}>
+              <Link href={`/jobs?track=${t.key}`} className="block py-3 hover:bg-soft sm:-mx-2 sm:px-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2 font-medium">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: t.color }} />
+                    <span className="truncate">{t.name}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-ink-3">{f.interviews ? `${f.interviews} in interviews` : replyNote(f)}</span>
+                </div>
+                <div className="mt-1 text-xs tabular-nums text-ink-2">
+                  {f.good + f.applied === 0 ? (
+                    <span className="text-pink">Finds no jobs yet: widen its titles on Setup</span>
+                  ) : (
+                    `${f.good} good fits · ${f.applied} applied · ${f.asked} messages · ${f.replies} ${f.replies === 1 ? "reply" : "replies"}`
+                  )}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
