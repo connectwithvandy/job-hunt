@@ -7,7 +7,7 @@ import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER, replyTiming } from "../../convex/lib/followups";
-import { openDoors, SKIP_BELOW } from "../../convex/lib/posting";
+import { SKIP_BELOW } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -210,13 +210,17 @@ export default function Today() {
 
   // 4. New companies to open up, once the rest is done.
   const reach: Todo[] = [
-    ...toAsk.map(({ c, rank }) => ({
-      key: `a${c.key}`,
-      verb: "Ask",
-      main: `${c.company} · #${rank + 1} on your top 50`,
-      sub: [`You know ${c.peopleCount}`, c.fitting > 1 ? `${c.fitting} roles fit` : null, c.funding ? "just raised" : null, c.jobs[0]?.title].filter(Boolean).join(" · "),
-      href: `/jobs/${c.jobs[0]._id}`,
-    })),
+    // One section for referrals: it used to repeat as a card at the top of the page too (13 Nov).
+    ...toAsk.map(({ c }) => {
+      const p = c.people[0];
+      return {
+        key: `a${c.key}`,
+        verb: "Ask",
+        main: p ? `${p.firstName} ${p.lastName} at ${c.company}` : c.company,
+        sub: [c.jobs[0]?.title, p?.position, c.peopleCount > 1 ? `you know ${c.peopleCount} there` : null, c.funding ? "just raised" : null].filter(Boolean).join(" · "),
+        href: `/jobs/${c.jobs[0]._id}`,
+      };
+    }),
     ...raised.map((p) => ({ key: `r${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
     ...(learn ? [{ key: "learn", verb: "Learn", main: "What keeps costing you", sub: `${noes} noes and silences so far. See the pattern.`, href: "/#whats-working" }] : []),
   ];
@@ -261,13 +265,12 @@ export default function Today() {
         </section>
       )}
 
-      <OpenDoors warm={warm ?? []} askedAt={askedAt} />
       <CelebrateWins jobs={jobs} now={now} />
       <TodayProgress
         items={[
           { label: "Companies asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY, total: askedTotal },
           { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY, total: appliedTotal, bar: "bg-cyan" },
-          { label: "Follow-ups due", done: 0, goal: followUps.length, left: true },
+          { label: "Follow-ups due", done: 0, goal: chase.length, left: true },
         ]}
       />
 
@@ -300,7 +303,7 @@ export default function Today() {
       <Step n={3} title="Follow-ups to do today" items={chase} empty="No follow-ups due today." />
       <Step
         n={4}
-        title="Open up new companies"
+        title="Ask for referrals"
         items={reach}
         blocked={!me.contactsCount}
         empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections under People to see who you know at each company."}
@@ -368,42 +371,6 @@ function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
   ]);
   useCelebrateNewWins(wins);
   return null;
-}
-
-/** The people you already know at companies hiring for you: a way in besides the application form. */
-function OpenDoors({ warm, askedAt }: { warm: FunctionReturnType<typeof api.contacts.warmCompanies>; askedAt: Set<string> }) {
-  const { open, people } = openDoors(warm);
-  const next = open.filter((c) => !askedAt.has(c.key) && c.people.length).slice(0, 3);
-  if (!people) return null;
-  return (
-    <section className="card mb-8 p-6">
-      <h2 className="display text-2xl">
-        You know {people} {people === 1 ? "person" : "people"} at {open.length} {open.length === 1 ? "company" : "companies"} hiring for your role
-      </h2>
-      {!!next.length && (
-        <ul className="mt-4 divide-y divide-line text-sm">
-          {next.map((c) => {
-            const p = c.people[0];
-            return (
-              <li key={c.key} className="py-3">
-                <Link href={`/jobs/${c.jobs[0]._id}`} className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="min-w-0">
-                    <span className="font-medium">
-                      {p.firstName} {p.lastName}
-                    </span>
-                    <span className="block text-xs text-ink-3">
-                      {[p.position, `${c.jobs[0].title} at ${c.company}`, p.chat ? `last talked ${timeAgo(p.chat.lastAt)}` : null].filter(Boolean).join(" · ")}
-                    </span>
-                  </span>
-                  <span className="text-accent">Ask for a referral</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
-  );
 }
 
 /** Today's goals and how far along you are. Counts start again at 4 AM. */
@@ -476,11 +443,13 @@ function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
   );
 }
 
-/** The first eight things to do, the rest one tap away. */
+const SHOWN = 5;
+
+/** The first five things to do, the rest one tap away: more read as a wall (13 Nov). */
 function TodoList({ items }: { items: Todo[] }) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
-  const shown = all ? items : items.slice(0, 8);
+  const shown = all ? items : items.slice(0, SHOWN);
   return (
     <div className="card p-2">
       <ul className="divide-y divide-line">
@@ -508,7 +477,7 @@ function TodoList({ items }: { items: Todo[] }) {
           </li>
         ))}
       </ul>
-      {items.length > 8 && (
+      {items.length > SHOWN && (
         <button type="button" className="px-3 py-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
           {all ? "Show fewer" : `Show all ${items.length}`}
         </button>

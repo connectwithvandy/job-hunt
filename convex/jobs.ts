@@ -6,7 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { withChats } from "./lib/chats";
-import { cleanCompany, companyKey, referralRank, roleKey } from "./lib/company";
+import { AGGREGATORS, cleanCompany, companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
@@ -142,7 +142,8 @@ export const list = query({
     // Jobs not moved to jobDetails yet still carry their heavy parts; leave them out of the list.
     // Lists show two lines of the score reason and only check the brief for a blocker; the job page loads the rest.
     // Sending all of it made the list close to 2 MB for 900 jobs and held Today up for seconds.
-    return jobs.map((j) => ({
+    // Job boards' reposts saved before 13 Nov stay out of the list unless you've acted on one.
+    return jobs.filter((j) => j.status !== "new" || !AGGREGATORS.test(j.company)).map((j) => ({
       ...j,
       description: undefined,
       pack: undefined,
