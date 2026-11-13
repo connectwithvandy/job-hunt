@@ -621,3 +621,44 @@ export const notSetUp = internalQuery({
     return out.sort((a, b) => (a.daysSinceLetIn ?? 0) - (b.daysSinceLetIn ?? 0));
   },
 });
+
+const noteV = v.object({ email: v.string(), subject: v.string(), text: v.string() });
+
+/**
+ * The owner's hand-written notes, sent one at a time from `startAt`, `gapMinutes` apart.
+ * The notes ride in the arguments, never in the code: npx convex run --prod growth:scheduleNotes "$(cat notes.json)"
+ */
+export const scheduleNotes = internalMutation({
+  args: { notes: v.array(noteV), startAt: v.number(), gapMinutes: v.number() },
+  handler: async (ctx, { notes, startAt, gapMinutes }) => {
+    const wait = Math.max(0, startAt - Date.now());
+    for (const [i, note] of notes.entries()) await ctx.scheduler.runAfter(wait + i * gapMinutes * 60_000, internal.growth.sendNote, note);
+    return { scheduled: notes.length, first: new Date(Date.now() + wait).toISOString(), last: new Date(Date.now() + wait + (notes.length - 1) * gapMinutes * 60_000).toISOString() };
+  },
+});
+
+/** True when this email's person has finished setup since the note was written. */
+export const setUpNow = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
+    const row = rows.find((r) => r.email.toLowerCase() === email.toLowerCase());
+    if (!row) return false;
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+    return !!profile?.onboarded;
+  },
+});
+
+/** One hand-written note, skipped when the person finished setup in the meantime. */
+export const sendNote = internalAction({
+  args: noteV,
+  handler: async (ctx, note) => {
+    if (await ctx.runQuery(internal.growth.setUpNow, { email: note.email })) {
+      console.log("Note skipped, already set up:", note.email);
+      return null;
+    }
+    await sendEmail({ to: note.email, subject: note.subject, text: note.text });
+    console.log("Note sent:", note.email);
+    return null;
+  },
+});
