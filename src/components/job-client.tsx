@@ -346,7 +346,7 @@ export function AddJob() {
       }}
     >
       <div className="mb-3 flex items-center justify-between">
-        <span className="label">Paste a job description</span>
+        <span className="label">Paste a job description or a LinkedIn hiring post</span>
         <button type="button" className="text-xs text-ink-3 underline" onClick={() => setMode(mode === "link" ? "text" : "link")}>
           {mode === "link" ? "Paste the description instead" : "Use a link instead"}
         </button>
@@ -354,7 +354,7 @@ export function AddJob() {
       {mode === "link" ? (
         <input name="link" className="field" placeholder="LinkedIn or careers page link" />
       ) : (
-        <textarea name="text" className="field h-28" placeholder="Paste the whole job post here" />
+        <textarea name="text" className="field h-28" placeholder="Paste the whole job description, or a LinkedIn post like &quot;We're hiring an SDR in Bengaluru…&quot; (the person who posted it is saved as the hiring contact)" />
       )}
       <label className="mt-3 flex items-center gap-2 text-sm text-ink-2">
         <input type="checkbox" name="write" defaultChecked />

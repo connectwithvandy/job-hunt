@@ -380,10 +380,18 @@ async function addJobFor(ctx: ActionCtx, userId: Id<"users">, args: { link?: str
       }
       const x = await extractJob(text);
       if (!x.isJobPosting) throw new ConvexError("That doesn't look like a job posting.");
+      // A pasted hiring post: whoever posted it is the hiring contact, and its apply link (if any) is the job's link.
+      const p = x.post.isPost ? x.post : null;
+      const postLink = p?.applyLink && /^https?:\/\//i.test(p.applyLink) && publicUrl(p.applyLink) ? p.applyLink : "";
+      const poster = p?.posterName.trim()
+        ? [{ id: randomUUID(), name: p.posterName.trim(), title: p.posterTitle.trim(), linkedinUrl: /linkedin\.com\/in\//i.test(p.posterProfile) ? p.posterProfile.trim() : "", email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.applyEmail.trim()) ? p.applyEmail.trim() : "", phone: "", recentPosts: [{ text: text.slice(0, 1500), url: link }] }]
+        : undefined;
+      const url = link || postLink;
       job = {
-        externalId: link || randomUUID(), source: link ? "link" : "pasted", url: link, sourceUrl: link || undefined,
+        externalId: link || randomUUID(), source: link ? "link" : "pasted", url, sourceUrl: url || undefined,
         title: x.title, company: x.company, location: x.location, workSetting: x.workSetting,
         description: x.description, status: "new", outreach: [], updatedAt: now,
+        ...(poster ? { hiringContacts: poster } : {}),
       };
     }
     const { lastId }: { lastId: Id<"jobs"> | null } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [job] });
