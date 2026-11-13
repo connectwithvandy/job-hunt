@@ -9,7 +9,9 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
 import { cvFollowUpEmail, emailOn, sendEmail } from "./lib/email";
-import { matchRoles, openNow } from "./subscriberSend";
+import { matchRoles, openNow, type Role } from "./subscriberSend";
+import { cleanCompany, companyKey } from "./lib/company";
+import { isTechCompany } from "./growth";
 
 /** The review page's role choices, as job titles to search. */
 const TITLES: Record<string, string[]> = {
@@ -23,6 +25,32 @@ const JOBS = 5;
 // At most this many a day, well inside the email service's free allowance.
 const PER_RUN = 20;
 
+// Not a fit for this email: internships, roles for another country's market, and agencies or job boards (13 Nov dry run).
+const NOT_FOR_THEM = /\b(intern|interns|internship|trainee|fresher|amer|americas|north america|latam|emea|apac|anz|uk|us|usa|south africa|mena|dach|nordics)\b/i;
+const NOT_EMPLOYER = /\b(consult\w*|staffing|recruit\w*|placements?|manpower|hr solutions|jobs?)\b/i;
+
+/**
+ * The best few open roles for these titles: one per company, tech and startup companies first (the readers are
+ * after SaaS sales roles), nothing junior, abroad or from an agency.
+ */
+function pick(titles: string[], roles: Role[]) {
+  const clean = roles
+    .map((r) => ({ ...r, company: cleanCompany(r.company).replace(/^us\s*:\s*/i, "") || r.company }))
+    .filter((r) => !NOT_FOR_THEM.test(r.title) && !NOT_EMPLOYER.test(r.company));
+  // Tech companies first, then the rest, each in the search's order.
+  const ordered = [...clean.filter((r) => isTechCompany(r.company, r.title, r.url)), ...clean.filter((r) => !isTechCompany(r.company, r.title, r.url))];
+  const perCompany = new Set<string>();
+  const once = ordered.filter((r) => {
+    const k = companyKey(r.company);
+    if (perCompany.has(k)) return false;
+    perCompany.add(k);
+    return true;
+  });
+  return matchRoles({ titles, location: "India" }, once)
+    .flatMap((g) => g.jobs)
+    .slice(0, JOBS);
+}
+
 /** Sends what's due. With dryRun, says who would get what and sends nothing. */
 export const send = internalAction({
   args: { dryRun: v.optional(v.boolean()) },
@@ -34,8 +62,7 @@ export const send = internalAction({
     let sent = 0;
     for (const r of due.slice(0, PER_RUN)) {
       const titles = TITLES[r.role] ?? [r.role];
-      const groups = matchRoles({ titles, location: "India" }, await openNow(ctx, titles, "India"));
-      const jobs = groups.flatMap((g) => g.jobs).slice(0, JOBS);
+      const jobs = pick(titles, await openNow(ctx, titles, "India"));
       if (dryRun) {
         lines.push(`${r.email}: ${r.role}, scored ${r.score}, ${jobs.length} jobs (${jobs.map((j) => `${j.title} at ${j.company}`).join("; ")})`);
         continue;
