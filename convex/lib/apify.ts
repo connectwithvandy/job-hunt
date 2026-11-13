@@ -113,14 +113,15 @@ export async function searchJobs(queries: string[], where: string | undefined, r
       id: j.id,
       title: j.title,
       company: j.company.name,
-      companyLogo: j.company.logo,
-      location: j.location?.linkedinText ?? "",
+      // Apify sends null for missing fields; the database takes a missing field, never null (13 Nov: a null salary failed the whole pool).
+      companyLogo: j.company.logo || undefined,
+      location: j.location?.linkedinText || "",
       workSetting: j.workplaceType === "remote" ? "remote" : j.workplaceType === "hybrid" ? "hybrid" : j.workplaceType === "on_site" ? "onsite" : undefined,
-      salary: j.salary?.text,
-      postedAt: j.postedDate,
-      url: j.linkedinUrl ?? `https://www.linkedin.com/jobs/view/${j.id}/`,
-      applyUrl: j.applyMethod?.companyApplyUrl,
-      description: j.descriptionText,
+      salary: j.salary?.text || undefined,
+      postedAt: j.postedDate || undefined,
+      url: j.linkedinUrl || `https://www.linkedin.com/jobs/view/${j.id}/`,
+      applyUrl: j.applyMethod?.companyApplyUrl || undefined,
+      description: j.descriptionText || undefined,
     }];
   });
 }
