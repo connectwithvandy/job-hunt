@@ -1,6 +1,6 @@
 // Each morning after the search: an email to every member with their best new roles, under their own role groups.
 // Goes at most once a day, skips days with nothing new, and stops for anyone who asked (access.alertsOff).
-import { rankFit, stalePenalty } from "./lib/posting";
+import { rankFit, stalePenalty, TAILOR_FROM } from "./lib/posting";
 import { type Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
@@ -32,6 +32,8 @@ const personV = v.object({
   searching: v.optional(v.string()),
   /** On the free plan: the email ends with one line about the Week Pass. */
   free: v.optional(v.boolean()),
+  /** Their best AI-scored job (70+) with no tailored CV yet: the email opens with it, since tailoring is the step people skip. */
+  tailor: v.optional(jobV),
 });
 
 type Person = Infer<typeof personV>;
@@ -78,6 +80,11 @@ export const dueFor = internalQuery({
       .sort((a, b) => rankFit(b.fit ?? -1, b.j, now) - rankFit(a.fit ?? -1, a.j, now) || b.guess - stalePenalty(b.j, now) - (a.guess - stalePenalty(a.j, now)))
       .slice(0, PER_EMAIL);
     if (!best.length) return null;
+    // Scored 70+, untouched, still open, no tailored CV: 62 people had a scored job but only 18 tailored (14 Nov).
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc").take(200);
+    const top = recent
+      .filter((j) => j.status === "new" && !j.hasPack && j.liveCheck?.state !== "closed" && (aiFit(j) ?? 0) >= TAILOR_FROM)
+      .sort((a, b) => rankFit(aiFit(b)!, b, now) - rankFit(aiFit(a)!, a, now))[0];
     const byTrack = new Map<string, { title: string; company: string; where: string; fit?: number; id: string }[]>();
     for (const { j, fit, key } of best) {
       const name = tracks.find((t) => t.key === key)!.name;
@@ -97,6 +104,7 @@ export const dueFor = internalQuery({
       groups: [...byTrack].map(([track, jobs]) => ({ track, jobs })),
       searching: `${place === "Anywhere" ? "Anywhere" : place}${modeText}`,
       free: !isOwnerEmail(user?.email) && trialOver(row, now),
+      ...(top ? { tailor: { title: top.title, company: top.company, where: top.location || "Not listed", fit: aiFit(top), id: top._id } } : {}),
     };
   },
 });

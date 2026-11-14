@@ -407,6 +407,7 @@ export function alertsEmail(p: {
   searching?: string;
   free?: boolean;
   unsubscribeUrl?: string;
+  tailor?: { title: string; company: string; fit?: number; id: string };
 }) {
   const word = p.name?.trim().split(/\s+/)[0];
   const first = word && word[0].toUpperCase() + word.slice(1).toLowerCase();
@@ -424,7 +425,7 @@ export function alertsEmail(p: {
   const stop = p.unsubscribeUrl ? `Don't want these? Unsubscribe in one click: ${p.unsubscribeUrl}` : `Don't want these? Reply "stop" and I'll turn them off.`;
   const text = `${first ? `Hi ${first},` : "Hi,"}
 
-New roles matching your titles since yesterday, best first:
+${p.tailor ? `Your best fit so far: ${p.tailor.title} at ${p.tailor.company}${p.tailor.fit !== undefined ? ` (fit ${p.tailor.fit})` : ""}. Tailor your CV for it, about a minute: ${url}/jobs/${p.tailor.id}\n\n` : ""}New roles matching your titles since yesterday, best first:
 
 ${p.groups.map((g) => `${g.track} (${g.jobs.length} new)\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}`).join("\n")}`).join("\n\n")}
 
@@ -439,6 +440,7 @@ ${stop}
 `;
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
 <p>${esc(first ? `Hi ${first},` : "Hi,")}</p>
+${p.tailor ? `<p style="background:#f4ffe0;border-radius:8px;padding:10px 14px">Your best fit so far: <b>${esc(p.tailor.title)}</b> at ${esc(p.tailor.company)}${p.tailor.fit !== undefined ? ` (fit ${p.tailor.fit})` : ""}. <a href="${esc(`${url}/jobs/${p.tailor.id}`)}" style="color:#1a1a1a;font-weight:600">Tailor your CV for it</a>, about a minute.</p>` : ""}
 <p>New roles matching your titles since yesterday, best first:</p>
 ${p.groups
   .map(

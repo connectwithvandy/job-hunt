@@ -22,6 +22,9 @@ export function stalePenalty(j: { postedAt?: string | null; liveCheck?: { state:
 /** A fit score (or -1 when not scored) lowered for age or a closed posting, for sorting only. Never below 0 when scored. */
 export const rankFit = (fit: number, j: Parameters<typeof stalePenalty>[0], now = Date.now()) => (fit < 0 ? fit : Math.max(0, fit - stalePenalty(j, now)));
 
+/** From this AI score up, a job is worth a tailored CV: Today and the morning email say so. */
+export const TAILOR_FROM = 70;
+
 /** A live check older than this is done again before writing a CV. */
 export const RECHECK_AFTER = DAY;
 

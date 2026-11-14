@@ -7,7 +7,7 @@ import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER, replyTiming } from "../../convex/lib/followups";
-import { rankFit, SKIP_BELOW } from "../../convex/lib/posting";
+import { rankFit, SKIP_BELOW, TAILOR_FROM } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -166,10 +166,12 @@ export default function Today() {
   const freshUnscored = freshGuessed.length;
   // Older strong fits fill in when there's little new that the AI has scored.
   const older = strong.filter((j) => !freshIds.has(j._id)).slice(0, Math.max(0, APPLIES_A_DAY - freshScored.length));
+  // A 70+ fit with no tailored CV yet: tailoring is the next step, and the one people skip (62 scored, 18 tailored, 14 Nov).
+  const verbFor = (j: Doc<"jobs">) => ((bestScore(j)?.score ?? 0) >= TAILOR_FROM && !j.hasPack && !j.pack ? "Tailor" : "Apply");
   const applyNew = (list: Doc<"jobs">[]) =>
     list.map((j) => ({
       key: `n${j._id}`,
-      verb: "Apply",
+      verb: verbFor(j),
       main: `${j.title} at ${j.company}`,
       // Found today isn't posted today: a role up for weeks may be filled.
       sub: [j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : `Found ${timeAgo(new Date(j._creationTime).toISOString())}`, bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ~${likelyScore(j.quickFit ?? 0)}, not scored yet`].join(" · "),
@@ -181,7 +183,7 @@ export default function Today() {
     ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} ${freshUnscored === 1 ? "job" : "jobs"} found in the last day`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
     // AI-scored jobs first, new then older; first guesses after them, never ahead of a real score.
     ...applyNew(freshScored.slice(0, 8)),
-    ...older.map((j) => ({ key: `s${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
+    ...older.map((j) => ({ key: `s${j._id}`, verb: verbFor(j), main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
     ...applyNew(freshGuessed.slice(0, Math.max(0, 8 - freshScored.length))),
     ...(unscored.length > freshUnscored ? [{ key: "score", verb: "Score", main: `${unscored.length - freshUnscored} older ${unscored.length - freshUnscored === 1 ? "job" : "jobs"} not scored yet`, sub: "See which ones are worth your time", href: "/jobs?sort=added" }] : []),
   ];

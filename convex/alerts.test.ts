@@ -132,3 +132,11 @@ test("a board's fingerprint ignores order and changes when a job is added", asyn
   expect(await fingerprintOf(["3", "1", "2"])).toBe(a);
   expect(await fingerprintOf(["1", "2", "3", "4"])).not.toBe(a);
 });
+
+test("the daily email opens with the best untailored fit, when there is one", () => {
+  const groups = [{ track: "SDR / BDR", jobs: [{ title: "SDR", company: "Acme", where: "Bengaluru", id: "j1" }] }];
+  const withTailor = alertsEmail({ name: "asha", groups, tailor: { title: "SDR Manager", company: "Rippling", fit: 84, id: "j9" } });
+  expect(withTailor.text).toContain("Your best fit so far: SDR Manager at Rippling (fit 84). Tailor your CV for it");
+  expect(withTailor.html).toContain("/jobs/j9");
+  expect(alertsEmail({ name: "asha", groups }).text).not.toContain("best fit so far");
+});
