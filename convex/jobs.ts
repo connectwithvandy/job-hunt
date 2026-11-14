@@ -806,6 +806,10 @@ export const scorePage = internalQuery({
     const page = await ctx.db.query("jobs").order("desc").paginate({ cursor, numItems: 250 });
     const scores = page.page.filter((j) => j._creationTime >= from && j._creationTime <= to && j.scores?.length).map((j) => Math.max(...j.scores!.map((s) => s.score)));
     const past = page.page.length > 0 && page.page[page.page.length - 1]._creationTime < from;
-    return { scores, cursor: page.continueCursor, done: page.isDone || past };
+    // The free first guess beside it, for guessCheck: can a low guess safely skip the AI score?
+    const pairs = page.page
+      .filter((j) => j._creationTime >= from && j._creationTime <= to && j.scores?.length && j.quickFit !== undefined)
+      .map((j) => [j.quickFit!, Math.max(...j.scores!.map((s) => s.score))] as [number, number]);
+    return { scores, pairs, cursor: page.continueCursor, done: page.isDone || past };
   },
 });

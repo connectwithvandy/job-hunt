@@ -35,3 +35,38 @@ export const run = internalAction({
     };
   },
 });
+
+/**
+ * Read-only: if jobs with a free guess under a cut-off skipped the AI score, how many good jobs (AI 60+) would be
+ * hidden, and how many poor ones (AI under 40) we'd stop paying for. npx convex run --prod scoreSpread:guessCheck '{"fromDaysAgo":7}'
+ */
+export const guessCheck = internalAction({
+  args: { fromDaysAgo: v.number() },
+  handler: async (ctx, { fromDaysAgo }) => {
+    const now = Date.now();
+    const pairs: [number, number][] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const page: { pairs: [number, number][]; cursor: string; done: boolean } = await ctx.runQuery(internal.jobs.scorePage, { from: now - fromDaysAgo * 86_400_000, to: now, cursor });
+      pairs.push(...page.pairs);
+      if (page.done) break;
+      cursor = page.cursor;
+    }
+    const good = pairs.filter(([, ai]) => ai >= 60).length;
+    const poor = pairs.filter(([, ai]) => ai < 40).length;
+    const pct = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` : "-");
+    const cutoffs = [20, 30, 40, 50, 60, 70].map((cut) => {
+      const below = pairs.filter(([g]) => g < cut);
+      const lostGood = below.filter(([, ai]) => ai >= 60).length;
+      const savedPoor = below.filter(([, ai]) => ai < 40).length;
+      return {
+        // The guess as stored (0-100); people see it scaled to about 15-55.
+        guessUnder: cut,
+        skipped: `${below.length} (${pct(below.length, pairs.length)} of scores)`,
+        goodHidden: `${lostGood} of ${good} good jobs (${pct(lostGood, good)})`,
+        poorCaught: `${savedPoor} of ${poor} poor jobs (${pct(savedPoor, poor)})`,
+      };
+    });
+    return { jobs: pairs.length, good, poor, cutoffs };
+  },
+});
