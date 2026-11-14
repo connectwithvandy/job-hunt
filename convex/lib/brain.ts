@@ -308,12 +308,13 @@ export async function buildPack(
   feedback?: { notes: string[]; previous?: Pack },
   voice?: Voice,
   facts: Fact[] = [],
-  context: { research?: Research | null; worry?: string; keepTerms?: string[] } = {},
+  context: { research?: Research | null; worry?: string; keepTerms?: string[]; tier?: Tier } = {},
 ): Promise<{ pack: Pack; standingRules: string[] }> {
   const previous = feedback?.previous;
   const notes = feedback?.notes.filter((n) => n.trim()) ?? [];
   const out = await askJSON({
-    tier: "best",
+    // Sonnet since 14 Nov: in a blind test on 3 jobs the owner picked its CVs (shorter, crisper) at ~9c a CV vs ~25c on Opus.
+    tier: context.tier ?? "standard",
     schema: PackSchema,
     system: `You tailor a sales leader's CV and cover letter to one specific job${track ? ', using one positioning ("track")' : ""}, and write the short messages that go with it. ${HONESTY}
 ${facts.length ? "The candidate has also answered questions in their own words. Treat those answers as part of the master CV: true, and usable like any CV fact, numbers included.\n" : ""}How to read the posting: first its must-haves, then its nice-to-haves, and note the exact words it uses for each. Lead each recent role with bullets that prove the must-haves, in the posting's words, wherever the CV or the candidate's facts back them: applicant tracking systems match those words, and a hiring manager skims for them in 10 seconds. Then cover the nice-to-haves the candidate genuinely has. Never stuff in a keyword the CV and facts don't back.

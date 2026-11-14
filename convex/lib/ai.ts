@@ -7,7 +7,7 @@ import { env } from "../_generated/server";
 
 /**
  * Which model a task gets, cheapest that does it well. "cheap" (Haiku) copies and tidies text and can't search the web;
- * "standard" (Sonnet) judges and writes; "best" (Opus) is kept for the tailored CV and cover letter.
+ * "standard" (Sonnet) judges and writes, the tailored CV and letter included since 14 Nov; "best" (Opus) is unused unless a task asks for it.
  */
 export type Tier = "cheap" | "standard" | "best";
 
