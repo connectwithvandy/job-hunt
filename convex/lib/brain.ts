@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { tidyMessage } from "./messageText";
-import { askJSON } from "./ai";
+import { askJSON, type Tier } from "./ai";
+import { titleMatches } from "./salesRoles";
 import { unverifiedNumbers } from "./facts";
 import type { Infer } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
@@ -12,7 +13,7 @@ import type { packV, resumeV, trackFields } from "./validators";
 type Resume = Infer<typeof resumeV>;
 type Pack = Infer<typeof packV>;
 type Track = Pick<Doc<"tracks">, keyof typeof trackFields>;
-type Job = Pick<Doc<"jobs">, "title" | "company" | "location" | "workSetting" | "salary" | "description" | "url" | "sourceUrl">;
+type Job = Pick<Doc<"jobs">, "title" | "company" | "location" | "workSetting" | "salary" | "description" | "url" | "sourceUrl"> & { trackKey?: string };
 type Contact = Pick<Doc<"contacts">, "_id" | "firstName" | "lastName" | "position" | "company" | "connectedOn"> & { chat?: ContactWithChat["chat"]; closeness?: Closeness };
 
 const day = (at: number) => new Date(at).toISOString().slice(0, 10);
@@ -170,8 +171,11 @@ ${past.map((p) => `- ${p.title} at ${p.company}${p.trackKey ? `, track ${p.track
 Use these to calibrate. If similar roles (same kind of title, seniority, company type or market) got replies, lean higher; if they were rejected or ignored, lean lower and say so in the reason. Past results move a score by 10 points at most; the job itself matters most.`;
 }
 
-export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => Resume, tracks: Track[], location = "", markets = "", past: PastOutcome[] = []) {
+export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => Resume, tracks: Track[], location = "", markets = "", past: PastOutcome[] = [], tier: Tier = "standard") {
   const active = tracks.filter((t) => t.status === "active");
+  const matching = active.filter((t) => job.trackKey === t.key || t.titles.some((title) => titleMatches(title, job.title)));
+  // A job no role's titles match (pasted, or an odd title) is scored for every role, as before.
+  const only = matching.length ? matching : active;
   // Tracks often share a CV; send each distinct one once and point tracks at it.
   const cvs: Resume[] = [];
   const seen: string[] = [];
@@ -192,15 +196,18 @@ export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => 
       : cvs.map((r, i) => `Candidate's CV ${i + 1} (same person, a different angle):\n${resumeText(r)}`).join("\n\n");
   // Scoring is reading and judging, not writing: light thinking keeps each of the many daily calls cheap.
   return askJSON({
+    tier,
     effort: "low",
     schema: ScoreSchema,
     system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role. Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them. ${whereRule(location, markets)}`,
     // The CV and tracks are the same for every job scored, so they're cached; only the job changes.
     shared: `${cvBlock}
 
-Tracks (score every one of these trackIds${cvs.length > 1 ? ", each against the CV it names" : ""}):
+Tracks (score each trackId you are asked to${cvs.length > 1 ? ", each against the CV it names" : ""}):
 ${active.map((t) => `- ${t.key}: ${t.name}.${cvs.length > 1 ? ` Uses CV ${cvOf.get(t.key)}.` : ""} Target titles: ${t.titles.join(", ")}. Pitch: ${t.pitch}`).join("\n")}${pastBlock(past)}`,
-    prompt: `Job:
+    // Only the roles this job's title belongs to: every role's reason was most of the cost, and a role whose titles
+    // don't match never lists the job anyway (14 Nov: $6/day, people track 3-8 roles). The cached part above stays whole.
+    prompt: `${only.length < active.length ? `Score only these trackIds: ${only.map((t) => t.key).join(", ")}.\n\n` : ""}Job:
 ${jobText(job)}`,
   });
 }
