@@ -88,7 +88,9 @@ function Jobs() {
 
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
   // A role from a company's own careers board was live when found, so its age counts from then.
-  const isOld = (j: (typeof jobs)[number]) => j.status === "new" && now - (j.postedAt && j.source !== "careers" ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000;
+  // Closed postings join them (the morning re-check marks them): nobody should apply to those by mistake.
+  const isOld = (j: (typeof jobs)[number]) =>
+    j.status === "new" && (j.liveCheck?.state === "closed" || now - (j.postedAt && j.source !== "careers" ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000);
   const oldCount = jobs.filter(isOld).length;
   // Applied and later live on the Tracker, so this list stays jobs you can still apply to.
   const isApplied = (j: (typeof jobs)[number]) => j.status !== "new" && j.status !== "applying" && j.status !== "dismissed";
@@ -199,7 +201,7 @@ function Jobs() {
         )}
         {chip(hrefWith({ track: null, show: "hidden" }), "Not for me", show === "hidden")}
         {appliedCount > 0 && chip(hrefWith({ track: null, show: "applied" }), `Applied · ${appliedCount}`, show === "applied")}
-        {oldCount > 0 && chip(hrefWith({ track: null, show: "old" }), `Older than 45 days · ${oldCount}`, show === "old")}
+        {oldCount > 0 && chip(hrefWith({ track: null, show: "old" }), `Old or closed · ${oldCount}`, show === "old")}
         <span className="flex-1" />
         {batch.length > 0 && (
           <ActionButton

@@ -587,6 +587,22 @@ export const unscoredIds = internalQuery({
   },
 });
 
+/**
+ * The jobs worth re-checking tonight: untouched, recent, near the top of the person's list (so on Today and in the
+ * morning email), and not checked in the last two days. Closed ones stay closed until a check finds them open.
+ */
+export const toRecheck = internalQuery({
+  args: { userId: v.id("users"), now: v.number(), limit: v.number() },
+  handler: async (ctx, { userId, now, limit }) => {
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
+    const fit = (j: Doc<"jobs">) => Math.max(-1, ...(j.scores ?? []).map((s) => s.score)) * 2 + (j.quickFit ?? 0) / 10;
+    return recent
+      .filter((j) => j.status === "new" && now - j._creationTime < 30 * 86_400_000 && !(j.liveCheck && now - j.liveCheck.at < 2 * 86_400_000))
+      .sort((a, b) => fit(b) - fit(a))
+      .slice(0, limit);
+  },
+});
+
 /** Jobs saved since a time and not scored yet, best first guess first. */
 export const unscoredSince = internalQuery({
   args: { userId: v.id("users"), since: v.number(), limit: v.number() },

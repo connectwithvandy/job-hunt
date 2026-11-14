@@ -505,6 +505,44 @@ async function checkAndSave(ctx: ActionCtx, userId: Id<"users">, job: Doc<"jobs"
   return liveCheck;
 }
 
+/**
+ * Each morning, before the search and the emails: re-check the top jobs on everyone's list and mark the ones that
+ * closed or stopped taking applications, so Today and the email don't send people to dead postings. No AI, so free.
+ */
+export const recheckAll = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const userIds: Id<"users">[] = await ctx.runQuery(internal.users.autopilotUsers, {});
+    // A few seconds apart, so the same job boards aren't hit by everyone at once.
+    for (const [i, userId] of userIds.entries()) await ctx.scheduler.runAfter(i * 5_000, internal.agent.recheckFor, { userId });
+    return null;
+  },
+});
+
+export const recheckFor = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const jobs: Doc<"jobs">[] = await ctx.runQuery(internal.jobs.toRecheck, { userId, now: Date.now(), limit: RECHECK_TOP });
+    let closed = 0;
+    for (let i = 0; i < jobs.length; i += 4) {
+      await Promise.all(
+        jobs.slice(i, i + 4).map(async (job) => {
+          const liveCheck = await liveState(ctx, job).catch(() => null);
+          // "Couldn't tell" never overwrites what an earlier check found.
+          if (!liveCheck || liveCheck.state === "unknown") return;
+          if (liveCheck.state === "closed") closed++;
+          await ctx.runMutation(internal.jobs.saveLiveCheck, { userId, jobId: job._id, liveCheck });
+        }),
+      );
+    }
+    if (closed) console.log(`Recheck: ${closed} of ${jobs.length} closed`);
+    return null;
+  },
+});
+
+/** How many of each person's top jobs the morning re-check reads. */
+const RECHECK_TOP = 15;
+
 /** Checks the posting is still up. No AI, so it doesn't use any of the day's allowance. */
 export const checkPosting = action({
   args: { jobId: v.id("jobs") },

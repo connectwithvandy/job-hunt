@@ -66,7 +66,7 @@ export const dueFor = internalQuery({
     // Newest first; stop at the first one older than the window.
     for await (const j of ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc")) {
       if (j._creationTime < since) break;
-      if (j.status === "new") fresh.push(j);
+      if (j.status === "new" && j.liveCheck?.state !== "closed") fresh.push(j);
     }
     // Every new role whose title fits one of their groups, unless the AI scored it as one to skip.
     // Scored roles first, then by the free first guess. The guess only sorts: at most 55, it would look like a poor fit.
