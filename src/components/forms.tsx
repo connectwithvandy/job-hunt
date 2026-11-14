@@ -124,9 +124,10 @@ export function UploadResume({ replace, onAdded }: { replace?: { _id: Id<"resume
         const form = new FormData(e.currentTarget);
         const cv = form.get("cv") as File | null;
         const photo = form.get("photo") as File | null;
+        // A missing file is a hint, not a fault: shown without filing it under Admin → Errors.
+        if (!cv?.size && !photo?.size) return setState({ error: "Choose your CV file first." });
         setState(
           await attempt(async () => {
-            if (!cv?.size && !photo?.size) throw new Error("Choose your CV file first.");
             if (photo?.size) {
               setBusy("Uploading your photo…");
               await setPhoto({ storageId: (await uploadFile(await generateUploadUrl(), photo)) as Id<"_storage"> });

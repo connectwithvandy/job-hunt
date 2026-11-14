@@ -92,7 +92,7 @@ function Companies() {
       {tab === "dream" ? (
         <div className="card mb-6 space-y-3 p-5">
           <p className="text-sm text-ink-2">
-            Up to 50 companies you&apos;d love to work for. They&apos;re checked for sales and GTM openings in India or remote, which land in your Jobs list, and re-checked every morning when autopilot is on.
+            Up to 50 companies you&apos;d love to work for. They&apos;re checked for sales and GTM openings in India or remote, which land in your Jobs list, and re-checked every morning while your morning search is on.
           </p>
           <label className="block">
             <span className="label">Your must-haves</span>
