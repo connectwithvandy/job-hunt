@@ -156,7 +156,8 @@ export function whereRule(location: string, markets = "") {
     : "";
   if (!l || /^anywhere$/i.test(l)) return pref.trim();
   if (/^remote$/i.test(l)) return `The candidate only takes remote roles open to someone in India; an office-based or country-locked remote role is a poor fit (score it under 30 and say why).${pref}`;
-  return `The candidate can't relocate: only roles in ${l}, or remote roles open to someone living there, work. Score any other location under 30 and say it would need relocating.${pref}`;
+  // 14 Nov: "USA-TX-Remote" and "Remote (United Kingdom)" scored 62-84 for someone searching Bengaluru, Mumbai, Hyderabad, Pune.
+  return `The candidate can't relocate: only roles in ${l}, or remote roles open to someone living there, work. Score any other location under 30 and say it would need relocating. A remote role tied to another country or region ("Remote - USA", "US (Remote)", "Remote (United Kingdom)", "EMEA", "LATAM") is not open to them: score it under 30 too, unless the posting says it hires in India.${pref}`;
 }
 
 export type PastOutcome = { title: string; company: string; trackKey?: string; score?: number; outcome: "response" | "rejected" | "silent" };
