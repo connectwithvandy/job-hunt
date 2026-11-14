@@ -1,5 +1,6 @@
 "use client";
 
+import { rankFit, stalePenalty } from "../../../convex/lib/posting";
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,8 +29,9 @@ const byTime = (j: ListJob) => (j.postedAt ? Date.parse(j.postedAt) : j._creatio
 /** Ways to order the list. Jobs without the thing being sorted on go last. */
 /** The AI score when there is one, else the quick fit. */
 const fitOrQuick = (j: ListJob, role: string | null) => {
-  const fit = fitFor(j, role);
-  return fit >= 0 ? fit : (j.quickFit ?? -1);
+  // Old or closed postings sink below fresh ones with the same fit (see stalePenalty).
+  const fit = rankFit(fitFor(j, role), j);
+  return fit >= 0 ? fit : (j.quickFit ?? -1) - stalePenalty(j);
 };
 
 const SORTS = {
@@ -37,7 +39,7 @@ const SORTS = {
   fit: {
     label: "Best fit",
     compare: (role: string | null) => (a: ListJob, b: ListJob) =>
-      fitTier(fitFor(b, role)) - fitTier(fitFor(a, role)) || fitOrQuick(b, role) - fitOrQuick(a, role) || b._creationTime - a._creationTime,
+      fitTier(rankFit(fitFor(b, role), b)) - fitTier(rankFit(fitFor(a, role), a)) || fitOrQuick(b, role) - fitOrQuick(a, role) || b._creationTime - a._creationTime,
   },
   pay: {
     label: "Highest pay",

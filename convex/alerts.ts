@@ -1,5 +1,6 @@
 // Each morning after the search: an email to every member with their best new roles, under their own role groups.
 // Goes at most once a day, skips days with nothing new, and stops for anyone who asked (access.alertsOff).
+import { rankFit, stalePenalty } from "./lib/posting";
 import { type Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
@@ -73,7 +74,8 @@ export const dueFor = internalQuery({
       .map((j) => ({ j, fit: aiFit(j), guess: j.quickFit ?? 0, key: j.trackKey ?? trackForTitle(tracks, j.title) }))
       // Not scored yet: the free guess must clear GUESS_FLOOR, which a role outside their place or work type can't.
       .filter((x) => (x.fit === undefined ? x.guess >= GUESS_FLOOR || j0(x.j) : x.fit >= RELEVANT) && tracks.some((t) => t.key === x.key))
-      .sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1) || b.guess - a.guess)
+      // A months-old or closed posting sinks below fresh ones (see stalePenalty).
+      .sort((a, b) => rankFit(b.fit ?? -1, b.j, now) - rankFit(a.fit ?? -1, a.j, now) || b.guess - stalePenalty(b.j, now) - (a.guess - stalePenalty(a.j, now)))
       .slice(0, PER_EMAIL);
     if (!best.length) return null;
     const byTrack = new Map<string, { title: string; company: string; where: string; fit?: number; id: string }[]>();

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { api } from "../../convex/_generated/api";
 import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER, replyTiming } from "../../convex/lib/followups";
-import { SKIP_BELOW } from "../../convex/lib/posting";
+import { rankFit, SKIP_BELOW } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -87,7 +87,7 @@ export default function Today() {
   const strong = jobs
     // A closed posting or one that rules you out isn't worth the evening.
     .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j))
-    .sort((a, b) => bestScore(b)!.score - bestScore(a)!.score)
+    .sort((a, b) => rankFit(bestScore(b)!.score, b) - rankFit(bestScore(a)!.score, a))
     .slice(0, 5);
   // Unanswered for a week at most: after that it's stale, and the job's follow-ups take over.
   const replies = jobs.filter((j) => j.lastEmail && !j.lastEmail.repliedAt && msSince(j.lastEmail.at) < 7 * DAY && ["screening", "interview", "offer"].includes(j.status));
@@ -159,7 +159,7 @@ export default function Today() {
   const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
   const fresh = jobs
     .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j) && recent(j))
-    .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || fit(b) - fit(a));
+    .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || rankFit(fit(b), b) - rankFit(fit(a), a));
   const freshIds = new Set(fresh.map((j) => j._id));
   const freshScored = fresh.filter((j) => j.scores?.length);
   const freshGuessed = fresh.filter((j) => !j.scores?.length);

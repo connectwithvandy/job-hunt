@@ -1,3 +1,4 @@
+import { rankFit } from "./posting";
 // The morning summary email: what happened since the last one, and what to do today.
 // Built here as plain text; the person's own Gmail script sends it to them (no email service needed).
 
@@ -9,6 +10,8 @@ type Job = {
   status: string;
   appliedAt?: number;
   scores?: { score: number }[];
+  postedAt?: string;
+  liveCheck?: { state: string };
   outreach: { name: string; status: string; sentAt?: number }[];
   lastEmail?: { at: number; stage: string };
 };
@@ -44,7 +47,7 @@ export function buildDigest({ jobs, dreams, run, since, now, appUrl }: { jobs: J
     sections.push(`EMAILS FROM COMPANIES\n${replies.slice(0, 8).map((j) => `- ${STAGE_WORDS[j.lastEmail!.stage] ?? j.lastEmail!.stage}: ${j.title} at ${j.company}\n  ${link(j)}`).join("\n")}`);
   }
 
-  const strong = jobs.filter((j) => j.status === "new" && best(j) >= 75).sort((a, b) => best(b) - best(a));
+  const strong = jobs.filter((j) => j.status === "new" && best(j) >= 75 && j.liveCheck?.state !== "closed").sort((a, b) => rankFit(best(b), b, now) - rankFit(best(a), a, now));
   if (strong.length) {
     const fresh = strong.filter((j) => j._creationTime > since).length;
     sections.push(

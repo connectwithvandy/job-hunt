@@ -6,6 +6,22 @@ const DAY = 86_400_000;
 /** Below this best fit score, the app tells you to skip the job. You can still write it anyway. */
 export const SKIP_BELOW = 60;
 
+/**
+ * Points taken off a fit score when ranking jobs, never from the score shown. A role posted months ago is
+ * often filled even when the board still lists it (14 Nov: a 7-month-old SDR manager post ranked near the top),
+ * and one whose posting looks closed goes below everything worth applying to.
+ */
+export function stalePenalty(j: { postedAt?: string | null; liveCheck?: { state: string } | null }, now = Date.now()) {
+  if (j.liveCheck?.state === "closed") return 100;
+  const posted = j.postedAt ? Date.parse(j.postedAt) : NaN;
+  if (Number.isNaN(posted)) return 0;
+  const days = (now - posted) / DAY;
+  return days > 120 ? 25 : days > 60 ? 15 : days > 30 ? 5 : 0;
+}
+
+/** A fit score (or -1 when not scored) lowered for age or a closed posting, for sorting only. Never below 0 when scored. */
+export const rankFit = (fit: number, j: Parameters<typeof stalePenalty>[0], now = Date.now()) => (fit < 0 ? fit : Math.max(0, fit - stalePenalty(j, now)));
+
 /** A live check older than this is done again before writing a CV. */
 export const RECHECK_AFTER = DAY;
 
