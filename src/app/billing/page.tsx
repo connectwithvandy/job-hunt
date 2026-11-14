@@ -34,6 +34,7 @@ const date = (at: number) => new Date(at).toLocaleDateString("en-IN", { day: "nu
 
 export default function Billing() {
   const status = useQuery(api.payments.status);
+  const isOwner = useQuery(api.users.me)?.isOwner ?? false;
   const createOrder = useAction(api.payments.createOrder);
   const confirm = useAction(api.payments.confirm);
   const [busy, setBusy] = useState<PlanKey | null>(null);
@@ -92,7 +93,9 @@ export default function Billing() {
       <section className="card mb-6 p-6">
         <div className="label mb-1">Your plan</div>
         <p className="text-lg">
-          {status.partner && status.partner.until > now
+          {isOwner
+            ? "Owner: every feature, no limits, nothing to pay."
+            : status.partner && status.partner.until > now
             ? `3-month plan, ${date(status.partner.from)} to ${date(status.partner.until)}. Every feature is included.`
             : covered
               ? `Paid until ${date(status.paidUntil!)}.`
@@ -100,7 +103,7 @@ export default function Billing() {
                 ? `Your paid time ended on ${date(status.paidUntil)}.`
                 : "You haven't paid yet."}
         </p>
-        {!covered && !(status.partner && status.partner.until > now) && (
+        {!isOwner && !covered && !(status.partner && status.partner.until > now) && (
           <p className="mt-2 text-sm text-ink-2">
             Free plan, yours to keep: daily jobs, your tracker, the fit guess on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsPerWeek} tailored CV a week. A paid plan adds
             more scores and CVs, company research, interview prep, referral and hiring-manager messages, and the chat.
@@ -117,6 +120,7 @@ export default function Billing() {
         )}
       </section>
 
+      {isOwner && <div className="label mb-2">What members see</div>}
       {!status.on ? (
         <p className="card p-6 text-ink-2">Payments aren&apos;t switched on yet. Nothing to do for now.</p>
       ) : (
