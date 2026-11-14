@@ -799,36 +799,13 @@ export const moveDetails = internalMutation({
   },
 });
 
-/**
- * Read-only: how AI scores spread for jobs found between `fromDaysAgo` and `toDaysAgo` (best score per job).
- * Run before and after a scoring change: npx convex run --prod jobs:scoreSpread '{"fromDaysAgo":7,"toDaysAgo":0}'
- */
-export const scoreSpread = internalQuery({
-  args: { fromDaysAgo: v.number(), toDaysAgo: v.number() },
-  handler: async (ctx, { fromDaysAgo, toDaysAgo }) => {
-    const now = Date.now();
-    const from = now - fromDaysAgo * 86_400_000;
-    const to = now - toDaysAgo * 86_400_000;
-    const scores: number[] = [];
-    // Newest first, stopping at the window's start; capped so one call stays well inside read limits.
-    for await (const j of ctx.db.query("jobs").order("desc")) {
-      if (j._creationTime < from || scores.length >= 3000) break;
-      if (j._creationTime > to || !j.scores?.length) continue;
-      scores.push(Math.max(...j.scores.map((s) => s.score)));
-    }
-    if (!scores.length) return { jobs: 0 };
-    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const sd = Math.sqrt(scores.reduce((a, b) => a + (b - mean) ** 2, 0) / scores.length);
-    const counts = new Map<number, number>();
-    for (const s of scores) counts.set(s, (counts.get(s) ?? 0) + 1);
-    const [common, commonN] = [...counts].sort((a, b) => b[1] - a[1])[0];
-    const share = (lo: number, hi: number) => `${Math.round((100 * scores.filter((s) => s >= lo && s < hi).length) / scores.length)}%`;
-    return {
-      jobs: scores.length,
-      mean: Math.round(mean),
-      spread: Math.round(sd * 10) / 10,
-      mostCommon: `${common} (${Math.round((100 * commonN) / scores.length)}% of jobs)`,
-      bands: { "80+": share(80, 101), "70-79": share(70, 80), "60-69": share(60, 70), "40-59": share(40, 60), "under 40": share(0, 40) },
-    };
+/** One page of best AI scores for jobs found between two times, for scoreSpread (each page stays inside read limits). */
+export const scorePage = internalQuery({
+  args: { from: v.number(), to: v.number(), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { from, to, cursor }) => {
+    const page = await ctx.db.query("jobs").order("desc").paginate({ cursor, numItems: 250 });
+    const scores = page.page.filter((j) => j._creationTime >= from && j._creationTime <= to && j.scores?.length).map((j) => Math.max(...j.scores!.map((s) => s.score)));
+    const past = page.page.length > 0 && page.page[page.page.length - 1]._creationTime < from;
+    return { scores, cursor: page.continueCursor, done: page.isDone || past };
   },
 });
