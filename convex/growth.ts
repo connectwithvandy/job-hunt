@@ -658,7 +658,8 @@ export const warmFree = internalQuery({
   },
 });
 
-const noteV = v.object({ email: v.string(), subject: v.string(), text: v.string(), button: v.optional(v.string()) });
+// `always`: send even if they've set up since (notes to active people, like a tip for a free-plan user).
+const noteV = v.object({ email: v.string(), subject: v.string(), text: v.string(), button: v.optional(v.string()), always: v.optional(v.boolean()) });
 
 /**
  * The owner's hand-written notes, sent one at a time from `startAt`, `gapMinutes` apart.
@@ -689,7 +690,7 @@ export const setUpNow = internalQuery({
 export const sendNote = internalAction({
   args: noteV,
   handler: async (ctx, note) => {
-    if (await ctx.runQuery(internal.growth.setUpNow, { email: note.email })) {
+    if (!note.always && (await ctx.runQuery(internal.growth.setUpNow, { email: note.email }))) {
       console.log("Note skipped, already set up:", note.email);
       return null;
     }
