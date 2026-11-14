@@ -107,6 +107,10 @@ export default defineSchema({
     partner: v.optional(v.object({ name: v.string(), url: v.string(), from: v.number(), until: v.number() })),
     /** The secret in this person's one-click unsubscribe link, made the first time a daily email goes out. */
     unsubKey: v.optional(v.string()),
+    /** The last time they hit a paid-only limit and saw "Get the Week Pass", what it was, and how often: the warmest people to write to. */
+    paywallAt: v.optional(v.number()),
+    paywallWhat: v.optional(v.string()),
+    paywallCount: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"])

@@ -472,3 +472,16 @@ export const partners = query({
     return [...groups.values()];
   },
 });
+
+/** Records that you hit a paid-only limit (the "Get the Week Pass" button showed), so the owner knows who wants more. */
+export const notePaywall = mutation({
+  args: { what: v.string() },
+  handler: async (ctx, { what }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!row) return null;
+    await ctx.db.patch("access", row._id, { paywallAt: Date.now(), paywallWhat: what.slice(0, 160), paywallCount: (row.paywallCount ?? 0) + 1 });
+    return null;
+  },
+});

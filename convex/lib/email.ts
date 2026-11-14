@@ -119,7 +119,7 @@ export function trialEmail(p: {
         "Here's what it did for you so far:",
         ...(interviews ? ["Good luck with the interviews. That's the part that counts."] : []),
         ...(!cvs && !applied ? ["One thing worth trying before the week is out: star a job you like and open its tailored CV. That's where it saves the most time."] : []),
-        `If it's saving you time, you can keep going for ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works: ${url}/billing`,
+        `If it's saving you time, the Week Pass gives you every AI tool for a week you're applying hard: ${rupees(PLANS.week)}. Or it's ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works: ${url}/billing`,
         "If it isn't, I'd really like to know why. Reply and tell me what's missing. It comes straight to me, and I read every one.",
       ]
     : [

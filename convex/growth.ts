@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { type ActionCtx, env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
+import { trialOver } from "./lib/trial";
 import { AUTOPILOT_SCORES } from "./lib/defaults";
 import { healthSection } from "./lib/health";
 import { CAREER_BOARDS } from "./lib/careerBoards";
@@ -620,6 +621,40 @@ export const notSetUp = internalQuery({
       });
     }
     return out.sort((a, b) => (a.daysSinceLetIn ?? 0) - (b.daysSinceLetIn ?? 0));
+  },
+});
+
+/**
+ * Read-only: people on the free plan (trial over, not paid) who used JobPipe in the last 3 days, warmest first,
+ * with what they've done and any paid-only limit they hit. The ones to write to personally about the Week Pass.
+ * npx convex run --prod growth:warmFree
+ */
+export const warmFree = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
+    const out = [];
+    for (const row of rows) {
+      if (!row.email || isOwnerEmail(row.email) || (row.paidUntil ?? 0) > now || (row.partner && row.partner.until > now) || !trialOver(row, now)) continue;
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();
+      const seen = profile?.lastSeenAt;
+      if (!seen || now - seen > 3 * DAY) continue;
+      const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc").take(300);
+      const fit = (j: (typeof jobs)[number]) => Math.max(-1, ...(j.scores ?? []).map((s) => s.score));
+      const best = [...jobs].filter((j) => j.status === "new").sort((a, b) => fit(b) - fit(a))[0];
+      out.push({
+        name: row.name ?? "",
+        email: row.email,
+        lastSeenDaysAgo: Math.floor((now - seen) / DAY),
+        scored: jobs.filter((j) => j.scores?.length).length,
+        tailored: jobs.filter((j) => j.hasPack).length,
+        applied: jobs.filter((j) => j.status !== "new" && j.status !== "dismissed").length,
+        bestJob: best && fit(best) >= 0 ? `${best.title} at ${best.company} (fit ${fit(best)})` : "",
+        hitPaywall: row.paywallAt ? `${row.paywallCount ?? 1}x, last ${Math.floor((now - row.paywallAt) / DAY)}d ago: ${row.paywallWhat ?? ""}` : "",
+      });
+    }
+    return out.sort((a, b) => Number(!!b.hitPaywall) - Number(!!a.hitPaywall) || b.tailored + b.applied - (a.tailored + a.applied) || a.lastSeenDaysAgo - b.lastSeenDaysAgo);
   },
 });
 
