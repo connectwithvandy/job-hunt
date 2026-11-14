@@ -301,6 +301,21 @@ async function linkedInMatches(titles: string[], location: string, since: "24h" 
 }
 
 /**
+ * Saves found jobs 100 at a time. One mutation has about a second of work, and a big search
+ * (14 Nov: ~900 roles for one person) ran past it and saved none of that track.
+ */
+async function saveJobs(ctx: ActionCtx, userId: Id<"users">, jobs: NewJob[]): Promise<{ added: number; kept: number }> {
+  let added = 0;
+  let kept = 0;
+  for (let i = 0; i < jobs.length; i += 100) {
+    const r: { added: number; kept: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: jobs.slice(i, i + 100) });
+    added += r.added;
+    kept += r.kept;
+  }
+  return { added, kept };
+}
+
+/**
  * Searches every board for one track and saves the new roles. Returns how many were new, and which boards didn't answer.
  * `linkedin` also reads LinkedIn's listings from that far back; only the owner's account pays for it.
  */
@@ -342,7 +357,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
       const rows: CareerRow[] = await ctx.runQuery(internal.careers.forCompany, { company });
       return rows.map((r) => ({ title: r.title, url: r.url }));
     });
-    const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: linked });
+    const { added } = await saveJobs(ctx, userId, linked);
     // Dreamwork counts as failed when most titles got nothing; a few misses are named apart, so the morning
     // email doesn't call a search that mostly worked a failure (13 Nov: one title of 16 marked a person failed).
     const missed = settled.filter((r) => r.status === "rejected").length;
@@ -637,7 +652,7 @@ export const autopilotFor = internalAction({
           // The reason rides along in brackets so the morning health email shows it (it counts by the name before them).
           const reason = (err instanceof ConvexError ? String(err.data) : String((err as Error)?.message ?? err)).replace(/[()\n]/g, " ").slice(0, 80);
           // Named for what broke: Dreamwork's own refusals and time-outs, or "Saving jobs" for our side (13 Nov: a read limit was filed as Dreamwork).
-          failed.add(`${/documents read|bytes read|too many|Uncaught/i.test(reason) ? "Saving jobs" : "Dreamwork"} (${reason})`);
+          failed.add(`${/documents read|bytes read|too many|Uncaught|execution timed out/i.test(reason) ? "Saving jobs" : "Dreamwork"} (${reason})`);
         }
       }
       let scored = 0;
@@ -748,7 +763,7 @@ export const freshFor = internalAction({
         }
       }
       if (!jobs.size) return null;
-      await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [...jobs.values()] });
+      await saveJobs(ctx, userId, [...jobs.values()]);
       // Scoring new roles the hour they appear (and the alert email it can send) is a paid perk: it ran up to
       // 45 AI calls a day per person. Everyone else's new roles get scored on their next visit.
       // Off unless FRESH_SCORING is "on": scoring new roles every hour cost 3-10 cents a call with nobody paying (13 Nov).
@@ -1051,7 +1066,7 @@ async function addHiringPosts(ctx: ActionCtx, me: Context): Promise<number> {
     ];
   });
   if (!jobs.length) return 0;
-  const { added }: { added: number } = await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs });
+  const { added } = await saveJobs(ctx, me.userId, jobs);
   return added;
 }
 
@@ -1456,12 +1471,12 @@ async function checkCompanyRoles(ctx: ActionCtx, me: Context, p: Doc<"prospects"
     const found = await withCareerTexts(ctx, rows.filter(fitsPlace).slice(0, 100));
     if (!found.length) return 0;
     // Count what the Jobs page will show, not what the board listed: some roles are filtered out when saved.
-    const { kept }: { kept: number } = await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: found.map((f) => fromFound(f, trackFor(f.title))) });
+    const { kept } = await saveJobs(ctx, me.userId, found.map((f) => fromFound(f, trackFor(f.title))));
     return kept;
   }
   const fits = (await companyListings(p.name)).filter(fitsPlace);
   if (!fits.length) return 0;
-  const { kept }: { kept: number } = await ctx.runMutation(internal.jobs.insertMany, { userId: me.userId, jobs: fits.map((l) => fromListing(l, trackFor(l.title))) });
+  const { kept } = await saveJobs(ctx, me.userId, fits.map((l) => fromListing(l, trackFor(l.title))));
   return kept;
 }
 
