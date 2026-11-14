@@ -29,6 +29,12 @@ const app = defineApp({
     FIRECRAWL_API_KEY: v.optional(v.string()),
     /** Google Jobs searches the whole app may use a month, split between everyone; defaults to 190 (the free plan is 200). */
     JSEARCH_MONTHLY: v.optional(v.string()),
+    /** Reads Anthropic's cost report for the COSTS block of the morning email (convex/costs.ts). An Admin API key; off when missing. */
+    ANTHROPIC_ADMIN_KEY: v.optional(v.string()),
+    /** Counts only this Anthropic workspace's spend in COSTS (a wrkspc_ id); without it, the whole organization. */
+    ANTHROPIC_COST_WORKSPACE: v.optional(v.string()),
+    /** Rupees per dollar for the COSTS block; defaults to 88. */
+    USD_INR: v.optional(v.string()),
     /** AI work the whole app may do in a day, in rough units (limits.ts AI_UNITS); defaults to 3000. */
     AI_DAILY_UNITS: v.optional(v.string()),
     /** Sends the "you're in" and forgot-password emails through Resend (lib/email.ts). Off when missing. */

@@ -31,7 +31,9 @@ type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
   readonly AI_DAILY_UNITS: string | undefined;
+  readonly ANTHROPIC_ADMIN_KEY: string | undefined;
   readonly ANTHROPIC_API_KEY: string | undefined;
+  readonly ANTHROPIC_COST_WORKSPACE: string | undefined;
   readonly APIFY_OWNER_EXTRAS: string | undefined;
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
@@ -51,6 +53,7 @@ type Env = {
   readonly RAZORPAY_WEBHOOK_SECRET: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
   readonly SUBSCRIBER_DAILY: string | undefined;
+  readonly USD_INR: string | undefined;
 };
 
 /**
