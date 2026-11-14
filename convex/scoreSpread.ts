@@ -45,10 +45,12 @@ export const guessCheck = internalAction({
   handler: async (ctx, { fromDaysAgo }) => {
     const now = Date.now();
     const pairs: [number, number][] = [];
+    const missed: string[] = [];
     let cursor: string | null = null;
     for (let i = 0; i < 200; i++) {
-      const page: { pairs: [number, number][]; cursor: string; done: boolean } = await ctx.runQuery(internal.jobs.scorePage, { from: now - fromDaysAgo * 86_400_000, to: now, cursor });
+      const page: { pairs: [number, number][]; missed: string[]; cursor: string; done: boolean } = await ctx.runQuery(internal.jobs.scorePage, { from: now - fromDaysAgo * 86_400_000, to: now, cursor });
       pairs.push(...page.pairs);
+      missed.push(...page.missed);
       if (page.done) break;
       cursor = page.cursor;
     }
@@ -67,6 +69,6 @@ export const guessCheck = internalAction({
         poorCaught: `${savedPoor} of ${poor} poor jobs (${pct(savedPoor, poor)})`,
       };
     });
-    return { jobs: pairs.length, good, poor, cutoffs };
+    return { jobs: pairs.length, good, poor, cutoffs, goodJobsWithLowGuess: missed.slice(0, 25) };
   },
 });
