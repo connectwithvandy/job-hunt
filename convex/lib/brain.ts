@@ -127,6 +127,8 @@ ${(job.description ?? "(no description available, judge from the title and compa
 
 // ---------- Scoring ----------
 
+const RUBRIC = ` Use the whole 0 to 100 range and be decisive; don't park scores in the middle or reuse the same number for jobs that fit differently. Anchors: 90+ the same job they've done well, same level, motion and market; 80-89 apply now, at most one small gap; 70-79 worth a shot, one real gap; 60-69 a stretch on one must-have; 40-59 two or more must-haves missing, or a level off; under 40 the wrong function, level or place. `;
+
 const ScoreSchema = z.strictObject({
   scores: z.array(
     z.strictObject({
@@ -199,7 +201,7 @@ export async function scoreJob(job: Job, resumeFor: (track: { key: string }) => 
     tier,
     effort: "low",
     schema: ScoreSchema,
-    system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role. Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them. ${whereRule(location, markets)}`,
+    system: `You are a blunt, kind career strategist for sales and go-to-market roles. You score how well a candidate fits a job, separately for each of their job-search tracks. A track is a positioning: the same person pitched differently. Score the job as it would be read by the hiring manager if the candidate applied with that track's angle. Be honest: a great person can still be a poor fit for a role.${RUBRIC}Your reasons are read by the candidate, so address them as "you" and never use "he", "she" or "they" for them. ${whereRule(location, markets)}`,
     // The CV and tracks are the same for every job scored, so they're cached; only the job changes.
     shared: `${cvBlock}
 

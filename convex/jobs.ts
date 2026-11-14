@@ -798,3 +798,37 @@ export const moveDetails = internalMutation({
     return { moved, done: page.isDone };
   },
 });
+
+/**
+ * Read-only: how AI scores spread for jobs found between `fromDaysAgo` and `toDaysAgo` (best score per job).
+ * Run before and after a scoring change: npx convex run --prod jobs:scoreSpread '{"fromDaysAgo":7,"toDaysAgo":0}'
+ */
+export const scoreSpread = internalQuery({
+  args: { fromDaysAgo: v.number(), toDaysAgo: v.number() },
+  handler: async (ctx, { fromDaysAgo, toDaysAgo }) => {
+    const now = Date.now();
+    const from = now - fromDaysAgo * 86_400_000;
+    const to = now - toDaysAgo * 86_400_000;
+    const scores: number[] = [];
+    // Newest first, stopping at the window's start; capped so one call stays well inside read limits.
+    for await (const j of ctx.db.query("jobs").order("desc")) {
+      if (j._creationTime < from || scores.length >= 3000) break;
+      if (j._creationTime > to || !j.scores?.length) continue;
+      scores.push(Math.max(...j.scores.map((s) => s.score)));
+    }
+    if (!scores.length) return { jobs: 0 };
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const sd = Math.sqrt(scores.reduce((a, b) => a + (b - mean) ** 2, 0) / scores.length);
+    const counts = new Map<number, number>();
+    for (const s of scores) counts.set(s, (counts.get(s) ?? 0) + 1);
+    const [common, commonN] = [...counts].sort((a, b) => b[1] - a[1])[0];
+    const share = (lo: number, hi: number) => `${Math.round((100 * scores.filter((s) => s >= lo && s < hi).length) / scores.length)}%`;
+    return {
+      jobs: scores.length,
+      mean: Math.round(mean),
+      spread: Math.round(sd * 10) / 10,
+      mostCommon: `${common} (${Math.round((100 * commonN) / scores.length)}% of jobs)`,
+      bands: { "80+": share(80, 101), "70-79": share(70, 80), "60-69": share(60, 70), "40-59": share(40, 60), "under 40": share(0, 40) },
+    };
+  },
+});
