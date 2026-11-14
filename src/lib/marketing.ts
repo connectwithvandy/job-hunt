@@ -5,13 +5,13 @@ import { LEGAL, PLANS } from "./legal";
 export const TITLE = "JobPipe: finds sales roles, tailors your CV, gets you the intro";
 
 export const DESCRIPTION =
-  "Job search for sales and GTM roles in India, the US, APAC and EMEA. Every job scored against your CV, a tailored CV for each one, and who you know there.";
+  "Job search for sales and GTM roles in India, the US, APAC and EMEA. Every job ranked against your CV, a tailored CV for each one, and who you know there.";
 
-export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, the US, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, scores each job against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in beta, open to sales and GTM professionals: a ${PLANS.trialDays}-day free trial, then a free plan (daily jobs, tracker, a few AI scores and 1 tailored CV a week), or every AI tool for ₹${PLANS.week} a week, ₹${PLANS.full}/month or ₹${PLANS.pass.toLocaleString("en-IN")} for a ${PLANS.passMonths}-month pass (₹${PLANS.founding}/month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
+export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, the US, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, ranks every job by fit, scores the ones you pick against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in beta, open to sales and GTM professionals: a ${PLANS.trialDays}-day free trial, then a free plan (daily jobs, tracker, a few AI scores and 1 tailored CV a week), or every AI tool for ₹${PLANS.week} a week, ₹${PLANS.full}/month or ₹${PLANS.pass.toLocaleString("en-IN")} for a ${PLANS.passMonths}-month pass (₹${PLANS.founding}/month or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the first ${PLANS.foundingSeats} founding members). It is open source.`;
 
 export const STEPS = [
   "Upload your CV and pick the sales roles you want.",
-  "Every morning, JobPipe searches job boards and careers pages and scores every job.",
+  "Every morning, JobPipe searches job boards and careers pages and ranks every job by how well it fits.",
   "Get a tailored CV, cover letter and referral note for the jobs you like.",
   "Open Today: answer replies, apply, follow up, and try three new companies.",
 ];

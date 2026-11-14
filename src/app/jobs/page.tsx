@@ -22,6 +22,8 @@ import { ScoreTipPopup } from "@/components/ScoreTipPopup";
 type ListJob = FunctionReturnType<typeof api.jobs.list>[number];
 // First guesses this low are almost never worth opening; they fold away under the list.
 const WEAK_GUESS = 40;
+// Scored jobs leave the "not scored" list; without this they seemed to vanish (14 Nov, new-user walk).
+const MOVED = "Good fits (60+) move to the top; lower ones go to the bottom, under \"Scored below 60\".";
 // Rows drawn at first; the rest wait behind "Show more" so a long list opens quickly.
 const PAGE = 60;
 const byTime = (j: ListJob) => (j.postedAt ? Date.parse(j.postedAt) : j._creationTime);
@@ -203,7 +205,7 @@ function Jobs() {
           <ActionButton
             run={async () => {
               const { scored, failed } = await scoreJobs({ jobIds: batch });
-              return failed ? `Scored ${scored}, ${failed} failed. Try those again.` : `Scored ${scored}.`;
+              return `${failed ? `Scored ${scored}, ${failed} failed. Try those again.` : `Scored ${scored}.`} ${MOVED}`;
             }}
             pending={`Scoring ${batch.length} jobs…`}
             variant="ghost"
@@ -295,7 +297,7 @@ function Jobs() {
                 const ids = ([...picked] as Id<"jobs">[]).slice(0, 12);
                 const { scored, failed } = await scoreJobs({ jobIds: ids });
                 setPicked(new Set());
-                return failed ? `Scored ${scored}, ${failed} failed.` : `Scored ${scored}.`;
+                return `${failed ? `Scored ${scored}, ${failed} failed.` : `Scored ${scored}.`} ${MOVED}`;
               }}
               pending="Scoring…"
               variant="ghost"

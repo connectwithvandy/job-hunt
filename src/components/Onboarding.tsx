@@ -291,7 +291,7 @@ function StepAnswers({
         <span>
           <span className="font-medium">Search for me every morning</span>
           <span className="mt-1 block text-sm text-ink-2">
-            At 8 every morning JobPipe searches all your roles and scores what&apos;s new, so you start the day with a ranked list. Turn it on or off any time on Today.
+            At 8 every morning JobPipe searches all your roles, so you start the day with fresh jobs, best guesses first. Tick the ones you like and press Score for a full fit check. Turn it on or off any time on Today.
           </span>
         </span>
       </label>

@@ -228,7 +228,7 @@ export default function Today() {
           {greeting()}
           {firstName ? `, ${firstName}` : ""}
         </h1>
-        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} />
+        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={jobs.length} />
       </header>
 
       {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
@@ -660,7 +660,10 @@ function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">
   const active = tracks.filter((t) => t.status === "active");
   const total = funnelOf(jobs);
   if (!active.length) return null;
-  const rows = active.map((t) => ({ t, f: funnelOf(jobs.filter((j) => jobTrackKey(j, tracks) === t.key)) }));
+  const rows = active.map((t) => {
+    const mine = jobs.filter((j) => jobTrackKey(j, tracks) === t.key);
+    return { t, f: funnelOf(mine), found: mine.length };
+  });
   return (
     <section className="card mt-2 mb-8 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -677,7 +680,7 @@ function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">
       </ol>
       {rows.length > 1 && (
         <ul className="mt-4 divide-y divide-line border-t border-line text-sm">
-          {rows.map(({ t, f }) => (
+          {rows.map(({ t, f, found }) => (
             <li key={t._id}>
               <Link href={`/jobs?track=${t.key}`} className="block py-3 hover:bg-soft sm:-mx-2 sm:px-2">
                 <div className="flex items-baseline justify-between gap-2">
@@ -688,8 +691,11 @@ function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">
                   <span className="shrink-0 text-xs text-ink-3">{f.interviews ? `${f.interviews} in interviews` : replyNote(f)}</span>
                 </div>
                 <div className="mt-1 text-xs tabular-nums text-ink-2">
-                  {f.good + f.applied === 0 ? (
+                  {/* "Finds no jobs" only when it truly found none: a new role's jobs aren't scored yet (14 Nov: said this beside 75 found). */}
+                  {found === 0 ? (
                     <span className="text-pink">Finds no jobs yet: widen its titles on Setup</span>
+                  ) : f.good + f.applied === 0 ? (
+                    `${found} ${found === 1 ? "job" : "jobs"} found · score them to see the good fits`
                   ) : (
                     `${f.good} good fits · ${f.applied} applied · ${f.asked} messages · heard back on ${f.heard}`
                   )}
@@ -704,7 +710,7 @@ function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">
 }
 
 /** The morning search-and-score switch, and what the last run found. */
-function Autopilot({ on, last, now }: { now: number; on: boolean; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
+function Autopilot({ on, last, now, found }: { now: number; on: boolean; found: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
   // Off: a clear card, since nothing arrives without it.
   if (!on) {
@@ -723,7 +729,8 @@ function Autopilot({ on, last, now }: { now: number; on: boolean; last: { at: nu
       <span>
         {last
           ? `${dayStart(now) <= last.at ? "This morning" : `Last search ${timeAgo(new Date(last.at).toISOString())}`}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"} (75+).`
-          : `Your first search runs ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
+          : // Signing up runs a first search, so a new person already has jobs (14 Nov: this said "runs tomorrow" beside 75 found).
+            `${found ? `Your first ${found} ${found === 1 ? "job is" : "jobs are"} below. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
       </span>
       {last && last.strong > 0 && (
         <Link href="/jobs?fit=strong" className="text-accent underline">
