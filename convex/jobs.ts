@@ -811,9 +811,16 @@ export const scorePage = internalQuery({
       .filter((j) => j._creationTime >= from && j._creationTime <= to && j.scores?.length && j.quickFit !== undefined)
       .map((j) => [j.quickFit!, Math.max(...j.scores!.map((s) => s.score))] as [number, number]);
     // Examples for the owner: a low guess (under 40) the AI then scored 60+.
-    const missed = page.page
-      .filter((j) => j._creationTime >= from && j._creationTime <= to && j.scores?.length && (j.quickFit ?? 100) < 40 && Math.max(...j.scores.map((s) => s.score)) >= 60)
-      .map((j) => `${j.title} at ${j.company} (${j.location || "?"}): guess ${j.quickFit}, AI ${Math.max(...j.scores!.map((s) => s.score))}`);
+    const places = new Map<string, string>();
+    const missed: string[] = [];
+    for (const j of page.page) {
+      if (!(j._creationTime >= from && j._creationTime <= to && j.scores?.length && (j.quickFit ?? 100) < 40 && Math.max(...j.scores.map((s) => s.score)) >= 60)) continue;
+      if (!places.has(j.userId)) {
+        const p = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", j.userId)).unique();
+        places.set(j.userId, `${p?.location ?? "?"}${p?.workModes?.length ? ` ${p.workModes.join("/")}` : ""}`);
+      }
+      missed.push(`${j.title} at ${j.company} (${j.location || "?"}): guess ${j.quickFit}, AI ${Math.max(...j.scores.map((s) => s.score))} · person searches: ${places.get(j.userId)} · ${j.source}, found ${new Date(j._creationTime).toISOString().slice(0, 10)}`);
+    }
     return { scores, pairs, missed, cursor: page.continueCursor, done: page.isDone || past };
   },
 });
