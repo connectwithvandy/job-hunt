@@ -283,6 +283,19 @@ export const forJobPage = query({
   },
 });
 
+/** Which of these public roles are still on the company's board, so the sitemap can leave out ones taken down since the guides were last rebuilt. */
+export const stillListed = query({
+  args: { externalIds: v.array(v.string()) },
+  handler: async (ctx, { externalIds }) => {
+    const out: string[] = [];
+    for (const externalId of externalIds.slice(0, 400)) {
+      const job = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.eq("externalId", externalId)).first();
+      if (job) out.push(externalId);
+    }
+    return out;
+  },
+});
+
 /** Whether a careers-board role is still on the company's board, as of this morning's download. */
 export const isListed = internalQuery({
   args: { externalId: v.string() },
