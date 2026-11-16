@@ -181,7 +181,7 @@ export default function Today() {
   const apply: Todo[] = [
     ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
     // The free first guess is rough, so scoring comes before applying.
-    ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} ${freshUnscored === 1 ? "job" : "jobs"} found in the last day`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
+    ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} likeliest ${freshUnscored === 1 ? "job" : "jobs"} found in the last day`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
     // AI-scored jobs first, new then older; first guesses after them, never ahead of a real score.
     ...applyNew(freshScored.slice(0, 8)),
     ...older.map((j) => ({ key: `s${j._id}`, verb: verbFor(j), main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
@@ -733,7 +733,7 @@ function Autopilot({ on, last, now, found }: { now: number; on: boolean; found: 
         {last
           ? `${dayStart(now) <= last.at ? "This morning" : `Last search ${timeAgo(new Date(last.at).toISOString())}`}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"} (75+).`
           : // Signing up runs a first search, so a new person already has jobs (14 Nov: this said "runs tomorrow" beside 75 found).
-            `${found ? `Your first ${found} ${found === 1 ? "job is" : "jobs are"} below. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
+            `${found ? `Your first search found ${found} ${found === 1 ? "job" : "jobs"}; the likeliest are below. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
       </span>
       {last && last.strong > 0 && (
         <Link href="/jobs?fit=strong" className="text-accent underline">
