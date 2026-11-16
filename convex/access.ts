@@ -110,6 +110,30 @@ export const grantPartner = internalMutation({
   },
 });
 
+/**
+ * Take someone off a partner deal (e.g. they got a job): deletes their grant, so they drop off the partner's
+ * list, and ends the partner's paid time on their account. Their free account stays. Run by the owner, e.g.
+ * npx convex run --prod access:removePartner '{"email":"a@x.com"}'
+ */
+export const removePartner = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = args.email.trim().toLowerCase();
+    const grant = await ctx.db.query("partnerGrants").withIndex("by_email", (q) => q.eq("email", email)).first();
+    if (!grant) return "no partner grant for that email";
+    const row = await accessByEmail(ctx, email);
+    if (row) {
+      // Only undo the partner's time; leave paid time they bought themselves.
+      await ctx.db.patch("access", row._id, {
+        partner: undefined,
+        ...(row.paidUntil === grant.until ? { paidUntil: undefined } : {}),
+      });
+    }
+    await ctx.db.delete("partnerGrants", grant._id);
+    return row ? "removed, paid time ended" : "removed (had not signed up)";
+  },
+});
+
 async function accessByEmail(ctx: QueryCtx, email: string) {
   const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", email)).first();
   return user ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", user._id)).unique() : null;
