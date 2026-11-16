@@ -64,8 +64,10 @@ crons.cron("owner morning email", "45 3 * * *", internal.growth.sendMorning, {})
 // Mondays 6:30 IST: this week's India Sales Hiring Index, for the public page (hiringIndexBuild.ts).
 crons.weekly("hiring index", { dayOfWeek: "monday", hourUTC: 1, minuteUTC: 0 }, internal.hiringIndexBuild.build, {});
 
-// Mondays 9:00 IST: sales roles that keep getting reposted, as a ready LinkedIn post for the owner.
-crons.cron("weekly repost post", "30 3 * * 1", internal.growth.sendRepostPost, {});
+// Mondays 9:00 IST repost LinkedIn post: OFF since 16 Nov. Counts were wrong (a role missing from one morning's
+// download and back the next counted as a repost: "Abbott, 32 times since November"). Turn back on only once a
+// repost means gone for 7+ days.
+// crons.cron("weekly repost post", "30 3 * * 1", internal.growth.sendRepostPost, {});
 
 // 11:00 IST: one friendly nudge to anyone let in 2+ days ago who hasn't finished setup.
 crons.cron("setup nudges", "30 5 * * *", internal.growth.sendSetupNudges, {});
