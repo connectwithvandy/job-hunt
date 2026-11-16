@@ -89,8 +89,13 @@ function Jobs() {
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
   // A role from a company's own careers board was live when found, so its age counts from then.
   // Closed postings join them (the morning re-check marks them): nobody should apply to those by mistake.
+  // Careers-board roles count from when we found them (still live on the company's own board), but one posted
+  // 6+ months ago is an evergreen listing, not a fresh role (16 Nov walk: Flyy 32 months, Datadog 10 months near the top).
   const isOld = (j: (typeof jobs)[number]) =>
-    j.status === "new" && (j.liveCheck?.state === "closed" || now - (j.postedAt && j.source !== "careers" ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000);
+    j.status === "new" &&
+    (j.liveCheck?.state === "closed" ||
+      now - (j.postedAt && j.source !== "careers" ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000 ||
+      (j.source === "careers" && !!j.postedAt && now - Date.parse(j.postedAt) > 180 * 86_400_000));
   const oldCount = jobs.filter(isOld).length;
   // Applied and later live on the Tracker, so this list stays jobs you can still apply to.
   const isApplied = (j: (typeof jobs)[number]) => j.status !== "new" && j.status !== "applying" && j.status !== "dismissed";
