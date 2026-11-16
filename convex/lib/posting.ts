@@ -113,13 +113,47 @@ export function openDoors<C extends { peopleCount: number; fitting: number }>(wa
   return { open, people: open.reduce((n, c) => n + c.peopleCount, 0) };
 }
 
-/** "Remote (Afghanistan, Australia, ... 30 countries)" -> "Remote (India, Afghanistan, Australia and 27 more)": long country lists crowd the job page. */
+/** "Remote (Afghanistan, Australia, ... 30 countries)" -> "Remote (India, Afghanistan, Australia and 27 more)": long country lists crowd the job page.
+ * Brackets can nest ("Cocos (Keeling) Islands"), so the outer group is found by counting, not by a pattern. */
 export function shortPlace(location: string, keep = 3): string {
-  return location.replace(/\(([^()]*)\)/g, (whole, inner: string) => {
-    const parts = inner.split(",").map((p) => p.trim()).filter(Boolean);
-    if (parts.length <= keep + 1) return whole;
-    const india = parts.findIndex((p) => /^india$/i.test(p));
-    const ordered = india > 0 ? [parts[india], ...parts.filter((_, i) => i !== india)] : parts;
-    return `(${ordered.slice(0, keep).join(", ")} and ${parts.length - keep} more)`;
-  });
+  let out = "";
+  let depth = 0;
+  let inner = "";
+  for (const ch of location) {
+    if (ch === "(") {
+      if (depth > 0) inner += ch;
+      depth++;
+    } else if (ch === ")" && depth > 0) {
+      depth--;
+      if (depth > 0) inner += ch;
+      else {
+        out += `(${shortList(inner, keep)})`;
+        inner = "";
+      }
+    } else if (depth > 0) inner += ch;
+    else out += ch;
+  }
+  // An unclosed bracket: leave the rest as it was.
+  return depth > 0 ? out + "(" + inner : out;
+}
+
+function shortList(inner: string, keep: number): string {
+  // Split on commas outside nested brackets.
+  const items: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of inner) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      items.push(cur.trim());
+      cur = "";
+    } else cur += ch;
+  }
+  items.push(cur.trim());
+  const list = items.filter(Boolean);
+  if (list.length <= keep + 1) return inner;
+  const india = list.findIndex((p) => /^india$/i.test(p));
+  const ordered = india > 0 ? [list[india], ...list.filter((_, i) => i !== india)] : list;
+  return `${ordered.slice(0, keep).join(", ")} and ${list.length - keep} more`;
 }

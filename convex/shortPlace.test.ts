@@ -9,3 +9,6 @@ test("short lists and plain places unchanged", () => {
   expect(shortPlace("Remote (India, Singapore)")).toBe("Remote (India, Singapore)");
   expect(shortPlace("Remote (India, Singapore, Japan, Korea)")).toBe("Remote (India, Singapore, Japan, Korea)");
 });
+test("nested brackets inside the list", () => {
+  expect(shortPlace("Remote (Afghanistan, Australia, Cocos (Keeling) Islands, Hong Kong, India, Japan) · remote")).toBe("Remote (India, Afghanistan, Australia and 3 more) · remote");
+});
