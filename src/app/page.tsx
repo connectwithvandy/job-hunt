@@ -167,7 +167,8 @@ export default function Today() {
   // Older strong fits fill in when there's little new that the AI has scored.
   const older = strong.filter((j) => !freshIds.has(j._id)).slice(0, Math.max(0, APPLIES_A_DAY - freshScored.length));
   // A 70+ fit with no tailored CV yet: tailoring is the next step, and the one people skip (62 scored, 18 tailored, 14 Nov).
-  const verbFor = (j: Doc<"jobs">) => ((bestScore(j)?.score ?? 0) >= TAILOR_FROM && !j.hasPack && !j.pack ? "Tailor" : "Apply");
+  // Not scored yet: check the fit first ("Apply" on a first guess told new people to apply before scoring, 16 Nov walk).
+  const verbFor = (j: Doc<"jobs">) => (!bestScore(j) ? "Check" : bestScore(j)!.score >= TAILOR_FROM && !j.hasPack && !j.pack ? "Tailor" : "Apply");
   const applyNew = (list: Doc<"jobs">[]) =>
     list.map((j) => ({
       key: `n${j._id}`,
