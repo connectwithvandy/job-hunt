@@ -8,7 +8,7 @@ import { useSetStatus } from "@/components/Celebrate";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch, applyBoard } from "../../../../convex/lib/company";
-import { RECHECK_AFTER, ghostSigns, skipReason } from "../../../../convex/lib/posting";
+import { RECHECK_AFTER, ghostSigns, shortPlace, skipReason } from "../../../../convex/lib/posting";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { CvMatch } from "@/components/CvMatch";
 import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
@@ -148,7 +148,7 @@ export default function JobPage() {
             <FavoriteStar jobId={job._id} favorite={!!job.favorite} className="mt-1.5 text-2xl" />
           </div>
           <p className="mt-1 text-ink-2">
-            {job.company} · {job.location}
+            {job.company} · {shortPlace(job.location)}
             {job.workSetting && job.workSetting !== "unknown" ? ` · ${job.workSetting}` : ""}
             {payText(job.salary, rates) ? ` · ${inInr(job.salary, rates) ? job.salary : payText(job.salary, rates)}` : ""}
             {payText(job.salary, rates) && inInr(job.salary, rates) ? ` (${inInr(job.salary, rates)})` : ""}

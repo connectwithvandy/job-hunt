@@ -112,3 +112,14 @@ export function openDoors<C extends { peopleCount: number; fitting: number }>(wa
   const open = warm.filter((c) => c.fitting > 0);
   return { open, people: open.reduce((n, c) => n + c.peopleCount, 0) };
 }
+
+/** "Remote (Afghanistan, Australia, ... 30 countries)" -> "Remote (India, Afghanistan, Australia and 27 more)": long country lists crowd the job page. */
+export function shortPlace(location: string, keep = 3): string {
+  return location.replace(/\(([^()]*)\)/g, (whole, inner: string) => {
+    const parts = inner.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length <= keep + 1) return whole;
+    const india = parts.findIndex((p) => /^india$/i.test(p));
+    const ordered = india > 0 ? [parts[india], ...parts.filter((_, i) => i !== india)] : parts;
+    return `(${ordered.slice(0, keep).join(", ")} and ${parts.length - keep} more)`;
+  });
+}
