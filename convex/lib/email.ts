@@ -417,7 +417,7 @@ export function alertsEmail(p: {
   const more = count - (lead?.jobs.length ?? 0);
   const subject = lead
     ? `${first ? `${first}, ` : ""}${lead.track}: ${lead.jobs.length} new ${lead.jobs.length === 1 ? "role" : "roles"}${more ? ` + ${more} more` : ""}`
-    : `${count} new roles for you today`;
+    : `${count} new roles for you`;
   const url = appUrl();
   const line = (j: { title: string; company: string; where: string; fit?: number }) => `${j.title}, ${j.company} (${j.where})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}`;
   const where = p.searching ? `Searching: ${p.searching}. Change it on your Roles page.` : "";

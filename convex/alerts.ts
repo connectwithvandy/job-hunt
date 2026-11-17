@@ -50,7 +50,21 @@ export const candidates = internalQuery({
   handler: async (ctx, { now }) => {
     const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
     // Once a day at most.
-    return rows.filter((r) => r.email && !r.alertsOff && !r.rejected && !(r.alertsAt && now - r.alertsAt < 20 * 3_600_000)).map((r) => r._id);
+    const due = rows.filter((r) => r.email && !r.alertsOff && !r.rejected && !(r.alertsAt && now - r.alertsAt < 20 * 3_600_000));
+    // Daily for people on JobPipe in the last 3 days; everyone else on Monday and Thursday (India time), with
+    // everything since their last email. Daily to all sent ~72 a day, mostly to quiet people, past the email
+    // plan's 100 a day (17 Nov). Opening the app again puts them back on daily.
+    const weekday = new Date(now + 19_800_000).getUTCDay();
+    const roundUp = weekday === 1 || weekday === 4;
+    const out = [];
+    for (const r of due) {
+      if (!roundUp) {
+        const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", r.userId)).unique();
+        if (!profile?.lastSeenAt || now - profile.lastSeenAt > 3 * DAY) continue;
+      }
+      out.push(r._id);
+    }
+    return out;
   },
 });
 
@@ -61,7 +75,8 @@ export const dueFor = internalQuery({
   handler: async (ctx, { accessId, now }) => {
     const row = await ctx.db.get("access", accessId);
     if (!row) return null;
-    const since = Math.max(row.alertsAt ?? 0, now - DAY);
+    // Since their last email, up to 4 days back (Thursday to Monday for people on the twice-a-week round-up).
+    const since = Math.max(row.alertsAt ?? now - DAY, now - 4 * DAY);
     const tracks = (await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", row.userId)).take(50)).filter((t) => t.status === "active");
     if (!tracks.length) return null;
     const fresh = [];

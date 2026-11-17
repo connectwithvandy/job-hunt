@@ -23,6 +23,8 @@ test("new-roles email: today's new jobs with a title in their groups, unless the
     const b = await ctx.db.insert("users", { email: "b@example.com" });
     await ctx.db.insert("access", { userId: a, email: "a@example.com", approved: true, name: "asha" });
     await ctx.db.insert("access", { userId: b, email: "b@example.com", approved: true, alertsOff: true });
+    // On JobPipe yesterday, so on the daily email.
+    await ctx.db.insert("profiles", { userId: a, location: "India", onboarded: true, contactsCount: 0, lastSeenAt: NOW - 86_400_000 } as never);
     for (const u of [a, b]) {
       await ctx.db.insert("tracks", { userId: u, key: "sdr", name: "SDR / BDR", color: "#000", status: "active", titles: ["SDR"], pitch: "" });
       await ctx.db.insert("tracks", { userId: u, key: "lead", name: "Sales Development Leadership", color: "#000", status: "active", titles: ["Sales Development Manager"], pitch: "" });
@@ -139,4 +141,25 @@ test("the daily email opens with the best untailored fit, when there is one", ()
   expect(withTailor.text).toContain("Your best fit so far: SDR Manager at Rippling (fit 84). Tailor your CV for it");
   expect(withTailor.html).toContain("/jobs/j9");
   expect(alertsEmail({ name: "asha", groups }).text).not.toContain("best fit so far");
+});
+
+test("quiet people get the new-roles email on Monday and Thursday only; people on JobPipe in the last 3 days get it daily", async () => {
+  const t = convexTest(schema, modules);
+  const TUE = Date.UTC(2026, 10, 17, 4); // 9:30 India time, Tuesday
+  const MON = Date.UTC(2026, 10, 16, 4);
+  const ids = await t.run(async (ctx) => {
+    const active = await ctx.db.insert("users", {});
+    const quiet = await ctx.db.insert("users", {});
+    await ctx.db.insert("access", { userId: active, email: "active@example.com", approved: true });
+    await ctx.db.insert("access", { userId: quiet, email: "quiet@example.com", approved: true });
+    await ctx.db.insert("profiles", { userId: active, location: "India", onboarded: true, contactsCount: 0, lastSeenAt: TUE - 2 * 86_400_000 } as never);
+    await ctx.db.insert("profiles", { userId: quiet, location: "India", onboarded: true, contactsCount: 0, lastSeenAt: TUE - 9 * 86_400_000 } as never);
+    return { active, quiet };
+  });
+  const emails = async (now: number) => {
+    const rows = await t.query(internal.alerts.candidates, { now });
+    return t.run(async (ctx) => Promise.all(rows.map(async (id) => (await ctx.db.get(id))!.email)));
+  };
+  expect(await emails(TUE)).toEqual(["active@example.com"]);
+  expect((await emails(MON)).sort()).toEqual(["active@example.com", "quiet@example.com"]);
 });
