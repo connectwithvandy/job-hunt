@@ -157,7 +157,7 @@ export const refresh = internalAction({
       removed += done.removed;
     };
     const found: CareerBoard[] = await ctx.runQuery(internal.careers.discovered, {});
-    // Hourly reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
+    // The 13:00 and 18:00 reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
     const boards = [...CAREER_BOARDS, ...found].filter((b) => !fresh || !FAST_ATS.has(b.ats));
     const mine = boards.slice(start, start + CHUNK);
     // A few boards at a time: some send over 10 MB. A board that fails keeps yesterday's roles.

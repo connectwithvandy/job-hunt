@@ -13,8 +13,9 @@ crons.cron("careers boards", "30 1 * * *", internal.careersRefresh.refresh, {});
 // Every 15 minutes: boards with a light job list. A board that hasn't changed costs almost nothing (careersRefresh.quickCheck).
 crons.interval("quick job check", { minutes: 15 }, internal.careersRefresh.quickCheck, {});
 
-// Every hour: the boards too heavy to check that often.
-crons.cron("fresh jobs", "30 * * * *", internal.careersRefresh.refresh, { fresh: true });
+// 13:00 and 18:00 IST: the boards too heavy for the 15-minute check (mostly Workday). Was hourly until 17 Nov:
+// that made careersRefresh.refresh ~63% of Convex compute and ~81% of egress (~$2.60/day all in).
+crons.cron("fresh jobs", "30 7,12 * * *", internal.careersRefresh.refresh, { fresh: true });
 
 // 7:35 in India: today's Google Jobs sales roles (Naukri, Indeed and company pages) into the shared list.
 crons.cron("google pool", "5 2 * * *", internal.careersRefresh.googlePool, {});
