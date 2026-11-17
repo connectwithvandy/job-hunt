@@ -67,7 +67,11 @@ export function sameRoleKey(company: string, title: string) {
  * Job boards that repost other companies' roles under their own name (Jobgether, beBee). Their link opens the
  * board, not the employer, and the same role comes back under new ids: kept out of every list.
  */
-export const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
+// Job boards that repost others' roles, and recruiting agencies hiring for unnamed clients (added 17 Nov after a
+// review of everyone's lists: HuntingCube, 2coms, "Hiring Specialist | BFSI…", SKS HR…). Agency-style names count too,
+// but not "consultancy services" (that would catch Tata Consultancy Services).
+export const AGGREGATORS =
+  /\b(jobgether|bebee|talent\.com|jooble|careerjet|huntingcube|2coms|weekday ai|careerbloc|remotestar|corporate stalwarts|insight global|n human resources|headway tek|h3 technologies|hiring specialist|hr solutions?|human resources?|staffing|recruitment|recruiters?|placements?|manpower)\b/i;
 
 // Job boards whose own page is a fine place to apply when the company's isn't known: since 13 Nov their
 // listings are kept (most India SDR roles are only there). Reposting boards (AGGREGATORS) still aren't.

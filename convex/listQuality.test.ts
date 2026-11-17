@@ -82,3 +82,11 @@ test("shop and hotel sales jobs are left out, and B2B roles aren't", () => {
   for (const [t, l] of [["Account Executive", "Bengaluru"], ["Inside Sales Executive", "Bangalore"], ["Enterprise Account Executive - Retail", "India"], ["Store Experience Product Manager", "Remote"]])
     expect(shopFloor(t, l), t).toBe(false);
 });
+
+test("recruiting agencies and reposting boards are left out; real companies aren't", async () => {
+  const { AGGREGATORS } = await import("./lib/company");
+  for (const c of ["HuntingCube", "2coms", "Hiring Specialist | BFSI • FinTech • AI • Technology Recruitment", "SKS Enterpprises - Human Resource Planning and Management", "SHRS - SARIKA HR SOLUTIONS", "ABC Staffing", "XYZ Placements", "Jobgether", "Weekday AI"])
+    expect(AGGREGATORS.test(c), c).toBe(true);
+  for (const c of ["Tata Consultancy Services", "Stripe", "HubSpot", "Freshworks", "Saint Fox Consultancy", "Paytm Payments Services", "Talentica", "Recruit Holdings Co"])
+    expect(AGGREGATORS.test(c), c).toBe(false);
+});
