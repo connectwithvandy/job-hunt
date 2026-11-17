@@ -12,7 +12,7 @@ export const STATUS_LABELS: Record<string, string> = {
   screening: "Screening",
   interview: "Interviewing",
   offer: "Offer",
-  rejected: "Closed",
+  rejected: "Rejected / closed",
   dismissed: "Not for me",
 };
 
@@ -22,7 +22,7 @@ export const PIPELINE: { status: string; label: string }[] = [
   { status: "screening", label: "Screening" },
   { status: "interview", label: "Interviewing" },
   { status: "offer", label: "Offer" },
-  { status: "rejected", label: "Closed" },
+  { status: "rejected", label: "Rejected / closed" },
 ];
 
 /** Story bank size: enough for every common interview question, few enough to know by heart. */
