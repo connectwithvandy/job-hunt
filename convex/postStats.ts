@@ -142,3 +142,34 @@ export const run = internalAction({
     };
   },
 });
+
+/**
+ * Emails sent in the last 24 hours, by kind, from each row's "last sent" time (so a kind sent twice to one person
+ * counts once). For checking the email plan's 100-a-day limit: npx convex run --prod postStats:emailsToday '{}'
+ */
+export const emailsToday = internalQuery({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const since = Date.now() - 86_400_000;
+    const recent = (t?: number) => (t ?? 0) > since;
+    const access = await ctx.db.query("access").take(2000);
+    const subs = await ctx.db.query("subscribers").take(5000);
+    const offers = await ctx.db.query("offerSends").take(2000);
+    const reviews = await ctx.db.query("cvReviews").take(2000);
+    const kinds: Record<string, number> = {
+      "new-roles emails (members)": access.filter((r) => recent(r.alertsAt)).length,
+      "jobs emails (email-only subscribers)": subs.filter((s) => recent(s.sentAt)).length,
+      "founding offer": offers.filter((o) => recent(o.sentAt)).length,
+      "welcome / you're in": access.filter((r) => recent(r.welcomedAt)).length,
+      "trial check-in": access.filter((r) => recent(r.trialNoteAt)).length,
+      "trial extended / ended": access.filter((r) => recent(r.trialExtendedAt) || recent(r.trialEndedNoteAt)).length,
+      "setup nudges": access.filter((r) => recent(r.setupNudgeAt) || recent(r.setupNudge2At)).length,
+      "feedback asks": access.filter((r) => recent(r.feedbackAskedAt)).length,
+      "shoutout asks": access.filter((r) => recent(r.shoutoutAskedAt)).length,
+      "CV review follow-ups": reviews.filter((r) => recent(r.followedUpAt)).length,
+    };
+    const total = Object.values(kinds).reduce((a, b) => a + b, 0);
+    return { total, kinds, subscribers: subs.length, note: "Plus the owner's morning email, sign-in/reset emails and any instant alerts, which aren't timed here." };
+  },
+});
