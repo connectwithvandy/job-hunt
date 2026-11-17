@@ -3,7 +3,7 @@
 // Job boards searched beside Dreamwork. Each one switches on when its key is set
 // on the deployment (npx convex env set NAME value). Himalayas and Hacker News need no key.
 
-import { remoteForIndia } from "./places";
+import { remoteForIndia, remoteWords } from "./places";
 import { titleMatches } from "./salesRoles";
 
 export { titleMatches };
@@ -280,6 +280,7 @@ export function searchPlace(location: string) {
 
 export function openTo(place: Place, location: string, workSetting?: string, title = "") {
   if (place.kind === "anywhere") return true;
+  location = remoteWords(location);
   const where = location.toLowerCase();
   // Some companies (Cloudflare) say "Distributed" for remote.
   const remote = workSetting === "remote" || /remote|distributed/.test(where);

@@ -100,7 +100,7 @@ export function normalizePlace(location: string, modes?: string[]): { location: 
 export function jobMode(location: string, workSetting?: string, title = ""): WorkMode | "unknown" {
   const s = (workSetting ?? "").toLowerCase();
   const text = `${location} ${title}`.toLowerCase();
-  if (s.includes("remote") || /\b(remote|distributed|work from home|wfh)\b/.test(text)) return "remote";
+  if (s.includes("remote") || /\b(remote|distributed|work from home|wfh|home[- ]?office|home[- ]based)\b/.test(text)) return "remote";
   if (s.includes("hybrid") || /\bhybrid\b/.test(text)) return "hybrid";
   if (/on.?site|office/.test(s)) return "onsite";
   return "unknown";

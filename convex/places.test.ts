@@ -32,3 +32,11 @@ test("the boards are asked for all of India when the person picked several or sm
   expect(searchPlace("Remote")).toBe("Remote");
   expect(searchPlace("United States")).toBe("United States");
 });
+
+test("'Home Office (India)' is a remote India role (Delinea's Ashby board, 17 Nov)", () => {
+  expect(openTo(readPlace("Bengaluru"), "Home Office (India)")).toBe(true);
+  expect(openTo(readPlace("Remote"), "Home Office (India)")).toBe(true);
+  expect(openTo(readPlace("Bengaluru"), "Work from home - India")).toBe(true);
+  expect(openTo(readPlace("Remote"), "Home Office (Italy) (Remote)")).toBe(false);
+  expect(openTo(readPlace("Bengaluru"), "Home Office (Germany)")).toBe(false);
+});

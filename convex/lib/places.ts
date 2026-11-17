@@ -1,5 +1,14 @@
 // Which places a job is open to, read from its free-text location.
 
+/**
+ * Other words a listing uses for remote, turned into "remote" so every check reads them the same way.
+ * Delinea's Ashby board says "Home Office (India)" with no remote flag, so its India AE role reached no one (17 Nov).
+ */
+const OTHER_REMOTE_WORDS = /\b(home[- ]?office|work(ing)?[- ]from[- ]home|home[- ]based|wfh)\b/gi;
+export function remoteWords(location: string) {
+  return location.replace(OTHER_REMOTE_WORDS, "remote");
+}
+
 const BLR = /\b(bengaluru|bangalore)\b/i;
 const INDIA_OK = /\b(india|worldwide|anywhere|global|apac|asia)\b/i;
 // A remote job tied to another Indian city or state is a field job there: "KOLKATA : Remote", "Remote - Tamil Nadu".
@@ -17,6 +26,7 @@ const FOREIGN_MARKET =
  * India-based remote teams sell into them.
  */
 export function remoteForIndia(location: string, workSetting?: string | null, title = "") {
+  location = remoteWords(location);
   const remote = workSetting === "remote" || /remote/i.test(location);
   if (!remote) return false;
   // "Remote (United States)" or "India (Remote)": the place is whatever isn't the word remote.
