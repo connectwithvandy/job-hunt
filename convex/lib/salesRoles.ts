@@ -52,7 +52,9 @@ export const SALES_ROLES = [
     key: "account-executive",
     name: "Account Executive",
     color: "#FB923C",
-    titles: ["Account Executive", "Senior Account Executive", "Enterprise Account Executive", "Mid-Market Account Executive", "SMB Account Executive", "Commercial Account Executive", "Strategic Account Executive", "Full Cycle Account Executive", "Founding Account Executive", "Sales Executive"],
+    titles: ["Account Executive", "Senior Account Executive", "Enterprise Account Executive", "Mid-Market Account Executive", "SMB Account Executive", "Commercial Account Executive", "Strategic Account Executive", "Full Cycle Account Executive", "Founding Account Executive"],
+    // No "Sales Executive" (17 Nov): it matched every inside, field and corporate sales executive in India and buried
+    // the real AE roles (20 of 35 AE people had no strong fit in a week).
     pitch: "Knows the full cycle from first call to close, and how pipeline is really built.",
   },
   {

@@ -28,6 +28,7 @@ import type * as cvTopJobs from "../cvTopJobs.js";
 import type * as emailFinder from "../emailFinder.js";
 import type * as errors from "../errors.js";
 import type * as feedback from "../feedback.js";
+import type * as fixTitles from "../fixTitles.js";
 import type * as google from "../google.js";
 import type * as growth from "../growth.js";
 import type * as growthNotes from "../growthNotes.js";
@@ -123,6 +124,7 @@ declare const fullApi: ApiFromModules<{
   emailFinder: typeof emailFinder;
   errors: typeof errors;
   feedback: typeof feedback;
+  fixTitles: typeof fixTitles;
   google: typeof google;
   growth: typeof growth;
   growthNotes: typeof growthNotes;
