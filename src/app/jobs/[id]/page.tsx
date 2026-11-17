@@ -327,20 +327,22 @@ export default function JobPage() {
 
         {data.emails.length > 0 && !answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} />}
 
-        <details id="prep" className="pt-4" open={stage === "interview"}>
-          <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">More: company research, interview prep, call script, full job description</summary>
-          <div className="mt-4 space-y-6">
-            <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
-            <InterviewPrep jobId={job._id} prep={job.prep} />
-            <CallScript jobId={job._id} script={job.callScript} />
-            {job.description && (
-              <div className="card p-6">
-                <h2 className="display mb-4 text-2xl">Full job description</h2>
-                <div className="whitespace-pre-line text-sm leading-relaxed text-ink-2">{job.description}</div>
-              </div>
-            )}
+        {/* Always shown since 17 Nov: tucked behind a small grey "More…" line, people weren't finding these. */}
+        <section id="prep" className="space-y-6 pt-4">
+          <div>
+            <h2 className="display text-3xl">Get ready for this job</h2>
+            <p className="mt-1 text-sm text-ink-2">Know the company, prepare for the interview, and know what to say when you call.</p>
           </div>
-        </details>
+          <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
+          <InterviewPrep jobId={job._id} prep={job.prep} />
+          <CallScript jobId={job._id} script={job.callScript} />
+          {job.description && (
+            <details className="card p-6">
+              <summary className="display cursor-pointer text-2xl">Full job description</summary>
+              <div className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink-2">{job.description}</div>
+            </details>
+          )}
+        </section>
       </div>
     </div>
   );
