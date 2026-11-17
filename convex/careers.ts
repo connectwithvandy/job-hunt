@@ -137,7 +137,9 @@ export const oldLinkedIn = internalQuery({
 /** Every fast board's last fingerprint. */
 export const boardHashes = internalQuery({
   args: {},
-  handler: async (ctx) => (await ctx.db.query("boardStates").take(1000)).map(({ key, hash }) => ({ key, hash })),
+  // Room for every board (up to 2,500 found + the hand-picked ones). At 1,000 the rest looked new every 15 minutes
+  // and were saved again each time (17 Nov: ~940 fast boards). Rows are tiny: a key and a short hash.
+  handler: async (ctx) => (await ctx.db.query("boardStates").take(MAX_DISCOVERED + 500)).map(({ key, hash }) => ({ key, hash })),
 });
 
 export const saveBoardHashes = internalMutation({
