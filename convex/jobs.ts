@@ -825,3 +825,18 @@ export const scorePage = internalQuery({
     return { scores, pairs, missed, cursor: page.continueCursor, done: page.isDone || past };
   },
 });
+
+/** For the visibility audit: this person's saved copy of each role, by careers id or by company + title. */
+export const savedFor = internalQuery({
+  args: { userId: v.id("users"), roles: v.array(v.object({ externalId: v.string(), company: v.string(), title: v.string() })) },
+  handler: async (ctx, { userId, roles }) => {
+    const out = [];
+    for (const r of roles.slice(0, 400)) {
+      const job =
+        (await ctx.db.query("jobs").withIndex("by_userId_and_externalId", (q) => q.eq("userId", userId).eq("externalId", `careers:${r.externalId}`)).unique()) ??
+        (await ctx.db.query("jobs").withIndex("by_userId_and_roleKey", (q) => q.eq("userId", userId).eq("roleKey", roleKey(r.company, r.title))).first());
+      out.push(job ? { externalId: r.externalId, status: job.status, quickFit: job.quickFit ?? null, ai: job.scores?.length ? Math.max(...job.scores.map((s) => s.score)) : null, savedAt: job._creationTime, closed: job.liveCheck?.state === "closed", favorite: !!job.favorite } : { externalId: r.externalId });
+    }
+    return out;
+  },
+});

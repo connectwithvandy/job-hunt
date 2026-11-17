@@ -286,3 +286,41 @@ export const report = internalAction({
     ].join("\n");
   },
 });
+
+/**
+ * Read-only: where one person's matching careers-board roles get lost. For each active track, every role in the
+ * careers data that matches its titles and their place, and whether it's in their list: not saved, saved but folded
+ * as weak (first guess under 40, no AI score), saved but in "Old or closed", dismissed, or shown.
+ * npx convex run --prod careersRefresh:visibilityAudit '{"userId":"..."}'
+ */
+export const visibilityAudit = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<unknown> => {
+    const me: { location: string; tracks: { name: string; status: string; company?: string; titles: string[] }[] } = await ctx.runQuery(internal.users.context, { userId });
+    const place = readPlace(me.location);
+    const india = place.kind === "place" && place.country === "in";
+    const now = Date.now();
+    const report = [];
+    for (const track of me.tracks.filter((t) => t.status === "active" && !t.company)) {
+      const rows: { externalId: string; company: string; title: string; location: string; workSetting?: string; postedAt?: string }[] = await ctx.runQuery(internal.careers.search, { titles: track.titles, india });
+      const match = rows.filter((r) => track.titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title));
+      const saved: { externalId: string; status?: string; quickFit?: number | null; ai?: number | null; savedAt?: number; closed?: boolean; favorite?: boolean }[] = await ctx.runQuery(internal.jobs.savedFor, { userId, roles: match.map(({ externalId, company, title }) => ({ externalId, company, title })) });
+      const byId = new Map(saved.map((s) => [s.externalId, s]));
+      const stage = (r: (typeof match)[number]) => {
+        const s = byId.get(r.externalId);
+        if (!s || !s.status) return "not saved";
+        if (s.status === "dismissed") return "dismissed";
+        if (s.status !== "new") return "acted on";
+        const posted = r.postedAt ? Date.parse(r.postedAt) : NaN;
+        if (s.closed || now - s.savedAt! > 45 * 86_400_000 || (!Number.isNaN(posted) && now - posted > 180 * 86_400_000)) return "old or closed";
+        if (s.ai === null && !s.favorite && (s.quickFit ?? 0) < 40) return "folded as weak";
+        return "shown";
+      };
+      const roles = match.map((r) => ({ stage: stage(r), company: r.company, title: r.title, location: r.location, guess: byId.get(r.externalId)?.quickFit ?? null }));
+      const counts: Record<string, number> = {};
+      for (const r of roles) counts[r.stage] = (counts[r.stage] ?? 0) + 1;
+      report.push({ track: track.name, searched: rows.length, matched: match.length, counts, roles });
+    }
+    return report;
+  },
+});
