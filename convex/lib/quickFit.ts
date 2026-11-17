@@ -127,13 +127,16 @@ export function quickFitParts(
   // jobs): field sales by area or territory (4% scored 60+), a bare "Sales Manager" (5%), and partner, ops and
   // customer success roles (10-15%). Shown lower, so they don't fill the top of the list.
   const kind = (FIELD_SALES.test(job.title) ? 0.5 : 1) * (BARE_SALES_MANAGER.test(job.title) ? 0.7 : 1) * (SIDE_FUNCTION.test(job.title) ? 0.7 : 1);
-  return { titleShare, shared, cvShare, cvWeight, place, language, industry, level, reach, kind };
+  // 17 Nov: 97 of one person's ~200 jobs guessed 80+, and Rippling and Keka sat among unknown firms at 100.
+  // With an equal title fit, a known tech company ranks first; unknown ones top out at 85.
+  const brand = !job.company || strongCompany(job.company) ? 1 : 0.85;
+  return { titleShare, shared, cvShare, cvWeight, place, language, industry, level, reach, kind, brand };
 }
 
 export type FitParts = Exclude<ReturnType<typeof quickFitParts>, number>;
 
 export function combineFit(p: FitParts) {
-  return Math.round((p.titleShare * 50 + p.cvShare * p.cvWeight + p.place * 15) * p.language * p.industry * p.level * p.reach * p.kind);
+  return Math.round((p.titleShare * 50 + p.cvShare * p.cvWeight + p.place * 15) * p.language * p.industry * p.level * p.reach * p.kind * p.brand);
 }
 
 // A bank or lender by name, and lending products by title. A title alone saying "Banking" is often a tech
@@ -150,6 +153,25 @@ const TECH = /\b(saas|b2b|software|cloud|api|apis|startup|subscription|arr|cyber
 
 /** The hand-picked tech companies (lib/careerBoards.ts), by name. */
 const PICKED = new Set(CAREER_BOARDS.map((b) => companyKey(b.name)));
+
+/**
+ * Well-known tech companies hiring sales in India whose careers pages JobPipe can't read directly, so they
+ * aren't in CAREER_BOARDS. Their roles still arrive from LinkedIn and the job boards.
+ */
+const BRANDS = [
+  "Amazon", "Amazon Web Services", "AWS", "Microsoft", "Atlassian", "Oracle", "SAP", "Cisco", "IBM", "Uber", "LinkedIn", "Meta", "Apple",
+  "Flipkart", "Razorpay", "Swiggy", "Zomato", "CRED", "PhonePe", "Groww", "Meesho", "Zepto", "Paytm", "Ola", "Myntra", "Nykaa", "Dream11",
+  "Postman", "BrowserStack", "Chargebee", "Zoho", "Darwinbox", "LeadSquared", "MoEngage", "CleverTap", "Innovaccer", "Gupshup", "Yellow.ai",
+  "Wingify", "VWO", "Capillary Technologies", "Deel", "Zeta", "Juspay", "Cashfree", "Pine Labs", "Druva", "Icertis", "Highradius",
+  "Hasura", "Exotel", "Leena AI", "Sprinto", "Scrut Automation", "Zluri", "Spyne", "Rocketlane", "SpotDraft", "Atlan", "Unacademy", "upGrad",
+  "Workday", "Adobe", "Oracle NetSuite", "Snowflake", "Twilio", "Zendesk", "Freshworks", "Intuit", "PayPal", "Visa", "Mastercard",
+];
+const STRONG = new Set([...PICKED, ...BRANDS.map(companyKey)]);
+
+/** A company people would recognise as a strong tech employer: the hand-picked list or a well-known brand. */
+export function strongCompany(name: string | undefined | null) {
+  return !!name && STRONG.has(companyKey(name));
+}
 
 /** Industries whose sales jobs share titles with tech sales but not the work: solar, steel, FMCG, real estate, export… */
 const NON_TECH =

@@ -11,7 +11,7 @@ import { unverifiedNumbers } from "./lib/facts";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
-import { cvSenior, cvWords, isLender, quickFit, quickFitParts } from "./lib/quickFit";
+import { cvSenior, cvWords, isLender, quickFit, quickFitParts, strongCompany } from "./lib/quickFit";
 import { readWorkModes } from "./lib/defaults";
 import { backOffice, shopFloor } from "./lib/salesRoles";
 import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, callScriptV, researchV, scoreV } from "./lib/validators";
@@ -838,5 +838,23 @@ export const savedFor = internalQuery({
       out.push(job ? { externalId: r.externalId, status: job.status, quickFit: job.quickFit ?? null, ai: job.scores?.length ? Math.max(...job.scores.map((s) => s.score)) : null, savedAt: job._creationTime, closed: job.liveCheck?.state === "closed", favorite: !!job.favorite } : { externalId: r.externalId });
     }
     return out;
+  },
+});
+
+/**
+ * Run ONCE after the strong-company change (17 Nov): new jobs saved before `before` at a company not on the
+ * strong list get their first guess times 0.85, as if saved today. Only the stored number changes, so no
+ * descriptions are read. npx convex run --prod jobs:applyBrandFactor '{"before": <deploy time ms>}'
+ */
+export const applyBrandFactor = internalMutation({
+  args: { before: v.number(), cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { before, cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 200 });
+    for (const job of page.page) {
+      if (job.status !== "new" || job._creationTime >= before || job.quickFit === undefined || !job.company || strongCompany(job.company)) continue;
+      await ctx.db.patch("jobs", job._id, { quickFit: Math.round(job.quickFit * 0.85) });
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.applyBrandFactor, { before, cursor: page.continueCursor });
+    return null;
   },
 });

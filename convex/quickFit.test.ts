@@ -85,3 +85,11 @@ test("sales jobs at solar, steel, real estate or export firms rank below tech on
   const long = "You will own a territory, build relationships and close deals. ".repeat(10);
   expect(at("Account Executive", "Stripe", long)).toBeGreaterThan(at("Account Executive", "Some Distributor", long));
 });
+
+test("a known tech company ranks above an unknown one with the same title fit (17 Nov)", () => {
+  const titles = ["Senior Manager Sales Development"];
+  const at = (company: string) => quickFit({ title: "Senior Manager Sales Development", company, location: "Bengaluru, India" }, new Set(), titles, "Bengaluru, India", true);
+  expect(at("Rippling")).toBeGreaterThan(at("RZR Global"));
+  expect(at("Razorpay")).toBeGreaterThan(at("RZR Global"));
+  expect(at("RZR Global")).toBe(Math.round(at("Rippling") * 0.85));
+});

@@ -14,6 +14,7 @@ import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
 import { applyFilters, FILTERS, fitFor, fitTier, inRole } from "@/lib/jobFilters";
+import { strongCompany } from "../../../convex/lib/quickFit";
 import { payPerYearInr, payText, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
 import { sameRoleKey } from "../../../convex/lib/company";
@@ -353,6 +354,9 @@ function Jobs() {
                     <div className="flex flex-wrap items-baseline gap-x-2">
                       <span className="font-medium">{j.title}</span>
                       <span className="text-sm text-ink-2">{j.company}</span>
+                      {strongCompany(j.company) && (
+                        <span className="self-center rounded-full border border-line px-2 py-0.5 text-[11px] font-medium text-ink-2">Top company</span>
+                      )}
                       {j.status !== "new" && (
                         <span className="self-center rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-on-accent">{STATUS_LABELS[j.status]}</span>
                       )}

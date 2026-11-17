@@ -138,8 +138,10 @@ async function syncBoard(ctx: ActionCtx, board: CareerBoard, titles: string[]) {
   const gone = [...have].filter((id) => !live.has(id));
   for (let i = 0; i < fresh.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: fresh.slice(i, i + 50) });
   for (let i = 0; i < gone.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: gone.slice(i, i + 200) });
-  return { added: fresh.length, removed: gone.length };
+  return { added: fresh.length, removed: gone.length, total: read.length };
 }
+
+const PICKED_NAMES = new Set(CAREER_BOARDS.map((b) => b.name));
 
 // Boards per run. The rest go to a follow-up run, so a long list never hits the 10-minute action limit.
 const CHUNK = 40;
@@ -154,10 +156,16 @@ export const refresh = internalAction({
     if (!titles.length) return null;
     let added = 0;
     let removed = 0;
+    // Hand-picked companies whose page failed or listed nothing. 17 Nov: Whatfix's board had only a "test" posting
+    // and Workday boards answered 429, and nobody knew: their roles just stopped reaching people.
+    const empty: string[] = [];
+    const failed: string[] = [];
     const one = async (board: CareerBoard) => {
       const done = await syncBoard(ctx, board, titles);
       added += done.added;
       removed += done.removed;
+      // Workday is searched by title, so it can rightly find nothing; the other boards list every opening.
+      if (done.total === 0 && board.ats !== "workday" && PICKED_NAMES.has(board.name)) empty.push(board.name);
     };
     // Workday boards: only the hand-picked SaaS companies. The 436 found from job links (Pfizer, FedEx, CVS…) were
     // mostly not SaaS, and every Workday board answered 429 on 17 Nov, so reading them cost money for no roles.
@@ -171,6 +179,12 @@ export const refresh = internalAction({
       const batch = mine.slice(i, i + 4);
       const settled = await Promise.allSettled(batch.map(one));
       settled.forEach((r, k) => r.status === "rejected" && console.warn("Careers board failed:", batch[k].name, String(r.reason)));
+      settled.forEach((r, k) => r.status === "rejected" && PICKED_NAMES.has(batch[k].name) && failed.push(`${batch[k].name} (${String(r.reason).slice(0, 80)})`));
+    }
+    // Once a day (the 7:00 full read), so a page that broke is fixed before its roles are missed for long.
+    if (!fresh && (failed.length || empty.length)) {
+      const parts = [failed.length ? `failed: ${failed.join("; ")}` : "", empty.length ? `listed no jobs: ${empty.join(", ")}` : ""].filter(Boolean);
+      await ctx.runMutation(internal.errors.logServer, { message: `Hand-picked careers pages not read. ${parts.join(". ")}`, page: "careers boards" });
     }
     console.log(`Careers boards ${start + 1}-${start + mine.length} of ${boards.length}: ${added} new roles, ${removed} closed.`);
     if (start + CHUNK < boards.length) await ctx.scheduler.runAfter(0, internal.careersRefresh.refresh, { start: start + CHUNK, fresh, since });
