@@ -81,6 +81,7 @@ import type * as lib_trial from "../lib/trial.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as limits from "../limits.js";
 import type * as payments from "../payments.js";
+import type * as postStats from "../postStats.js";
 import type * as prospects from "../prospects.js";
 import type * as scoreSpread from "../scoreSpread.js";
 import type * as serviceCheck from "../serviceCheck.js";
@@ -173,6 +174,7 @@ declare const fullApi: ApiFromModules<{
   "lib/validators": typeof lib_validators;
   limits: typeof limits;
   payments: typeof payments;
+  postStats: typeof postStats;
   prospects: typeof prospects;
   scoreSpread: typeof scoreSpread;
   serviceCheck: typeof serviceCheck;
