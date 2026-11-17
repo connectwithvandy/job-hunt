@@ -1,6 +1,6 @@
 // The founding-offer email to everyone not paying: their own numbers, ₹999 for 3 months, and one click to say why not.
 // Preview:  npx convex run --prod offer:send '{"dryRun":true}'
-// Test:     npx convex run --prod offer:send '{"to":"vandana@jobpipe.in"}'
+// Test:     npx convex run --prod offer:send '{"to":"you@example.com"}'   (any address; not recorded)
 // Send:     npx convex run --prod offer:send '{"limit":30}'   (a batch a day: the email plan allows 100 a day in all)
 // Answers:  npx convex run --prod offerData:results '{}'
 
@@ -14,8 +14,16 @@ export const send = internalAction({
   args: { limit: v.optional(v.number()), dryRun: v.optional(v.boolean()), to: v.optional(v.string()) },
   returns: v.string(),
   handler: async (ctx, { limit = 30, dryRun, to }): Promise<string> => {
-    const people: { userId: Id<"users">; email: string; name?: string }[] = await ctx.runQuery(internal.offerData.recipients, { to });
-    if (!people.length) return to ? `No one to send to: ${to} isn't let in, has paid, or already got it.` : "Everyone not paying has had it.";
+    // A test goes to any address as it would to a member (numbers from the first member), and isn't recorded.
+    if (to) {
+      const anyone: { userId: Id<"users">; email: string; name?: string }[] = await ctx.runQuery(internal.offerData.recipients, {});
+      const facts = anyone.length ? await ctx.runQuery(internal.offerData.factsFor, { userId: anyone[0].userId }) : { jobs: 682, scored: 40, strong: 6 };
+      const mail = offerEmail({ name: "Vandana", ...facts, token: "TEST" });
+      await sendEmail({ to, ...mail, subject: `[Test] ${mail.subject}` });
+      return `Test sent to ${to}. The answer buttons open the page but won't save (test link).`;
+    }
+    const people: { userId: Id<"users">; email: string; name?: string }[] = await ctx.runQuery(internal.offerData.recipients, {});
+    if (!people.length) return "Everyone not paying has had it.";
     if (dryRun) {
       const p = people[0];
       const facts: { jobs: number; scored: number; strong: number } = await ctx.runQuery(internal.offerData.factsFor, { userId: p.userId });
