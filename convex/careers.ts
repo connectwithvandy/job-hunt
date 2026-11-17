@@ -59,6 +59,23 @@ export const recordFinds = internalMutation({
   },
 });
 
+/** Hand-picked companies whose careers page moved, and where to (careersRefresh.heal). */
+export const moves = internalQuery({
+  args: {},
+  handler: async (ctx) => (await ctx.db.query("boardMoves").take(500)).map(({ name, ats, slug }) => ({ name, ats, slug })),
+});
+
+/** Records where a hand-picked company's careers page moved to; replaces any earlier move. */
+export const saveMove = internalMutation({
+  args: { name: v.string(), ats: atsV, slug: v.string() },
+  handler: async (ctx, { name, ats, slug }) => {
+    const old = await ctx.db.query("boardMoves").withIndex("by_name", (q) => q.eq("name", name)).first();
+    if (old) await ctx.db.patch("boardMoves", old._id, { ats, slug, movedAt: Date.now() });
+    else await ctx.db.insert("boardMoves", { name, ats, slug, movedAt: Date.now() });
+    return null;
+  },
+});
+
 /** Startups people have gathered on the Companies page (YC, recently funded, dream lists). */
 export const prospectCompanies = internalQuery({
   args: {},

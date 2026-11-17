@@ -143,6 +143,17 @@ async function syncBoard(ctx: ActionCtx, board: CareerBoard, titles: string[]) {
 
 const PICKED_NAMES = new Set(CAREER_BOARDS.map((b) => b.name));
 
+/** The hand-picked boards, with any page that moved (careersRefresh.heal) read at its new address. */
+async function pickedBoards(ctx: ActionCtx): Promise<CareerBoard[]> {
+  const moves: { name: string; ats: CareerBoard["ats"]; slug: string }[] = await ctx.runQuery(internal.careers.moves, {});
+  const moved = new Map(moves.map((m) => [m.name, m]));
+  return CAREER_BOARDS.map((b) => {
+    const m = moved.get(b.name);
+    // careersUrl belonged to the old page.
+    return m ? { name: b.name, website: b.website, ats: m.ats, slug: m.slug } : b;
+  });
+}
+
 // Boards per run. The rest go to a follow-up run, so a long list never hits the 10-minute action limit.
 const CHUNK = 40;
 
@@ -160,6 +171,7 @@ export const refresh = internalAction({
     // and Workday boards answered 429, and nobody knew: their roles just stopped reaching people.
     const empty: string[] = [];
     const failed: string[] = [];
+    const broken: string[] = [];
     const one = async (board: CareerBoard) => {
       const done = await syncBoard(ctx, board, titles);
       added += done.added;
@@ -172,7 +184,7 @@ export const refresh = internalAction({
     const found = ((await ctx.runQuery(internal.careers.discovered, {})) as CareerBoard[]).filter((b) => b.ats !== "workday");
     // The 13:00 and 18:00 reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
     // Google's site is searched at 7:00 only: each read downloads tens of MB.
-    const boards = [...CAREER_BOARDS, ...found].filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google"));
+    const boards = [...(await pickedBoards(ctx)), ...found].filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google"));
     const mine = boards.slice(start, start + CHUNK);
     // A few boards at a time: some send over 10 MB. A board that fails keeps yesterday's roles.
     for (let i = 0; i < mine.length; i += 4) {
@@ -180,12 +192,18 @@ export const refresh = internalAction({
       const settled = await Promise.allSettled(batch.map(one));
       settled.forEach((r, k) => r.status === "rejected" && console.warn("Careers board failed:", batch[k].name, String(r.reason)));
       settled.forEach((r, k) => r.status === "rejected" && PICKED_NAMES.has(batch[k].name) && failed.push(`${batch[k].name} (${String(r.reason).slice(0, 80)})`));
+      // Pages that answered with an error, not "too many requests": likely moved or closed. Workday is left out:
+      // its 429s are about speed, and a new address wouldn't help.
+      settled.forEach((r, k) => r.status === "rejected" && PICKED_NAMES.has(batch[k].name) && batch[k].ats !== "workday" && !/429/.test(String(r.reason)) && broken.push(batch[k].name));
     }
     // Once a day (the 7:00 full read), so a page that broke is fixed before its roles are missed for long.
     if (!fresh && (failed.length || empty.length)) {
       const parts = [failed.length ? `failed: ${failed.join("; ")}` : "", empty.length ? `listed no jobs: ${empty.join(", ")}` : ""].filter(Boolean);
       await ctx.runMutation(internal.errors.logServer, { message: `Hand-picked careers pages not read. ${parts.join(". ")}`, page: "careers boards" });
     }
+    // Daily self-fix: look for where those pages moved, and read the new page from then on (heal).
+    const toHeal = [...new Set([...empty, ...broken])];
+    if (!fresh && toHeal.length) await ctx.scheduler.runAfter(0, internal.careersRefresh.heal, { names: toHeal });
     console.log(`Careers boards ${start + 1}-${start + mine.length} of ${boards.length}: ${added} new roles, ${removed} closed.`);
     if (start + CHUNK < boards.length) await ctx.scheduler.runAfter(0, internal.careersRefresh.refresh, { start: start + CHUNK, fresh, since });
     // After the last chunk, what's new goes straight to the people it fits (agent.freshRun). Until 17 Nov only
@@ -207,7 +225,7 @@ export const quickCheck = internalAction({
     const saved: { key: string; hash: string }[] = await ctx.runQuery(internal.careers.boardHashes, {});
     const last = new Map(saved.map((s) => [s.key, s.hash]));
     const found: CareerBoard[] = await ctx.runQuery(internal.careers.discovered, {});
-    const boards = [...CAREER_BOARDS, ...found].filter((b) => FAST_ATS.has(b.ats));
+    const boards = [...(await pickedBoards(ctx)), ...found].filter((b) => FAST_ATS.has(b.ats));
     const changed: { board: CareerBoard; key: string; hash: string; isNew: boolean }[] = [];
     let failed = 0;
     for (let i = 0; i < boards.length; i += 10) {
@@ -363,9 +381,41 @@ export const refitUnknown = internalAction({
       next = r.cursor;
       changed += r.changed;
       pages++;
-    } while (next && Date.now() - start < 8 * 60_000);
+      // About a minute per run, then a fresh run carries on. The 8-minute runs failed twice on 17 Nov with a
+      // blank "Error" (the command that started them gives up waiting), and the follow-up was never scheduled.
+    } while (next && Date.now() - start < 60_000);
     console.log(`Refit unknown-company jobs: ${pages} pages, ${changed} changed${next ? ", continuing" : ", done"}.`);
     if (next) await ctx.scheduler.runAfter(0, internal.careersRefresh.refitUnknown, { cursor: next });
+    return null;
+  },
+});
+
+/**
+ * After the 7:00 read: for each hand-picked company whose page listed nothing or failed, look for its careers page
+ * again (lib/boardFinder), passing over the page we have. A page found with open roles is read in its place from
+ * then on (careers.boardMoves), and the owner is told so careerBoards.ts can be updated. Whatfix's page had only a
+ * "test" posting on 17 Nov, and its roles had quietly stopped reaching anyone.
+ */
+export const heal = internalAction({
+  args: { names: v.array(v.string()) },
+  handler: async (ctx, { names }) => {
+    const picked = new Map((await pickedBoards(ctx)).map((b) => [b.name, b]));
+    const moved: string[] = [];
+    for (const name of names) {
+      const now = picked.get(name);
+      if (!now?.website) continue;
+      const found = await findBoard({ name, website: now.website }, `${now.ats}:${now.slug}`).catch(() => null);
+      if (!found) continue;
+      await ctx.runMutation(internal.careers.saveMove, { name, ...found });
+      moved.push(`${name}: ${now.ats}:${now.slug} -> ${found.ats}:${found.slug}`);
+    }
+    console.log(`Heal: looked again for ${names.length} pages, moved ${moved.length}. ${moved.join("; ")}`);
+    if (moved.length) {
+      await ctx.runMutation(internal.errors.logServer, {
+        message: `Careers pages moved, now reading the new ones: ${moved.join("; ")}. Check they're the right company, then update careerBoards.ts.`,
+        page: "careers boards",
+      });
+    }
     return null;
   },
 });

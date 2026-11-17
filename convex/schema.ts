@@ -304,6 +304,17 @@ export default defineSchema({
   /** Companies the weekly finder has looked up, so each is checked about once a month. */
   boardChecks: defineTable({ key: v.string(), checkedAt: v.number() }).index("by_key", ["key"]),
 
+  /**
+   * A hand-picked company whose careers page moved: the new page, read in place of the one in careerBoards.ts.
+   * Found by careersRefresh.heal when the old page lists nothing or fails (Whatfix, 17 Nov).
+   */
+  boardMoves: defineTable({
+    name: v.string(),
+    ats: v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"), v.literal("workable"), v.literal("recruitee"), v.literal("teamtailor"), v.literal("bamboohr"), v.literal("eightfold")),
+    slug: v.string(),
+    movedAt: v.number(),
+  }).index("by_name", ["name"]),
+
   /** Your interview stories, reused and sharpened across jobs instead of written fresh for each one. */
   stories: defineTable({
     userId: v.id("users"),
