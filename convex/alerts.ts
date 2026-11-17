@@ -58,7 +58,9 @@ export const candidates = internalQuery({
     const roundUp = weekday === 1 || weekday === 4;
     const out = [];
     for (const r of due) {
-      if (!roundUp) {
+      // Partner members (SaasPire) and paying members always get it daily.
+      const covered = (r.partner?.until ?? 0) > now || (r.paidUntil ?? 0) > now;
+      if (!roundUp && !covered) {
         const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", r.userId)).unique();
         if (!profile?.lastSeenAt || now - profile.lastSeenAt > 3 * DAY) continue;
       }

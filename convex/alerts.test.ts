@@ -143,7 +143,7 @@ test("the daily email opens with the best untailored fit, when there is one", ()
   expect(alertsEmail({ name: "asha", groups }).text).not.toContain("best fit so far");
 });
 
-test("quiet people get the new-roles email on Monday and Thursday only; people on JobPipe in the last 3 days get it daily", async () => {
+test("quiet people get the new-roles email on Monday and Thursday only; people on JobPipe in the last 3 days, partner members and payers get it daily", async () => {
   const t = convexTest(schema, modules);
   const TUE = Date.UTC(2026, 10, 17, 4); // 9:30 India time, Tuesday
   const MON = Date.UTC(2026, 10, 16, 4);
@@ -152,6 +152,8 @@ test("quiet people get the new-roles email on Monday and Thursday only; people o
     const quiet = await ctx.db.insert("users", {});
     await ctx.db.insert("access", { userId: active, email: "active@example.com", approved: true });
     await ctx.db.insert("access", { userId: quiet, email: "quiet@example.com", approved: true });
+    const partner = await ctx.db.insert("users", {});
+    await ctx.db.insert("access", { userId: partner, email: "partner@example.com", approved: true, partner: { name: "SaasPire", url: "https://saaspire.co", from: TUE - 9 * 86_400_000, until: TUE + 80 * 86_400_000 } });
     await ctx.db.insert("profiles", { userId: active, location: "India", onboarded: true, contactsCount: 0, lastSeenAt: TUE - 2 * 86_400_000 } as never);
     await ctx.db.insert("profiles", { userId: quiet, location: "India", onboarded: true, contactsCount: 0, lastSeenAt: TUE - 9 * 86_400_000 } as never);
     return { active, quiet };
@@ -160,6 +162,7 @@ test("quiet people get the new-roles email on Monday and Thursday only; people o
     const rows = await t.query(internal.alerts.candidates, { now });
     return t.run(async (ctx) => Promise.all(rows.map(async (id) => (await ctx.db.get(id))!.email)));
   };
-  expect(await emails(TUE)).toEqual(["active@example.com"]);
-  expect((await emails(MON)).sort()).toEqual(["active@example.com", "quiet@example.com"]);
+  // Partner members get it daily even when quiet.
+  expect((await emails(TUE)).sort()).toEqual(["active@example.com", "partner@example.com"]);
+  expect((await emails(MON)).sort()).toEqual(["active@example.com", "partner@example.com", "quiet@example.com"]);
 });
