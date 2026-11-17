@@ -9,3 +9,9 @@ test("reads the four new careers systems from a job link", () => {
   expect(boardFromUrl("https://apply.workable.com/api/v3/accounts/x/jobs")).toBeNull();
   expect(boardFromUrl("https://www.bamboohr.com/pricing")).toBeNull();
 });
+
+test("reads a Recruiterbox (Trakstar Hire) job link", () => {
+  expect(boardFromUrl("https://whatfix101.hire.trakstar.com/jobs/fk0zfub/")).toEqual({ ats: "recruiterbox", slug: "whatfix101" });
+  expect(boardFromUrl("https://whatfix101.recruiterbox.com/#content")).toEqual({ ats: "recruiterbox", slug: "whatfix101" });
+  expect(boardFromUrl("https://www.recruiterbox.com/pricing")).toBeNull();
+});

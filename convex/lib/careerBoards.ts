@@ -11,7 +11,7 @@ import { companyKey } from "./company";
 export type CareerBoard = {
   name: string;
   website: string;
-  ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google" | "workable" | "recruitee" | "teamtailor" | "bamboohr" | "eightfold";
+  ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google" | "workable" | "recruitee" | "teamtailor" | "bamboohr" | "eightfold" | "recruiterbox";
   slug: string;
   /** The company's own careers page, when its board's hosted page is switched off (Cursor's Ashby page is a 404). */
   careersUrl?: string;
@@ -153,7 +153,8 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "ThoughtSpot", website: "thoughtspot.com", ats: "rippling", slug: "thoughtspot" },
   { name: "UiPath", website: "uipath.com", ats: "ashby", slug: "uipath" },
   { name: "Vercel", website: "vercel.com", ats: "greenhouse", slug: "vercel" },
-  { name: "Whatfix", website: "whatfix.com", ats: "smartrecruiters", slug: "whatfix" },
+  // Whatfix lists roles on Recruiterbox (Trakstar Hire); its SmartRecruiters page held only a "test" posting (17 Nov).
+  { name: "Whatfix", website: "whatfix.com", ats: "recruiterbox", slug: "whatfix101" },
   { name: "Wise", website: "wise.com", ats: "smartrecruiters", slug: "wise" },
   { name: "Wiz", website: "wiz.io", ats: "greenhouse", slug: "wizinc" },
   { name: "Workato", website: "workato.com", ats: "greenhouse", slug: "workato" },

@@ -453,6 +453,43 @@ async function readRecruitee(board: CareerBoard): Promise<CareerJob[]> {
   });
 }
 
+type RecruiterboxOpening = {
+  id: string;
+  title: string;
+  description?: string;
+  location?: { city?: string | null; state?: string | null; country?: string | null };
+  hosted_url: string;
+  allows_remote?: boolean;
+};
+
+/**
+ * Recruiterbox (now Trakstar Hire) has a public list of openings with descriptions. The slug is the client name.
+ * Ten at a time: a bigger page arrived cut off mid-description (Whatfix, 17 Nov).
+ */
+async function readRecruiterbox(board: CareerBoard): Promise<CareerJob[]> {
+  const out: CareerJob[] = [];
+  for (let offset = 0; offset < 500; offset += 10) {
+    const page = await getJson<{ meta: { total: number }; objects: RecruiterboxOpening[] }>(
+      `https://jsapi.recruiterbox.com/v1/openings?client_name=${encodeURIComponent(board.slug)}&limit=10&offset=${offset}`,
+    );
+    for (const o of page.objects) {
+      const l = o.location ?? {};
+      const places = [l.city, l.state, l.country].filter(Boolean).join(", ");
+      out.push({
+        externalId: `recruiterbox:${board.slug}:${o.id}`,
+        company: board.name,
+        title: o.title.trim(),
+        location: placeLine(places, !!o.allows_remote),
+        workSetting: o.allows_remote ? "remote" : undefined,
+        url: o.hosted_url,
+        description: cut(o.description && htmlToText(o.description)),
+      });
+    }
+    if (offset + 10 >= page.meta.total || !page.objects.length) break;
+  }
+  return out;
+}
+
 /** Teamtailor has no open feed of JSON, but every careers site has an RSS list with descriptions. The slug is the site's host. */
 async function readTeamtailor(board: CareerBoard): Promise<CareerJob[]> {
   const res = await fetch(`https://${board.slug}/jobs.rss`, { signal: AbortSignal.timeout(30_000) });
@@ -557,6 +594,7 @@ export async function readBoard(board: CareerBoard, titles: string[] = [], known
   if (board.ats === "recruitee") return await readRecruitee(board);
   if (board.ats === "teamtailor") return await readTeamtailor(board);
   if (board.ats === "bamboohr") return await readBamboo(board, known);
+  if (board.ats === "recruiterbox") return await readRecruiterbox(board);
   const id = (jobId: string | number) => `${board.ats}:${board.slug}:${jobId}`;
   if (board.ats === "ashby") {
     const body = await getJson<{ jobs: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`);

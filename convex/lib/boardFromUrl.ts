@@ -26,6 +26,9 @@ export function boardFromUrl(link: string | undefined): Omit<CareerBoard, "name"
     const slug = clean(parts[0] === "embed" ? (url.searchParams.get("for") ?? undefined) : parts[0]);
     return slug ? { ats: "greenhouse", slug: slug.toLowerCase() } : null;
   }
+  // Recruiterbox, now Trakstar Hire: the client name is the first part of the host (whatfix101.hire.trakstar.com).
+  const rb = host.match(/^([a-z0-9-]{2,80})\.(?:hire\.trakstar\.com|recruiterbox\.com)$/);
+  if (rb && rb[1] !== "www" && rb[1] !== "jsapi") return { ats: "recruiterbox", slug: rb[1] };
   if (host === "jobs.lever.co") {
     const slug = clean(parts[0]);
     return slug ? { ats: "lever", slug } : null;
