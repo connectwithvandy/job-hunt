@@ -36,6 +36,10 @@ test("any Account Executive search finds every title holding account executive",
   for (const s of ["Account Executive", "Enterprise Account Executive", "Senior AE", "Mid-Market Account Executive"]) expect(titleMatches(s, stripe)).toBe(true);
   expect(titleMatches("Enterprise Account Executive", "Technical Account Executive")).toBe(true);
   expect(titleMatches("Enterprise Account Executive", "Account Executive Team Lead")).toBe(true);
+  // "AE" in a title counts as account executive.
+  expect(titleMatches("Enterprise Account Executive", "AE, Commercial (India)")).toBe(true);
+  expect(titleMatches("Senior AE", "Founding AE")).toBe(true);
+  expect(titleMatches("Account Executive", "Sr. AE")).toBe(true);
   // Bookkeeping jobs still stay out.
   expect(titleMatches("Account Executive", "Accounts Executive")).toBe(false);
   expect(titleMatches("Account Executive", "Accounting Executive")).toBe(false);
