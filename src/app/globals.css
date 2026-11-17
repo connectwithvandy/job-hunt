@@ -169,7 +169,12 @@ select.field option { background: var(--card); }
 .resume h2::after { content: ""; flex: 1; height: 1.5px; background: #c8c8c8; }
 .resume .side h2 { color: #6b6b6b; font-size: 13.5pt; margin-top: 5mm; }
 .resume .side h2::after { display: none; }
-.resume .role { break-inside: avoid; margin-bottom: 4mm; }
+/* A job may run onto the next page (keeping it whole left a half-empty page when it didn't fit), but its
+   heading and summary stay with the first bullets, and a bullet never splits. */
+.resume .role { margin-bottom: 4mm; }
+.resume .role-head, .resume .blurb { break-after: avoid; }
+.resume .role li:first-child, .resume .role li:nth-child(2) { break-before: avoid; }
+.resume li { break-inside: avoid; }
 .resume .role-head { display: flex; justify-content: space-between; gap: 4mm; }
 .resume .company { font-size: 12pt; }
 .resume .logo { width: 8mm; height: 8mm; flex-shrink: 0; object-fit: contain; border-radius: 1.5mm; background: #fff; }
