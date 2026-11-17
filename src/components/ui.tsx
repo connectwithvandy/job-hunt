@@ -74,7 +74,7 @@ export function PassButton({ error }: { error: string }) {
   if (!hit) return null;
   return (
     <Link href="/billing" className="btn btn-primary btn-sm mt-2 flex w-fit">
-      Get the {PAYWALL_MARK} · ₹{PLANS.week}
+      Get the {PAYWALL_MARK} · from ₹{PLANS.foundingPass}
     </Link>
   );
 }

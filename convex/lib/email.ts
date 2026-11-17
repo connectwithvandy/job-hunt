@@ -119,7 +119,7 @@ export function trialEmail(p: {
         "Here's what it did for you so far:",
         ...(interviews ? ["Good luck with the interviews. That's the part that counts."] : []),
         ...(!cvs && !applied ? ["One thing worth trying before the week is out: star a job you like and open its tailored CV. That's where it saves the most time."] : []),
-        `If it's saving you time, the Week Pass gives you every AI tool for a week you're applying hard: ${rupees(PLANS.week)}. Or it's ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works: ${url}/billing`,
+        `If it's saving you time, the Job Hunt Pass gives you every AI tool for 3 months, a typical search: ${rupees(p.pass)}, one payment. Nothing renews on its own, and UPI works: ${url}/billing`,
         "If it isn't, I'd really like to know why. Reply and tell me what's missing. It comes straight to me, and I read every one.",
       ]
     : [
@@ -282,7 +282,7 @@ export function trialExtendedEmail(p: { name?: string; month: number; pass: numb
   const paras = [
     "Your free week on JobPipe ended today, and job hunts rarely fit into a week, so I've added 3 more days for you.",
     "If you haven't tried it yet, star a job you like and open its tailored CV. That's where it saves the most time.",
-    `After that you move to the free plan: daily jobs, your tracker, ${FREE.scoresPerDay} fit scores a day and ${FREE.tailorsPerWeek} tailored CV a week. Everything else needs a pass: ${rupees(PLANS.week)} for a week, ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own.`,
+    `After that you move to the free plan: daily jobs, your tracker, ${FREE.scoresPerDay} fit scores a day and ${FREE.tailorsPerWeek} tailored CV a week. Everything else needs the Job Hunt Pass: ${rupees(p.pass)} for 3 months, one payment. Nothing renews on its own.`,
     "If it isn't helping, reply and tell me what's missing. It comes straight to me, and I read every one.",
   ];
   return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See plans", `${appUrl()}/billing`) };
@@ -297,10 +297,10 @@ export function trialEndedEmail(p: { name?: string; month: number; pass: number 
   const paras = [
     "Your free trial on JobPipe has ended. Your jobs, CVs and notes are all still there, and you're now on the free plan.",
     `The free plan keeps going for as long as you like: new jobs every day, your tracker, ${FREE.scoresPerDay} AI fit scores a day and ${FREE.tailorsPerWeek} tailored CV a week.`,
-    `Company research, interview prep, referral notes and the chat need a pass. A week you're applying hard is ${rupees(PLANS.week)} for the Week Pass, or it's ${rupees(p.month)} a month, or ${rupees(p.pass)} for 3 months. Nothing renews on its own, and UPI works.`,
+    `Company research, interview prep, referral notes and the chat need the Job Hunt Pass: ${rupees(p.pass)} for 3 months, one payment. Nothing renews on its own, and UPI works.`,
     "If the price or something else is in the way, reply and tell me. It comes straight to me.",
   ];
-  return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See the Week Pass", `${appUrl()}/billing`) };
+  return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See the Job Hunt Pass", `${appUrl()}/billing`) };
 }
 
 /** Mondays: the week in numbers, and the one thing most worth doing next. */
@@ -421,7 +421,7 @@ export function alertsEmail(p: {
   const url = appUrl();
   const line = (j: { title: string; company: string; where: string; fit?: number }) => `${j.title}, ${j.company} (${j.where})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}`;
   const where = p.searching ? `Searching: ${p.searching}. Change it on your Roles page.` : "";
-  const upsell = p.free ? `On the free plan, ${FREE.scoresPerDay} of these get an AI score a day. The Week Pass (₹${PLANS.week}) scores them all and writes a tailored CV for each.` : "";
+  const upsell = p.free ? `On the free plan, ${FREE.scoresPerDay} of these get an AI score a day. The Job Hunt Pass (from ₹${PLANS.foundingPass} for ${PLANS.passMonths} months) scores them all and writes a tailored CV for each.` : "";
   const stop = p.unsubscribeUrl ? `Don't want these? Unsubscribe in one click: ${p.unsubscribeUrl}` : `Don't want these? Reply "stop" and I'll turn them off.`;
   const text = `${first ? `Hi ${first},` : "Hi,"}
 
@@ -450,7 +450,7 @@ ${p.groups
   .join("\n")}
 <p>Open one to see why it fits, tailor your CV and find who to ask for an intro.</p>
 ${where ? `<p style="color:#666;font-size:13px">${esc(where)}</p>` : ""}
-${upsell ? `<p style="background:#f4ffe0;border-radius:8px;padding:10px 14px">${esc(upsell)} <a href="${esc(`${url}/billing`)}" style="color:#1a1a1a;font-weight:600">Get the Week Pass</a></p>` : ""}
+${upsell ? `<p style="background:#f4ffe0;border-radius:8px;padding:10px 14px">${esc(upsell)} <a href="${esc(`${url}/billing`)}" style="color:#1a1a1a;font-weight:600">Get the Job Hunt Pass</a></p>` : ""}
 <p style="margin:24px 0"><a href="${esc(`${url}/jobs`)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">See all your roles</a></p>
 <p>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a></span></p>
 <p style="color:#999;font-size:12px">${p.unsubscribeUrl ? `Don't want these? <a href="${esc(p.unsubscribeUrl)}" style="color:#999">Unsubscribe in one click</a>.` : `Don't want these? Reply "stop" and I'll turn them off.`}</p>

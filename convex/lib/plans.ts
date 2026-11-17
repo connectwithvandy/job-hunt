@@ -4,11 +4,12 @@ export const PLANS = {
   trialDays: 7,
   full: 999,
   founding: 499,
-  foundingSeats: 100,
+  /** Founding price for the next 50 payers (17 Nov 2026: 0 had paid). */
+  foundingSeats: 50,
   /** The Job Hunt Pass: one payment for 3 months, no auto-renewal. */
   passMonths: 3,
-  pass: 2499,
-  foundingPass: 1299,
+  pass: 1499,
+  foundingPass: 999,
   /** The Week Pass: 7 days of every AI tool, one payment, no auto-renewal. No founding price: it's already small. */
   week: 349,
   weekDays: 7,
@@ -19,6 +20,12 @@ export const PLANS = {
 
 export type PlanKey = "week" | "month" | "pass";
 
+/**
+ * What can be bought. Since 17 Nov 2026 only the Job Hunt Pass: a job hunt lasts months, and one clear offer beats four.
+ * "week" and "month" stay as types so older payment rows still read.
+ */
+export const OFFERED: PlanKey[] = ["pass"];
+
 /** Rupees and days for one purchase. Founding prices for the first few paying people (PLANS.foundingSeats), kept as long as they stay. */
 export function priceOf(plan: PlanKey, founding: boolean) {
   if (plan === "week") return { rupees: PLANS.week, days: PLANS.weekDays, label: "Week Pass" };
@@ -28,12 +35,12 @@ export function priceOf(plan: PlanKey, founding: boolean) {
 
 /**
  * The price to show struck through next to `priceOf`, so a lower price reads as a discount off the one real price:
- * founding prices against the full price, and the pass against three months at ₹999. Null when there's no saving.
+ * founding prices against the full price. Null when there's no saving.
  */
 export function wasOf(plan: PlanKey, founding: boolean) {
   if (plan === "week") return null;
   const now = priceOf(plan, founding).rupees;
-  const was = founding ? priceOf(plan, false).rupees : plan === "pass" ? PLANS.full * PLANS.passMonths : null;
+  const was = founding ? priceOf(plan, false).rupees : null;
   return was && was > now ? { rupees: was, percentOff: Math.round((1 - now / was) * 100) } : null;
 }
 
@@ -47,5 +54,5 @@ export const FREE = {
   addedJobsPerDay: 2,
 };
 
-/** Words in every "this needs a pass" message; the app spots them and shows a "Get the Week Pass" button. */
-export const PAYWALL_MARK = "Week Pass";
+/** Words in every "this needs a pass" message; the app spots them and shows a "Get the Job Hunt Pass" button. */
+export const PAYWALL_MARK = "Job Hunt Pass";

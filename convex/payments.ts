@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { action, env, internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
-import { PLANS, priceOf, wasOf, type PlanKey } from "./lib/plans";
+import { OFFERED, PLANS, priceOf, wasOf, type PlanKey } from "./lib/plans";
 import { paymentGenuine } from "./lib/razorpay";
 
 const DAY = 86_400_000;
@@ -62,6 +62,7 @@ export const createOrder = action({
   args: { plan: planV },
   handler: async (ctx, { plan }): Promise<{ keyId: string; orderId: string; amount: number; label: string; email: string; name: string }> => {
     const userId = await requireUserId(ctx);
+    if (!OFFERED.includes(plan)) throw new ConvexError("That plan isn't offered any more. The Job Hunt Pass covers everything.");
     const k = keys();
     if (!k) throw new ConvexError("Payments aren't switched on yet.");
     const facts: { founding: boolean; email: string; name: string } = await ctx.runQuery(internal.payments.orderFacts, { userId });

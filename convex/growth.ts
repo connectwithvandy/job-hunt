@@ -626,7 +626,7 @@ export const notSetUp = internalQuery({
 
 /**
  * Read-only: people on the free plan (trial over, not paid) who used JobPipe in the last 3 days, warmest first,
- * with what they've done and any paid-only limit they hit. The ones to write to personally about the Week Pass.
+ * with what they've done and any paid-only limit they hit. The ones to write to personally about the Job Hunt Pass.
  * npx convex run --prod growth:warmFree
  */
 export const warmFree = internalQuery({

@@ -37,7 +37,7 @@ function TrialOverNotice() {
         Your trial has ended, so you&apos;re on the free plan: daily jobs, your tracker, {FREE.scoresPerDay} fit scores a day and {FREE.tailorsPerWeek} tailored CV a week. Research, interview prep, messages and the chat need a pass.
       </p>
       <Link href="/billing" className="btn btn-primary btn-sm">
-        Get the Week Pass · ₹{PLANS.week}
+        Get the Job Hunt Pass · from ₹{PLANS.foundingPass}
       </Link>
     </div>
   );

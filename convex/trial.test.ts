@@ -38,7 +38,7 @@ test("check-in goes two days before the free week ends, once, and skips payers a
   expect(due[0].stats.found).toBe(0);
 });
 
-const base = { name: "priya sharma", endsAt: NOW + 2 * DAY, month: 499, pass: 1299 };
+const base = { name: "priya sharma", endsAt: NOW + 2 * DAY, month: 499, pass: 999 };
 
 test("check-in lists what JobPipe did and gives the price without pressure", () => {
   const m = trialEmail({ ...base, stats: { found: 42, strong: 6, cvs: 3, applied: 2, interviews: 1 } });
@@ -47,7 +47,7 @@ test("check-in lists what JobPipe did and gives the price without pressure", () 
   expect(m.text).toContain("- 42 jobs found, 6 of them a strong fit");
   expect(m.text).toContain("- 3 tailored CVs written");
   expect(m.text).toContain("- 1 job at interview stage");
-  expect(m.text).toContain("₹499 a month, or ₹1,299 for 3 months");
+  expect(m.text).toContain("₹999, one payment");
   expect(m.text).toContain("Nothing renews on its own");
   expect(m.text).not.toMatch(/hurry|last chance|don't miss|act now/i);
 });
@@ -100,9 +100,9 @@ test("second nudge: day 5 to 21, after the first, only if still not set up", asy
 
 test("the new emails read right", () => {
   expect(setupReminderEmail({ name: "asha rao", email: "a@example.com" }).subject).toBe("Asha, did something get stuck?");
-  const extended = trialExtendedEmail({ name: "Asha", month: 499, pass: 1299 });
+  const extended = trialExtendedEmail({ name: "Asha", month: 499, pass: 999 });
   expect(extended.subject).toBe("Asha, I've added 3 days to your JobPipe");
-  expect(extended.text).toContain("₹1,299 for 3 months");
+  expect(extended.text).toContain("₹999 for 3 months");
 });
 
 test("the lock comes on day 10, not for payers, and not for anyone with no let-in date", () => {
@@ -128,7 +128,7 @@ test("after the trial, the free plan: search, one CV a week, a few scores; the c
   await expect(use(ids.over, "search")).resolves.toBe(null);
   await expect(use(ids.over, "readCv")).resolves.toBe(null);
   await expect(use(ids.over, "tailor")).resolves.toBe(null);
-  await expect(use(ids.over, "tailor")).rejects.toThrow("Week Pass");
+  await expect(use(ids.over, "tailor")).rejects.toThrow("Job Hunt Pass");
   await expect(use(ids.over, "score")).resolves.toBe(null);
   await expect(use(ids.over, "chat")).rejects.toThrow("part of the paid plan");
   await expect(use(ids.paid, "tailor")).resolves.toBe(null);
@@ -147,8 +147,8 @@ test("the trial-ended email goes once, to people set up who haven't paid", async
   expect(due.map((p) => p.email)).toEqual(["ended@example.com"]);
   await t.mutation(internal.trial.markEnded, { accessId: due[0].accessId });
   expect(await t.query(internal.trial.endedDue, { now: NOW })).toEqual([]);
-  const mail = trialEndedEmail({ name: "Asha", month: 499, pass: 1299 });
+  const mail = trialEndedEmail({ name: "Asha", month: 499, pass: 999 });
   expect(mail.subject).toBe("Asha, your JobPipe trial has ended");
   expect(mail.text).toContain("free plan");
-  expect(mail.text).toContain("₹349 for the Week Pass");
+  expect(mail.text).toContain("Job Hunt Pass: ₹999 for 3 months");
 });

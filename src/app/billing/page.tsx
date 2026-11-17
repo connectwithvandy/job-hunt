@@ -81,8 +81,6 @@ export default function Billing() {
 
   const covered = status.paidUntil && status.paidUntil > now;
   const plans: { key: PlanKey; note: string }[] = [
-    { key: "week", note: "Seven days of every AI tool, for a week you're applying hard. Nothing renews by itself." },
-    { key: "month", note: "Pay a month at a time. Nothing renews by itself: pay again when you want another month." },
     { key: "pass", note: "One payment for three months, a typical search. Nothing renews by itself." },
   ];
 
@@ -135,7 +133,7 @@ export default function Billing() {
                   <span className="display text-4xl">₹{p.rupees.toLocaleString("en-IN")}</span>
                   {p.was && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent">{p.was.percentOff}% off</span>}
                 </p>
-                {status.founding && key !== "week" && <p className="mt-1 text-xs text-good">Founding offer for the first {PLANS.foundingSeats} people, kept while you stay.</p>}
+                {status.founding && <p className="mt-1 text-xs text-good">Founding price for the next {PLANS.foundingSeats} people.</p>}
                 <p className="mt-2 flex-1 text-sm text-ink-2">{note}</p>
                 <button className="btn btn-primary mt-4" disabled={busy !== null} onClick={() => void pay(key)}>
                   {busy === key && <Spinner />}

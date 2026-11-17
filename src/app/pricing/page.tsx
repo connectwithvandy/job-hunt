@@ -6,7 +6,7 @@ import { FREE } from "../../../convex/lib/plans";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Free forever: daily sales jobs, a tracker, 5 fit scores a day and 1 tailored CV a week. Every AI tool from ₹349 for a week, ₹999/month or ₹2,499 for 3 months.",
+    "Free forever: daily sales jobs, a tracker, 5 fit scores a day and 1 tailored CV a week. Every AI tool for 3 months: ₹1,499, or ₹999 for the next 50 founding members.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -30,31 +30,13 @@ export default function Pricing() {
         </p>
       </div>
       <div className="card p-6 text-ink">
-        <div className="label">Week Pass</div>
-        <div className="display mt-2 text-4xl">
-          ₹{PLANS.week}
-          <span className="text-base text-ink-2"> once</span>
-        </div>
-        <p className="mt-2 text-sm text-ink-2">
-          {PLANS.weekDays} days of every AI tool, for a week you&apos;re applying
-          hard. No auto-renewal.
-        </p>
-      </div>
-      <div className="card p-6 text-ink">
-        <div className="label">Monthly</div>
-        <Price now={PLANS.founding} was={PLANS.full} unit="/ month" />
-        <p className="mt-2 text-sm text-ink-2">
-          Founding offer: half price for the first {PLANS.foundingSeats} people,
-          kept for as long as you stay. ₹{PLANS.full} a month after that.
-        </p>
-      </div>
-      <div className="card p-6 text-ink">
         <div className="label">Job Hunt Pass, {PLANS.passMonths} months</div>
         <Price now={PLANS.foundingPass} was={PLANS.pass} unit="once" />
         <p className="mt-2 text-sm text-ink-2">
-          One payment that covers a typical search, with no auto-renewal. ₹
-          {PLANS.pass.toLocaleString("en-IN")} after the founding offer, already
-          less than {PLANS.passMonths} months at ₹{PLANS.full}.
+          Every AI tool for {PLANS.passMonths} months, a typical search. One
+          payment, no auto-renewal. Founding price for the next{" "}
+          {PLANS.foundingSeats} members; ₹{PLANS.pass.toLocaleString("en-IN")}{" "}
+          after that.
         </p>
       </div>
       <div className="card p-6 text-ink">

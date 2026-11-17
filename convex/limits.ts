@@ -23,7 +23,7 @@ const PAID_ONLY: Record<string, string> = {
   chat: "The chat",
   findEmail: "Finding emails",
 };
-const passLine = `Get the ${PAYWALL_MARK} (₹${PLANS.week} for 7 days) to turn every AI tool back on.`;
+const passLine = `Get the ${PAYWALL_MARK} (${PLANS.passMonths} months, one payment) to turn every AI tool back on.`;
 
 export const FRESH_ALERTS_A_DAY = 40;
 

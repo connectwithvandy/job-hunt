@@ -497,7 +497,7 @@ export const partners = query({
   },
 });
 
-/** Records that you hit a paid-only limit (the "Get the Week Pass" button showed), so the owner knows who wants more. */
+/** Records that you hit a paid-only limit (the "Get the Job Hunt Pass" button showed), so the owner knows who wants more. */
 export const notePaywall = mutation({
   args: { what: v.string() },
   handler: async (ctx, { what }) => {

@@ -307,8 +307,8 @@ export function SignIn() {
             {flow === "signUp" && (
               <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
                 {PLANS.trialDays} days of everything once you&apos;re in, then a
-                free plan that stays free. Every AI tool from ₹{PLANS.week} a
-                week. No card needed to join. Your CV is
+                free plan that stays free. Every AI tool from ₹{PLANS.foundingPass} for{" "}
+                {PLANS.passMonths} months. No card needed to join. Your CV is
                 used only to run your search; we don&apos;t sell your data or use
                 it for ads.
               </p>

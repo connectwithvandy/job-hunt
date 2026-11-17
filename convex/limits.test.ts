@@ -142,7 +142,7 @@ describe("E. The free plan after the trial", () => {
     await t.mutation(internal.limits.consume, { userId: free, kind: "score", count: 4 });
     await t.mutation(internal.limits.consume, { userId: free, kind: "score", checkOnly: true });
     await t.mutation(internal.limits.consume, { userId: free, kind: "score" });
-    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "score" })).rejects.toThrow("Week Pass");
+    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "score" })).rejects.toThrow("Job Hunt Pass");
   });
 
   test("1 tailored CV a week and 2 added jobs a day", async () => {
@@ -151,7 +151,7 @@ describe("E. The free plan after the trial", () => {
     await t.mutation(internal.limits.consume, { userId: free, kind: "tailor" });
     await expect(t.mutation(internal.limits.consume, { userId: free, kind: "tailor" })).rejects.toThrow("1 tailored CV a week");
     await t.mutation(internal.limits.consume, { userId: free, kind: "addJob", count: 2 });
-    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "addJob" })).rejects.toThrow("Week Pass");
+    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "addJob" })).rejects.toThrow("Job Hunt Pass");
   });
 
   test("research, prep, notes, chat and email lookups need a pass; search stays open", async () => {

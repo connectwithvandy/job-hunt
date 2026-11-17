@@ -30,7 +30,7 @@ const personV = v.object({
   groups: v.array(v.object({ track: v.string(), jobs: v.array(jobV) })),
   /** "Bengaluru, Mumbai · Hybrid or Remote": where they search, so they can see why these roles. */
   searching: v.optional(v.string()),
-  /** On the free plan: the email ends with one line about the Week Pass. */
+  /** On the free plan: the email ends with one line about the Job Hunt Pass. */
   free: v.optional(v.boolean()),
   /** Their best AI-scored job (70+) with no tailored CV yet: the email opens with it, since tailoring is the step people skip. */
   tailor: v.optional(jobV),
