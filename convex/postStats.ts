@@ -88,13 +88,14 @@ export const jobsPage = internalQuery({
       companies[j.company] = (companies[j.company] ?? 0) + 1;
       if (j.status !== "new" && j.status !== "dismissed") appliedTo[j.company] = (appliedTo[j.company] ?? 0) + 1;
     }
-    return { n: page.page.length, scored, sum, s70, s85, max, remote, statuses, companies, appliedTo, cursor: page.continueCursor, done: page.isDone };
+    // Lists, not objects: company names like "Nestlé" can't be field names.
+    return { n: page.page.length, scored, sum, s70, s85, max, remote, statuses: Object.entries(statuses), companies: Object.entries(companies), appliedTo: Object.entries(appliedTo), cursor: page.continueCursor, done: page.isDone };
   },
 });
 
 type JobsPage = {
   n: number; scored: number; sum: number; s70: number; s85: number; max: number; remote: number;
-  statuses: Record<string, number>; companies: Record<string, number>; appliedTo: Record<string, number>;
+  statuses: [string, number][]; companies: [string, number][]; appliedTo: [string, number][];
   cursor: string; done: boolean;
 };
 
@@ -112,9 +113,9 @@ export const run = internalAction({
       const p: JobsPage = await ctx.runQuery(internal.postStats.jobsPage, { cursor });
       n += p.n; scored += p.scored; sum += p.sum; s70 += p.s70; s85 += p.s85; remote += p.remote;
       max = Math.max(max, p.max);
-      for (const [k, c] of Object.entries(p.statuses)) bump(statuses, k, c);
-      for (const [k, c] of Object.entries(p.companies)) bump(companies, k, c);
-      for (const [k, c] of Object.entries(p.appliedTo)) bump(appliedTo, k, c);
+      for (const [k, c] of p.statuses) bump(statuses, k, c);
+      for (const [k, c] of p.companies) bump(companies, k, c);
+      for (const [k, c] of p.appliedTo) bump(appliedTo, k, c);
       if (p.done) break;
       cursor = p.cursor;
     }
