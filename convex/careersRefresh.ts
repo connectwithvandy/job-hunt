@@ -338,3 +338,26 @@ export const visibilityAudit = internalAction({
     return report;
   },
 });
+
+/**
+ * Refits every unopened job at a company not on the strong list (jobs:refitPage), page by page. Safe to start
+ * again if it stops. npx convex run --prod careersRefresh:refitUnknown '{}'
+ */
+export const refitUnknown = internalAction({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor = null }): Promise<null> => {
+    const start = Date.now();
+    let pages = 0;
+    let changed = 0;
+    let next: string | null = cursor;
+    do {
+      const r: { cursor: string | null; changed: number } = await ctx.runMutation(internal.jobs.refitPage, { cursor: next });
+      next = r.cursor;
+      changed += r.changed;
+      pages++;
+    } while (next && Date.now() - start < 8 * 60_000);
+    console.log(`Refit unknown-company jobs: ${pages} pages, ${changed} changed${next ? ", continuing" : ", done"}.`);
+    if (next) await ctx.scheduler.runAfter(0, internal.careersRefresh.refitUnknown, { cursor: next });
+    return null;
+  },
+});

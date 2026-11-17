@@ -842,19 +842,26 @@ export const savedFor = internalQuery({
 });
 
 /**
- * Run ONCE after the strong-company change (17 Nov): new jobs saved before `before` at a company not on the
- * strong list get their first guess times 0.85, as if saved today. Only the stored number changes, so no
- * descriptions are read. npx convex run --prod jobs:applyBrandFactor '{"before": <deploy time ms>}'
+ * Recomputes the first guess of unopened jobs at companies not on the strong list, from scratch, so it's safe
+ * to run again: a run that stops partway can simply be started over (17 Nov: a one-shot rescale stopped
+ * partway and couldn't be resumed without lowering some jobs twice). Returns the next cursor.
  */
-export const applyBrandFactor = internalMutation({
-  args: { before: v.number(), cursor: v.optional(v.union(v.string(), v.null())) },
-  handler: async (ctx, { before, cursor }) => {
-    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 200 });
+export const refitPage = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor, numItems: 50 });
+    const fits = new Map<Id<"users">, Awaited<ReturnType<typeof quickFitFor>>>();
+    let changed = 0;
     for (const job of page.page) {
-      if (job.status !== "new" || job._creationTime >= before || job.quickFit === undefined || !job.company || strongCompany(job.company)) continue;
-      await ctx.db.patch("jobs", job._id, { quickFit: Math.round(job.quickFit * 0.85) });
+      if (job.status !== "new" || !job.company || strongCompany(job.company)) continue;
+      if (!fits.has(job.userId)) fits.set(job.userId, await quickFitFor(ctx, job.userId));
+      const details = await ctx.db.query("jobDetails").withIndex("by_jobId", (q) => q.eq("jobId", job._id)).unique();
+      const fit = fits.get(job.userId)!({ ...job, description: details?.description ?? job.description });
+      if (fit !== job.quickFit) {
+        await ctx.db.patch("jobs", job._id, { quickFit: fit });
+        changed++;
+      }
     }
-    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.jobs.applyBrandFactor, { before, cursor: page.continueCursor });
-    return null;
+    return { cursor: page.isDone ? null : page.continueCursor, changed };
   },
 });
