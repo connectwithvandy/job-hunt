@@ -279,3 +279,96 @@ export const customerReview = internalAction({
     };
   },
 });
+
+/** One page of India roles in the shared table, with each one's description, boiled down to counts. */
+export const marketPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.any(),
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("careerJobs").paginate({ numItems: 150, cursor });
+    const rows = [];
+    for (const j of page.page) {
+      if (!j.india) continue;
+      const text = await ctx.db.query("careerJobTexts").withIndex("by_externalId", (q) => q.eq("externalId", j.externalId)).first();
+      rows.push({ title: j.title, company: j.company, location: j.location, workSetting: j.workSetting ?? "", postedAt: j.postedAt ?? "", salary: j.salary ?? "", seen: j._creationTime, text: (text?.description ?? "").slice(0, 8000) });
+    }
+    return { rows, cursor: page.continueCursor, done: page.isDone };
+  },
+});
+
+/**
+ * Market facts for posts, from the India sales roles we hold and their descriptions:
+ * npx convex run --prod postStats:market '{}'
+ */
+export const market = internalAction({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx): Promise<Record<string, unknown>> => {
+    type Row = { title: string; company: string; location: string; workSetting: string; postedAt: string; salary: string; seen: number; text: string };
+    const all: Row[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 2000; i++) {
+      const p: { rows: Row[]; cursor: string; done: boolean } = await ctx.runQuery(internal.postStats.marketPage, { cursor });
+      all.push(...p.rows);
+      if (p.done) break;
+      cursor = p.cursor;
+    }
+    const withText = all.filter((r) => r.text.length > 300);
+    const share = (re: RegExp, rows = withText) => (rows.length ? `${Math.round((rows.filter((r) => re.test(`${r.title} ${r.text}`)).length / rows.length) * 100)}%` : "-");
+    const family = (t: string) =>
+      /\b(sdr|bdr|sales development|business development rep|lead development)\b/i.test(t) ? "SDR/BDR"
+      : /\baccount executive|\bae\b/i.test(t) ? "Account Executive"
+      : /\b(business development executive|bde)\b/i.test(t) ? "BDE"
+      : /\b(account manager|customer success|kam)\b/i.test(t) ? "Account/Customer Success"
+      : /\b(head|director|vp|vice president|chief)\b/i.test(t) ? "Head/Director/VP"
+      : /\bmanager\b/i.test(t) ? "Other manager" : "Other";
+    const fam: Record<string, number> = {};
+    for (const r of all) fam[family(r.title)] = (fam[family(r.title)] ?? 0) + 1;
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weekday: Record<string, number> = {};
+    for (const r of all) {
+      const t = Date.parse(r.postedAt);
+      if (!Number.isNaN(t) && /T\d/.test(r.postedAt)) weekday[days[new Date(t + 19_800_000).getUTCDay()]] = (weekday[days[new Date(t + 19_800_000).getUTCDay()]] ?? 0) + 1;
+    }
+    const dated = all.filter((r) => !Number.isNaN(Date.parse(r.postedAt)));
+    const old = dated.filter((r) => r.seen - Date.parse(r.postedAt) > 30 * 86_400_000).length;
+    // Years of experience asked, by family: the lower bound of "3-5 years", "4+ years".
+    const yearsFor = (rows: Row[]) => {
+      const ys = rows.map((r) => r.text.match(/\b(\d{1,2})\s*(?:\+|-|–|to)\s*(?:\d{1,2}\s*)?(?:years|yrs)/i)).filter(Boolean).map((m) => Number(m![1])).filter((n) => n <= 20);
+      return ys.length ? { median: median(ys), of: ys.length } : null;
+    };
+    const byFam = (f: string) => withText.filter((r) => family(r.title) === f);
+    const cities: Record<string, number> = {};
+    for (const r of all) {
+      const c = /remote/i.test(`${r.workSetting} ${r.location}`) ? "Remote" : /bengaluru|bangalore/i.test(r.location) ? "Bengaluru" : /mumbai|navi mumbai|thane/i.test(r.location) ? "Mumbai" : /delhi|gurgaon|gurugram|noida|ncr/i.test(r.location) ? "Delhi NCR" : /hyderabad/i.test(r.location) ? "Hyderabad" : /pune/i.test(r.location) ? "Pune" : /chennai/i.test(r.location) ? "Chennai" : "Elsewhere";
+      cities[c] = (cities[c] ?? 0) + 1;
+    }
+    return {
+      indiaRoles: all.length,
+      withDescription: withText.length,
+      byKind: fam,
+      byCity: cities,
+      listPay: `${Math.round((all.filter((r) => r.salary || /₹|inr|lpa|ctc|lakhs?\b|per annum/i.test(r.text)).length / Math.max(1, all.length)) * 100)}%`,
+      postedWeekday: weekday,
+      olderThan30DaysWhenSeen: dated.length ? `${Math.round((old / dated.length) * 100)}% of ${dated.length}` : "-",
+      mentions: {
+        "AI / GenAI": share(/\b(ai|genai|gen ai|artificial intelligence|llm)\b/i),
+        Salesforce: share(/\bsalesforce\b/i),
+        HubSpot: share(/\bhubspot\b/i),
+        "MEDDIC / MEDDPICC": share(/\bmedd?p?icc?\b/i),
+        "Quota / target": share(/\b(quota|targets?)\b/i),
+        "Cold calling": share(/\bcold[- ]call/i),
+        "US / UK shift or night shift": share(/\b(us|uk|night|emea|north america)\s*(shift|hours|time ?zone)\b/i),
+        "Work from office / on-site": share(/\b(work from office|wfo|on-?site|in-office)\b/i),
+        "Commission / incentives / OTE": share(/\b(commission|incentives?|ote|on-target)\b/i),
+        "ESOPs / equity": share(/\b(esops?|equity|stock options?)\b/i),
+        "LinkedIn Sales Navigator": share(/\bsales navigator\b/i),
+        "Apollo / Outreach / Gong": share(/\b(apollo|outreach|salesloft|gong)\b/i),
+        Hindi: share(/\bhindi\b/i),
+        "Travel": share(/\btravel(l)?ing\b|\btravel required|willing to travel/i),
+        "Freshers welcome": share(/\bfreshers?\b/i),
+      },
+      yearsAsked: { "SDR/BDR": yearsFor(byFam("SDR/BDR")), "Account Executive": yearsFor(byFam("Account Executive")), "Head/Director/VP": yearsFor(byFam("Head/Director/VP")) },
+    };
+  },
+});
