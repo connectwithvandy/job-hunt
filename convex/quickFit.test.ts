@@ -72,3 +72,16 @@ test("field sales, a bare Sales Manager and side functions sit below a plain sal
   expect(fit("Sales Manager II")).toBeLessThan(plain);
   expect(fit("Partner Manager")).toBeLessThan(plain);
 });
+
+test("sales jobs at solar, steel, real estate or export firms rank below tech ones; hand-picked tech companies are never pushed down", () => {
+  const titles = ["Sales Manager", "Account Executive"];
+  const at = (title: string, company: string, description = "") => quickFit({ title, company, location: "Bengaluru, India", description }, new Set(), titles, "Bengaluru, India");
+  const tech = at("Sales Manager", "Acme Software");
+  for (const [t, c] of [["Sales Manager", "Koshish Solar"], ["Sales Manager", "Prakash Ferrous Industries"], ["Account Executive", "Landstruc Realty"], ["Export Sales Manager", "Niharika Creation"]])
+    expect(at(t, c), `${t} @ ${c}`).toBeLessThan(tech);
+  // A tech signal anywhere keeps it up: a SaaS company selling to insurers.
+  expect(at("Account Executive - Insurance", "Acme", "We are a B2B SaaS platform for insurers.")).toBe(at("Account Executive", "Acme", "We are a B2B SaaS platform for insurers."));
+  // Hand-picked tech company, long description without tech words: not pushed down.
+  const long = "You will own a territory, build relationships and close deals. ".repeat(10);
+  expect(at("Account Executive", "Stripe", long)).toBeGreaterThan(at("Account Executive", "Some Distributor", long));
+});

@@ -5,6 +5,8 @@ import type { Infer } from "convex/values";
 import { jobMode } from "./defaults";
 import { placeFit } from "./places";
 import { backOffice, otherFunction, titleMatches } from "./salesRoles";
+import { CAREER_BOARDS } from "./careerBoards";
+import { companyKey } from "./company";
 import type { resumeV } from "./validators";
 
 type Resume = Infer<typeof resumeV>;
@@ -108,7 +110,13 @@ export function quickFitParts(
   const desc = job.description ?? "";
   // Banks and lenders often post with no description, so their name or title gives them away.
   const lender = isLender(job.title, job.company);
-  const industry = lender || (desc.length > 400 && !TECH.test(`${job.title} ${desc}`)) ? 0.6 : 1;
+  // 17 Nov review: AE, account manager, leadership and partnership lists were full of solar, steel, FMCG, real estate
+  // and export sales jobs, many with no description to judge by. Their company or title often says the industry.
+  // Companies on the hand-picked tech list are never pushed down.
+  const tech = TECH.test(`${job.title} ${job.company ?? ""} ${desc}`);
+  const known = !!job.company && PICKED.has(companyKey(job.company));
+  const nonTech = !tech && NON_TECH.test(`${job.title} ${job.company ?? ""}`.replace(/_/g, " "));
+  const industry = known ? 1 : lender || nonTech ? 0.5 : desc.length > 400 && !tech ? 0.6 : 1;
   // Any long description shares plenty of CV words, so they count fully only when the title fits too:
   // a bank's "Acquisition Manager" in Bengaluru shouldn't reach the apply list on words and place alone.
   const cvWeight = titleShare >= 0.6 ? 35 : 15;
@@ -139,6 +147,13 @@ export function isLender(title: string, company = "") {
   return (LENDER_COMPANY.test(company.replace(/_/g, " ")) || LENDER_TITLE.test(t)) && !TECH.test(t);
 }
 const TECH = /\b(saas|b2b|software|cloud|api|apis|startup|subscription|arr|cybersecurity|devops|martech|fintech|edtech|ai|artificial intelligence|machine learning|tech (company|startup|platform)|technology (company|platform))\b/i;
+
+/** The hand-picked tech companies (lib/careerBoards.ts), by name. */
+const PICKED = new Set(CAREER_BOARDS.map((b) => companyKey(b.name)));
+
+/** Industries whose sales jobs share titles with tech sales but not the work: solar, steel, FMCG, real estate, export… */
+const NON_TECH =
+  /\b(solar|steel|cement|ferrous|fmcg|fmcd|real estate|realty|builders?|construction|interiors?|interior design|furniture|furnishings|modular kitchens?|jewell?e?ry|garments?|textiles?|apparel|exports?|pharma\w*|medical representative|diagnostics|insurance|automobiles?|automotive|two[- ]wheelers?|tractors?|tyres?|paints?|chemicals?|fertili[sz]ers?|agro|dairy|beverages?|restaurants?|hotels?|hospitality|resorts?|immigration|overseas education|study abroad|coaching|tutorials|schools?|showroom|retail stores?|franchise|propert(y|ies)|plots|villas|home appliances|electricals|cables|pipes|ceramics|tiles|sanitaryware|plywood)\b/i;
 
 const FIELD_SALES = /\b(area|regional|territory|zonal|branch|cluster|circle)\s+(sales|business|manager|head)\b|\bfield sales\b/i;
 const BARE_SALES_MANAGER = /^\s*((senior|sr\.?)\s+)?sales manager(\s+i{1,3})?\s*($|[-–(,])/i;
