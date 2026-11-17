@@ -691,3 +691,59 @@ ${body.some((b) => "list" in b) ? "" : btn}
   const plain = `${plainBody}${button ? `\n\n${button.label}: ${button.url}` : ""}\n\nVandy\nFounder, JobPipe\n${url}`;
   return { text: plain, html };
 }
+
+/** The founding-offer answers, in the order the email lists them. */
+export const OFFER_ANSWERS = [
+  { key: "found_job", label: "I found a job" },
+  { key: "no_fit", label: "The jobs didn't fit me" },
+  { key: "how_to", label: "Not sure how to use it" },
+  { key: "too_pricey", label: "Too pricey for me right now" },
+  { key: "other", label: "Something else" },
+] as const;
+
+/**
+ * The founding offer, from the founder: their own numbers, the price, and one click to say why not.
+ * Answer links open a page with a button (offer route in http.ts), so mail scanners opening links don't count as answers.
+ */
+export function offerEmail(p: { name?: string; jobs: number; scored: number; strong: number; token: string }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const url = appUrl();
+  const rupees = (r: number) => `₹${r.toLocaleString("en-IN")}`;
+  const n = (x: number) => x.toLocaleString("en-IN");
+  const subject = `${first ? `${first}, ` : ""}${PLANS.passMonths} months of JobPipe for ${rupees(PLANS.foundingPass)}`;
+  const numbers = p.jobs
+    ? `So far JobPipe has found you ${n(p.jobs)} sales roles and scored ${n(p.scored)} against your CV.${p.strong ? ` ${n(p.strong)} of them ${p.strong === 1 ? "was a strong fit" : "were a strong fit"}.` : ""}`
+    : "";
+  const paras = [
+    "Quick note from me.",
+    ...(numbers ? [numbers] : []),
+    `If you're actively applying right now, this is the best it'll be: the Job Hunt Pass is ${rupees(PLANS.foundingPass)} for ${PLANS.passMonths} months (normally ${rupees(PLANS.pass)}), for the next ${PLANS.foundingSeats} people. That's about ₹${Math.round(PLANS.foundingPass / (PLANS.passMonths * 30))} a day, less than a coffee a week.`,
+    "It turns on everything: a fit score on every job, a tailored CV and cover letter for each one, referral notes and interview prep. One payment, no auto-renew, UPI works.",
+  ];
+  const pay = `${url}/billing`;
+  const ask = "Not applying right now? No problem, the free plan stays free. One click tells me why, so I can make it better:";
+  const link = (key: string) => `${url}/offer?k=${p.token}&a=${key}`;
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const text = `${hello}
+
+${paras.join("\n\n")}
+
+Get ${PLANS.passMonths} months for ${rupees(PLANS.foundingPass)}: ${pay}
+
+${ask}
+${OFFER_ANSWERS.map((a) => `- ${a.label}: ${link(a.key)}`).join("\n")}
+
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(hello)}</p>
+${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
+<p style="margin:24px 0"><a href="${esc(pay)}" style="background:#c6ff3d;color:#0b0b0f;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600">Get ${PLANS.passMonths} months for ${esc(rupees(PLANS.foundingPass))}</a></p>
+<p>${esc(ask)}</p>
+<p>${OFFER_ANSWERS.map((a) => `<a href="${esc(link(a.key))}" style="display:inline-block;margin:0 6px 8px 0;padding:6px 12px;border:1px solid #ccc;border-radius:16px;color:#1a1a1a;text-decoration:none;font-size:14px">${esc(a.label)}</a>`).join("")}</p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
+</div>`;
+  return { subject, text, html };
+}

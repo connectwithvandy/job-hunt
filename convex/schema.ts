@@ -37,6 +37,19 @@ export default defineSchema({
     note: v.optional(v.string()),
   }).index("by_userId_and_kind_and_round", ["userId", "kind", "round"]),
 
+  /** The founding-offer email (offer.ts): one row per person sent, with their one-click answer if they gave one. */
+  offerSends: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    token: v.string(),
+    sentAt: v.number(),
+    answer: v.optional(v.string()),
+    note: v.optional(v.string()),
+    answeredAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_userId", ["userId"]),
+
   // Each person's job totals for the owner's admin page: kept up to date as jobs change (convex/lib/functions.ts)
   // and recounted from scratch each night in case anything slipped.
   usageTotals: defineTable({

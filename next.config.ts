@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
       { source: "/google/callback", destination: "https://cautious-sheep-495.convex.site/google/callback" },
       // One-click unsubscribe from the jobs emails, on our own domain.
       { source: "/unsubscribe", destination: "https://cautious-sheep-495.convex.site/unsubscribe" },
+      // The founding-offer email's one-click answers (convex/http.ts).
+      { source: "/offer", destination: "https://cautious-sheep-495.convex.site/offer" },
     ];
   },
   async redirects() {

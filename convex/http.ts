@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
 import { webhookGenuine } from "./lib/razorpay";
+import { OFFER_ANSWERS } from "./lib/email";
 import { auth } from "./auth";
 
 const http = httpRouter();
@@ -109,6 +110,40 @@ http.route({
     return done
       ? page("You're unsubscribed", "<p>No more jobs emails. Changed your mind? Sign up again any time on jobpipe.in.</p>")
       : page("Link not recognised", "<p>This link may be old. Reply to any of our emails with \"stop\" and I'll turn them off.</p>");
+  }),
+});
+
+/**
+ * The founding-offer email's "why not" answers (jobpipe.in/offer rewrites here). Like unsubscribe, opening the link
+ * only shows a button, since mail scanners open links on their own; pressing it saves the answer and any note.
+ */
+const answerOf = (a: string | null) => OFFER_ANSWERS.find((x) => x.key === a);
+
+http.route({
+  path: "/offer",
+  method: "GET",
+  handler: httpAction(async (_ctx, req) => {
+    const k = keyOf(req);
+    const a = answerOf(new URL(req.url).searchParams.get("a"));
+    if (!k || !a) return page("Link not complete", "<p>This link is missing a part. Just reply to the email instead, it comes straight to me.</p>");
+    return page(
+      `"${a.label}"`,
+      `<form method="post" action="/offer?k=${k}&a=${a.key}"><p style="color:#aaa">Anything else you'd like to tell me? Optional.</p><textarea name="note" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;border-radius:8px;padding:10px;font:inherit;background:#16161c;color:#f2f2f2;border:1px solid #333"></textarea><p><button style="background:#c6ff3d;color:#0b0b0f;border:0;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:600;cursor:pointer">Send my answer</button></p></form>`,
+    );
+  }),
+});
+
+http.route({
+  path: "/offer",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const a = answerOf(new URL(req.url).searchParams.get("a"));
+    const form = await req.formData().catch(() => null);
+    const note = String(form?.get("note") ?? "").slice(0, 1000);
+    const done = a ? await ctx.runMutation(internal.offerData.answer, { token: keyOf(req), answer: a.key, note }) : false;
+    return done
+      ? page("Thank you", "<p>Got it. This really helps me make JobPipe better. The free plan stays yours.</p>")
+      : page("Link not recognised", "<p>This link may be old. Just reply to the email instead, it comes straight to me.</p>");
   }),
 });
 
