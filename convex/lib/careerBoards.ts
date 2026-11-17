@@ -76,6 +76,7 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Zapier", website: "zapier.com", ats: "ashby", slug: "zapier" },
   // Fintech
   { name: "Stripe", website: "stripe.com", ats: "greenhouse", slug: "stripe" },
+  { name: "HubSpot", website: "hubspot.com", ats: "greenhouse", slug: "hubspotjobs" },
   { name: "Zeta", website: "zeta.tech", ats: "lever", slug: "zeta" },
   // Indian companies on Keka (slug is the part before .keka.com)
   { name: "Keka", website: "keka.com", ats: "keka", slug: "hr" },
