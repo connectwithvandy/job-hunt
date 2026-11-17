@@ -4,6 +4,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalQuery } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { readPlace } from "./lib/sources";
 
 const top = (m: Map<string, number>, n: number) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, c]) => `${k} (${c})`);
@@ -171,5 +172,110 @@ export const emailsToday = internalQuery({
     };
     const total = Object.values(kinds).reduce((a, b) => a + b, 0);
     return { total, kinds, subscribers: subs.length, note: "Plus the owner's morning email, sign-in/reset emails and any instant alerts, which aren't timed here." };
+  },
+});
+
+/** One person's last 7 days, per role: jobs found, strong fits and a few titles to eyeball. */
+export const personWeek = internalQuery({
+  args: { userId: v.id("users"), since: v.number() },
+  returns: v.any(),
+  handler: async (ctx, { userId, since }) => {
+    const tracks = await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", userId)).take(50);
+    const name = new Map(tracks.map((t) => [t.key, t.name]));
+    const per: Record<string, { jobs: number; scored: number; strong: number; fitSum: number; titles: string[]; cities: Record<string, number> }> = {};
+    for await (const j of ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc")) {
+      if (j._creationTime < since) break;
+      const key = j.foundFor ?? j.trackKey ?? "other";
+      const role = name.get(key) ?? key;
+      const r = (per[role] ??= { jobs: 0, scored: 0, strong: 0, fitSum: 0, titles: [], cities: {} });
+      r.jobs++;
+      const best = Math.max(0, ...(j.scores ?? []).map((s) => s.score));
+      if (j.scores?.length) {
+        r.scored++;
+        r.fitSum += best;
+        if (best >= 70) r.strong++;
+      }
+      if (r.titles.length < 6 && r.jobs % 7 === 1) r.titles.push(`${j.title} @ ${j.company} (${j.location.slice(0, 30)})${j.scores?.length ? ` fit ${best}` : ""}`);
+      const city = /remote/i.test(`${j.workSetting ?? ""} ${j.location}`) ? "Remote" : j.location.split(/[,;|]/)[0].trim().slice(0, 20);
+      r.cities[city] = (r.cities[city] ?? 0) + 1;
+    }
+    return {
+      roles: tracks.filter((t) => t.status === "active").map((t) => t.name),
+      perRole: Object.entries(per).map(([role, r]) => ({
+        role,
+        jobs: r.jobs,
+        scored: r.scored,
+        strong: r.strong,
+        avgFit: r.scored ? Math.round(r.fitSum / r.scored) : null,
+        topCities: Object.entries(r.cities).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, n]) => `${c} ${n}`),
+        sample: r.titles,
+      })),
+    };
+  },
+});
+
+export const reviewPeople = internalQuery({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
+    const out = [];
+    for (const r of rows) {
+      const p = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", r.userId)).unique();
+      const t = await ctx.db.query("usageTotals").withIndex("by_userId", (q) => q.eq("userId", r.userId)).unique();
+      out.push({ userId: r.userId, email: r.email, location: p?.location ?? "", lastSeenAt: p?.lastSeenAt ?? null, tailored: t?.tailored ?? 0, applied: t?.applied ?? 0 });
+    }
+    return out;
+  },
+});
+
+/**
+ * A customer review: for each role (SDR, AE…), are people getting the right jobs? Plus each person's last 7 days.
+ * npx convex run --prod postStats:customerReview '{}'
+ */
+export const customerReview = internalAction({
+  args: { days: v.optional(v.number()) },
+  returns: v.any(),
+  handler: async (ctx, { days = 7 }): Promise<Record<string, unknown>> => {
+    const now = Date.now();
+    const since = now - days * 86_400_000;
+    const people: { userId: Id<"users">; email: string; location: string; lastSeenAt: number | null; tailored: number; applied: number }[] = await ctx.runQuery(internal.postStats.reviewPeople, {});
+    type Week = { roles: string[]; perRole: { role: string; jobs: number; scored: number; strong: number; avgFit: number | null; topCities: string[]; sample: string[] }[] };
+    const byRole: Record<string, { people: number; jobs: number; scored: number; strong: number; fitSum: number; noJobs: number; sample: string[] }> = {};
+    const rows: string[] = [];
+    for (const p of people) {
+      const w: Week = await ctx.runQuery(internal.postStats.personWeek, { userId: p.userId, since });
+      for (const role of w.roles) {
+        const r = w.perRole.find((x) => x.role === role);
+        const b = (byRole[role] ??= { people: 0, jobs: 0, scored: 0, strong: 0, fitSum: 0, noJobs: 0, sample: [] });
+        b.people++;
+        if (!r || !r.jobs) b.noJobs++;
+        if (r) {
+          b.jobs += r.jobs;
+          b.scored += r.scored;
+          b.strong += r.strong;
+          b.fitSum += (r.avgFit ?? 0) * r.scored;
+          for (const s of r.sample) if (b.sample.length < 12) b.sample.push(s);
+        }
+      }
+      const seen = p.lastSeenAt ? `${Math.floor((now - p.lastSeenAt) / 86_400_000)}d ago` : "never";
+      const parts = w.perRole.filter((r) => w.roles.includes(r.role)).map((r) => `${r.role}: ${r.jobs} jobs, ${r.strong}/${r.scored} strong, ${r.topCities.join("/")}`);
+      rows.push(`${p.email} · ${p.location || "no place"} · seen ${seen} · tailored ${p.tailored} · applied ${p.applied} · ${parts.join(" | ") || "no jobs this week"}`);
+    }
+    return {
+      days,
+      byRole: Object.entries(byRole)
+        .sort((a, b) => b[1].people - a[1].people)
+        .map(([role, b]) => ({
+          role,
+          people: b.people,
+          peopleWithNoJobs: b.noJobs,
+          jobsPerPerson: Math.round(b.jobs / b.people),
+          strongPerPerson: +(b.strong / b.people).toFixed(1),
+          avgFit: b.scored ? Math.round(b.fitSum / b.scored) : null,
+          sample: b.sample,
+        })),
+      people: rows,
+    };
   },
 });
