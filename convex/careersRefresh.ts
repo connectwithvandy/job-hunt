@@ -223,9 +223,16 @@ export const quickCheck = internalAction({
       );
     }
     let added = 0;
-    if (changed.some((c) => !c.isNew)) {
+    // A board seen for the first time is read now too, a few a run: until 17 Nov it was only noted, so 47
+    // boards added at 14:54 waited for the next morning's full read (SpotDraft's Bengaluru AE among them).
+    // Boards past the cap keep no fingerprint, so the next run picks them up.
+    const NEW_PER_RUN = 15;
+    const fresh = changed.filter((x) => x.isNew);
+    for (const c of fresh.slice(NEW_PER_RUN)) c.hash = "";
+    const toRead = [...changed.filter((x) => !x.isNew), ...fresh.slice(0, NEW_PER_RUN)];
+    if (toRead.length) {
       const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
-      for (const c of changed.filter((x) => !x.isNew)) {
+      for (const c of toRead) {
         try {
           added += (await syncBoard(ctx, c.board, titles)).added;
         } catch (err) {

@@ -10,7 +10,7 @@ import { fullTitle } from "./lib/salesRoles";
 // Each one is read every morning; 2,500 keeps the morning read inside its time.
 const MAX_DISCOVERED = 2500;
 
-export const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"), v.literal("workable"), v.literal("recruitee"), v.literal("teamtailor"), v.literal("bamboohr"));
+export const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"), v.literal("workable"), v.literal("recruitee"), v.literal("teamtailor"), v.literal("bamboohr"), v.literal("eightfold"));
 
 async function saveBoard(ctx: MutationCtx, company: string, board: { ats: CareerBoard["ats"]; slug: string }) {
   // Roles are filed by company name, so one board per name.

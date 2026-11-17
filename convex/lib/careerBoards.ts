@@ -11,7 +11,7 @@ import { companyKey } from "./company";
 export type CareerBoard = {
   name: string;
   website: string;
-  ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google" | "workable" | "recruitee" | "teamtailor" | "bamboohr";
+  ats: "ashby" | "greenhouse" | "lever" | "workday" | "keka" | "zoho" | "freshteam" | "smartrecruiters" | "rippling" | "google" | "workable" | "recruitee" | "teamtailor" | "bamboohr" | "eightfold";
   slug: string;
   /** The company's own careers page, when its board's hosted page is switched off (Cursor's Ashby page is a 404). */
   careersUrl?: string;
@@ -99,7 +99,8 @@ export const CAREER_BOARDS: CareerBoard[] = [
   { name: "Workday", website: "workday.com", ats: "workday", slug: "workday.wd5/workday/Workday" },
   { name: "CrowdStrike", website: "crowdstrike.com", ats: "workday", slug: "crowdstrike.wd5/crowdstrike/crowdstrikecareers" },
   { name: "Sprinklr", website: "sprinklr.com", ats: "workday", slug: "sprinklr.wd1/sprinklr/careers" },
-  { name: "Autodesk", website: "autodesk.com", ats: "workday", slug: "autodesk.wd1/autodesk/Ext" },
+  // Autodesk lists its jobs on Eightfold; its Workday site had 2 jobs worldwide (17 Nov). Slug is "host|domain".
+  { name: "Autodesk", website: "autodesk.com", ats: "eightfold", slug: "jobs.autodesk.com|autodesk.com" },
   { name: "Cisco", website: "cisco.com", ats: "workday", slug: "cisco.wd5/cisco/Cisco_Careers" },
   { name: "HPE", website: "hpe.com", ats: "workday", slug: "hpe.wd5/hpe/Jobsathpe" },
   { name: "NVIDIA", website: "nvidia.com", ats: "workday", slug: "nvidia.wd5/nvidia/NVIDIAExternalCareerSite" },

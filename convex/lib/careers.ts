@@ -50,34 +50,73 @@ type WorkdayJob = {
   startDate?: string; externalUrl: string; country?: { descriptor?: string };
 };
 
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** One Workday request, retried after a pause when it answers 429 (too many requests). */
+async function workdayCall<T>(url: string, body?: unknown): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, {
+      method: body ? "POST" : "GET",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (res.ok) return (await res.json()) as T;
+    if (res.status !== 429 || attempt >= 3) throw new Error(`${new URL(url).host} answered ${res.status}`);
+    const wait = Number(res.headers.get("retry-after"));
+    await pause(Number.isFinite(wait) && wait > 0 ? Math.min(wait, 30) * 1000 : 5_000 * (attempt + 1));
+  }
+}
+
+type WorkdayFacet = { facetParameter?: string; descriptor?: string; id?: string; count?: number; values?: WorkdayFacet[] };
+
+/** The location filter values meaning India, under whichever filter name this company's site uses. */
+function indiaFacet(facets: WorkdayFacet[]): { param: string; ids: string[] } | null {
+  let best: { param: string; ids: string[]; count: number } | null = null;
+  for (const f of facets) {
+    const ids: string[] = [];
+    let count = 0;
+    const walk = (vals: WorkdayFacet[] = []) => {
+      for (const x of vals) {
+        if (x.id && /\bindia\b/i.test(x.descriptor ?? "")) {
+          ids.push(x.id);
+          count += x.count ?? 0;
+        }
+        walk(x.values);
+      }
+    };
+    walk(f.values);
+    if (f.facetParameter && ids.length && (!best || count > best.count)) best = { param: f.facetParameter, ids, count };
+  }
+  return best && { param: best.param, ids: best.ids };
+}
+
 /**
- * Workday has no full list: it searches. So it's searched for each title, and only title matches are
- * opened for their places and description. Roles already saved (`known`) come back as ids only.
+ * Workday has no public full list, but its search takes a location filter. So it asks once for every India
+ * role (pages of 20, one request at a time) and checks titles here. Until 17 Nov it searched each of ~117
+ * titles at once, up to 234 requests per company, and every Workday site answered 429. Roles already saved
+ * (`known`) come back as ids only.
  */
 async function readWorkday(board: CareerBoard, titles: string[], known: Set<string>): Promise<(CareerJob | { externalId: string; known: true })[]> {
   const [host, tenant, site] = board.slug.split("/");
   const base = `https://${host}.myworkdayjobs.com/wday/cxs/${tenant}/${site}`;
   const hits = new Map<string, WorkdayHit>();
-  const searchTitle = async (title: string) => {
-    // Two pages of 20 (Workday's most): its matching is loose, so the close ones come first.
-    for (let offset = 0; offset < 40; offset += 20) {
-      const res = await fetch(`${base}/jobs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appliedFacets: {}, limit: 20, offset, searchText: title }),
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!res.ok) throw new Error(`${host} answered ${res.status}`);
-      const page = (await res.json()) as { total?: number; jobPostings?: WorkdayHit[] };
-      for (const h of page.jobPostings ?? []) if (titleMatches(title, h.title)) hits.set(h.externalPath, h);
-      if ((page.jobPostings ?? []).length < 20) break;
-    }
-  };
-  await Promise.all(titles.map(searchTitle));
+  type Page = { total?: number; jobPostings?: WorkdayHit[]; facets?: WorkdayFacet[] };
+  const first = await workdayCall<Page>(`${base}/jobs`, { appliedFacets: {}, limit: 20, offset: 0, searchText: "" });
+  const india = indiaFacet(first.facets ?? []);
+  // No India filter on this site: search the word instead, which matches the location text.
+  const query = india ? { appliedFacets: { [india.param]: india.ids }, searchText: "" } : { appliedFacets: {}, searchText: "India" };
+  // Ten pages (200 roles) covers India at every company on the list.
+  for (let offset = 0; offset < 200; offset += 20) {
+    if (offset) await pause(400);
+    const page = await workdayCall<Page>(`${base}/jobs`, { ...query, limit: 20, offset });
+    for (const h of page.jobPostings ?? []) if (titles.some((t) => titleMatches(t, h.title))) hits.set(h.externalPath, h);
+    if ((page.jobPostings ?? []).length < 20) break;
+  }
   const open = async (h: WorkdayHit): Promise<CareerJob | { externalId: string; known: true }> => {
     const externalId = `workday:${board.slug}:${h.externalPath}`;
     if (known.has(externalId)) return { externalId, known: true };
-    const j = (await getJson<{ jobPostingInfo: WorkdayJob }>(`${base}${h.externalPath}`)).jobPostingInfo;
+    const j = (await workdayCall<{ jobPostingInfo: WorkdayJob }>(`${base}${h.externalPath}`)).jobPostingInfo;
     const places = [j.location, ...(j.additionalLocations ?? []), j.country?.descriptor].filter(Boolean).join("; ");
     const remote = /remote/i.test(`${j.remoteType ?? ""} ${places}`);
     return {
@@ -93,7 +132,41 @@ async function readWorkday(board: CareerBoard, titles: string[], known: Set<stri
   };
   const list = [...hits.values()].slice(0, 80);
   const out: (CareerJob | { externalId: string; known: true })[] = [];
-  for (let i = 0; i < list.length; i += 8) out.push(...(await Promise.all(list.slice(i, i + 8).map(open))));
+  for (let i = 0; i < list.length; i += 3) out.push(...(await Promise.all(list.slice(i, i + 3).map(open))));
+  return out;
+}
+
+type EightfoldPosition = { id: number; name: string; locations?: string[]; positionUrl?: string; postedTs?: number; workLocationOption?: string };
+
+/**
+ * Eightfold (Autodesk's careers site): its public search takes a location, so one India search, ten roles a
+ * page. Slug is "host|domain", like "jobs.autodesk.com|autodesk.com".
+ */
+async function readEightfold(board: CareerBoard, titles: string[]): Promise<CareerJob[]> {
+  const [host, domain] = board.slug.split("|");
+  const out: CareerJob[] = [];
+  for (let start = 0; start < 300; start += 10) {
+    const res = await fetch(`https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&query=&location=India&start=${start}`, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw new Error(`${host} answered ${res.status}`);
+    const positions = ((await res.json()) as { data?: { positions?: EightfoldPosition[] } }).data?.positions ?? [];
+    for (const p of positions) {
+      if (titles.length && !titles.some((t) => titleMatches(t, p.name))) continue;
+      const remote = p.workLocationOption === "remote_local" || p.workLocationOption === "remote";
+      out.push({
+        externalId: `eightfold:${domain}:${p.id}`,
+        company: board.name,
+        title: p.name.trim(),
+        location: (p.locations ?? []).join("; ") || "India",
+        workSetting: remote ? "remote" : p.workLocationOption === "hybrid" ? "hybrid" : undefined,
+        postedAt: p.postedTs ? new Date(p.postedTs * 1000).toISOString() : undefined,
+        url: `https://${host}${p.positionUrl ?? `/careers/job/${p.id}`}`,
+      });
+    }
+    if (positions.length < 10) break;
+  }
   return out;
 }
 
@@ -473,6 +546,7 @@ export async function boardFingerprint(board: CareerBoard) {
 
 export async function readBoard(board: CareerBoard, titles: string[] = [], known = new Set<string>()): Promise<(CareerJob | { externalId: string; known: true })[]> {
   if (board.ats === "workday") return await readWorkday(board, titles, known);
+  if (board.ats === "eightfold") return await readEightfold(board, titles);
   if (board.ats === "google") return await readGoogle(board, titles);
   if (board.ats === "smartrecruiters") return await readSmartRecruiters(board, known);
   if (board.ats === "rippling") return await readRippling(board, titles, known);
