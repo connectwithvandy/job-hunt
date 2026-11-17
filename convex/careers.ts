@@ -161,12 +161,27 @@ export const saveBoardHashes = internalMutation({
 });
 
 /** Roles saved since a time, newest first: what a daytime read of the boards just found. */
+/**
+ * Every India role, a page at a time, for matching in code. The title search hands back at most 64 per title,
+ * and India alone had 150+ "Account Executive" roles (17 Nov), so most never reached anyone.
+ */
+export const indiaPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("careerJobs").withIndex("by_india", (q) => q.eq("india", true)).paginate({ cursor, numItems: 2000 });
+    return {
+      rows: page.page.map(({ externalId, company, title, location, workSetting, salary, postedAt, url, india }) => ({ externalId, company, title, location, workSetting, salary, postedAt, url, india })),
+      cursor: page.isDone ? null : page.continueCursor,
+    };
+  },
+});
+
 export const newSince = internalQuery({
   args: { since: v.number() },
   handler: async (ctx, { since }) => {
     const out = [];
     for await (const r of ctx.db.query("careerJobs").order("desc")) {
-      if (r._creationTime < since || out.length >= 300) break;
+      if (r._creationTime < since || out.length >= 1000) break;
       out.push({ externalId: r.externalId, company: r.company, title: r.title, location: r.location, workSetting: r.workSetting, salary: r.salary, postedAt: r.postedAt, url: r.url, india: r.india });
     }
     return out;

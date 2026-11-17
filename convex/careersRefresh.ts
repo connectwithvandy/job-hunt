@@ -188,8 +188,9 @@ export const refresh = internalAction({
     }
     console.log(`Careers boards ${start + 1}-${start + mine.length} of ${boards.length}: ${added} new roles, ${removed} closed.`);
     if (start + CHUNK < boards.length) await ctx.scheduler.runAfter(0, internal.careersRefresh.refresh, { start: start + CHUNK, fresh, since });
-    // Daytime reads: what's new goes straight to the people it fits (agent.freshRun).
-    else if (fresh) await ctx.scheduler.runAfter(0, internal.agent.freshRun, { since });
+    // After the last chunk, what's new goes straight to the people it fits (agent.freshRun). Until 17 Nov only
+    // the daytime reads did this, so roles from the 7:00 read reached people only through the capped search.
+    else await ctx.scheduler.runAfter(0, internal.agent.freshRun, { since });
     return null;
   },
 });

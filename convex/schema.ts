@@ -285,6 +285,7 @@ export default defineSchema({
   })
     .index("by_externalId", ["externalId"])
     .index("by_company", ["company"])
+    .index("by_india", ["india"])
     .searchIndex("search_title", { searchField: "title", filterFields: ["india"] }),
 
   /** A short fingerprint of each fast board's job list, so a quick check can skip boards that haven't changed. */

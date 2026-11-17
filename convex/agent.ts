@@ -243,10 +243,31 @@ async function withCareerTexts(ctx: ActionCtx, rows: CareerRow[]): Promise<Found
   return rows.map((r) => ({ source: "careers", id: r.externalId, title: r.title, company: r.company, location: r.location, workSetting: r.workSetting, salary: r.salary, postedAt: r.postedAt, url: r.url, description: text.get(r.externalId) }));
 }
 
-/** Roles from the companies' own careers boards (read each morning) that match a title and the place. */
+// Every India role, kept for 10 minutes and shared by the searches this server runs meanwhile, so a morning of
+// searches reads the table about once instead of once per person and track.
+let indiaCache: { at: number; rows: CareerRow[] } | null = null;
+async function indiaRows(ctx: ActionCtx): Promise<CareerRow[]> {
+  if (indiaCache && Date.now() - indiaCache.at < 10 * 60_000) return indiaCache.rows;
+  const rows: CareerRow[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: { rows: CareerRow[]; cursor: string | null } = await ctx.runQuery(internal.careers.indiaPage, { cursor });
+    rows.push(...page.rows);
+    cursor = page.cursor;
+  } while (cursor);
+  indiaCache = { at: Date.now(), rows };
+  return rows;
+}
+
+/**
+ * Roles from the companies' own careers boards (read each morning) that match a title and the place. For
+ * places in India and Remote it checks every India role; elsewhere it uses the title search (at most 64 per title).
+ */
 async function careerMatches(ctx: ActionCtx, titles: string[], location: string): Promise<Found[]> {
   const place = readPlace(location);
-  const rows: CareerRow[] = await ctx.runQuery(internal.careers.search, { titles, india: place.kind === "place" && place.country === "in" });
+  // "Remote" means remote roles open to someone in India, which are filed as India roles too.
+  const inIndia = (place.kind === "place" && place.country === "in") || place.kind === "remote";
+  const rows: CareerRow[] = inIndia ? await indiaRows(ctx) : await ctx.runQuery(internal.careers.search, { titles, india: false });
   return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 300));
 }
 
