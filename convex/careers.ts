@@ -70,7 +70,13 @@ export const prospectCompanies = internalQuery({
 
 export const discovered = internalQuery({
   args: {},
-  handler: async (ctx) => (await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED)).map(({ name, ats, slug }) => ({ name, website: "", ats, slug })),
+  handler: async (ctx) => {
+    // A company found from job links and later hand-picked is read once, as the hand-picked board.
+    const picked = new Set(CAREER_BOARDS.flatMap((b) => [`${b.ats}:${b.slug}`, companyKey(b.name)]));
+    return (await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED))
+      .filter((b) => !picked.has(`${b.ats}:${b.slug}`) && !picked.has(b.key))
+      .map(({ name, ats, slug }) => ({ name, website: "", ats, slug }));
+  },
 });
 
 /** The board for a company in someone's dream list, if we read one. */
