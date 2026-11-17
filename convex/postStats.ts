@@ -4,6 +4,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalQuery } from "./_generated/server";
+import { readPlace } from "./lib/sources";
 
 const top = (m: Map<string, number>, n: number) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, c]) => `${k} (${c})`);
 const bump = (m: Map<string, number>, k: string, by = 1) => m.set(k, (m.get(k) ?? 0) + by);
@@ -31,6 +32,12 @@ export const small = internalQuery({
     }
     const cities = new Map<string, number>();
     for (const p of profiles) for (const c of (p.location ?? "").split(/[,;/]| or /i).map((x) => x.trim()).filter(Boolean)) bump(cities, c);
+    // People searching outside India: who a dollar or euro price would apply to.
+    const abroad = new Map<string, number>();
+    for (const p of profiles) {
+      const place = readPlace(p.location ?? "");
+      if (place.kind === "place" && place.country !== "in") bump(abroad, p.location);
+    }
 
     // What the free CV reviews most often say is missing, in plain buckets.
     const buckets: [string, RegExp][] = [
@@ -56,6 +63,7 @@ export const small = internalQuery({
       rolesPerPerson: perUser.size ? +(tracks.length / perUser.size).toFixed(1) : 0,
       topRoles: top(roleNames, 8),
       topCities: top(cities, 8),
+      searchingAbroad: top(abroad, 30),
       cvReviews: reviews.length,
       cvReviewAverage: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
       cvReviews70Plus: scores.filter((s) => s >= 70).length,
