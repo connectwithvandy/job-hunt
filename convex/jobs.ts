@@ -14,7 +14,7 @@ import { SKIP_BELOW } from "./lib/posting";
 import { cvSenior, cvWords, isLender, quickFit, quickFitParts } from "./lib/quickFit";
 import { readWorkModes } from "./lib/defaults";
 import { backOffice, shopFloor } from "./lib/salesRoles";
-import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, researchV, scoreV } from "./lib/validators";
+import { briefV, followUpV, hiringContactV, jobFields, liveCheckV, resumeV, jobStatusV, outreachStatusV, outreachV, packV, prepV, callScriptV, researchV, scoreV } from "./lib/validators";
 
 async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   const job = await ctx.db.get("jobs", jobId);
@@ -22,7 +22,7 @@ async function ownJob(ctx: QueryCtx, userId: Id<"users">, jobId: Id<"jobs">) {
   return job;
 }
 
-type Details = Partial<Pick<Doc<"jobDetails">, "description" | "pack" | "research" | "prep" | "sent" | "scoreNotes" | "brief">>;
+type Details = Partial<Pick<Doc<"jobDetails">, "description" | "pack" | "research" | "prep" | "callScript" | "sent" | "scoreNotes" | "brief">>;
 type Score = NonNullable<Doc<"jobs">["scores"]>[number];
 type Brief = NonNullable<Doc<"jobs">["brief"]>;
 
@@ -45,7 +45,7 @@ const heavyFit = (job: Doc<"jobs">) =>
   (job.scores ?? []).some((s) => s.gaps.length || s.reason.length > SHORT_REASON) || !!(job.brief?.whatTheyWant || job.brief?.watchOuts);
 
 /** A job with its heavy parts filled in, whether they're still on the job or already in jobDetails. */
-async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs"> & Pick<Details, "sent"> & { applyForm?: Doc<"jobDetails">["applyForm"] }> {
+async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs"> & Pick<Details, "sent" | "callScript"> & { applyForm?: Doc<"jobDetails">["applyForm"] }> {
   const d = await detailsOf(ctx, job._id);
   if (!d) return job;
   const scores = job.scores?.map((s) => {
@@ -58,6 +58,7 @@ async function withDetails(ctx: QueryCtx, job: Doc<"jobs">): Promise<Doc<"jobs">
     pack: d.pack ?? job.pack,
     research: d.research ?? job.research,
     prep: d.prep ?? job.prep,
+    callScript: d.callScript,
     sent: d.sent,
     scores,
     brief: d.brief ?? job.brief,
@@ -685,7 +686,7 @@ export const strongSince = internalQuery({
 
 /** Stores company research or interview prep on a job. */
 export const saveExtras = internalMutation({
-  args: { userId: v.id("users"), jobId: v.id("jobs"), research: v.optional(researchV), prep: v.optional(prepV), description: v.optional(v.string()) },
+  args: { userId: v.id("users"), jobId: v.id("jobs"), research: v.optional(researchV), prep: v.optional(prepV), callScript: v.optional(callScriptV), description: v.optional(v.string()) },
   handler: async (ctx, { userId, jobId, ...extras }) => {
     await saveDetails(ctx, await ownJob(ctx, userId, jobId), extras);
     return null;

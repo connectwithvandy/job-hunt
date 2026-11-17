@@ -146,6 +146,16 @@ export const researchV = v.object({
 });
 
 /** Interview preparation for one job, built from the CV and the posting. */
+/** A short phone script for one job: what to say to HR or the hiring manager, from the candidate's CV. */
+export const callScriptV = v.object({
+  createdAt: v.number(),
+  opener: v.string(),
+  questions: v.array(v.object({ question: v.string(), answer: v.string() })),
+  voicemail: v.string(),
+  voiceNote: v.string(),
+  tips: v.array(v.string()),
+});
+
 export const prepV = v.object({
   createdAt: v.number(),
   questions: v.array(v.object({ question: v.string(), why: v.string(), answer: v.string() })),

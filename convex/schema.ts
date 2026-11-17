@@ -3,7 +3,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { reviewValidator } from "./lib/cvReview";
 import { chatRowV } from "./lib/chats";
-import { applyFormV, briefV, jobFields, prospectFields, resumeV, trackFields, packV, prepV, researchV, scoreNoteV, sentV, storyFields } from "./lib/validators";
+import { applyFormV, briefV, jobFields, prospectFields, resumeV, trackFields, packV, prepV, callScriptV, researchV, scoreNoteV, sentV, storyFields } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -254,6 +254,7 @@ export default defineSchema({
     pack: v.optional(packV),
     research: v.optional(researchV),
     prep: v.optional(prepV),
+    callScript: v.optional(callScriptV),
     sent: v.optional(sentV),
     /** Each score's full reason and gaps. Many queries read every job, so the job keeps only a short reason. */
     scoreNotes: v.optional(v.array(scoreNoteV)),

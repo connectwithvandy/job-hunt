@@ -11,7 +11,7 @@ import { linkedInPeopleSearch, applyBoard } from "../../../../convex/lib/company
 import { RECHECK_AFTER, ghostSigns, shortPlace, skipReason } from "../../../../convex/lib/posting";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { CvMatch } from "@/components/CvMatch";
-import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
 import { inInr, payRange, payText, useInrRates } from "@/lib/money";
@@ -328,10 +328,11 @@ export default function JobPage() {
         {data.emails.length > 0 && !answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} />}
 
         <details id="prep" className="pt-4" open={stage === "interview"}>
-          <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">More: company research, interview prep, full job description</summary>
+          <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">More: company research, interview prep, call script, full job description</summary>
           <div className="mt-4 space-y-6">
             <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
             <InterviewPrep jobId={job._id} prep={job.prep} />
+            <CallScript jobId={job._id} script={job.callScript} />
             {job.description && (
               <div className="card p-6">
                 <h2 className="display mb-4 text-2xl">Full job description</h2>

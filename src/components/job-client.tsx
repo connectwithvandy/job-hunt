@@ -1156,6 +1156,65 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
   );
 }
 
+/** A short phone script for this job: opener, likely questions, voicemail and a LinkedIn voice note. */
+export function CallScript({ jobId, script }: { jobId: Id<"jobs">; script?: Doc<"jobDetails">["callScript"] }) {
+  const run = useAction(api.agent.callScriptFor);
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  const go = () => start(async () => setState(await attempt(async () => void (await run({ jobId })))));
+  return (
+    <div className="card p-6">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="display text-2xl">Call script</h2>
+        <button className={`btn btn-sm ${script ? "btn-ghost" : "btn-primary"}`} disabled={busy} onClick={go}>
+          {busy && <Spinner />}
+          {busy ? "Writing… about 20 seconds" : script ? "Redo" : "Write my call script"}
+        </button>
+      </div>
+      {!script ? (
+        <p className="text-sm text-ink-2">
+          For a call to HR or the hiring manager, from your CV: what to say in the first 30 seconds, three questions they&apos;ll likely ask with short answers, a voicemail, and a LinkedIn voice note for when there&apos;s no number.
+        </p>
+      ) : (
+        <div className="space-y-5 text-sm">
+          <div>
+            <div className="label">Your first 30 seconds</div>
+            <p className="mt-1 whitespace-pre-line">{script.opener}</p>
+          </div>
+          <details open>
+            <summary className="cursor-pointer font-medium">They&apos;ll likely ask</summary>
+            <ol className="mt-2 space-y-3">
+              {script.questions.map((q) => (
+                <li key={q.question}>
+                  <div className="font-medium">{q.question}</div>
+                  <p className="text-ink-2">{q.answer}</p>
+                </li>
+              ))}
+            </ol>
+          </details>
+          <div>
+            <div className="label">If it goes to voicemail</div>
+            <p className="mt-1">{script.voicemail}</p>
+          </div>
+          <div>
+            <div className="label">No number? LinkedIn voice note</div>
+            <p className="mt-1">{script.voiceNote}</p>
+          </div>
+          <details>
+            <summary className="cursor-pointer font-medium">Tips for this call</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-2">
+              {script.tips.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      )}
+      <Feedback state={busy ? null : state} />
+    </div>
+  );
+}
+
 /** Paste their profile (and optionally search the web) to find shared ground and get messages written for this one person. */
 function CommonGround({ owner, contact }: { owner: ContactOwner; contact: HiringContact }) {
   const forJob = useAction(api.agent.personalise);

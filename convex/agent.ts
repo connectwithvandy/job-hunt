@@ -12,7 +12,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
 import { unverifiedNumbers } from "./lib/facts";
-import { buildLetter, buildPack, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
+import { buildLetter, buildPack, callScript, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { AGGREGATORS, companyKey } from "./lib/company";
 import { tidyMessage } from "./lib/messageText";
@@ -1181,6 +1181,21 @@ async function prepFor(ctx: ActionCtx, { userId, resume, resumeFor, tracks }: Co
     await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, prep: { createdAt: Date.now(), ...out, stories }, description: job.description });
     return null;
 }
+
+/** A short phone script for this job (opener, likely questions, voicemail, LinkedIn voice note). Needs the Job Hunt Pass, like interview prep. */
+export const callScriptFor = action({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }): Promise<null> => {
+    const { userId, resume, resumeFor, tracks } = await setup(ctx);
+    const job = await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs"> & { sent?: Doc<"jobDetails">["sent"] });
+    const track = tracks.find((t) => t.key === (job.trackKey ?? job.pack?.trackKey ?? job.foundFor)) ?? null;
+    const cv = requireResume(job.sent?.resume ?? job.pack?.resume ?? (track ? resumeFor[track.key] : resume));
+    await spend(ctx, userId, "prep");
+    const out = await callScript(job, cv, track);
+    await ctx.runMutation(internal.jobs.saveExtras, { userId, jobId, callScript: { createdAt: Date.now(), ...out }, description: job.description });
+    return null;
+  },
+});
 
 /** Writes your master interview stories from your CVs, to fill the story bank. */
 export const buildStoryBank = action({

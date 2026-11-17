@@ -919,6 +919,35 @@ ${research ? `\nAbout the company:\n${research.summary}\nRecent news: ${research
   return { ...out, stories: out.stories.map((st) => ({ ...st, storyId: known.has(st.storyId) ? st.storyId : "" })) };
 }
 
+const CallScriptSchema = z.strictObject({
+  opener: z
+    .string()
+    .describe(
+      "What to say in the first 30 seconds of a call to HR or the hiring manager, in the candidate's voice: who they are, one proof point with a real number from the CV, why this role, and a simple ask (a 15-minute chat about the role). About 70-90 words, spoken English, no buzzwords.",
+    ),
+  questions: z
+    .array(z.strictObject({ question: z.string(), answer: z.string().describe("Two or three spoken sentences, only facts and numbers from the CV.") }))
+    .describe("Three questions HR or the hiring manager is likely to ask on this call (like current role, why you're looking, notice period or pay), with short answers."),
+  voicemail: z.string().describe("A 15-second voicemail: name, the role, one proof point, a callback ask. About 40 words."),
+  voiceNote: z.string().describe("A 30-second LinkedIn voice note for when there's no number: friendly, specific to this role, ends with a light ask. About 70 words."),
+  tips: z.array(z.string()).describe("Three short, practical tips for this call: when to call, how to handle a gatekeeper, what not to do. Never suggest calling a personal mobile uninvited."),
+});
+
+/** A short phone script for one job, from the CV: opener, likely questions, voicemail and a LinkedIn voice note. */
+export async function callScript(job: Job, resume: Resume, track: Track | null) {
+  return await askJSON({
+    schema: CallScriptSchema,
+    system: `You are a sales career coach. Write a short, natural phone script for a sales or go-to-market candidate calling HR or the hiring manager about one specific job. It should sound like a confident sales person talking, not a cover letter read aloud. ${HONESTY} Address the candidate as "you" in tips; write the spoken parts in the candidate's own voice ("I").`,
+    prompt: `${angle(track)}
+
+Candidate's CV:
+${resumeText(resume)}
+
+Job:
+${jobText(job)}`,
+  });
+}
+
 const BankSchema = z.strictObject({
   stories: z.array(z.strictObject(StoryShape)).describe("Six to eight stories covering different strengths."),
 });
