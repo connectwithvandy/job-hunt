@@ -139,10 +139,14 @@ export function fullTitle(title: string) {
 
 /** True when the job title holds every word searched for. Loose boards also match descriptions. */
 export function titleMatches(searched: string, title: string) {
-  if (otherFunction(searched, title)) return false;
   // Short forms written out on both sides, so a search for "SDR" keeps "Sales Development Rep" and the other way round.
   const t = fullTitle(title);
-  const words = fullTitle(searched).split(" ").filter((w) => w && !FILLER.has(w));
+  const s = fullTitle(searched);
+  // Any Account Executive search takes every title holding "account executive", whatever comes before or after:
+  // "Enterprise AE" also finds "Account Executive, Commercial & SMB (India)" and "Technical Account Executive" (owner's call, 17 Nov).
+  if (/\baccount executive\b/.test(s) && /\baccount executive\b/.test(t)) return true;
+  if (otherFunction(searched, title)) return false;
+  const words = s.split(" ").filter((w) => w && !FILLER.has(w));
   // Whole words only (a plural is fine): "Salesforce Engineer" doesn't hold "sales", "Sales Managers" holds "manager".
   const tw = new Set(t.split(" "));
   const has = (w: string) => tw.has(w) || tw.has(`${w}s`) || (w.endsWith("s") && tw.has(w.slice(0, -1)));

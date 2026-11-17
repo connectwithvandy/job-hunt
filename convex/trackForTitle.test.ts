@@ -29,3 +29,16 @@ test("Salesforce engineers aren't sales jobs", () => {
 test("delivery roles that mention post-sales aren't sales jobs", () => {
   expect(trackForTitle(tracks, "Delivery Manager - Controls Post-sales - Hardware Design")).toBeUndefined();
 });
+
+test("any Account Executive search finds every title holding account executive", async () => {
+  const { titleMatches } = await import("./lib/salesRoles");
+  const stripe = "Account Executive, Commercial & SMB (India)";
+  for (const s of ["Account Executive", "Enterprise Account Executive", "Senior AE", "Mid-Market Account Executive"]) expect(titleMatches(s, stripe)).toBe(true);
+  expect(titleMatches("Enterprise Account Executive", "Technical Account Executive")).toBe(true);
+  expect(titleMatches("Enterprise Account Executive", "Account Executive Team Lead")).toBe(true);
+  // Bookkeeping jobs still stay out.
+  expect(titleMatches("Account Executive", "Accounts Executive")).toBe(false);
+  expect(titleMatches("Account Executive", "Accounting Executive")).toBe(false);
+  // Other searches unchanged.
+  expect(titleMatches("Account Manager", stripe)).toBe(false);
+});
