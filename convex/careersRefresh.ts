@@ -156,7 +156,9 @@ export const refresh = internalAction({
       added += done.added;
       removed += done.removed;
     };
-    const found: CareerBoard[] = await ctx.runQuery(internal.careers.discovered, {});
+    // Workday boards: only the hand-picked SaaS companies. The 436 found from job links (Pfizer, FedEx, CVS…) were
+    // mostly not SaaS, and every Workday board answered 429 on 17 Nov, so reading them cost money for no roles.
+    const found = ((await ctx.runQuery(internal.careers.discovered, {})) as CareerBoard[]).filter((b) => b.ats !== "workday");
     // The 13:00 and 18:00 reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
     // Google's site is searched at 7:00 only: each read downloads tens of MB.
     const boards = [...CAREER_BOARDS, ...found].filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google"));
