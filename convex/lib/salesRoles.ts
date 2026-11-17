@@ -161,6 +161,15 @@ export function titleMatches(searched: string, title: string) {
 }
 
 /**
+ * The fewest titles whose searches still find every role: a title holding all the words of a shorter one goes
+ * ("enterprise account executive" is found by searching "account executive"), and short forms count once ("SDR").
+ */
+export function coreTitles(titles: string[]) {
+  const sets = [...new Map(titles.map((t) => [fullTitle(t), t])).entries()].map(([full, t]) => ({ t, w: new Set(full.split(" ").filter((x) => x && !FILLER.has(x))) }));
+  return sets.filter((a) => !sets.some((b) => b !== a && b.w.size < a.w.size && [...b.w].every((x) => a.w.has(x)))).map((a) => a.t);
+}
+
+/**
  * The track whose titles fit a job title most closely: "Sales Development Manager" matches both "Sales Manager"
  * (sales leadership) and "Sales Development Manager" (SDR leadership), and the second shares more words, so it wins.
  * Ties go to the earlier track. Undefined when no track's titles fit.

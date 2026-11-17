@@ -4,6 +4,7 @@
 
 import type { CareerBoard } from "./careerBoards";
 import { htmlToText, titleMatches } from "./sources";
+import { coreTitles } from "./salesRoles";
 
 export type CareerJob = {
   externalId: string;
@@ -266,8 +267,8 @@ async function readRippling(board: CareerBoard, titles: string[], known: Set<str
 async function readGoogle(board: CareerBoard, titles: string[]): Promise<CareerJob[]> {
   const jobs = new Map<string, CareerJob>();
   const searchTitle = async (title: string) => {
-    // Two pages of 20: the close ones come first.
-    for (let page = 1; page <= 2; page++) {
+    // Three pages of 20: the close ones come first, and a short title ("account executive") stands in for its longer ones.
+    for (let page = 1; page <= 3; page++) {
       const q = new URLSearchParams({ location: "India", q: title, page: String(page) });
       const res = await fetch(`https://www.google.com/about/careers/applications/jobs/results?${q}`, { signal: AbortSignal.timeout(30_000) });
       if (!res.ok) throw new Error(`google.com answered ${res.status}`);
@@ -278,7 +279,7 @@ async function readGoogle(board: CareerBoard, titles: string[]): Promise<CareerJ
       for (const r of found) {
         const id = String(r[0]);
         const name = String(r[1] ?? "").trim();
-        if (!name || !titleMatches(title, name)) continue;
+        if (!name || !titles.some((t) => titleMatches(t, name))) continue;
         const places = ((r[9] as [string][] | null) ?? []).map((p) => p[0]).filter(Boolean).join("; ");
         const html = (x: unknown) => (Array.isArray(x) && typeof x[1] === "string" ? x[1] : "");
         const posted = (r[12] as [number] | null)?.[0];
@@ -296,7 +297,8 @@ async function readGoogle(board: CareerBoard, titles: string[]): Promise<CareerJ
       if (found.length < 20) break;
     }
   };
-  await Promise.all(titles.map(searchTitle));
+  // Each search sends a ~1.3 MB page: one per title (74, two pages each) was 164 MB a read (17 Nov).
+  await Promise.all(coreTitles(titles).map(searchTitle));
   return [...jobs.values()];
 }
 

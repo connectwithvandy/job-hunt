@@ -158,7 +158,8 @@ export const refresh = internalAction({
     };
     const found: CareerBoard[] = await ctx.runQuery(internal.careers.discovered, {});
     // The 13:00 and 18:00 reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
-    const boards = [...CAREER_BOARDS, ...found].filter((b) => !fresh || !FAST_ATS.has(b.ats));
+    // Google's site is searched at 7:00 only: each read downloads tens of MB.
+    const boards = [...CAREER_BOARDS, ...found].filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google"));
     const mine = boards.slice(start, start + CHUNK);
     // A few boards at a time: some send over 10 MB. A board that fails keeps yesterday's roles.
     for (let i = 0; i < mine.length; i += 4) {
