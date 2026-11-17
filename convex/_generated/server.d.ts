@@ -52,6 +52,7 @@ type Env = {
   readonly RAZORPAY_KEY_SECRET: string | undefined;
   readonly RAZORPAY_WEBHOOK_SECRET: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
+  readonly SCHEDULED_OFF: string | undefined;
   readonly SUBSCRIBER_DAILY: string | undefined;
   readonly USD_INR: string | undefined;
 };

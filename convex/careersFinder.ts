@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalAction } from "./_generated/server";
+import { env, internalAction } from "./_generated/server";
 import type { CareerBoard } from "./lib/careerBoards";
 import { companyKey } from "./lib/company";
 import { findBoard, type Candidate } from "./lib/boardFinder";
@@ -39,6 +39,7 @@ export const find = internalAction({
   // `again` looks everyone up now, even if checked this month: run it after adding a careers system.
   args: { start: v.optional(v.number()), again: v.optional(v.boolean()) },
   handler: async (ctx, { start = 0, again }) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     const fromYc = await ycCandidates().catch((err) => (console.warn("YC list failed:", String(err)), [] as Candidate[]));
     const fromPeople: Candidate[] = await ctx.runQuery(internal.careers.prospectCompanies, {});
     const everyone = [...new Map([...fromYc, ...fromPeople].map((c) => [companyKey(c.name), c])).entries()].filter(([key]) => key);

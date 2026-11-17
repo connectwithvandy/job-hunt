@@ -512,6 +512,7 @@ async function checkAndSave(ctx: ActionCtx, userId: Id<"users">, job: Doc<"jobs"
 export const recheckAll = internalAction({
   args: {},
   handler: async (ctx) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     const userIds: Id<"users">[] = await ctx.runQuery(internal.users.autopilotUsers, {});
     // A few seconds apart, so the same job boards aren't hit by everyone at once.
     for (const [i, userId] of userIds.entries()) await ctx.scheduler.runAfter(i * 5_000, internal.agent.recheckFor, { userId });
@@ -650,6 +651,7 @@ async function scoreIds(ctx: ActionCtx, { userId, resume, resumeFor, tracks, loc
 export const dailyRun = internalAction({
   args: { light: v.optional(v.boolean()) },
   handler: async (ctx, { light }) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     const userIds: Id<"users">[] = await ctx.runQuery(internal.users.autopilotUsers, {});
     // One run per person, 45 seconds apart, so one slow person can't stop the rest and Dreamwork isn't asked
     // by many people at once (failures came after 08:16 on busy mornings). 60 people end by about 8:45 IST.

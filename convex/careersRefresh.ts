@@ -34,6 +34,7 @@ const KEEP_LINKEDIN_DAYS = 30;
 export const linkedInPool = internalAction({
   args: {},
   handler: async (ctx) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     if (!env.APIFY_TOKEN) return null;
     const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
     if (!titles.length) return null;
@@ -82,6 +83,7 @@ const GOOGLE_SEARCHES: [string[], number][] = [
 export const googlePool = internalAction({
   args: {},
   handler: async (ctx) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     if (!env.APIFY_TOKEN) return null;
     const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
     if (!titles.length) return null;
@@ -146,6 +148,7 @@ const CHUNK = 40;
 export const refresh = internalAction({
   args: { start: v.optional(v.number()), fresh: v.optional(v.boolean()), since: v.optional(v.number()) },
   handler: async (ctx, { start = 0, fresh, since = Date.now() }) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
     // No tracks yet would mean keeping nothing; leave the table as it is.
     if (!titles.length) return null;
@@ -184,6 +187,7 @@ export const refresh = internalAction({
 export const quickCheck = internalAction({
   args: {},
   handler: async (ctx) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     const since = Date.now();
     const saved: { key: string; hash: string }[] = await ctx.runQuery(internal.careers.boardHashes, {});
     const last = new Map(saved.map((s) => [s.key, s.hash]));

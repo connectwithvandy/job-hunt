@@ -280,6 +280,7 @@ export const remove = internalMutation({
 export const syncAll = internalAction({
   args: {},
   handler: async (ctx) => {
+    if (env.SCHEDULED_OFF === "1") return null;
     const userIds: Id<"users">[] = await ctx.runQuery(
       internal.google.connectedUsers,
       {},

@@ -20,6 +20,9 @@ const app = defineApp({
     APIFY_OWNER_EXTRAS: v.optional(v.string()),
     // "on" turns back hourly AI scoring of new roles for paying people (agent.freshFor). Off since 13 Nov.
     FRESH_SCORING: v.optional(v.string()),
+    /** "1" skips the costly scheduled jobs (careers boards, LinkedIn/Google pulls, morning search, rechecks, Gmail sync).
+     *  Set on the dev deployment only, so the test copy stays usable without spending (~$6/month, 17 Nov). */
+    SCHEDULED_OFF: v.optional(v.string()),
     /** Connect Gmail (convex/google.ts): the Google Cloud OAuth client. Off when missing. */
     GOOGLE_CLIENT_ID: v.optional(v.string()),
     GOOGLE_CLIENT_SECRET: v.optional(v.string()),
