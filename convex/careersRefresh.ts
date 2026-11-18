@@ -184,7 +184,8 @@ export const refresh = internalAction({
     const found = ((await ctx.runQuery(internal.careers.discovered, {})) as CareerBoard[]).filter((b) => b.ats !== "workday");
     // The 13:00 and 18:00 reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
     // Google's site is searched at 7:00 only: each read downloads tens of MB.
-    const boards = [...(await pickedBoards(ctx)), ...found].filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google"));
+    // Workday is tried at 7:00 only: it refused every daytime read too (18 Nov), and its old roles stay until it answers.
+    const boards = [...(await pickedBoards(ctx)), ...found].filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google" && b.ats !== "workday"));
     const mine = boards.slice(start, start + CHUNK);
     // A few boards at a time: some send over 10 MB. A board that fails keeps yesterday's roles.
     for (let i = 0; i < mine.length; i += 4) {

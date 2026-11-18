@@ -62,7 +62,9 @@ async function workdayCall<T>(url: string, body?: unknown): Promise<T> {
       signal: AbortSignal.timeout(30_000),
     });
     if (res.ok) return (await res.json()) as T;
-    if (res.status !== 429 || attempt >= 3) throw new Error(`${new URL(url).host} answered ${res.status}`);
+    // One retry only. 18 Nov: every Workday board still answered 429 after 3 waited retries, so the waits
+    // (about 30s a board, 16 boards, 3 reads a day) were paid server time that brought nothing.
+    if (res.status !== 429 || attempt >= 1) throw new Error(`${new URL(url).host} answered ${res.status}`);
     const wait = Number(res.headers.get("retry-after"));
     await pause(Number.isFinite(wait) && wait > 0 ? Math.min(wait, 30) * 1000 : 5_000 * (attempt + 1));
   }
