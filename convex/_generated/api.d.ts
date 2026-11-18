@@ -88,6 +88,8 @@ import type * as postStats from "../postStats.js";
 import type * as prospects from "../prospects.js";
 import type * as scoreSpread from "../scoreSpread.js";
 import type * as serviceCheck from "../serviceCheck.js";
+import type * as setupHelp from "../setupHelp.js";
+import type * as setupHelpData from "../setupHelpData.js";
 import type * as shoutout from "../shoutout.js";
 import type * as stats from "../stats.js";
 import type * as stories from "../stories.js";
@@ -184,6 +186,8 @@ declare const fullApi: ApiFromModules<{
   prospects: typeof prospects;
   scoreSpread: typeof scoreSpread;
   serviceCheck: typeof serviceCheck;
+  setupHelp: typeof setupHelp;
+  setupHelpData: typeof setupHelpData;
   shoutout: typeof shoutout;
   stats: typeof stats;
   stories: typeof stories;

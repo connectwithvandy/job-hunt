@@ -38,6 +38,14 @@ export default defineSchema({
   }).index("by_userId_and_kind_and_round", ["userId", "kind", "round"]),
 
   /** The founding-offer email (offer.ts): one row per person sent, with their one-click answer if they gave one. */
+  /** The "two setups" help email (setupHelp.ts): Connect Gmail and/or load LinkedIn connections, once per person. */
+  setupHelpSends: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    kind: v.union(v.literal("both"), v.literal("gmail"), v.literal("linkedin")),
+    sentAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
   offerSends: defineTable({
     userId: v.id("users"),
     email: v.string(),

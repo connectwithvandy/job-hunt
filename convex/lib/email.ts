@@ -747,3 +747,75 @@ ${paras.map((t) => `<p>${esc(t)}</p>`).join("\n")}
 </div>`;
   return { subject, text, html };
 }
+
+export type SetupHelpKind = "both" | "gmail" | "linkedin";
+
+/**
+ * Step-by-step help for the two setups people got stuck on (18 Nov: ~21 tried Connect Gmail, 2 got past Google's
+ * warning; 2 of 84 had loaded LinkedIn connections). One email, only the steps each person still needs.
+ */
+export function setupHelpEmail(p: { name?: string; kind: SetupHelpKind }) {
+  const word = p.name?.trim().split(/\s+/)[0];
+  const first = word && word[0].toUpperCase() + word.slice(1);
+  const url = appUrl();
+  const hello = first ? `Hi ${first},` : "Hi,";
+  const gmail = p.kind !== "linkedin";
+  const linkedin = p.kind !== "gmail";
+  const subject = p.kind === "both" ? "2 quick setups that make JobPipe work much harder for you" : gmail ? "One quick setup: connect your Gmail to JobPipe" : "One quick setup: see who you know at every company";
+  const intro =
+    p.kind === "both"
+      ? "A few people told me they got stuck on two setup steps, so here they are, step by step. Each takes a few minutes, and they're what make JobPipe really useful."
+      : "A few people told me they got stuck on this setup step, so here it is, step by step. It takes a few minutes, and it's what makes JobPipe really useful.";
+  type Block = { title: string; why: string; steps: string[] };
+  const blocks: Block[] = [];
+  if (gmail)
+    blocks.push({
+      title: "Connect Gmail",
+      why: "Recruiter replies and interview invites then move your jobs along by themselves, so nothing slips.",
+      steps: [
+        `Open ${url}/tracker and press Connect Gmail.`,
+        `Google will say "Google hasn't verified this app". That's expected: JobPipe is new, and Google's review of apps that read email takes months. JobPipe can only read, never send, delete or change anything.`,
+        `Click "Go to JobPipe (unsafe)" in the red box. If you don't see it, click "Advanced" first. Don't press "Back to safety".`,
+        "Tick both boxes (Gmail and Calendar) and press Continue. You come straight back to JobPipe.",
+      ],
+    });
+  if (linkedin)
+    blocks.push({
+      title: "Load your LinkedIn connections",
+      why: "You then see who you know at every company you're applying to. A referral gets far more replies than applying cold.",
+      steps: [
+        `Open LinkedIn's "Get a copy of your data" page: https://www.linkedin.com/mypreferences/d/download-my-data`,
+        `Pick "Want something in particular?", tick only Connections, and press Request archive.`,
+        "LinkedIn emails you a link, usually in 10 to 30 minutes.",
+        `Download the file and upload it as it is (no need to unzip) on ${url}/network.`,
+      ],
+    });
+  const outro = "If anything gets stuck, just reply with a screenshot and I'll sort it.";
+  const text = `${hello}
+
+${intro}
+
+${blocks.map((b, i) => `${blocks.length > 1 ? `${i + 1}. ` : ""}${b.title}
+${b.why}
+${b.steps.map((s, k) => `  ${k + 1}) ${s}`).join("\n")}`).join("\n\n")}
+
+${outro}
+
+Vandy
+Founder, JobPipe
+`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
+<p>${esc(hello)}</p>
+<p>${esc(intro)}</p>
+${blocks
+  .map(
+    (b, i) => `<h3 style="font-size:16px;margin:24px 0 4px">${blocks.length > 1 ? `${i + 1}. ` : ""}${esc(b.title)}</h3>
+<p style="margin:0 0 8px;color:#444">${esc(b.why)}</p>
+<ol style="margin:0;padding-left:20px">${b.steps.map((s) => `<li style="margin-bottom:6px">${esc(s)}</li>`).join("")}</ol>`,
+  )
+  .join("\n")}
+<p style="margin-top:24px">${esc(outro)}</p>
+<p>Vandy<br><span style="color:#666">Founder, <a href="${url}" style="color:#666">JobPipe</a> · <a href="${FOUNDER_LINKEDIN}" style="color:#666">LinkedIn</a></span></p>
+</div>`;
+  return { subject, text, html };
+}
