@@ -959,7 +959,7 @@ function ConnectGmail({ connected, email, inboxAt, onScript }: { connected: bool
         <div className="font-medium">Get recruiter replies here automatically</div>
         <p className="text-ink-2">Replies and interview invites move your jobs along by themselves, checked every hour.</p>
       </div>
-      {failed && <p className="text-bad">That didn&apos;t connect. Try again, and tick both boxes on Google&apos;s page.</p>}
+      {failed && <p className="text-bad">That didn&apos;t connect. Try again: click Go to JobPipe (unsafe), then tick both boxes on Google&apos;s page.</p>}
       <button
         className="btn btn-primary"
         disabled={busy}
@@ -970,9 +970,24 @@ function ConnectGmail({ connected, email, inboxAt, onScript }: { connected: bool
       >
         {busy ? "Opening Google…" : "Connect Gmail"}
       </button>
-      <p className="text-ink-3">
-        Google may say it hasn&apos;t checked JobPipe yet: click <b>Advanced</b>, then <b>Go to JobPipe</b>, then <b>Allow</b>.
-      </p>
+      {/* Google's "hasn't verified this app ... (unsafe)" page stopped nearly everyone (18 Nov: ~21 tried, 2 connected),
+          so the steps come before the click, not after. */}
+      <div className="rounded border border-line bg-soft p-4 text-ink-2">
+        <p className="font-medium text-ink">Before you click: Google will show a warning. Here&apos;s what to do.</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <li>
+            Google says <b>&quot;Google hasn&apos;t verified this app&quot;</b>. That&apos;s expected: JobPipe is new, and Google&apos;s review of apps that read email
+            takes months.
+          </li>
+          <li>
+            Click <b>Go to JobPipe (unsafe)</b> in the red box. If you don&apos;t see it, click <b>Advanced</b> first. Don&apos;t press &quot;Back to safety&quot;.
+          </li>
+          <li>
+            Tick <b>both boxes</b> (Gmail and Calendar) and press <b>Continue</b>. You come straight back here.
+          </li>
+        </ol>
+        <p className="mt-2">JobPipe can only read, never send, delete or change anything, and you can disconnect anytime.</p>
+      </div>
       <details className="text-ink-2">
         <summary className="cursor-pointer underline">What does it read? Is it safe?</summary>
         <div className="mt-2 space-y-1">
@@ -1008,10 +1023,6 @@ export function GmailSync() {
   const inboxAt = me?.inboxAt ?? null;
   const live = inboxAt !== null && now - inboxAt < 3 * 3_600_000;
   const google = useQuery(api.google.status);
-  // Connect Gmail is hidden until Google approves JobPipe: its "Google hasn't verified this app ... (unsafe)" page
-  // stopped nearly everyone (18 Nov: ~21 tried, 2 connected). People already connected, and the owner, still see it.
-  // The script route meets the same warning, so it's hidden too unless someone already uses it.
-  if (!google?.connected && !inboxAt && !me?.isOwner) return null;
   // With Connect Gmail set up, that's the way in; the script stays for whoever already uses it.
   if (google?.available && !script) {
     return <ConnectGmail connected={google.connected} email={google.email} inboxAt={inboxAt} onScript={async () => setScript(gmailScript((await getToken()) ?? "", endpoint))} />;
