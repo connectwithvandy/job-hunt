@@ -26,9 +26,9 @@ export default function Network() {
             ? `${me.contactsCount.toLocaleString()} connections loaded`
             : "Load your connections"}
         </h2>
-        <ol className="mt-3 mb-5 list-decimal space-y-1 pl-5 text-sm text-ink-2">
+        <ol className="mt-3 mb-5 list-decimal space-y-2 pl-5 text-sm text-ink-2">
           <li>
-            On LinkedIn, open{" "}
+            Open LinkedIn&apos;s{" "}
             <a
               className="underline"
               href="https://www.linkedin.com/mypreferences/d/download-my-data"
@@ -36,16 +36,18 @@ export default function Network() {
               rel="noreferrer"
             >
               Get a copy of your data
-            </a>
-            .
+            </a>{" "}
+            page (sign in if it asks).
           </li>
           <li>
-            Choose &quot;Want something in particular?&quot;, tick only
-            Connections, and request the archive.
+            Pick the second option, <b>&quot;Want something in particular?&quot;</b>, tick only <b>Connections</b>, and press <b>Request archive</b>. LinkedIn may ask
+            for your password.
           </li>
           <li>
-            LinkedIn emails you a link, usually within 10 to 30 minutes. Unzip
-            it and pick Connections.csv below.
+            Wait for LinkedIn&apos;s email, usually 10 to 30 minutes, sometimes longer. You can close this page meanwhile.
+          </li>
+          <li>
+            Open the email, download the file, and choose it below <b>as it is</b>. No need to unzip it.
           </li>
         </ol>
         <ImportConnections />
@@ -81,7 +83,7 @@ export default function Network() {
               </a>{" "}
               page, tick only Messages and request the archive.
             </li>
-            <li>Unzip what LinkedIn emails you and pick messages.csv below.</li>
+            <li>Choose the file LinkedIn emails you below, as it is. No need to unzip it.</li>
           </ol>
           <ImportChats />
           <p className="mt-3 text-xs text-ink-3">

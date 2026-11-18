@@ -146,8 +146,9 @@ export default function Today() {
         .map((c) => ({ key: `h${j._id}${c.name}`, verb: "Reply", main: c.name, sub: `Wrote back ${timeAgo(new Date(c.repliedAt!).toISOString())} about ${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
     ),
     // Without Gmail, replies can't show up here, so "Done" would be a guess.
-    ...(!me.inboxAt || msSince(me.inboxAt) > DAY
-      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once on the Application tracker page.", href: "/tracker" }]
+    // Only for someone whose Gmail stopped: Connect Gmail is hidden from new people until Google approves the app.
+    ...(me.inboxAt && msSince(me.inboxAt) > DAY
+      ? [{ key: "gmail", verb: "Connect", main: "Gmail stopped checking", sub: "Recruiter replies and interview invites land here by themselves. Set it up once on the Application tracker page.", href: "/tracker" }]
       : []),
     ...(interviewing.length && stories?.length === 0
       ? [{ key: "stories", verb: "Prepare", main: "Your proof of work", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six examples cover most questions.`, href: "/stories" }]

@@ -19,6 +19,19 @@ import { payRange } from "@/lib/money";
 const fileClass =
   "block w-full max-w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line";
 
+/**
+ * The file LinkedIn sends is a zip. Taking it as it is saves an unzip step, which is hard on a phone:
+ * 2 of 84 people had loaded their connections by 18 Nov, and the ones who asked got stuck on this part.
+ */
+async function csvFrom(file: File, name: string): Promise<string> {
+  if (!/\.zip$/i.test(file.name) && file.type !== "application/zip" && file.type !== "application/x-zip-compressed") return await file.text();
+  const { unzipSync, strFromU8 } = await import("fflate");
+  const files = unzipSync(new Uint8Array(await file.arrayBuffer()), { filter: (f) => f.name.split("/").pop()?.toLowerCase() === name.toLowerCase() });
+  const found = Object.values(files)[0];
+  if (!found) throw new ConvexError(`That zip has no ${name} in it. On LinkedIn's page, make sure ${name === "Connections.csv" ? "Connections" : "Messages"} is ticked, then request the file again.`);
+  return strFromU8(found);
+}
+
 export function ImportConnections() {
   const clear = useMutation(api.contacts.clearBatch);
   const importBatch = useMutation(api.contacts.importBatch);
@@ -32,8 +45,8 @@ export function ImportConnections() {
         const file = new FormData(e.currentTarget).get("file") as File | null;
         setState(
           await attempt(async () => {
-            if (!file?.size) throw new ConvexError("Choose your Connections.csv file.");
-            const rows = parseConnectionsCsv(await file.text());
+            if (!file?.size) throw new ConvexError("Choose the file LinkedIn sent you.");
+            const rows = parseConnectionsCsv(await csvFrom(file, "Connections.csv"));
             setBusy("Replacing your old list…");
             while (await clear()) {
               // keep deleting until the old list is gone
@@ -53,7 +66,7 @@ export function ImportConnections() {
         setBusy("");
       }}
     >
-      <input type="file" name="file" accept=".csv,text/csv" className={fileClass} />
+      <input type="file" name="file" accept=".zip,.csv,text/csv,application/zip" className={fileClass} />
       <button className="btn btn-primary" disabled={!!busy}>
         {busy && <Spinner />}
         {busy || "Load connections"}
@@ -77,8 +90,8 @@ export function ImportChats() {
         const file = new FormData(e.currentTarget).get("file") as File | null;
         setState(
           await attempt(async () => {
-            if (!file?.size) throw new Error("Choose your messages.csv file.");
-            const text = await file.text();
+            if (!file?.size) throw new Error("Choose the file LinkedIn sent you.");
+            const text = await csvFrom(file, "messages.csv");
             const rows = parseMessagesCsv(text);
             setBusy("Replacing your old chats…");
             while (await clear()) {
@@ -100,7 +113,7 @@ export function ImportChats() {
         setBusy("");
       }}
     >
-      <input type="file" name="file" accept=".csv,text/csv" className={fileClass} />
+      <input type="file" name="file" accept=".zip,.csv,text/csv,application/zip" className={fileClass} />
       <button className="btn btn-primary" disabled={!!busy}>
         {busy && <Spinner />}
         {busy || "Load chats"}
@@ -995,6 +1008,10 @@ export function GmailSync() {
   const inboxAt = me?.inboxAt ?? null;
   const live = inboxAt !== null && now - inboxAt < 3 * 3_600_000;
   const google = useQuery(api.google.status);
+  // Connect Gmail is hidden until Google approves JobPipe: its "Google hasn't verified this app ... (unsafe)" page
+  // stopped nearly everyone (18 Nov: ~21 tried, 2 connected). People already connected, and the owner, still see it.
+  // The script route meets the same warning, so it's hidden too unless someone already uses it.
+  if (!google?.connected && !inboxAt && !me?.isOwner) return null;
   // With Connect Gmail set up, that's the way in; the script stays for whoever already uses it.
   if (google?.available && !script) {
     return <ConnectGmail connected={google.connected} email={google.email} inboxAt={inboxAt} onScript={async () => setScript(gmailScript((await getToken()) ?? "", endpoint))} />;
