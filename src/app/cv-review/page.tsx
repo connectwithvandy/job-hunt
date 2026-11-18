@@ -1,12 +1,26 @@
 "use client";
 
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { REVIEW_ROLES, type Review } from "../../../convex/lib/cvReview";
 import { Spinner } from "@/components/ui";
+import { regionsOf } from "@/lib/regions";
+import { backOffice, titleMatches } from "../../../convex/lib/salesRoles";
+import { strongCompany } from "../../../convex/lib/quickFit";
+
+/** Titles searched for each review role, so the review can end with real open roles in India. */
+const ROLE_TITLES: Record<string, string[]> = {
+  "SDR / BDR": ["SDR", "BDR", "Sales Development Representative", "Business Development Representative"],
+  "SDR / BDR leadership": ["SDR Manager", "Sales Development Manager", "Head of Sales Development"],
+  "Account Executive": ["Account Executive", "Enterprise Account Executive", "Mid Market Account Executive"],
+  "Sales leadership": ["Head of Sales", "Sales Director", "VP Sales", "Regional Sales Manager"],
+  "GTM strategy / AI GTM": ["GTM", "Go To Market", "Revenue Operations", "Sales Operations"],
+  "Founder's Office": ["Founder's Office", "Chief of Staff", "Founders Office"],
+  "Customer Success / Account Management": ["Customer Success Manager", "Account Manager"],
+};
 
 /** The free CV review: no account, one per email. The CV is read once and not kept. */
 export default function CvReview() {
@@ -14,6 +28,7 @@ export default function CvReview() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Review | null>(null);
+  const [role, setRole] = useState("Account Executive");
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-12 lg:px-12">
@@ -63,7 +78,7 @@ export default function CvReview() {
           </label>
           <label className="mt-4 block">
             <span className="label">Role you&apos;re going for</span>
-            <select name="role" className="field mt-1" defaultValue="Account Executive">
+            <select name="role" className="field mt-1" value={role} onChange={(e) => setRole(e.target.value)}>
               {REVIEW_ROLES.map((r) => (
                 <option key={r}>{r}</option>
               ))}
@@ -82,7 +97,7 @@ export default function CvReview() {
         </form>
       </div>
 
-      {result && <Result review={result} />}
+      {result && <Result review={result} role={role} />}
 
       <nav className="mt-16 flex flex-wrap gap-4 border-t border-line pt-6 text-xs text-ink-3">
         <Link href="/">Home</Link>
@@ -94,7 +109,52 @@ export default function CvReview() {
   );
 }
 
-function Result({ review }: { review: Review }) {
+const DAY = 86_400_000;
+
+/**
+ * Real open roles for the role they picked, in India or remote, newest and best-known companies first.
+ * 14 of the first 18 reviewers never signed up (17 Nov): the review ended with a generic pitch and no jobs.
+ */
+function OpenRoles({ role }: { role: string }) {
+  const titles = ROLE_TITLES[role] ?? ROLE_TITLES["Account Executive"];
+  const rows = useQuery(api.careers.forGuide, { titles: titles.slice(0, 4), india: true });
+  // Fixed when the list first shows, so the render stays pure.
+  const [now] = useState(() => Date.now());
+  if (!rows) return null;
+  const seen = new Set<string>();
+  const fit = rows
+    .filter((j) => titles.some((t) => titleMatches(t, j.title)) && !backOffice(j.title))
+    .filter((j) => regionsOf(j).some((r) => r === "india" || r === "blr" || r === "remote"))
+    .filter((j) => !j.postedAt || now - Date.parse(j.postedAt) < 30 * DAY)
+    .filter((j) => !seen.has(`${j.company}|${j.title}`) && !!seen.add(`${j.company}|${j.title}`));
+  if (fit.length < 3) return null;
+  const top = [...fit]
+    .sort((a, b) => Number(strongCompany(b.company)) - Number(strongCompany(a.company)) || (Date.parse(b.postedAt ?? "") || 0) - (Date.parse(a.postedAt ?? "") || 0))
+    .slice(0, 5);
+  return (
+    <div className="card mt-14 p-8">
+      <h2 className="display text-2xl">
+        {fit.length} {role} roles open in India right now
+      </h2>
+      <ul className="mt-5 divide-y divide-line">
+        {top.map((j) => (
+          <li key={j.externalId} className="py-3">
+            <p className="font-medium">{j.title}</p>
+            <p className="text-sm text-ink-2">
+              {j.company} · {j.location}
+            </p>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-5 text-ink-2">See all of them, how well your CV fits each one, and a CV tailored to the ones worth applying to. Free to start.</p>
+      <Link href="/" className="btn btn-primary mt-6">
+        See my matching jobs
+      </Link>
+    </div>
+  );
+}
+
+function Result({ review, role }: { review: Review; role: string }) {
   const tone = review.score >= 75 ? "text-good" : review.score >= 50 ? "text-ink" : "text-bad";
   return (
     <section className="mt-16 border-t border-line pt-12">
@@ -147,6 +207,8 @@ function Result({ review }: { review: Review }) {
           </div>
         </>
       )}
+
+      <OpenRoles role={role} />
 
       <div className="card mt-14 p-8">
         <h2 className="display text-2xl">Fixed it? Want it re-checked, and tailored for every job?</h2>
