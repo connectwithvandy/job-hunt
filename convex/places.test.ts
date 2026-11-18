@@ -40,3 +40,12 @@ test("'Home Office (India)' is a remote India role (Delinea's Ashby board, 17 No
   expect(openTo(readPlace("Remote"), "Home Office (Italy) (Remote)")).toBe(false);
   expect(openTo(readPlace("Bengaluru"), "Home Office (Germany)")).toBe(false);
 });
+
+test("UAE: Dubai and Abu Dhabi listings count, Gulf remote roles count, India roles don't", () => {
+  const uae = readPlace("United Arab Emirates");
+  expect(openTo(uae, "Dubai, UAE")).toBe(true);
+  expect(openTo(uae, "Abu Dhabi")).toBe(true);
+  expect(openTo(uae, "Remote - MENA", "remote")).toBe(true);
+  expect(openTo(uae, "Bengaluru, India")).toBe(false);
+  expect(openTo(readPlace("Dubai"), "Dubai - United Arab Emirates")).toBe(true);
+});

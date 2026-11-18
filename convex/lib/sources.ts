@@ -183,6 +183,11 @@ type HimalayasJob = {
   pubDate?: number; description?: string; excerpt?: string;
 };
 
+/**
+ * Other names a listing uses for the same country. 18 Nov: a member asked about Dubai, and "Dubai, UAE" or
+ * "Abu Dhabi" listings didn't count for someone who picked the UAE.
+ */
+const COUNTRY_ALIASES: Record<string, string[]> = { ae: ["uae", "u.a.e", "dubai", "abu dhabi", "sharjah", "ajman", "emirates"] };
 const COUNTRY_NAMES: Record<string, string> = { in: "india", us: "united states", gb: "united kingdom", de: "germany", fr: "france", nl: "netherlands", ca: "canada", au: "australia", sg: "singapore", nz: "new zealand", ae: "united arab emirates" };
 
 
@@ -288,13 +293,15 @@ export function openTo(place: Place, location: string, workSetting?: string, tit
   if (place.kind === "remote") return remoteForIndia(location, workSetting, title);
   if (place.country === "in" && !/^india$/i.test(place.name.trim())) return openToIndianCity(place.name, where, remote, title.toLowerCase());
   const country = place.country && COUNTRY_NAMES[place.country];
-  const names = [...place.name.toLowerCase().split(",").map((p) => p.trim()), country, ...(place.country === "in" ? INDIA_CITIES : [])].filter((n): n is string => !!n);
+  const names = [...place.name.toLowerCase().split(",").map((p) => p.trim()), country, ...(place.country === "in" ? INDIA_CITIES : []), ...(COUNTRY_ALIASES[place.country ?? ""] ?? [])].filter((n): n is string => !!n);
   // Whole words, so "Indianapolis" isn't India. The place is often in the title: "Account Executive - India", "BDR - SAARC".
   const text = `${where} ${title.toLowerCase()}`;
   if (names.some((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text))) return true;
   if (place.country === "in" && /\bsaarc\b/.test(text)) return true;
   // A remote role counts only when it says it's open worldwide or to the region. Big companies
   // write plain "Remote" for roles that are really tied to one US state.
+  // Gulf remote roles say the region: "Remote - MENA", "GCC".
+  if (place.country === "ae" && remote && /\b(mena|gcc|middle east|gulf)\b/.test(text)) return true;
   return remote && /\b(worldwide|global|apac|apj|asia)\b/.test(where);
 }
 

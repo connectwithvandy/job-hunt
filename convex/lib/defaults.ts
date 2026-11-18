@@ -66,6 +66,7 @@ export const CITY_CHOICES = ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "P
 export const LOCATION_CHOICES = [
   { value: "India", label: "Anywhere in India" },
   { value: "United States", label: "United States" },
+  { value: "United Arab Emirates", label: "UAE (Dubai, Abu Dhabi)" },
   { value: "Anywhere", label: "Anywhere in the world" },
 ];
 

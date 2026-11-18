@@ -267,7 +267,7 @@ async function careerMatches(ctx: ActionCtx, titles: string[], location: string)
   const place = readPlace(location);
   // "Remote" means remote roles open to someone in India, which are filed as India roles too.
   const inIndia = (place.kind === "place" && place.country === "in") || place.kind === "remote";
-  const rows: CareerRow[] = inIndia ? await indiaRows(ctx) : await ctx.runQuery(internal.careers.search, { titles, india: false });
+  const rows: CareerRow[] = inIndia ? await indiaRows(ctx) : await ctx.runQuery(internal.careers.search, { titles, india: false, perTerm: 500 });
   return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 300));
 }
 

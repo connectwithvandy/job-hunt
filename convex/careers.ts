@@ -293,8 +293,10 @@ async function searchTitles(ctx: QueryCtx, titles: string[], india: boolean, per
 }
 
 export const search = internalQuery({
-  args: { titles: v.array(v.string()), india: v.boolean() },
-  handler: async (ctx, { titles, india }) => await searchTitles(ctx, titles.slice(0, 16), india, 64),
+  // perTerm: places outside India search the whole world list, so 64 a title left only a few roles for any one
+  // country (18 Nov: 3 UAE sales roles out of 584 read). Those searches pass more.
+  args: { titles: v.array(v.string()), india: v.boolean(), perTerm: v.optional(v.number()) },
+  handler: async (ctx, { titles, india, perTerm = 64 }) => await searchTitles(ctx, titles.slice(0, 16), india, Math.min(perTerm, 1024)),
 });
 
 /**

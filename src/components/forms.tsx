@@ -460,6 +460,7 @@ function placeHint(cities: string[], wide: string, modes: WorkMode[]) {
   }
   if (wide === "Anywhere") return only("in any country.");
   if (wide === "United States") return `${only("in the US")}${remote ? ", plus remote jobs open to the US." : "."}`;
+  if (wide === "United Arab Emirates") return `${only("in the UAE")}${remote ? ", plus remote jobs open to the Gulf." : "."}`;
   return `${only("anywhere in India")}${remote ? ", plus remote jobs open to India." : "."}`;
 }
 

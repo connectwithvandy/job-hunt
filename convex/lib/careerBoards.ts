@@ -18,6 +18,18 @@ export type CareerBoard = {
 };
 
 export const CAREER_BOARDS: CareerBoard[] = [
+  // Gulf tech companies (18 Nov): a member asked about Dubai, and the list held almost no UAE sales roles.
+  { name: "Careem", website: "careem.com", ats: "greenhouse", slug: "careem" },
+  { name: "Tamara", website: "tamara.co", ats: "greenhouse", slug: "tamara" },
+  { name: "Property Finder", website: "propertyfinder.ae", ats: "teamtailor", slug: "propertyfinder.teamtailor.com" },
+  { name: "Dubizzle", website: "dubizzle.com", ats: "teamtailor", slug: "dubizzle.teamtailor.com" },
+  { name: "Bayut", website: "bayut.com", ats: "bamboohr", slug: "bayut" },
+  { name: "Foodics", website: "foodics.com", ats: "workable", slug: "foodics" },
+  { name: "Salla", website: "salla.com", ats: "workable", slug: "salla" },
+  { name: "Qlub", website: "qlub.io", ats: "ashby", slug: "qlub" },
+  { name: "Ziina", website: "ziina.com", ats: "ashby", slug: "ziina" },
+  { name: "Lean Technologies", website: "leantech.me", ats: "ashby", slug: "leantech" },
+  { name: "Unifonic", website: "unifonic.com", ats: "recruitee", slug: "unifonic" },
   // Voice and AI apps
   { name: "Wispr Flow", website: "wisprflow.ai", ats: "ashby", slug: "wispr-flow" },
   { name: "ElevenLabs", website: "elevenlabs.io", ats: "ashby", slug: "elevenlabs" },
