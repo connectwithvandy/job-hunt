@@ -43,6 +43,11 @@ export async function generateMetadata({ params }: PageProps<"/sales-jobs/role/[
   };
 }
 
+/** 30 days from this rebuild, as a date: how long Google should treat a listed role as open. */
+function thirtyDaysOn() {
+  return new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+}
+
 export default async function RolePage({ params }: PageProps<"/sales-jobs/role/[code]">) {
   const { code } = await params;
   const found = await find(code);
@@ -62,6 +67,10 @@ export default async function RolePage({ params }: PageProps<"/sales-jobs/role/[
           hiringOrganization: { "@type": "Organization", name: job.company },
           identifier: { "@type": "PropertyValue", name: job.company, value: job.externalId },
           directApply: false,
+          // Google's job results look for both. Pages rebuild every 6 hours and a closed role's page goes away,
+          // so "open for 30 more days" from each rebuild stays true while the role is listed.
+          employmentType: /\bintern(ship)?\b/i.test(job.title) ? "INTERN" : /\bcontract(or)?\b/i.test(job.title) ? "CONTRACTOR" : "FULL_TIME",
+          validThrough: thirtyDaysOn(),
           ...(remote
             ? { jobLocationType: "TELECOMMUTE", applicantLocationRequirements: { "@type": "Country", name: "India" } }
             : { jobLocation: { "@type": "Place", address: { "@type": "PostalAddress", addressLocality: job.location.split(/[;,|]/)[0].trim(), addressCountry: regionsOf(job).includes("india") ? "IN" : undefined } } }),
