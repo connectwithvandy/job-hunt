@@ -106,6 +106,26 @@ export const forFill = query({
     // Blank ones too: a question the candidate must answer must not be filled by a looser match (like their own email).
     const exact = (d?.applyForm?.questions ?? []).map((q) => ({ question: q.question, answer: q.answer.trim(), exact: true }));
     const saved = (profile?.answers ?? []).filter((a) => a.question.trim() && a.answer.trim()).map((a) => ({ question: a.question, answer: a.answer, exact: false }));
+    // Name, email, phone and the rest straight from the CV, for anything not saved as an answer: with no saved
+    // answers the form got nothing to fill (19 Nov test on an Ashby form). Saved answers still win.
+    const have = new Set(saved.map((a) => a.question.trim().toLowerCase()));
+    const now = resume?.experience[0];
+    const school = resume?.education[0];
+    const fromCv = resume
+      ? [
+          ["Full name", resume.name],
+          ["Email", resume.contact.email],
+          ["Phone", resume.contact.phone],
+          ["LinkedIn profile", resume.contact.linkedin],
+          ["Current location", resume.contact.location],
+          ["Current company", now?.company ?? ""],
+          ["Current job title", now?.role ?? ""],
+          ["University", school?.school ?? ""],
+          ["Highest degree", school?.degree ?? ""],
+        ]
+          .filter(([q, a]) => a.trim() && !have.has(q.toLowerCase()))
+          .map(([question, answer]) => ({ question, answer: answer.trim(), exact: false }))
+      : [];
     return {
       company: job.company,
       title: job.title,
@@ -113,7 +133,7 @@ export const forFill = query({
       resume: resume ?? null,
       tailored,
       coverLetter: pack?.coverLetter ?? "",
-      answers: [...exact, ...saved],
+      answers: [...exact, ...saved, ...fromCv],
       needsYou: (d?.applyForm?.questions ?? []).filter((q) => q.needsYou).length,
     };
   },

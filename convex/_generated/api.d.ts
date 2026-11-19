@@ -69,6 +69,7 @@ import type * as lib_health from "../lib/health.js";
 import type * as lib_hiringIndex from "../lib/hiringIndex.js";
 import type * as lib_hunter from "../lib/hunter.js";
 import type * as lib_inbox from "../lib/inbox.js";
+import type * as lib_internalAccounts from "../lib/internalAccounts.js";
 import type * as lib_jobPrefs from "../lib/jobPrefs.js";
 import type * as lib_meeting from "../lib/meeting.js";
 import type * as lib_messageText from "../lib/messageText.js";
@@ -175,6 +176,7 @@ declare const fullApi: ApiFromModules<{
   "lib/hiringIndex": typeof lib_hiringIndex;
   "lib/hunter": typeof lib_hunter;
   "lib/inbox": typeof lib_inbox;
+  "lib/internalAccounts": typeof lib_internalAccounts;
   "lib/jobPrefs": typeof lib_jobPrefs;
   "lib/meeting": typeof lib_meeting;
   "lib/messageText": typeof lib_messageText;

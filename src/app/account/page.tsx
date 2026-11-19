@@ -2,18 +2,29 @@
 
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useState } from "react";
+import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { PageHead } from "@/components/bits";
+import { AnswersForm } from "@/components/forms";
+import { readCv } from "@/lib/cvReadback";
 import { Loading } from "@/components/Loading";
 import { attempt, Feedback, type ActionState } from "@/components/ui";
 
 export default function Account() {
   const me = useQuery(api.access.mine);
-  if (!me) return <Loading />;
+  const user = useQuery(api.users.me);
+  if (!me || !user) return <Loading />;
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHead title="Profile" sub="Who you are to JobPipe. Your CVs, roles, proof of work and LinkedIn data are in the menu on the left." />
+      <PageHead title="About you" sub="Who you are to JobPipe. Check what it read from your CV, where you'd work, and the answers it puts on forms." />
       <Details me={me} />
+      <CvRead cv={user.resume} />
+      <WhereYouWork location={user.location} workModes={user.workModes} />
+      <section className="mb-6">
+        <h2 className="mb-1 text-lg font-semibold">Answers for application forms</h2>
+        <p className="mb-3 text-sm text-ink-2">Notice period and pay come up on almost every form. Each job&apos;s Apply step and the chat use these.</p>
+        <AnswersForm answers={user.answers} location={user.location} firstFew={3} />
+      </section>
       <PasswordForm />
     </div>
   );
@@ -61,6 +72,97 @@ function Details({ me }: { me: { email: string; name: string; linkedin: string; 
       ) : (
         <p className="mt-4 text-xs text-ink-3">Your name comes from your main CV.</p>
       )}
+    </section>
+  );
+}
+
+/** One line of the CV read-back: what it is on the left, what JobPipe read on the right. */
+function Item({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1 border-t border-line py-3 first:border-t-0 first:pt-0 sm:grid-cols-[10rem_1fr]">
+      <span className="text-sm text-ink-3">{label}</span>
+      <div className="min-w-0 text-sm">{children}</div>
+    </div>
+  );
+}
+
+/** What JobPipe took from the main CV, so a misread can be fixed before it shapes every tailored CV and score. */
+function CvRead({ cv }: { cv: Parameters<typeof readCv>[0] }) {
+  const r = readCv(cv);
+  const edit = (
+    <Link href="/resume" className="text-xs text-ink-3 underline hover:text-ink">
+      Looks wrong? Edit CV
+    </Link>
+  );
+  if (!r) {
+    return (
+      <section className="card mb-6 p-6">
+        <h2 className="mb-1 text-lg font-semibold">How JobPipe reads your CV</h2>
+        <p className="text-sm text-ink-2">
+          No CV yet. <Link href="/resume" className="underline">Add your CV</Link> and this shows what JobPipe takes from it.
+        </p>
+      </section>
+    );
+  }
+  const none = <span className="text-ink-3">Not found in your CV.</span>;
+  return (
+    <section className="card mb-6 p-6">
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">How JobPipe reads your CV</h2>
+        {edit}
+      </div>
+      <p className="mb-4 text-sm text-ink-2">Every fit score and tailored CV starts from this. If something here is wrong, fix it in your CV.</p>
+      <div>
+        <Item label="Now">{r.current ?? none}</Item>
+        <Item label="Experience">{r.years !== null ? `About ${r.years} ${r.years === 1 ? "year" : "years"}` : none}</Item>
+        <Item label="Last roles">
+          {r.roles.length ? (
+            <ul className="space-y-1">
+              {r.roles.map((x, i) => (
+                <li key={i}>
+                  <span className="font-medium">{x.title || "Role not named"}</span> · {x.company || "Company not named"}
+                  {x.when && <span className="text-ink-3"> · {x.when}</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            none
+          )}
+        </Item>
+        <Item label="Markets">{r.regions.length ? r.regions.join(", ") : none}</Item>
+        <Item label="Tools and skills">{r.skills.length ? r.skills.join(", ") : none}</Item>
+        <Item label="Numbers it reuses">
+          {r.numbers.length ? (
+            <ul className="list-disc space-y-1 pl-4">
+              {r.numbers.map((n, i) => (
+                <li key={i}>{n}</li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-ink-3">No numbers found. Results with numbers (quota %, pipeline, team size) make every tailored CV stronger.</span>
+          )}
+        </Item>
+      </div>
+    </section>
+  );
+}
+
+const MODE_WORDS: Record<string, string> = { onsite: "in office", hybrid: "hybrid", remote: "remote" };
+
+/** Where they'd work, as picked on Roles, with a way back there to change it. */
+function WhereYouWork({ location, workModes }: { location: string; workModes: string[] }) {
+  return (
+    <section className="card mb-6 flex flex-wrap items-center justify-between gap-3 p-6">
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold">Where you&apos;d work</h2>
+        <p className="mt-1 text-sm text-ink-2">
+          {location || "Not picked yet"}
+          {workModes.length ? ` · ${workModes.map((m) => MODE_WORDS[m] ?? m).join(", ")}` : ""}
+        </p>
+      </div>
+      <Link href="/tracks" className="btn btn-sm">
+        Change in Roles
+      </Link>
     </section>
   );
 }

@@ -218,7 +218,7 @@ export default function Today() {
   const chase: Todo[] = [
     // Many drafts read as a wall of the same line (19 Nov: 18 of 19 to-dos), so more than one becomes a single line.
     ...(drafts.length > 1
-      ? [{ key: "drafts", verb: "Send", main: `${drafts.length} referral notes ready`, sub: `Written for you: ${[...new Set(drafts.map(({ j }) => j.company))].slice(0, 3).join(", ")}. Read each one, then send it.`, href: "/inbox?show=ready", mark: drafts[0].j, cta: "Review notes", primary: true }]
+      ? [{ key: "drafts", verb: "Send", main: `${drafts.length} referral notes ready`, sub: `Written for you: ${[...new Set(drafts.map(({ j }) => j.company))].slice(0, 3).join(", ")}. Read each one, then send it.`, href: "/inbox?show=ready", many: drafts.length, cta: "Review notes", primary: true }]
       : drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `${j.company} · Note to ${o.name}`, sub: `Written, not sent yet · for ${j.title}`, href: `/jobs/${j._id}`, mark: j, cta: "Review note", primary: true }))),
     // A referral ask's follow-up opens right here, written and ready to copy.
     ...followUps.map(({ j, name, n, o, lastAt }) => ({
@@ -270,7 +270,7 @@ export default function Today() {
   // Two or more quiet applications read as one line, not a wall (19 Nov).
   const quietItems: Todo[] =
     quiet.length > 1
-      ? [{ key: "quiet", verb: "Follow up", main: `${quiet.length} applications quiet for 10+ days`, sub: quiet.slice(0, 3).map((j) => j.company).join(", ") + (quiet.length > 3 ? ` and ${quiet.length - 3} more` : ""), href: "/tracker", mark: quiet[0], cta: "Nudge them" }]
+      ? [{ key: "quiet", verb: "Follow up", main: `${quiet.length} applications quiet for 10+ days`, sub: quiet.slice(0, 3).map((j) => j.company).join(", ") + (quiet.length > 3 ? ` and ${quiet.length - 3} more` : ""), href: "/tracker", many: quiet.length, cta: "Nudge them" }]
       : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.company} · ${j.title}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}`, mark: j, cta: "Nudge" }));
   const followUpItems = [...chase.filter((t) => t.verb === "Follow up" && !t.key.startsWith("q")), ...quietItems];
   const referralItems = [...chase.filter((t) => t.verb === "Send"), ...reach];
@@ -641,7 +641,7 @@ function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"
         {started.map((j) => row(j, true))}
         {moreStarted.length > 0 && (
           <li className="flex flex-wrap items-center gap-3 px-3 py-3">
-            <CompanyMark job={moreStarted[0]} size={36} />
+            <ManyMark n={moreStarted.length} />
             <Link href="/tracker" className="min-w-0 flex-1 basis-48">
               <span className="block text-sm font-medium md:truncate">
                 {moreStarted.length} more started, not sent: {moreStarted.slice(0, 2).map((j) => j.company).join(", ")}
@@ -666,6 +666,16 @@ function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"
 }
 
 /** `panel` opens in place on a click instead of going to `href`. */
+/** The left box for a row that covers several companies: the count, the same size as a company logo, so it never
+ *  borrows one company's logo for the whole group (19 Nov: "4 referral notes" showed Trail's T). */
+function ManyMark({ n }: { n: number }) {
+  return (
+    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-soft text-sm font-semibold text-ink-2" aria-hidden>
+      {n}
+    </span>
+  );
+}
+
 type Todo = {
   key: string;
   verb: string;
@@ -675,6 +685,8 @@ type Todo = {
   panel?: React.ReactNode;
   /** The company logo on the left of the row. */
   mark?: { company: string; companyLogo?: string; url?: string; sourceUrl?: string };
+  /** A row standing for several companies shows this count in a plain box instead of one company's logo. */
+  many?: number;
   /** The one button on the right; the whole row opens the same place. */
   cta?: string;
   primary?: boolean;
@@ -712,7 +724,7 @@ const VERB_TONE: Record<string, string> = {
 function TodoRow({ t, arrow, group }: { t: Todo; arrow: string; group?: string }) {
   return (
     <>
-      {t.mark && <CompanyMark job={t.mark} size={36} />}
+      {t.many ? <ManyMark n={t.many} /> : t.mark && <CompanyMark job={t.mark} size={36} />}
       <span className="min-w-0 flex-1 basis-48">
         {/* Inside a group the header says what kind of task it is, so rows carry no coloured label of their own (19 Nov). */}
         {!group && <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>}

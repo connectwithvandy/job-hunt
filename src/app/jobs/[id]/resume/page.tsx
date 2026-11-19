@@ -9,7 +9,8 @@ import type { Id } from "../../../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
 import { CvLayoutPick, ResumeDoc } from "@/components/ResumeDoc";
 import { TailoredEditor } from "@/components/ResumeFields";
-import { PrintButton } from "@/components/ui";
+import { DownloadMenu } from "@/components/ui";
+import { CvChanges } from "@/components/CvChanges";
 import { downloadDocx } from "@/lib/docx";
 import { logoMap } from "@/lib/logos";
 
@@ -23,6 +24,10 @@ export default function TailoredResume() {
   const sent = params.get("sent") ? data?.job.sent : undefined;
   // ?edit=1 (from the job page's "Edit this CV") opens the editor straight away.
   const editing = params.get("edit") === "1";
+  // ?changes=1 (from the job page's "What changed") opens the comparison with the master CV.
+  const [changes, setChanges] = useState(params.get("changes") === "1");
+  // ?print=1 (from a Download → PDF menu elsewhere) opens the print window once the CV has drawn.
+  const printNow = params.get("print") === "1";
   const pack = sent ? { ...data!.job.pack!, resume: sent.resume, unverified: [] } : data?.job.pack;
 
   // The page title becomes the PDF's file name when you choose "Save as PDF".
@@ -31,6 +36,11 @@ export default function TailoredResume() {
   useEffect(() => {
     if (fileName) document.title = fileName;
   }, [fileName]);
+  useEffect(() => {
+    if (!printNow || !fileName) return;
+    const t = setTimeout(() => window.print(), 600);
+    return () => clearTimeout(t);
+  }, [printNow, fileName]);
 
   if (!me || data === undefined) return <Loading />;
   if (!data || !pack) {
@@ -48,23 +58,34 @@ export default function TailoredResume() {
           ← {job.title} at {job.company}
         </Link>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-ink-3">In the print window, pick &quot;Save as PDF&quot; and turn off headers and footers.</span>
           <CvLayoutPick plain={plain} onChange={setPlain} />
+          {!pack.letterOnly && (
+            <button type="button" className={`btn btn-sm ${changes ? "btn-primary" : "btn-ghost"}`} aria-pressed={changes} onClick={() => setChanges(!changes)}>
+              What changed
+            </button>
+          )}
           {!sent && (
             <a href="#edit" className="btn btn-ghost btn-sm" onClick={() => (document.getElementById("edit") as HTMLDetailsElement | null)?.setAttribute("open", "")}>
               Edit
             </a>
           )}
-          <PrintButton />
-          <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(pack.resume, `${pack.resume.name} CV ${job.company}`)}>
-            Download Word
-          </button>
+          <DownloadMenu primary onWord={() => void downloadDocx(pack.resume, `${pack.resume.name} CV ${job.company}`)} />
         </div>
       </div>
       {pack.unverified.length > 0 && (
         <p className="no-print w-full max-w-[210mm] rounded-lg bg-warn/10 p-3 text-sm text-warn">
           Check before sending: {pack.unverified.join(", ")} {pack.unverified.length === 1 ? "isn't" : "aren't"} in your master CV.
         </p>
+      )}
+      {changes && all && (
+        <section className="no-print card w-full max-w-[210mm] p-5">
+          <h2 className="mb-3 text-base font-semibold">What changed from your master CV</h2>
+          <CvChanges
+            tailored={pack.resume}
+            masters={all}
+            defaultMasterId={(job.pack?.trackKey && me.tracks.find((t) => t.key === job.pack?.trackKey)?.resumeId) || me.defaultResumeId}
+          />
+        </section>
       )}
       <div className="max-w-full overflow-x-auto">
         <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap((all ?? []).map((m) => m.resume))} plain={plain} />

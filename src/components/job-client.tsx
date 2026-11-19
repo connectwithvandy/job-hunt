@@ -165,6 +165,43 @@ type TailorQuestion = { question: string; why: string };
 /** Writes the tailored CV, cover letter and hiring-manager note from the CV you pick. */
 /** `anyway` is set when the app says to skip this job: the button then says so, and writes past the warning. */
 /** For a favourite, the first write asks a few questions first; once a draft exists, you can ask for them to sharpen it. */
+/**
+ * While the CV and cover letter are written: the stage it's likely at and the seconds so far, never a fake "done".
+ * Stages are a guide by time (the writing call gives no progress back); the bar stops short of full until it returns.
+ */
+function WritingProgress({ letterOnly }: { letterOnly?: boolean }) {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const t = setInterval(() => setSecs(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const steps = letterOnly ? ["Reading the job", "Writing your cover letter"] : ["Reading the job", "Matching your experience", "Writing your CV and cover letter", "Checking every number against your CV"];
+  const at = letterOnly ? (secs < 8 ? 0 : 1) : secs < 8 ? 0 : secs < 20 ? 1 : secs < 45 ? 2 : 3;
+  // Climbs quickly then slows, and never reaches the end on its own.
+  const pct = Math.round(92 * (1 - Math.exp(-secs / 30)));
+  return (
+    <div className="w-full rounded-lg bg-soft p-3 text-sm" role="status" aria-live="polite">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="font-medium">{steps[at]}…</span>
+        <span className="text-xs text-ink-3 tabular-nums">{secs}s · usually under a minute</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-line">
+        <div className="h-full rounded-full bg-accent transition-[width] duration-1000" style={{ width: `${pct}%` }} />
+      </div>
+      <ol className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
+        {steps.map((st, i) => (
+          <li key={st} className={i < at ? "text-good" : i === at ? "text-ink" : ""}>
+            {i < at ? "✓ " : ""}
+            {st}
+          </li>
+        ))}
+      </ol>
+      {secs > 90 && <p className="mt-2 text-xs text-ink-2">Taking longer than usual. Keep this page open; it carries on.</p>}
+    </div>
+  );
+}
+
 export function TailorButton({
   jobId,
   resumes,
@@ -191,8 +228,10 @@ export function TailorButton({
   const [asking, setAsking] = useState(false);
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
+  const [letterRun, setLetterRun] = useState(false);
 
   const write = async (letterOnly?: boolean) => {
+    setLetterRun(!!letterOnly);
     await tailor({ jobId, resumeId, feedback: redo ? feedback : undefined, anyway, letterOnly });
     setFeedback("");
     setQuestions(null);
@@ -250,7 +289,7 @@ export function TailorButton({
             }
           >
             {busy && <Spinner />}
-            {busy ? "Writing… about a minute" : redo ? "Rewrite it" : "Write it"}
+            {busy ? "Writing…" : redo ? "Rewrite it" : "Write it"}
           </button>
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => (redo ? setQuestions(null) : run(() => write()))}>
             {redo ? "Not now" : "Skip questions"}
@@ -258,6 +297,7 @@ export function TailorButton({
           <LeftToday kind="cvsLeft" label="tailored CVs" />
           <Feedback state={busy ? null : state} />
         </div>
+        {busy && <WritingProgress letterOnly={letterRun} />}
       </div>
     );
   }
@@ -291,7 +331,7 @@ export function TailorButton({
         {asking
           ? "Reading the job…"
           : busy
-            ? "Writing… about a minute"
+            ? "Writing…"
             : redo
               ? feedback.trim()
                 ? "Rewrite with my changes"
@@ -315,6 +355,7 @@ export function TailorButton({
       )}
       <LeftToday kind="cvsLeft" label="tailored CVs" />
       <Feedback state={busy ? null : state} />
+      {busy && !asking && <WritingProgress letterOnly={letterRun} />}
     </div>
   );
 }

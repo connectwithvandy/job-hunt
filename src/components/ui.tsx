@@ -136,6 +136,51 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
   );
 }
 
+/**
+ * One "Download" menu for a CV: PDF (the browser's print window, "Save as PDF") and a Word file. Replaces two
+ * side-by-side buttons on the CV pages (19 Nov). `pdfHref` opens the CV's own page and prints it there, for places
+ * that don't show the CV itself, like the job page.
+ */
+export function DownloadMenu({ onWord, pdfHref, primary }: { onWord: () => void; pdfHref?: string; primary?: boolean }) {
+  const close = (e: React.MouseEvent) => e.currentTarget.closest("details")?.removeAttribute("open");
+  return (
+    <details className="no-print relative">
+      <summary className={`btn btn-sm list-none ${primary ? "btn-primary" : "btn-ghost"} [&::-webkit-details-marker]:hidden`}>Download ▾</summary>
+      <div className="card absolute right-0 z-30 mt-1 w-56 p-1 text-sm shadow-lg">
+        {pdfHref ? (
+          <Link href={pdfHref} className="block rounded-md px-3 py-2 hover:bg-soft" onClick={close}>
+            PDF
+            <span className="block text-xs text-ink-3">Opens the CV, then pick &quot;Save as PDF&quot;</span>
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="block w-full rounded-md px-3 py-2 text-left hover:bg-soft"
+            onClick={(e) => {
+              close(e);
+              window.print();
+            }}
+          >
+            PDF
+            <span className="block text-xs text-ink-3">Pick &quot;Save as PDF&quot;, headers and footers off</span>
+          </button>
+        )}
+        <button
+          type="button"
+          className="block w-full rounded-md px-3 py-2 text-left hover:bg-soft"
+          onClick={(e) => {
+            close(e);
+            onWord();
+          }}
+        >
+          Word file
+          <span className="block text-xs text-ink-3">For forms that ask for .docx</span>
+        </button>
+      </div>
+    </details>
+  );
+}
+
 export function PrintButton() {
   return (
     <button type="button" className="btn btn-primary" onClick={() => window.print()}>

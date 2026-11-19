@@ -12,9 +12,10 @@ import { RECHECK_AFTER, ghostSigns, shortPlace, skipReason } from "../../../../c
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../../../convex/lib/followups";
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { CvMatch } from "@/components/CvMatch";
+import { downloadDocx } from "@/lib/docx";
 import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
-import { ActionButton, CopyButton } from "@/components/ui";
+import { ActionButton, CopyButton, DownloadMenu } from "@/components/ui";
 import { inInr, payText, useInrRates } from "@/lib/money";
 
 export default function JobPage() {
@@ -273,17 +274,24 @@ export default function JobPage() {
             )}
             {job.pack && (
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link href={`/jobs/${job._id}/resume`} className="btn btn-primary">
+                {/* One row: open it, change it, take it away, check it. Download and What changed came after 19 Nov's CV pass. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link href={`/jobs/${job._id}/resume`} className="btn btn-primary btn-sm">
                     {job.pack.letterOnly ? "Open your CV" : "Open tailored CV"}
                   </Link>
                   {!job.pack.letterOnly && (
-                    <Link href={`/jobs/${job._id}/resume?edit=1#edit`} className="btn btn-ghost">
+                    <Link href={`/jobs/${job._id}/resume?edit=1#edit`} className="btn btn-ghost btn-sm">
                       Edit this CV
                     </Link>
                   )}
-                  {job.pack.trackKey && trackByKey.get(job.pack.trackKey) && <span className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</span>}
+                  <DownloadMenu pdfHref={`/jobs/${job._id}/resume?print=1`} onWord={() => void downloadDocx(job.pack!.resume, `${job.pack!.resume.name} CV ${job.company}`)} />
+                  {!job.pack.letterOnly && (
+                    <Link href={`/jobs/${job._id}/resume?changes=1`} className="btn btn-ghost btn-sm">
+                      What changed
+                    </Link>
+                  )}
                 </div>
+                {job.pack.trackKey && trackByKey.get(job.pack.trackKey) && <p className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</p>}
                 {job.sent && (
                   <p className="text-sm text-ink-2">
                     What you sent on {new Date(job.sent.at).toLocaleDateString()}, kept for the interview:{" "}
@@ -387,8 +395,8 @@ export default function JobPage() {
               )}
             </div>
             <p className="mt-3 mb-6 text-xs text-ink-3">
-              Apply opens the form and downloads your tailored CV. Then click your JobPipe autofill bookmark (set it up on the{" "}
-              <Link className="underline" href="/resume">CVs page</Link>): it fills your answers and attaches the CV. Check everything and press Submit yourself.
+              Apply opens the form and downloads your tailored CV. Then click your JobPipe autofill bookmark: it fills your details and answers and attaches the CV. Check everything and press Submit yourself. No bookmark yet?{" "}
+              <Link className="underline" href="/resume#autofill">Set it up once (1 minute)</Link>.
             </p>
               </>
             ),

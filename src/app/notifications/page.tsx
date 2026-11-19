@@ -33,13 +33,19 @@ export default function Notifications() {
           on={me.autopilot}
           onChange={(on) => run(() => setAutopilot({ on }))}
         />
-        {account.canEdit && (
+        {account.canEdit ? (
           <Row
-            title="New roles email"
-            text="An email with the best new jobs for you, daily when you've been active lately, otherwise Monday and Thursday."
+            title="Job emails"
+            text="The best new jobs for you (daily when you've been active lately, otherwise Monday and Thursday), a short progress note on Mondays, and the odd setup tip. One switch for all of them."
             on={!account.alertsOff}
             onChange={(on) => run(() => setAlerts({ on }))}
           />
+        ) : (
+          // The owner has no member row to keep this switch on, and gets the owner morning email instead (19 Nov: the page looked empty).
+          <div className="p-5">
+            <div className="font-medium">Job emails</div>
+            <div className="mt-0.5 text-sm text-ink-2">Members get new jobs, a Monday progress note and setup tips here, with one switch. Your owner account gets the owner morning email instead.</div>
+          </div>
         )}
       </div>
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}

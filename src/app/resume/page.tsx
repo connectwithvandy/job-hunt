@@ -10,7 +10,7 @@ import { MasterEditor } from "@/components/ResumeFields";
 import { Loading } from "@/components/Loading";
 import { CvLayoutPick, ResumeDoc } from "@/components/ResumeDoc";
 import { downloadDocx } from "@/lib/docx";
-import { attempt, PrintButton, type ActionState, Feedback } from "@/components/ui";
+import { attempt, DownloadMenu, type ActionState, Feedback } from "@/components/ui";
 
 export default function Cvs() {
   const me = useQuery(api.users.me);
@@ -31,12 +31,7 @@ export default function Cvs() {
     <div>
       <PageHead title="CVs" sub="Your master CVs. Each job gets a tailored copy that rewrites your experience for that role, using only facts from these. So every real number and win belongs here.">
         {current && <CvLayoutPick plain={plain} onChange={setPlain} />}
-        {current && <PrintButton />}
-        {current && (
-          <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(current.resume, current.label)}>
-            Download Word
-          </button>
-        )}
+        {current && <DownloadMenu primary onWord={() => void downloadDocx(current.resume, current.label)} />}
       </PageHead>
 
       <div className="no-print mb-6 flex flex-wrap items-center gap-2">
@@ -107,7 +102,7 @@ export default function Cvs() {
             <UploadResume replace={current} />
             <FactsForm key={me.facts.map((f) => f.at).join()} facts={me.facts} />
             <AnswersForm answers={me.answers} location={me.location} />
-            {me.answers.length > 0 && <AutofillLink answers={me.answers} />}
+            <AutofillLink answers={me.answers} />
             <WritingSampleForm sample={me.writingSample} rules={me.writingRules} posts={me.linkedinPosts} myMessagesCount={me.myMessagesCount} />
             <details className="card p-6">
               <summary className="cursor-pointer font-medium">Fix something by hand</summary>

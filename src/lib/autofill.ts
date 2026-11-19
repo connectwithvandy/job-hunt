@@ -16,6 +16,8 @@ const FILL_SOURCE = String.raw`function (answers, files) {
 
   // Common labels first, mapped to the answer they need; anything else is matched by shared words.
   const rules = [
+    // "Legal First and Last Name" wants the whole name; checked before the first/last rules, which caught it as a last name.
+    [/\bfirst and last name\b|\bfull legal name\b|\blegal name\b/, () => fullName],
     [/\bfirst name\b|\bgiven name\b/, () => first],
     [/\blast name\b|\bsurname\b|\bfamily name\b/, () => last],
     // Ashby labels its name box "Name" with the field name "_systemfield_name" beside it.
@@ -25,7 +27,7 @@ const FILL_SOURCE = String.raw`function (answers, files) {
     [/linkedin/, () => get("LinkedIn profile")],
     [/\b(current|present) (company|employer|organi[sz]ation)\b|\bemployer\b/, () => get("Current company")],
     [/\b(current|present) (job )?(title|role|designation|position)\b/, () => get("Current job title")],
-    [/\b(city|location)\b/, () => get("Current location")],
+    [/\b(city|location)\b|\baddress\b/, () => get("Current location")],
     [/\bnotice\b/, () => get("Notice period")],
     [/\bexpected\b.*\b(ctc|salary|compensation|pay)\b|\bsalary expectation/, () => get("Expected CTC")],
     [/\bcurrent\b.*\b(ctc|salary|compensation|pay)\b/, () => get("Current CTC (fixed + variable)")],

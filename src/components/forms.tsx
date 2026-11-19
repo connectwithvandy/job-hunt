@@ -869,7 +869,7 @@ export function AutofillLink({ answers }: { answers: { question: string; answer:
     ref.current?.setAttribute("href", liveBookmarklet(window.location.origin));
   }, []);
   return (
-    <div className="card p-6">
+    <div id="autofill" className="card scroll-mt-24 p-6">
       <h2 className="display mb-1 text-2xl">Autofill application forms</h2>
       <p className="mb-2 text-sm text-warn md:hidden">Set this up on your computer: phone browsers can&apos;t drag bookmarks.</p>
       <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-ink-2">
@@ -881,7 +881,7 @@ export function AutofillLink({ answers }: { answers: { question: string; answer:
         JobPipe autofill
       </a>
       <p className="mt-3 text-xs text-ink-3">
-        It uses your {answers.length} saved answers plus each job&apos;s own form answers, read fresh every time. JobPipe never presses Submit for you.
+        It fills your name, email, phone and links from your CV{answers.length ? `, your ${answers.length} saved answers` : ""} and each job&apos;s own form answers, read fresh every time. JobPipe never presses Submit for you.
       </p>
     </div>
   );
