@@ -169,7 +169,7 @@ export default function Billing() {
           className="mt-4 flex flex-wrap items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            setApplied(code.trim());
+            setApplied(code.trim().toUpperCase());
           }}
         >
           <label className="text-sm text-ink-2" htmlFor="promo">
