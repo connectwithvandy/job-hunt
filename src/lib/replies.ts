@@ -5,8 +5,10 @@
 type EmailJob = {
   status: string;
   statusSetAt?: number;
-  lastEmail?: { at: number; stage: string; repliedAt?: number };
+  lastEmail?: { at: number; stage: string; repliedAt?: number; subject?: string };
 };
+
+import { meetingEnd } from "./calendarInvite";
 
 const DAY = 86_400_000;
 
@@ -22,7 +24,24 @@ export function waitsForAnswer(j: EmailJob, now: number): boolean {
   if (!e || e.repliedAt) return false;
   if (e.stage !== "screening" && e.stage !== "interview" && e.stage !== "offer") return false;
   if (j.status === "rejected" || j.status === "dismissed") return false;
+  // An invite whose meeting time has passed isn't waiting on an answer any more (19 Nov: Rippling on 16 Nov still said "answer it").
+  if (interviewOver(j, now)) return false;
   return now - e.at < ANSWER_WITHIN_DAYS * DAY;
+}
+
+/** The latest email is an interview invite and the meeting in it has ended. */
+export function interviewOver(j: EmailJob, now: number): boolean {
+  const e = j.lastEmail;
+  if (!e || e.stage !== "interview" || !e.subject) return false;
+  const end = meetingEnd(e.subject);
+  return end !== null && end < now;
+}
+
+/** An interview that ended in the last week, on a job still open: time to say how it went and thank them. */
+export function justInterviewed(j: EmailJob, now: number): boolean {
+  if (j.status === "rejected" || j.status === "dismissed" || j.status === "offer") return false;
+  if (!interviewOver(j, now)) return false;
+  return now - meetingEnd(j.lastEmail!.subject!)! < 7 * DAY;
 }
 
 /** Interview invites and offers come before a recruiter's first note. */

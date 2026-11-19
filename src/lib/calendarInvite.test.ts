@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanSubject, parseCalendarInvite } from "./calendarInvite";
+import { cleanSubject, meetingEnd, parseCalendarInvite } from "./calendarInvite";
 
 const subject = "Invitation from an unknown sender: Interview Confirmation | Rippling - Vandana Agarwal @ Mon Nov 16, 2026 10:30pm - 11pm (IST) (connectwithvandanaa@gmail.com)";
 const body = `This event isn't in your calendar yet
@@ -35,5 +35,17 @@ describe("calendar invites", () => {
 
   it("cleans the subject for lists", () => {
     expect(cleanSubject(subject)).toBe("Interview Confirmation | Rippling - Vandana Agarwal @ Mon Nov 16, 2026 10:30pm - 11pm (IST)");
+  });
+});
+
+describe("meetingEnd", () => {
+  it("reads the end time in India time", () => {
+    expect(meetingEnd("Interview @ Mon Nov 16, 2026 10:30pm - 11pm (IST) (me@gmail.com)")).toBe(Date.UTC(2026, 10, 16, 17, 30));
+  });
+  it("handles GMT offsets and meetings past midnight", () => {
+    expect(meetingEnd("Call @ Tue Nov 17, 2026 11:30pm - 12:30am (GMT+05:30)")).toBe(Date.UTC(2026, 10, 17, 19, 0));
+  });
+  it("returns null without a time", () => {
+    expect(meetingEnd("Thanks for applying")).toBeNull();
   });
 });

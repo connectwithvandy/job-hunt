@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { trackerStatus, waitsForAnswer } from "./replies";
+import { justInterviewed, trackerStatus, waitsForAnswer } from "./replies";
 
 const DAY = 86_400_000;
 const now = 100 * DAY;
@@ -37,5 +37,20 @@ describe("trackerStatus respects a hand move", () => {
     expect(trackerStatus({ status: "screening", lastEmail: e })).toBe("interview");
     expect(trackerStatus({ status: "screening", lastEmail: e, statusSetAt: 2000 })).toBe("screening");
     expect(trackerStatus({ status: "applied", lastEmail: e, statusSetAt: 500 })).toBe("interview");
+  });
+});
+
+describe("interviews that already happened", () => {
+  const subject = "Interview Confirmation | Rippling - Vandana Agarwal @ Mon Nov 16, 2026 10:30pm - 11pm (IST) (me@gmail.com)";
+  const end = Date.UTC(2026, 10, 16, 17, 30); // 11pm IST
+  const job = { status: "interview", lastEmail: { at: end - 3 * DAY, stage: "interview", subject } };
+  it("waits for an answer before the meeting, not after", () => {
+    expect(waitsForAnswer(job, end - DAY)).toBe(true);
+    expect(waitsForAnswer(job, end + 60_000)).toBe(false);
+  });
+  it("asks how it went for a week after", () => {
+    expect(justInterviewed(job, end + DAY)).toBe(true);
+    expect(justInterviewed(job, end + 8 * DAY)).toBe(false);
+    expect(justInterviewed({ ...job, status: "rejected" }, end + DAY)).toBe(false);
   });
 });

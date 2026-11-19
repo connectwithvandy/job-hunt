@@ -430,7 +430,8 @@ function Jobs() {
                 const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
                 // Only pay the posting lists; a board's own guess counts as not listed (see payText).
                 const listed = payText(j.salary, rates);
-                const isNew = now - j._creationTime < 2 * 86_400_000 && j.status === "new";
+                // An old posting we only just found isn't "new" to anyone, so archived ones never get the tag.
+                const isNew = now - j._creationTime < 2 * 86_400_000 && j.status === "new" && !isOld(j);
                 return (
                   <li key={j._id} className={`card flex flex-col p-4 transition ${selected === j._id ? "!border-accent ring-1 ring-accent" : "hover:border-ink-3"}`}>
                     <div className="flex items-start justify-between gap-2">

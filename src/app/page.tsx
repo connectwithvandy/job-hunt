@@ -18,7 +18,7 @@ import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
 import { payText, useInrRates } from "@/lib/money";
-import { answerRank, waitsForAnswer } from "@/lib/replies";
+import { answerRank, justInterviewed, waitsForAnswer } from "@/lib/replies";
 import { ActionButton } from "@/components/ui";
 import { ReferralFollowUp } from "@/components/job-client";
 
@@ -105,6 +105,8 @@ export default function Today() {
   const strong = strongAll.slice(0, 5);
   // The same rule as Messages' "Needs you": offers and interview invites first, then newest.
   const replies = jobs.filter((j) => waitsForAnswer(j, now)).sort((a, b) => answerRank(a) - answerRank(b) || b.lastEmail!.at - a.lastEmail!.at);
+  // Interviews that already happened this week: say how it went and thank them, instead of "answer it".
+  const interviewed = jobs.filter((j) => justInterviewed(j, now));
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
   // Follow-ups that are due: referral asks and messages to hiring managers that got no reply in a week.
   const followUps = jobs.flatMap((j) => [
@@ -291,6 +293,7 @@ export default function Today() {
 
       <CelebrateWins jobs={jobs} now={now} />
       <NeedsAnswer jobs={replies} />
+      <AfterInterview jobs={interviewed} />
       <SearchStrip
         jobs={jobs}
         trialEndsAt={account && !account.isOwner && !account.paidUntil && !account.trialOver ? (account.trialEndsAt ?? undefined) : undefined}
@@ -563,6 +566,30 @@ function NeedsAnswer({ jobs }: { jobs: Doc<"jobs">[] }) {
             </span>
             <Link href={`/jobs/${j._id}#emails`} className="btn btn-primary btn-sm">
               Reply now
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Interviews that already happened this week: one line each to record how it went, plus the thank-you nudge. */
+function AfterInterview({ jobs }: { jobs: Doc<"jobs">[] }) {
+  if (!jobs.length) return null;
+  return (
+    <section className="card mb-6 p-5">
+      <h2 className="mb-1 text-lg font-semibold">How did your {jobs.length === 1 ? "interview" : "interviews"} go?</h2>
+      <p className="mb-3 text-sm text-ink-2">A short thank-you email to the interviewer within a day helps. Then move the job to its next step so your tracker stays right.</p>
+      <ul className="divide-y divide-line">
+        {jobs.map((j) => (
+          <li key={j._id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <span className="min-w-0">
+              <span className="block font-medium">{j.company} interview</span>
+              <span className="block text-sm text-ink-2">{j.title}</span>
+            </span>
+            <Link href={`/jobs/${j._id}`} className="btn btn-sm">
+              Update
             </Link>
           </li>
         ))}

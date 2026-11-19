@@ -12,7 +12,7 @@ import { FindPeople } from "@/components/FindPeople";
 import { JobEmails } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { MessageCard, messageKind, type MessageRow } from "@/components/MessageCard";
-import { answerRank, waitsForAnswer } from "@/lib/replies";
+import { answerRank, justInterviewed, waitsForAnswer } from "@/lib/replies";
 
 /**
  * Every conversation about a job in one place (19 Nov: Referrals and Messages merged): referral asks to people you
@@ -54,9 +54,12 @@ function Inbox() {
       const asked = r?.outreach.filter((o) => o.status !== "draft").length ?? 0;
       const answered = r?.outreach.filter((o) => o.status === "replied" || o.status === "referred").length ?? 0;
       const hm = r?.hiringContacts.filter((c) => c.sentAt).length ?? 0;
+      const afterInterview = justInterviewed(j, now);
       const status = emailWaiting
         ? `${STAGE[j.lastEmail!.stage] ?? "Email"}: answer it`
-        : kind === "followup"
+        : afterInterview
+          ? "Interview done: say how it went"
+          : kind === "followup"
           ? "Follow-up due"
           : kind === "todo"
             ? "Written, not sent yet"
@@ -70,7 +73,7 @@ function Inbox() {
       const parts = [asked ? `${asked} referral ${asked === 1 ? "ask" : "asks"}` : null, hm ? `${hm} to hiring manager or HR` : null, j.lastEmail ? "emails" : null].filter(Boolean);
       const at = Math.max(j.lastEmail?.at ?? 0, r?.updatedAt ?? 0);
       // Needs you: a company wrote and waits on you, or a follow-up is due. Notes we wrote that you haven't sent are "Ready to send".
-      const needs = emailWaiting || kind === "followup";
+      const needs = emailWaiting || afterInterview || kind === "followup";
       const ready = !needs && kind === "todo";
       // Interview invites and offers sit at the very top, then anything else that needs you, then the rest; newest first in each.
       const rank = emailWaiting ? answerRank(j) : needs ? 3 : ready ? 4 : 5;
