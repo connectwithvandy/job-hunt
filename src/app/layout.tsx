@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // The theme script below may set data-theme before React loads, so the two can differ on purpose.
-    <html lang="en" className={`${inter.variable} ${display.variable} antialiased`} suppressHydrationWarning>
+    <html lang="en" data-theme="light" className={`${inter.variable} ${display.variable} antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

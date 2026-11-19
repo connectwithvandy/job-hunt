@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 
-// Dark is the default look; light is one click away and remembered in this browser. The layout sets the
+// Light is the default look (owner, 19 Nov 2026); dark is one click away and remembered in this browser. The layout sets the
 // saved choice before the page paints, so there's no flash of the wrong colours.
 
 const KEY = "jobpipe:theme";
@@ -16,7 +16,7 @@ function subscribe(fn: () => void) {
 
 /** The sun/moon switch. `labelled` adds the words, for the app menu where an icon alone isn't clear. */
 export function ThemeToggle({ className = "", labelled = false }: { className?: string; labelled?: boolean }) {
-  const theme = useSyncExternalStore(subscribe, current, () => "dark");
+  const theme = useSyncExternalStore(subscribe, current, () => "light");
   const next = theme === "dark" ? "light" : "dark";
   return (
     <button
@@ -49,5 +49,5 @@ export function ThemeToggle({ className = "", labelled = false }: { className?: 
   );
 }
 
-/** Runs before the page paints: applies the saved choice. */
-export const THEME_SCRIPT = `try{if(localStorage.getItem("${KEY}")==="light")document.documentElement.dataset.theme="light"}catch(e){}`;
+/** Runs before the page paints: light unless this browser saved dark. */
+export const THEME_SCRIPT = `try{if(localStorage.getItem("${KEY}")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
