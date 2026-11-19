@@ -19,6 +19,8 @@ const PROFILE = {
     { href: "/stories", label: "Proof of work" },
     { href: "/connect", label: "LinkedIn & Gmail" },
     { href: "/billing", label: "Plan & billing" },
+    { href: "/notifications", label: "Notifications" },
+    { href: "/help", label: "Help & feedback" },
   ],
 };
 const NAV = [
@@ -26,6 +28,7 @@ const NAV = [
   { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }, { href: "/companies", label: "Companies" }] },
   { label: "Applications", pages: [{ href: "/tracker", label: "Applications" }] },
   { label: "Referrals", pages: [{ href: "/network", label: "Referrals" }] },
+  { label: "Messages", pages: [{ href: "/inbox", label: "Messages" }] },
   PROFILE,
 ];
 /** Your name at the bottom also opens Profile. */
@@ -62,11 +65,12 @@ export function ProfileMenu() {
   const me = useQuery(api.access.mine);
   const user = useQuery(api.users.me);
   return (
-    <nav className="no-print mb-6 md:sticky md:top-12 md:mb-0 md:w-52 md:shrink-0 md:self-start">
+    <nav className="no-print mb-6 md:sticky md:top-20 md:mb-0 md:w-52 md:shrink-0 md:self-start">
       {me && (
         <div className="mb-5 hidden md:block">
-          <div className="display text-xl">{me.name || "Your profile"}</div>
+          <div className="text-lg font-semibold">{me.name || "Your profile"}</div>
           <div className="text-xs text-ink-3">{user?.email}</div>
+          <InviteFriend />
         </div>
       )}
       <ul className="flex gap-1 overflow-x-auto border-b border-line text-sm md:flex-col md:border-b-0">
@@ -88,6 +92,30 @@ export function ProfileMenu() {
   );
 }
 
+/** Share JobPipe with a friend who's looking: the phone's share sheet, or the link copied. No rewards promised. */
+function InviteFriend() {
+  const [done, setDone] = useState(false);
+  const text = "I'm using JobPipe for my sales job search: it finds sales roles in India, writes a CV for each one and shows who I know there. Try it:";
+  const url = "https://jobpipe.in";
+  return (
+    <button
+      type="button"
+      className="btn btn-primary btn-sm mt-3"
+      onClick={async () => {
+        try {
+          if (navigator.share) await navigator.share({ title: "JobPipe", text, url });
+          else await navigator.clipboard.writeText(`${text} ${url}`);
+          setDone(true);
+        } catch {
+          // Closing the share sheet isn't an error worth showing.
+        }
+      }}
+    >
+      {done ? "Thanks for sharing" : "Invite a friend"}
+    </button>
+  );
+}
+
 /** Chat, one tap away on every page instead of taking a place in the menu. */
 export function ChatButton() {
   const path = usePathname();
@@ -101,47 +129,48 @@ export function ChatButton() {
   );
 }
 
-export function Sidebar({ isOwner }: { isOwner: boolean }) {
+/**
+ * The menu as a bar across the top, like Dreamwork (19 Nov): logo, the five places, then your name, Admin,
+ * theme and sign out on the right. On a phone the places wrap onto a second row so every one stays in view.
+ */
+export function TopBar({ isOwner }: { isOwner: boolean }) {
   const path = usePathname();
   const { signOut } = useAuthActions();
   return (
-    <aside className="no-print z-30 bg-paper md:static md:w-56 md:shrink-0 md:min-h-screen border-b md:border-b-0 md:border-r border-line px-4 py-3 md:px-5 md:py-10 flex flex-wrap md:flex-nowrap md:flex-col gap-x-4 gap-y-2 md:gap-6 items-center md:items-stretch">
-      <Link href="/" className="display text-lg uppercase leading-none tracking-wide">
-        JobPipe<span className="breathe text-accent">.</span>
-      </Link>
-      {/* On a phone every page is in view: the links wrap onto a second row instead of scrolling off the side.
-          The whole menu scrolls away with the page there, so it doesn't keep a fifth of a small screen. */}
-      <nav className="order-last flex w-full flex-wrap gap-1 text-sm md:order-none md:w-auto md:flex-col">
-        {NAV.map((n) => {
-          const active = n.pages.some((p) => isOn(path, p.href));
-          return (
-            <Link
-              key={n.label}
-              href={n.pages[0].href}
-              className={`rounded-lg px-2.5 py-2 whitespace-nowrap transition-colors md:px-3 ${
-                active ? "bg-soft font-medium text-accent" : "text-ink-2 hover:text-ink"
-              }`}
-            >
-              {n.label}
+    <header className="no-print sticky top-0 z-30 border-b border-line bg-card/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 md:flex-nowrap md:px-8">
+        <Link href="/" className="display py-2 text-base uppercase leading-none tracking-wide">
+          JobPipe<span className="breathe text-accent">.</span>
+        </Link>
+        <nav className="order-last -mx-1 flex w-full flex-wrap gap-1 text-sm md:order-none md:w-auto">
+          {NAV.map((n) => {
+            const active = n.pages.some((p) => isOn(path, p.href));
+            return (
+              <Link
+                key={n.label}
+                href={n.pages[0].href}
+                className={`rounded-full px-3 py-1.5 whitespace-nowrap transition-colors ${active ? "bg-soft font-medium text-ink" : "text-ink-2 hover:bg-soft hover:text-ink"}`}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="ml-auto flex items-center gap-4 text-sm">
+          {!isOwner && <FeedbackButton />}
+          {isOwner && (
+            <Link href="/admin" className={isOn(path, "/admin") ? "font-medium text-ink" : "text-ink-2 hover:text-ink"}>
+              Admin
             </Link>
-          );
-        })}
-      </nav>
-      {/* Right under the menu, not at the bottom of a tall screen where nobody finds it. */}
-      <div className="ml-auto flex items-center gap-3 md:items-stretch md:ml-0 md:flex-col md:gap-3 md:border-t md:border-line md:px-3 md:pt-5">
-        <AccountLink active={ACCOUNT.pages.some((p) => isOn(path, p.href))} />
-        {!isOwner && <FeedbackButton />}
-        {isOwner && (
-          <Link href="/admin" className={`text-left text-sm ${isOn(path, "/admin") ? "text-accent" : "text-ink-2 hover:text-ink"}`}>
-            Admin
-          </Link>
-        )}
-        <ThemeToggle labelled />
-        <button type="button" onClick={() => void signOut()} className="text-left text-sm text-ink-2 hover:text-ink">
-          Sign out
-        </button>
+          )}
+          <ThemeToggle />
+          <AccountLink active={ACCOUNT.pages.some((p) => isOn(path, p.href))} />
+          <button type="button" onClick={() => void signOut()} className="text-ink-2 hover:text-ink">
+            Sign out
+          </button>
+        </div>
       </div>
-    </aside>
+    </header>
   );
 }
 
@@ -165,9 +194,12 @@ function AccountLink({ active }: { active: boolean }) {
         ? `Free trial · ${daysLeft(me.trialEndsAt - now)}`
         : "Free beta";
   return (
-    <Link href="/account" className={`text-left text-sm leading-tight ${active ? "text-accent" : "text-ink-2 hover:text-ink"}`}>
-      <span className="block font-medium">{me.name.split(" ")[0] || "Account"}</span>
-      <span className="hidden text-xs text-ink-3 md:block">{plan}</span>
+    <Link href="/account" title={plan} className={`flex items-center gap-2 text-left text-sm leading-tight ${active ? "text-ink" : "text-ink-2 hover:text-ink"}`}>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-on-accent">{(me.name || "?")[0].toUpperCase()}</span>
+      <span className="hidden lg:block">
+        <span className="block font-medium">{me.name.split(" ")[0] || "Account"}</span>
+        <span className="block text-[11px] text-ink-3">{plan}</span>
+      </span>
     </Link>
   );
 }

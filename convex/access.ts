@@ -409,7 +409,21 @@ export const mine = query({
       isOwner: isOwnerEmail(user?.email),
       // The owner has no waitlist row, so there's nowhere to keep an edited name.
       canEdit: !!row,
+      alertsOff: !!row?.alertsOff,
     };
+  },
+});
+
+/** Turn the "new roles for you" email on or off from Profile → Notifications (the email's own link also turns it off). */
+export const setAlerts = mutation({
+  args: { on: v.boolean() },
+  handler: async (ctx, { on }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in again.");
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!row) throw new ConvexError("This account has no email settings.");
+    await ctx.db.patch("access", row._id, { alertsOff: !on });
+    return null;
   },
 });
 

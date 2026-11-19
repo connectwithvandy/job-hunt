@@ -8,7 +8,7 @@ import { useSyncExternalStore } from "react";
 import { api } from "../../convex/_generated/api";
 import { Onboarding } from "./Onboarding";
 import { Celebrations } from "./Celebrate";
-import { ChatButton, inProfile, ProfileMenu, Sidebar, SubTabs } from "./Sidebar";
+import { ChatButton, inProfile, ProfileMenu, SubTabs, TopBar } from "./Sidebar";
 import { SurveyPopup } from "./SurveyPopup";
 import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
@@ -73,10 +73,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // The CV print view, and the small window the autofill bookmark opens.
   const bare = (path.startsWith("/jobs/") && path.endsWith("/resume")) || path === "/fill";
   return (
-    <div className="min-h-screen md:flex">
-      {!bare && <Sidebar isOwner={me.isOwner} />}
+    <div className="min-h-screen">
+      {!bare && <TopBar isOwner={me.isOwner} />}
       {/* Room at the bottom so the floating Ask JobPipe button never sits on the last line. */}
-      <main className="min-w-0 flex-1 px-5 pt-8 pb-24 md:px-12 md:pt-12 md:pb-24 print:p-0">
+      <main className="mx-auto min-w-0 max-w-7xl px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-24 print:p-0">
         {!bare && <TrialOverNotice />}
         {!bare && <SubTabs />}
         {!bare && inProfile(path) ? (

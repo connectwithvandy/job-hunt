@@ -48,6 +48,38 @@ export function QuickFitPill({ score }: { score?: number }) {
   );
 }
 
+/**
+ * One fit number on every job, as a ring with a % like Dreamwork (19 Nov), instead of a score pill on some
+ * jobs and "~52 guess" on others. The AI score fills the ring solidly; a first guess (not scored yet) shows
+ * with a dashed ring and "~", and says so on hover, so it never passes for a real score.
+ */
+export function FitBadge({ job, size = 40 }: { job: Pick<JobLike, "scores"> & { quickFit?: number }; size?: number }) {
+  const best = bestScore(job);
+  const guess = !best;
+  const value = best ? best.score : job.quickFit !== undefined ? likelyScore(job.quickFit) : undefined;
+  if (value === undefined) return <span className="text-xs text-ink-3">Not scored</span>;
+  const r = size / 2 - 3;
+  const c = 2 * Math.PI * r;
+  const tone = guess ? "var(--ink-3)" : value >= 75 ? "#65a30d" : value >= 60 ? "var(--violet)" : "var(--ink-3)";
+  return (
+    <span
+      className="relative inline-flex shrink-0 items-center justify-center"
+      style={{ width: size, height: size }}
+      title={guess ? "First guess from the title, your CV's words and the place. Open the job and check the fit for the real score." : `Fit ${value}%, scored by the AI on the whole job`}
+    >
+      <svg width={size} height={size} className="-rotate-90" aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--soft)" strokeWidth="3" />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={tone} strokeWidth="3" strokeLinecap="round" strokeDasharray={guess ? "3 3" : `${(c * value) / 100} ${c}`} />
+      </svg>
+      <span className={`absolute text-[11px] font-semibold tabular-nums ${guess ? "text-ink-3" : ""}`}>
+        {guess ? "~" : ""}
+        {value}
+        <span className="text-[8px]">%</span>
+      </span>
+    </span>
+  );
+}
+
 export function bestScore(job: Pick<JobLike, "scores">) {
   if (!job.scores?.length) return undefined;
   return [...job.scores].sort((a, b) => b.score - a.score)[0];

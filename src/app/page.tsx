@@ -12,7 +12,7 @@ import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useCelebrateNewWins, WIN_WORDS } from "@/components/Celebrate";
-import { CompanyMark, DAY_STARTS_AT, likelyScore, ScorePill, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, DAY_STARTS_AT, FitBadge, likelyScore, ScorePill, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
@@ -225,12 +225,12 @@ export default function Today() {
   const bestToOpen = [...jobs].filter((j) => j.status === "new" || j.status === "applying").sort((a, b) => fit(b) - fit(a))[0];
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <header className="mb-8">
-        <p className="text-sm text-ink-3">{new Date(dayStart(now)).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
-        <h1 className="display mt-1 text-4xl uppercase md:text-5xl">
+    <div className="mx-auto max-w-6xl">
+      <header className="mb-5">
+        <h1 className="text-2xl font-semibold tracking-tight">
           {greeting()}
           {firstName ? `, ${firstName}` : ""}
+          <span className="ml-3 text-sm font-normal text-ink-3">{new Date(dayStart(now)).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</span>
         </h1>
         <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={jobs.length} />
       </header>
@@ -263,12 +263,15 @@ export default function Today() {
       )}
 
       <CelebrateWins jobs={jobs} now={now} />
-      <TodayProgress
-        items={[
-          { label: "Companies asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY, total: askedTotal },
-          { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY, total: appliedTotal, bar: "bg-cyan" },
-          { label: "Follow-ups due", done: 0, goal: chase.length, left: true },
+      <SearchStrip
+        jobs={jobs}
+        trialEndsAt={account && !account.isOwner && !account.paidUntil && !account.trialOver ? (account.trialEndsAt ?? undefined) : undefined}
+        now={now}
+        today={[
+          { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY },
+          { label: "Companies asked", done: companiesAskedToday, goal: COMPANIES_A_DAY },
         ]}
+        askedTotal={askedTotal}
       />
 
       {!!interviews?.length && (
@@ -296,12 +299,19 @@ export default function Today() {
       )}
 
       <BestNew jobs={bestNew} verbFor={verbFor} />
-      <Step
-        n={1}
-        title="To do today"
-        items={[...answer, ...chase, ...reach, ...apply]}
-        empty={me.contactsCount ? "Nothing waiting on you. Open a job above, or ask for a referral on Referrals." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
-      />
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
+          <LiveApplications jobs={jobs} />
+        </div>
+        <div className="min-w-0">
+          <Step
+            n={1}
+            title="To do today"
+            items={[...answer, ...chase, ...reach, ...apply]}
+            empty={me.contactsCount ? "Nothing waiting on you. Open a job above, or ask for a referral on Referrals." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
+          />
+        </div>
+      </div>
 
       {/* Closed unless opened: Today is the to-do list. New jobs are step 2, so they aren't listed again here (13 Nov). */}
       <Pipeline jobs={jobs} tracks={me.tracks} />
@@ -329,11 +339,11 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [now] = useState(() => Date.now());
   // A posting over 4 months old isn't a "new" job, even when it scores well (19 Nov: an 8-month-old SDR role here).
-  const shown = jobs.filter((j) => !skipped.has(j._id) && !(j.postedAt && now - Date.parse(j.postedAt) > 120 * 86_400_000)).slice(0, 6);
+  const shown = jobs.filter((j) => !skipped.has(j._id) && !(j.postedAt && now - Date.parse(j.postedAt) > 120 * 86_400_000)).slice(0, 5);
   return (
     <section className="rise mb-8">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="display text-3xl">Best new jobs for you</h2>
+        <h2 className="text-lg font-semibold">Recommended for you</h2>
         <Link href="/jobs" className="text-sm text-ink-2 hover:text-ink">
           All jobs →
         </Link>
@@ -341,23 +351,24 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
       {shown.length === 0 ? (
         <div className="card p-5 text-sm text-ink-2">Nothing new that fits in the last 24 hours. Tomorrow morning&apos;s search adds more, or search now on Jobs.</div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {shown.map((j) => {
-            const best = bestScore(j);
             const verb = verbFor(j);
             return (
               <li key={j._id} className="card flex flex-col p-4">
                 <div className="flex items-start justify-between gap-2">
                   <CompanyMark job={j} size={40} />
-                  {best ? <ScorePill score={best.score} /> : <span className="text-xs text-ink-3">~{likelyScore(j.quickFit ?? 0)} guess</span>}
+                  <FitBadge job={j} />
                 </div>
-                <div className="mt-3 text-sm text-ink-2">{j.company}</div>
+                <div className="mt-3 text-xs text-ink-3">{j.company}</div>
                 <Link href={`/jobs/${j._id}`} className="font-medium leading-snug hover:underline">
                   {j.title}
                 </Link>
-                <div className="mt-2 text-xs text-ink-3">
-                  {[j.salary || (payEstimateText(j) ? `${payEstimateText(j)} (est.)` : null), j.location, j.postedAt ? `posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
+                <div className="mt-3 text-sm font-medium">
+                  {j.salary || payEstimateText(j) || <span className="font-normal text-ink-3">Pay not listed</span>}
+                  {!j.salary && payEstimateText(j) && <span className="ml-1 text-[11px] font-normal text-ink-3">Estimated</span>}
                 </div>
+                <div className="mt-0.5 truncate text-xs text-ink-3">{[j.location, j.postedAt ? `posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}</div>
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <button
                     type="button"
@@ -382,6 +393,122 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
   );
 }
 
+const LIVE: Record<string, string> = { applying: "Getting ready", applied: "Applied", screening: "Screening", interview: "Interviewing", offer: "Offer" };
+
+/**
+ * One slim line on top, like Dreamwork's trial strip: where the search stands overall, today's two goals,
+ * and when replies usually come, so a quiet first week doesn't read as failure.
+ */
+function SearchStrip({ jobs, trialEndsAt, now, today, askedTotal }: { jobs: Doc<"jobs">[]; trialEndsAt?: number; now: number; today: { label: string; done: number; goal: number }[]; askedTotal: number }) {
+  const applied = jobs.filter((j) => j.appliedAt || ["applied", "screening", "interview", "offer", "rejected"].includes(j.status)).length;
+  const replies = jobs.filter((j) => ["screening", "interview", "offer"].includes(j.status)).length;
+  const interviews = jobs.filter((j) => j.status === "interview" || j.status === "offer").length;
+  const trialDay = trialEndsAt && trialEndsAt > now ? Math.min(7, Math.max(1, 8 - Math.ceil((trialEndsAt - now) / DAY))) : null;
+  return (
+    <section className="card mb-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-3 px-5 py-4">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">
+          {trialDay ? `Trial day ${trialDay} of 7 · ` : ""}
+          {applied} applied · {replies} {replies === 1 ? "reply" : "replies"} · {interviews} {interviews === 1 ? "interview" : "interviews"} · {askedTotal} {askedTotal === 1 ? "company" : "companies"} asked for a referral
+        </p>
+        <p className="mt-0.5 text-xs text-ink-3">Replies usually come 2 to 12 days after applying.</p>
+      </div>
+      <div className="flex gap-6">
+        {today.map((t) => (
+          <div key={t.label} className="w-28">
+            <div className="flex items-baseline justify-between text-xs text-ink-3">
+              <span>{t.label}</span>
+              <span className="tabular-nums text-ink">
+                {t.done}/{t.goal}
+              </span>
+            </div>
+            <div className="mt-1.5 h-1 rounded-full bg-soft">
+              <div className="fill h-1 rounded-full bg-accent" style={{ width: `${Math.min(100, (t.done / Math.max(1, t.goal)) * 100)}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Every application still moving, newest step first, as clean rows (logo, role, company · pay · place, stage),
+ * with saved roles that have since closed gathered in one line to archive. Like Dreamwork's Live applications.
+ */
+function LiveApplications({ jobs }: { jobs: Doc<"jobs">[] }) {
+  const setStatus = useMutation(api.jobs.setStatus);
+  const [all, setAll] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [search, setSearch] = useState("");
+  const live = jobs
+    .filter((j) => j.status in LIVE)
+    .sort((a, b) => (b.appliedAt ?? b._creationTime) - (a.appliedAt ?? a._creationTime));
+  // Saved but not sent yet, and the posting has gone: nothing to do but clear them away.
+  const closed = live.filter((j) => j.status === "applying" && j.liveCheck?.state === "closed");
+  const q = search.trim().toLowerCase();
+  const rows = live.filter((j) => !closed.includes(j) && (!q || `${j.title} ${j.company}`.toLowerCase().includes(q)));
+  const shown = all ? rows : rows.slice(0, 8);
+  return (
+    <section className="rise mb-8">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">
+          Live applications <span className="text-sm font-normal text-ink-3">{rows.length}</span>
+        </h2>
+        {live.length > 5 && <input className="field w-48 py-1.5 text-sm" placeholder="Search applications" value={search} onChange={(e) => setSearch(e.target.value)} />}
+      </div>
+      {rows.length === 0 ? (
+        <div className="card p-5 text-sm text-ink-2">{q ? "No application matches that." : "Nothing sent yet. Pick a job above and press Write my CV."}</div>
+      ) : (
+        <ul className="space-y-2">
+          {shown.map((j) => (
+            <li key={j._id}>
+              <Link href={`/jobs/${j._id}`} className="card flex items-center gap-3 px-3 py-2.5 hover:border-ink-3">
+                <CompanyMark job={j} size={36} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{j.title}</span>
+                  <span className="block truncate text-xs text-ink-3">{[j.company, j.salary || (payEstimateText(j) ? `${payEstimateText(j)} est.` : null), j.location].filter(Boolean).join(" · ")}</span>
+                </span>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${j.status === "interview" || j.status === "offer" ? "bg-accent text-on-accent" : j.status === "screening" ? "bg-violet/15 text-violet" : "bg-soft text-ink-2"}`}>
+                  {LIVE[j.status]}
+                  {j.appliedAt && j.status === "applied" ? ` ${timeAgo(new Date(j.appliedAt).toISOString())}` : ""}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rows.length > 8 && (
+        <button type="button" className="mt-2 px-1 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show all ${rows.length}`}
+        </button>
+      )}
+      {closed.length > 0 && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-soft px-4 py-3 text-sm">
+          <span className="text-ink-2">
+            {closed.length} saved {closed.length === 1 ? "role" : "roles"} closed since you saved {closed.length === 1 ? "it" : "them"}.
+          </span>
+          <button
+            type="button"
+            className="font-medium text-ink underline disabled:opacity-50"
+            disabled={archiving}
+            onClick={async () => {
+              setArchiving(true);
+              await Promise.all(closed.map((j) => setStatus({ jobId: j._id, status: "dismissed" }).catch(() => {})));
+              setArchiving(false);
+            }}
+          >
+            Archive all
+          </button>
+        </div>
+      )}
+      <Link href="/tracker" className="mt-3 inline-block px-1 text-sm text-ink-2 hover:text-ink">
+        Open the board →
+      </Link>
+    </section>
+  );
+}
+
 /** `panel` opens in place on a click instead of going to `href`. */
 type Todo = { key: string; verb: string; main: string; sub: string; href: string; panel?: React.ReactNode };
 
@@ -401,29 +528,6 @@ function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
 }
 
 /** Today's goals and how far along you are. Counts start again at 4 AM. */
-function TodayProgress({ items }: { items: { label: string; done: number; goal: number; left?: boolean; total?: number; bar?: string }[] }) {
-  return (
-    <section className="card mb-8 grid grid-cols-3 gap-4 p-5">
-      {items.map((i) => (
-        <div key={i.label}>
-          <div className="text-xs text-ink-3">{i.label}</div>
-          <div className="display mt-1 text-3xl leading-none tabular-nums">
-            {i.left ? i.goal : i.done}
-            {!i.left && <span className="text-lg text-ink-3"> / {i.goal}</span>}
-          </div>
-          {!i.left && (
-            <div className="mt-2 h-1 rounded-full bg-soft">
-              <div className={`fill h-1 rounded-full ${i.bar ?? "bg-accent"}`} style={{ width: `${Math.min(100, (i.done / Math.max(1, i.goal)) * 100)}%` }} />
-            </div>
-          )}
-          {i.total !== undefined && <div className="mt-2 text-xs text-ink-2">{i.total} in total</div>}
-          {i.left && <div className="mt-2 text-xs text-ink-2">{i.goal ? "Clear these first" : "All caught up"}</div>}
-        </div>
-      ))}
-    </section>
-  );
-}
-
 const STAGE_WORDS: Record<string, string> = { screening: "Recruiter wrote", interview: "Interview invite", offer: "Offer" };
 
 /** One step of the daily routine, with how many things are in it. */
@@ -436,7 +540,7 @@ function Step({ n, title, items, empty, blocked }: { n: number; title: string; i
     // The steps fade up one after another when Today opens.
     <section className="rise mb-8" style={{ animationDelay: `${n * 90}ms` }}>
       <h2 className="mb-3 flex items-baseline gap-3">
-        <span className="display text-3xl">{title}</span>
+        <span className="text-lg font-semibold">{title}</span>
         <span className="text-sm text-ink-3">{label}</span>
       </h2>
       {items.length ? <TodoList items={items} /> : <div className="card p-5 text-sm text-ink-2">{empty}</div>}
@@ -459,8 +563,8 @@ const VERB_TONE: Record<string, string> = {
 function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
   return (
     <>
-      <span className={`w-20 shrink-0 text-xs font-medium uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
       <span className="min-w-0 flex-1">
+        <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
         <span className="block truncate text-sm font-medium">{t.main}</span>
         {/* Whole on a phone: one cut-off line showed a third of "Recruiter replies…" at 390px (13 Nov). */}
         <span className="block text-xs text-ink-2 md:truncate">{t.sub}</span>

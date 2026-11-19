@@ -101,13 +101,23 @@ export const FILTERS: Filter[] = [
   },
 ];
 
-/** Applies the keyword box and every filter set in the URL. */
+/** The values picked for one filter: several can be on together ("remote,hybrid"), like Dreamwork's chips. */
+export const picks = (params: URLSearchParams, key: string) => (params.get(key) ?? "").split(",").filter(Boolean);
+
+/** The URL value after a chip is clicked: on if it was off, off if it was on. Null when nothing is left. */
+export function togglePick(params: URLSearchParams, key: string, value: string) {
+  const now = picks(params, key);
+  const next = now.includes(value) ? now.filter((v) => v !== value) : [...now, value];
+  return next.length ? next.join(",") : null;
+}
+
+/** Applies the keyword box and every filter set in the URL. Within a filter any picked option passes; across filters all must. */
 export function applyFilters<J extends FilterableJob>(jobs: J[], params: URLSearchParams) {
   const words = (params.get("q") ?? "").toLowerCase().split(/\s+/).filter(Boolean);
-  const tests = FILTERS.flatMap((f) => f.options.filter((o) => o.value === params.get(f.key)).map((o) => o.test));
+  const groups = FILTERS.map((f) => f.options.filter((o) => picks(params, f.key).includes(o.value)).map((o) => o.test)).filter((g) => g.length);
   return jobs.filter((j) => {
     const text = `${j.title} ${j.company}`.toLowerCase();
-    return words.every((w) => text.includes(w)) && tests.every((t) => t(j, params.get("track")));
+    return words.every((w) => text.includes(w)) && groups.every((g) => g.some((t) => t(j, params.get("track"))));
   });
 }
 

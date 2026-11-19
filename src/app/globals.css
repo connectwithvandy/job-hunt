@@ -23,13 +23,14 @@
 /* Light mode, picked with the sun/moon switch. The lime stays for buttons and highlights; text in lime and the
    supporting colours goes darker so it reads on white. */
 :root[data-theme="light"] {
-  --paper: #f6f6f1;
+  /* Cool grey page, white cards, soft lines: calmer, like Dreamwork (19 Nov). */
+  --paper: #f6f7f9;
   --card: #ffffff;
-  --ink: #0b0b0f;
+  --ink: #111118;
   --ink-2: #52525b;
   --ink-3: #6b6b74;
-  --line: #e2e2da;
-  --soft: #eeeee7;
+  --line: #e7e8ec;
+  --soft: #f0f1f4;
   --on-accent: #0b0b0f;
   --good: #3f6b0a;
   --warn: #c2410c;
@@ -86,6 +87,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 14px;
 }
+:root[data-theme="light"] .card { box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.03); }
 
 ::selection { background: var(--accent); color: var(--on-accent); }
 

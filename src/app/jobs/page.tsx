@@ -9,11 +9,11 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
-import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, FitBadge, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
-import { applyFilters, FILTERS, fitFor, fitTier, inRole } from "@/lib/jobFilters";
+import { applyFilters, FILTERS, fitFor, fitTier, inRole, picks, togglePick } from "@/lib/jobFilters";
 import { strongCompany } from "../../../convex/lib/quickFit";
 import { payPerYearInr, payText, useInrRates } from "@/lib/money";
 import { payEstimate, payEstimateText } from "../../../convex/lib/payEstimate";
@@ -92,7 +92,9 @@ function Jobs() {
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
   const homeIsBlr = /bengaluru|bangalore/i.test(me.location);
   const sort = (params.get("sort") ?? "fit") as keyof typeof SORTS;
-  const region = regionParam === "all" ? null : (regionParam ?? (homeIsBlr ? "blr" : null));
+  // Several regions can be on together, like Bengaluru and Remote; "all" means everywhere.
+  const regionPicks = regionParam === "all" ? [] : regionParam ? regionParam.split(",").filter(Boolean) : homeIsBlr ? ["blr"] : [];
+  const region = regionPicks.length ? regionPicks.join(",") : null;
 
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
   // A role from a company's own careers board was live when found, so its age counts from then.
@@ -129,7 +131,7 @@ function Jobs() {
   const regionCounts = new Map<string, number>();
   for (const j of filtered) for (const r of regionsOf(j)) regionCounts.set(r, (regionCounts.get(r) ?? 0) + 1);
   const sorted = filtered
-    .filter((j) => !region || regionsOf(j).includes(region as never))
+    .filter((j) => !regionPicks.length || regionsOf(j).some((r) => regionPicks.includes(r)))
     .sort(SORTS[sort].compare(track, rates))
     // Favourites first, each group in the order picked.
     .sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite));
@@ -164,19 +166,30 @@ function Jobs() {
 
 
   const selected = params.get("job") as Id<"jobs"> | null;
-  const showFilters = params.get("filters") === "1";
-  const regionLabel = REGIONS.find((r) => r.key === region)?.label;
+  // Open by default, like Dreamwork's filter column; the Filters button folds it away.
+  const showFilters = params.get("filters") !== "0";
+  const view = params.get("view") === "list" ? "list" : "grid";
+  const regionLabel = (key: string) => REGIONS.find((r) => r.key === key)?.label ?? key;
+  /** The region value after clicking one chip, keeping the others; the home default stays out of the URL. */
+  const regionAfter = (key: string) => {
+    const next = regionPicks.includes(key) ? regionPicks.filter((k) => k !== key) : [...regionPicks, key];
+    if (!next.length) return homeIsBlr ? "all" : null;
+    if (homeIsBlr && next.length === 1 && next[0] === "blr") return null;
+    return next.join(",");
+  };
   const trackName = track ? trackByKey.get(track)?.name : null;
   // What's narrowing the list, as chips you can remove one by one.
   const active: { label: string; href: string }[] = [
     ...(trackName ? [{ label: `Role: ${trackName}`, href: hrefWith({ track: null }) }] : []),
     ...(show ? [{ label: show === "hidden" ? "Not for me" : show === "applied" ? "Applied" : "Old or closed", href: hrefWith({ show: null }) }] : []),
-    ...(region && !(homeIsBlr && region === "blr") ? [{ label: `Region: ${regionLabel ?? region}`, href: hrefWith({ region: null }) }] : []),
-    ...(region === null && homeIsBlr ? [{ label: "Region: everywhere", href: hrefWith({ region: null }) }] : []),
-    ...FILTERS.filter((f) => params.get(f.key)).map((f) => ({
-      label: `${f.label}: ${f.options.find((o) => o.value === params.get(f.key))?.label ?? params.get(f.key)}`,
-      href: hrefWith({ [f.key]: null }),
-    })),
+    ...(homeIsBlr && regionParam === null ? [] : regionPicks.map((k) => ({ label: regionLabel(k), href: hrefWith({ region: regionAfter(k) }) }))),
+    ...(regionPicks.length === 0 && homeIsBlr ? [{ label: "Everywhere", href: hrefWith({ region: null }) }] : []),
+    ...FILTERS.flatMap((f) =>
+      picks(params, f.key).map((v) => ({
+        label: f.options.find((o) => o.value === v)?.label ?? v,
+        href: hrefWith({ [f.key]: togglePick(params, f.key, v) }),
+      })),
+    ),
   ];
   const filterCount = active.length;
   const [selecting, setSelecting] = [picked.size > 0 || params.get("select") === "1", (on: boolean) => router.replace(hrefWith({ select: on ? "1" : null }), { scroll: false })];
@@ -228,9 +241,16 @@ function Jobs() {
               </option>
             ))}
           </select>
-          <Link href={hrefWith({ filters: showFilters ? null : "1" })} scroll={false} className={`btn btn-sm ${showFilters ? "btn-primary" : "btn-ghost"}`}>
+          <Link href={hrefWith({ filters: showFilters ? "0" : null })} scroll={false} className={`btn btn-sm ${showFilters ? "btn-primary" : "btn-ghost"}`}>
             Filters{filterCount ? ` · ${filterCount}` : ""}
           </Link>
+          <div className="flex rounded-full border border-line p-0.5" role="group" aria-label="View">
+            {(["grid", "list"] as const).map((v) => (
+              <Link key={v} href={hrefWith({ view: v === "grid" ? null : "list" })} scroll={false} className={`rounded-full px-3 py-1 text-xs ${view === v ? "bg-soft font-medium text-ink" : "text-ink-3 hover:text-ink"}`}>
+                {v === "grid" ? "Cards" : "List"}
+              </Link>
+            ))}
+          </div>
           <details className="relative">
             <summary className="btn btn-ghost btn-sm cursor-pointer list-none">+ Find or add jobs</summary>
             <div className="absolute right-0 z-20 mt-2 grid w-[min(90vw,40rem)] gap-4 rounded-xl border border-line bg-paper p-4 shadow-xl">
@@ -294,7 +314,7 @@ function Jobs() {
           <aside className="card h-fit space-y-5 p-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="font-medium">Filters</span>
-              <Link href={hrefWith({ filters: null })} scroll={false} className="text-ink-3 hover:text-ink">
+              <Link href={hrefWith({ filters: "0" })} scroll={false} className="text-ink-3 hover:text-ink">
                 ✕
               </Link>
             </div>
@@ -316,31 +336,22 @@ function Jobs() {
             </div>
             {inView.length > 0 && (
               <div>
-                <div className="label mb-2">Region</div>
+                <div className="label mb-2">Location · pick one or more</div>
                 <div className="flex flex-wrap gap-2">
                   {sideChip(hrefWith({ region: homeIsBlr ? "all" : null }), `Everywhere · ${filtered.length}`, !region)}
-                  {REGIONS.filter((r) => regionCounts.get(r.key) || region === r.key).map((r) =>
-                    sideChip(hrefWith({ region: homeIsBlr && r.key === "blr" ? null : r.key }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, region === r.key),
+                  {REGIONS.filter((r) => regionCounts.get(r.key) || regionPicks.includes(r.key)).map((r) =>
+                    sideChip(hrefWith({ region: regionAfter(r.key) }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, regionPicks.includes(r.key)),
                   )}
                 </div>
               </div>
             )}
             {FILTERS.map((f) => (
-              <label key={f.key} className="block">
-                <span className="label mb-1 block">{f.label}</span>
-                <select
-                  className={`field !py-1.5 text-sm ${params.get(f.key) ? "!border-accent" : ""}`}
-                  value={params.get(f.key) ?? ""}
-                  onChange={(e) => router.replace(hrefWith({ [f.key]: e.target.value || null }), { scroll: false })}
-                >
-                  <option value="">Any</option>
-                  {f.options.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div key={f.key}>
+                <div className="label mb-2">{f.label}</div>
+                <div className="flex flex-wrap gap-2">
+                  {f.options.map((o) => sideChip(hrefWith({ [f.key]: togglePick(params, f.key, o.value) }), o.label, picks(params, f.key).includes(o.value)))}
+                </div>
+              </div>
             ))}
             <div>
               <div className="label mb-2">Also see</div>
@@ -394,6 +405,57 @@ function Jobs() {
 
           {visible.length === 0 ? (
             <div className="card p-10 text-center text-ink-2">{inView.length ? "No jobs match these filters." : "No jobs here yet. Press + Find or add jobs above."}</div>
+          ) : view === "grid" ? (
+            <ul className={`grid gap-3 sm:grid-cols-2 ${selected ? "2xl:grid-cols-3" : showFilters ? "xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>
+              {visible.slice(0, shown).map((j) => {
+                const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
+                const listed = payText(j.salary, rates);
+                const est = listed ? null : payEstimateText(j);
+                const isNew = now - j._creationTime < 2 * 86_400_000 && j.status === "new";
+                return (
+                  <li key={j._id} className={`card flex flex-col p-4 transition ${selected === j._id ? "!border-accent ring-1 ring-accent" : "hover:border-ink-3"}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CompanyMark job={j} size={36} />
+                        {isNew && <span className="rounded-full bg-violet/15 px-2 py-0.5 text-[10px] font-semibold text-violet">NEW</span>}
+                        {j.status !== "new" && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-on-accent">{STATUS_LABELS[j.status]}</span>}
+                      </div>
+                      <FitBadge job={best ? { scores: [best] } : j} size={40} />
+                    </div>
+                    <div className="mt-3 flex justify-between gap-2 text-xs text-ink-3">
+                      <span className="truncate">{j.company}</span>
+                      <span className="max-w-[50%] truncate">{j.location}</span>
+                    </div>
+                    <Link href={`/jobs/${j._id}`} onClick={(e) => open(e, j._id)} scroll={false} className="mt-0.5 line-clamp-2 font-medium leading-snug hover:underline">
+                      {j.title}
+                    </Link>
+                    <div className="mt-3 text-lg font-semibold">{listed ?? est ?? <span className="text-sm font-normal text-ink-3">Pay not listed</span>}</div>
+                    <div className="text-[11px] text-ink-3">
+                      {listed ? "Listed salary" : est ? "Estimated salary" : ""}
+                      {j.postedAt ? `${listed || est ? " · " : ""}Posted ${timeAgo(j.postedAt)}` : ""}
+                    </div>
+                    {(j.liveCheck?.state === "closed" || j.brief?.blocker) && (
+                      <div className="mt-1 text-[11px] text-bad">{j.liveCheck?.state === "closed" ? "Looks closed" : "Rules you out"}</div>
+                    )}
+                    <div className="mt-auto flex items-center gap-2 pt-4">
+                      <button
+                        type="button"
+                        aria-label={`Not for me: ${j.title}`}
+                        title="Not for me"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-line text-ink-3 hover:text-bad"
+                        onClick={() => void setStatusMany({ jobIds: [j._id], status: "dismissed" }).catch(() => {})}
+                      >
+                        ✕
+                      </button>
+                      <FavoriteStar jobId={j._id} favorite={!!j.favorite} className="shrink-0" />
+                      <Link href={`/jobs/${j._id}`} onClick={(e) => open(e, j._id)} scroll={false} className="btn btn-primary btn-sm flex-1 justify-center">
+                        {best ? "Open" : "Check the fit"}
+                      </Link>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
             <ul className="space-y-2">
               {visible.slice(0, shown).map((j, i, rows) => {
@@ -442,7 +504,7 @@ function Jobs() {
                           )}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          {best ? <ScorePill score={best.score} /> : <QuickFitPill score={j.quickFit} />}
+                          <FitBadge job={best ? { scores: [best] } : j} size={36} />
                           {!selected && <TrackTag track={trackByKey.get((track ?? jobTrackKey(j, me.tracks)) ?? "")} />}
                         </div>
                       </Link>

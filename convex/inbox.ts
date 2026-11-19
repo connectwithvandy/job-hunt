@@ -175,6 +175,18 @@ export const upcoming = query({
   },
 });
 
+/** One job's emails, newest first, for the Messages page. Empty when the job isn't yours. */
+export const thread = query({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const job = await ctx.db.get("jobs", jobId);
+    if (!job || job.userId !== userId) return [];
+    return await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", jobId)).order("desc").take(50);
+  },
+});
+
 /** The morning summary for the Gmail script to email you, once a day from 9:00 in India. Null when not due or nothing to say. */
 export const digest = internalMutation({
   args: { token: v.string() },
