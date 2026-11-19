@@ -70,7 +70,7 @@ export default function JobPage() {
   const hiringStep = (
     <section key="hiring">
       <h3 className="mb-3 font-medium">Contact the hiring manager or HR</h3>
-        <p className="-mt-2 mb-3 text-sm text-ink-2">Find them on LinkedIn, save their details here, then message them in one click.</p>
+        <p className="-mt-2 mb-3 text-sm text-ink-2">Find them on LinkedIn and save them here. For a call, look for a number under Contact info on their LinkedIn profile, or ask someone you both know, and add it to their card. Then message or call them in one click.</p>
         <div className="mb-4 flex flex-wrap gap-2">
           {[...(job.pack?.hiringManagerTitles ?? []), "Talent Acquisition"].map((t) => (
             <a key={t} className="btn btn-ghost btn-sm" href={linkedInPeopleSearch(job.company, t)} target="_blank" rel="noreferrer">
@@ -359,10 +359,16 @@ export default function JobPage() {
           },
           {
             key: "people",
-            label: "Referral & hiring manager",
+            label: "Referral, HR & calls",
             done: reachedOut,
             badge: people.length ? `${people.length} known` : undefined,
-            content: <div className="space-y-8">{referralFirst ? [referralStep, hiringStep] : [hiringStep, referralStep]}</div>,
+            // The call script sits with the people it's for: once you've found HR's or the hiring manager's number (19 Nov).
+            content: (
+              <div className="space-y-8">
+                {referralFirst ? [referralStep, hiringStep] : [hiringStep, referralStep]}
+                <CallScript jobId={job._id} script={job.callScript} />
+              </div>
+            ),
           },
           {
             key: "apply",
@@ -424,7 +430,6 @@ export default function JobPage() {
 
           <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
           <InterviewPrep jobId={job._id} prep={job.prep} answers={job.interviewAnswers} />
-          <CallScript jobId={job._id} script={job.callScript} />
               </div>
             ),
           },
