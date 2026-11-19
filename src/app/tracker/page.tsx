@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
@@ -20,12 +20,16 @@ export default function Tracker() {
   const setStatus = useSetStatus();
   // The column a card is being dragged over, so it lights up as the drop target.
   const [over, setOver] = useState<string | null>(null);
+  const archive = useMutation(api.jobs.setStatusMany);
+  const [archiving, setArchiving] = useState(false);
   if (!me || !jobs) return <Loading />;
   const color = new Map(me.tracks.map((t) => [t.key, t.color]));
   const total = jobs.filter((j) => PIPELINE.some((p) => p.status === j.status)).length;
   // "In progress" matches Today's Live applications; closed ones are counted apart (19 Nov: 30 here vs 25 there).
   const closed = jobs.filter((j) => j.status === "rejected").length;
   const live = total - closed;
+  // Saved roles ("Getting ready") whose posting has since closed: nothing left to apply to. Moved here from Today (19 Nov).
+  const gone = jobs.filter((j) => j.status === "applying" && j.liveCheck?.state === "closed");
 
   return (
     <div>
@@ -33,6 +37,29 @@ export default function Tracker() {
       <div className="mb-6">
         <GmailSync />
       </div>
+      {gone.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-soft px-4 py-3 text-sm">
+          <span className="text-ink-2">
+            {gone.length} saved {gone.length === 1 ? "role has" : "roles have"} closed since you saved {gone.length === 1 ? "it" : "them"}: {gone.slice(0, 3).map((j) => j.company).join(", ")}
+            {gone.length > 3 ? " and more" : ""}.
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm disabled:opacity-50"
+            disabled={archiving}
+            onClick={async () => {
+              setArchiving(true);
+              try {
+                await archive({ jobIds: gone.map((j) => j._id), status: "dismissed" });
+              } finally {
+                setArchiving(false);
+              }
+            }}
+          >
+            {archiving ? "Archiving…" : "Archive all"}
+          </button>
+        </div>
+      )}
       <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-6 md:-mx-12 md:px-12">
         {PIPELINE.map((col) => {
           // An interview-invite email puts the card under Interviewing even when the job still says applied or screening.
