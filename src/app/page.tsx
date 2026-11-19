@@ -332,8 +332,9 @@ export default function Today() {
       />
       <DoFirst replies={replies} interviewed={interviewed} best={bestNew[0]} verbFor={verbFor} />
 
-      <section className="rise card mb-6 p-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 px-3 pb-1 pt-3">
+      {/* Each group is its own card with a real heading: one long card with tiny grey labels read as footnotes on a phone (19 Nov). */}
+      <section className="rise mb-6 grid gap-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
           <h2 className="text-lg font-semibold">Then, today</h2>
           <span className="text-sm text-ink-3">
             {appliedToday >= APPLIES_A_DAY
@@ -361,22 +362,22 @@ export default function Today() {
           </Group>
         )}
         {(applyJobs.length > 0 || gettingReady.length > 0) && (
-          <Group label="Apply" more={{ href: "/jobs", text: "All jobs →" }}>
+          <Group label="Apply" count={gettingReady.length + applyJobs.length} more={{ href: "/jobs", text: "All jobs →" }}>
             <ApplyRows ready={gettingReady} jobs={applyJobs} verbFor={verbFor} />
           </Group>
         )}
         {answer.length > 0 && (
-          <Group label="Replies">
+          <Group label="Replies" count={answer.length}>
             <TodoList items={answer} plain group="Replies" />
           </Group>
         )}
         {followUpItems.length > 0 && (
-          <Group label="Follow up">
+          <Group label="Follow up" count={followUpItems.length}>
             <TodoList items={followUpItems} plain group="Follow up" />
           </Group>
         )}
         {(referralItems.length > 0 || companiesAskedToday > 0) && (
-          <Group label="Referrals" more={{ text: `Asked today ${companiesAskedToday} of ${COMPANIES_A_DAY}` }}>
+          <Group label="Referrals" count={referralItems.length} more={{ text: `Asked today ${companiesAskedToday} of ${COMPANIES_A_DAY}` }}>
             {referralItems.length > 0 ? <TodoList items={referralItems} plain group="Referrals" /> : <p className="px-3 py-3 text-sm text-ink-2">Today&apos;s asks are sent.</p>}
           </Group>
         )}
@@ -386,7 +387,7 @@ export default function Today() {
           </Group>
         )}
         {fixes.length > 0 && (
-          <div className="border-t border-line px-3 py-3 text-xs text-ink-3">
+          <div className="card px-4 py-3 text-xs text-ink-3">
             {fixes.map((f) => (
               <p key={f.key}>
                 {f.key === "score" ? (
@@ -406,7 +407,7 @@ export default function Today() {
           </div>
         )}
         {!applyJobs.length && !gettingReady.length && !answer.length && !followUpItems.length && !referralItems.length && !interviews?.length && (
-          <p className="px-3 py-4 text-sm text-ink-2">
+          <p className="card px-4 py-4 text-sm text-ink-2">
             {me.contactsCount ? "Nothing waiting on you. Open Jobs, or find people to ask in Messages." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
           </p>
         )}
@@ -561,19 +562,22 @@ function DoFirst({ replies, interviewed, best, verbFor }: { replies: Doc<"jobs">
   );
 }
 
-/** A labelled group inside "Then, today": a small heading and its rows, divided from the group above. */
-function Group({ label, more, children }: { label: string; more?: { text: string; href?: string }; children: React.ReactNode }) {
+/** One group of "Then, today" as its own card: a real heading with its count, an optional link, then its rows. */
+function Group({ label, count, more, children }: { label: string; count?: number; more?: { text: string; href?: string }; children: React.ReactNode }) {
   return (
-    <div className="border-t border-line pt-1 first:border-t-0">
-      <div className="flex items-baseline justify-between gap-2 px-3 pb-1 pt-3">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">{label}</span>
+    <div className="card p-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-3 pb-2 pt-2">
+        <h3 className="text-base font-semibold text-ink">
+          {label}
+          {!!count && <span className="ml-2 text-sm font-normal text-ink-3">{count}</span>}
+        </h3>
         {more &&
           (more.href ? (
-            <Link href={more.href} className="text-xs text-ink-3 hover:text-ink">
+            <Link href={more.href} className="text-sm text-ink-2 hover:text-ink">
               {more.text}
             </Link>
           ) : (
-            <span className="text-xs text-ink-3">{more.text}</span>
+            <span className="text-sm text-ink-3">{more.text}</span>
           ))}
       </div>
       {children}
@@ -605,10 +609,10 @@ function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"
       <li key={j._id} className="flex flex-wrap items-center gap-3 px-3 py-3">
         {isStarted ? <CompanyMark job={j} size={36} /> : <FitBadge job={j} size={36} />}
         <Link href={`/jobs/${j._id}`} className="min-w-0 flex-1 basis-48">
-          <span className="block truncate text-sm font-medium">
+          <span className="block text-sm font-medium md:truncate">
             {j.company} · {j.title}
           </span>
-          <span className="block truncate text-xs text-ink-2">
+          <span className="block text-xs text-ink-2 md:truncate">
             {isStarted ? "Started, not sent yet" : [pay, j.location, j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
           </span>
         </Link>
@@ -639,11 +643,11 @@ function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"
           <li className="flex flex-wrap items-center gap-3 px-3 py-3">
             <CompanyMark job={moreStarted[0]} size={36} />
             <Link href="/tracker" className="min-w-0 flex-1 basis-48">
-              <span className="block truncate text-sm font-medium">
+              <span className="block text-sm font-medium md:truncate">
                 {moreStarted.length} more started, not sent: {moreStarted.slice(0, 2).map((j) => j.company).join(", ")}
                 {moreStarted.length > 2 ? " and more" : ""}
               </span>
-              <span className="block truncate text-xs text-ink-2">Finish them from Applications</span>
+              <span className="block text-xs text-ink-2 md:truncate">Finish them from Applications</span>
             </Link>
             <Link href="/tracker" className="btn btn-sm shrink-0">
               See them
@@ -712,7 +716,7 @@ function TodoRow({ t, arrow, group }: { t: Todo; arrow: string; group?: string }
       <span className="min-w-0 flex-1 basis-48">
         {/* Inside a group the header says what kind of task it is, so rows carry no coloured label of their own (19 Nov). */}
         {!group && <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>}
-        <span className="block truncate text-sm font-medium">{t.main}</span>
+        <span className="block text-sm font-medium md:truncate">{t.main}</span>
         {/* Whole on a phone: one cut-off line showed a third of "Recruiter replies…" at 390px (13 Nov). */}
         <span className="block text-xs text-ink-2 md:truncate">{t.sub}</span>
       </span>

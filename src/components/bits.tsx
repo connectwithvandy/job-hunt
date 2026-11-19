@@ -104,7 +104,7 @@ export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" |
   const logo = domain ? faviconOf(domain) : (job.companyLogo ?? (site ? faviconOf(site) : undefined));
   if (logo) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logo} alt="" width={size} height={size} className="rounded-lg border border-line bg-white object-contain" style={{ width: size, height: size }} />;
+    return <img src={logo} alt="" width={size} height={size} className="shrink-0 rounded-lg border border-line bg-white object-contain" style={{ width: size, height: size }} />;
   }
   return (
     <span
