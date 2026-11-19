@@ -130,7 +130,7 @@ export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: G
       {!hidden && (
         <section id="setup-guide" className="card mb-8 scroll-mt-6 p-6">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="display text-2xl">Get JobPipe working for you</h2>
+            <h2 className="text-lg font-semibold">Get JobPipe working for you</h2>
             <button type="button" className="text-xs text-ink-3 hover:text-ink" onClick={() => (remember("guide-hidden"), setHidden(true))}>
               Hide
             </button>

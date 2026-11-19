@@ -42,7 +42,7 @@ export function ScoreTipPopup({ unscored }: { unscored: number }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 print:hidden" role="dialog" aria-modal="true" aria-labelledby="score-tip-title">
       <div className="card w-full max-w-md p-6">
-        <h2 id="score-tip-title" className="display text-2xl">
+        <h2 id="score-tip-title" className="text-lg font-semibold">
           Your new jobs are in
         </h2>
         <p className="mt-3 text-sm text-ink-2">

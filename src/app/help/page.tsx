@@ -61,7 +61,7 @@ export default function Help() {
   return (
     <div className="max-w-2xl">
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">Help &amp; support</h1>
-      <p className="mb-6 text-sm text-ink-2">Stuck, or something not working? Ask below and Vandana answers by email, usually the same day.</p>
+      <p className="mb-6 text-sm text-ink-2">Stuck, or something not working? Ask below and Vandana answers you by email.</p>
       {youTubeId(INTRO_VIDEO) && (
         <div className="card mb-6 overflow-hidden">
           <div className="aspect-video">

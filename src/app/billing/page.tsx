@@ -142,7 +142,7 @@ export default function Billing() {
             const promo = promoOf(key);
             return (
               <section key={key} className="card flex flex-col p-6">
-                <h2 className="display text-2xl">{p.label}</h2>
+                <h2 className="text-lg font-semibold">{p.label}</h2>
                 <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
                   {p.was && <s className="text-xl text-ink-3">₹{p.was.rupees.toLocaleString("en-IN")}</s>}
                   <span className="display text-4xl">₹{p.rupees.toLocaleString("en-IN")}</span>

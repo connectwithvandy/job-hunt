@@ -210,7 +210,7 @@ function Jobs() {
     <div className="mx-auto max-w-[1440px]">
       {!me.isOwner && !show && <ScoreTipPopup unscored={unscored.length} />}
       <div className="mb-3 flex flex-wrap items-baseline gap-2">
-        <h1 className="display text-3xl">Jobs</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
         <span className="text-sm text-ink-3">
           {visible.length} of {inView.length}
         </span>

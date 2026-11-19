@@ -24,9 +24,10 @@ const PROFILE = {
 };
 const NAV = [
   { label: "Today", pages: [{ href: "/", label: "Today" }] },
-  { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }, { href: "/companies", label: "Companies" }] },
+  { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }] },
   { label: "Applications", pages: [{ href: "/tracker", label: "Applications" }] },
-  { label: "Referrals", pages: [{ href: "/network", label: "Referrals" }] },
+  // Companies sits with Referrals (19 Nov): both are about who's hiring and who you know there, not single jobs.
+  { label: "Referrals", pages: [{ href: "/network", label: "People to ask" }, { href: "/companies", label: "Companies" }] },
   { label: "Messages", pages: [{ href: "/inbox", label: "Messages" }] },
   PROFILE,
 ];

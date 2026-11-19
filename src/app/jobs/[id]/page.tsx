@@ -67,7 +67,8 @@ export default function JobPage() {
   const referralFirst = people.length > 0;
 
   const hiringStep = (
-    <Fold key="hiring" n={referralFirst ? 3 : 2} title="Contact the hiring manager or HR" status={job.hiringContacts?.length ? `${job.hiringContacts.length} saved` : "Nobody saved yet"} open={false}>
+    <section key="hiring">
+      <h3 className="mb-3 font-medium">Contact the hiring manager or HR</h3>
         <p className="-mt-2 mb-3 text-sm text-ink-2">Find them on LinkedIn, save their details here, then message them in one click.</p>
         <div className="mb-4 flex flex-wrap gap-2">
           {[...(job.pack?.hiringManagerTitles ?? []), "Talent Acquisition"].map((t) => (
@@ -88,24 +89,25 @@ export default function JobPage() {
               {job.pack.email ? (
                 <EmailDraft key={job.pack.createdAt} jobId={job._id} subject={job.pack.emailSubject ?? ""} body={job.pack.email} />
               ) : (
-                <p className="text-sm text-ink-2">Press &quot;Write them again&quot; in step 1 to get an email version too.</p>
+                <p className="text-sm text-ink-2">Press &quot;Write them again&quot; on the CV &amp; letter tab to get an email version too.</p>
               )}
             </div>
             <p className="text-xs text-ink-3">&quot;Hi &lt;first name&gt;&quot; is filled in with the person&apos;s name when you message them from their card above.</p>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-ink-2">Write your CV in step 1 to get a LinkedIn note and an email for them.</p>
+          <p className="mt-4 text-sm text-ink-2">Write your CV on the CV &amp; letter tab to get a LinkedIn note and an email for them.</p>
         )}
-    </Fold>
+    </section>
   );
   const referralStep = (
-    <Fold key="referral" n={referralFirst ? 2 : 3} title="Ask your connections for a referral" status={job.outreach.length ? `${job.outreach.length} asked` : people.length ? `You know ${people.length} there` : "No connections there"} open={referralFirst && stage === "reach"}>
+    <section key="referral">
+      <h3 className="mb-3 font-medium">Ask your connections for a referral</h3>
         {me.contactsCount === 0 ? (
           <p className="text-sm text-ink-2">
             Load your LinkedIn connections under Profile → <Link className="underline" href="/connect">LinkedIn &amp; Gmail</Link> to see who you know at {job.company}.
           </p>
         ) : people.length === 0 ? (
-          <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager in step 2, or a second-degree intro.</p>
+          <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager below, or a second-degree intro.</p>
         ) : (
           <>
             <p className="mb-3 text-sm text-ink-2">
@@ -121,14 +123,14 @@ export default function JobPage() {
             ))}
           </div>
         )}
-    </Fold>
+    </section>
   );
 
   // An email waiting for your answer goes to the top, above the steps.
   const answerFirst = data.emails.some(needsAnswer);
   const account = gmail?.email || me.email;
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
       <Link href={`/chat?job=${job._id}`} className="btn btn-ghost btn-sm float-right">
         Ask about this job
       </Link>
@@ -138,14 +140,14 @@ export default function JobPage() {
 
       {cvError && (
         <p className="card mt-4 border-warn p-4 text-sm" role="status">
-          The job is saved, but your CV wasn&apos;t written: {cvError} You can try again in step 1.
+          The job is saved, but your CV wasn&apos;t written: {cvError} You can try again on the CV &amp; letter tab.
         </p>
       )}
       <header className="mt-4 mb-8 flex flex-wrap items-start gap-4">
         <CompanyMark job={job} size={52} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
-            <h1 className="display text-3xl leading-tight md:text-4xl">{job.title}</h1>
+            <h1 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">{job.title}</h1>
             <FavoriteStar jobId={job._id} favorite={!!job.favorite} className="mt-1.5 text-2xl" />
           </div>
           <p className="mt-1 text-ink-2">
@@ -175,8 +177,15 @@ export default function JobPage() {
 
       <NextStep stage={stage} skip={skip} knows={people.length} company={job.company} dismiss={async () => void (await setStatus({ jobId: job._id, status: "dismissed" }))} job={job} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} scoreIt={async () => void (await scoreJobs({ jobIds: [job._id] }))} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
 
-      <div className="space-y-3">
-        <Fold title="Is it a fit?" status={scores.length ? `Best fit ${scores[0].score}` : "Not scored yet"} open={stage === "score"}>
+      <JobTabs
+        initial={stage === "score" ? "fit" : stage === "tailor" ? "cv" : stage === "apply" ? "apply" : stage === "reach" ? "people" : stage === "interview" ? "prepare" : "fit"}
+        tabs={[
+          {
+            key: "fit",
+            label: "Fit",
+            badge: scores.length ? String(scores[0].score) : undefined,
+            content: (
+              <>
           <div className="mb-4 flex justify-end">
             <ActionButton run={async () => void (await scoreJobs({ jobIds: [job._id] }))} pending="Scoring…" variant={scores.length ? "ghost" : "primary"} size="sm">
               {scores.length ? "Score again" : "Score this job"}
@@ -216,12 +225,18 @@ export default function JobPage() {
                 )}
               </div>
             )}
-        </Fold>
-
-        <Fold n={1} title="Tailor your CV and cover letter" status={job.pack ? "Done" : "Not written yet"} open={stage === "tailor"}>
+              </>
+            ),
+          },
+          {
+            key: "cv",
+            label: "CV & letter",
+            badge: job.pack ? "Ready" : undefined,
+            content: (
+              <>
             {/* Before the first draft the Next step box above holds the button, so it isn't shown twice. */}
             {stage === "tailor" ? (
-              <p className="-mt-2 mb-4 text-sm text-ink-2">Use the Next step button above to write the tailored CV, cover letter, LinkedIn note and email.</p>
+              <p className="-mt-2 mb-4 text-sm text-ink-2">Use the button in the box above to write the tailored CV, cover letter, LinkedIn note and email.</p>
             ) : (
               <>
             <p className="-mt-2 mb-4 text-sm text-ink-2">One click writes the tailored CV, a cover letter, and a LinkedIn note and email for the hiring manager.</p>
@@ -271,12 +286,21 @@ export default function JobPage() {
                 </div>
               </div>
             )}
-        </Fold>
-
-        {/* A referral from someone inside beats a cold note by a wide margin, so when you know someone there it comes first. */}
-        {referralFirst ? [referralStep, hiringStep] : [hiringStep, referralStep]}
-
-        <Fold n={4} title="Apply" status={job.status === "new" || job.status === "applying" ? "Not applied yet" : `Applied${job.appliedAt ? ` ${timeAgo(job.appliedAt)}` : ""}`} open={stage === "apply"}>
+              </>
+            ),
+          },
+          {
+            key: "people",
+            label: "People",
+            badge: people.length ? String(people.length) : undefined,
+            content: <div className="space-y-8">{referralFirst ? [referralStep, hiringStep] : [hiringStep, referralStep]}</div>,
+          },
+          {
+            key: "apply",
+            label: "Apply",
+            badge: job.status === "new" || job.status === "applying" ? undefined : "Done",
+            content: (
+              <>
             {me.answers.length > 0 ? (
               <div className="mb-4">
                 <div className="label mb-2">Your answers, for the form</div>
@@ -304,11 +328,18 @@ export default function JobPage() {
                 <span className="text-sm text-ink-2">Applied{job.appliedAt ? ` ${timeAgo(job.appliedAt)}` : ""}. Move it along with the status menu at the top.</span>
               )}
             </div>
-        </Fold>
-
-        {data.interviews.length > 0 && (
+              </>
+            ),
+          },
+          {
+            key: "prepare",
+            label: "Prepare",
+            badge: data.interviews.length ? String(data.interviews.length) : undefined,
+            content: (
+              <div className="space-y-6">
+                {data.interviews.length > 0 && (
           <div className="card p-6">
-            <h2 className="display mb-4 text-2xl">Interviews</h2>
+            <h2 className="mb-4 text-lg font-semibold">Interviews</h2>
             <ul className="divide-y divide-line text-sm">
               {data.interviews.map((i) => (
                 <li key={i._id} className="flex flex-wrap justify-between gap-2 py-3">
@@ -327,24 +358,58 @@ export default function JobPage() {
           </div>
         )}
 
-        {data.emails.length > 0 && !answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} />}
 
-        {/* Always shown since 17 Nov: tucked behind a small grey "More…" line, people weren't finding these. */}
-        <section id="prep" className="space-y-6 pt-4">
-          <div>
-            <h2 className="display text-3xl">Get ready for this job</h2>
-            <p className="mt-1 text-sm text-ink-2">Know the company, prepare for the interview, and know what to say when you call.</p>
-          </div>
           <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
           <InterviewPrep jobId={job._id} prep={job.prep} answers={job.interviewAnswers} />
           <CallScript jobId={job._id} script={job.callScript} />
-          {job.description && (
-            <details className="card p-6">
-              <summary className="display cursor-pointer text-2xl">Full job description</summary>
-              <div className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink-2">{job.description}</div>
-            </details>
-          )}
-        </section>
+              </div>
+            ),
+          },
+          ...(data.emails.length > 0 && !answerFirst
+            ? [{ key: "emails", label: "Emails", badge: String(data.emails.length), content: <JobEmails emails={data.emails} company={job.company} account={account} /> }]
+            : []),
+          ...(job.description
+            ? [{ key: "job", label: "Job description", content: <div className="whitespace-pre-line text-sm leading-relaxed text-ink-2">{job.description}</div> }]
+            : []),
+        ]}
+      />
+    </div>
+  );
+}
+
+/**
+ * The job's parts as tabs in one panel, like Dreamwork's application view (19 Nov), instead of a long page of
+ * numbered steps. It opens on the tab for where the job is up to; the hash (#prep, #emails) still jumps there.
+ */
+function JobTabs({ tabs, initial }: { tabs: { key: string; label: string; badge?: string; content: React.ReactNode }[]; initial: string }) {
+  const [on, setOn] = useState(() => {
+    try {
+      const hash = window.location.hash.slice(1);
+      const fromHash = hash === "prep" ? "prepare" : hash;
+      if (tabs.some((t) => t.key === fromHash)) return fromHash;
+    } catch {}
+    return initial;
+  });
+  const current = tabs.find((t) => t.key === on) ?? tabs[0];
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex gap-1 overflow-x-auto border-b border-line px-3 pt-2 text-sm" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={t.key === current.key}
+            onClick={() => setOn(t.key)}
+            className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 whitespace-nowrap ${t.key === current.key ? "border-accent font-medium text-ink" : "border-transparent text-ink-3 hover:text-ink"}`}
+          >
+            {t.label}
+            {t.badge && <span className="rounded-full bg-soft px-1.5 text-[11px] text-ink-2">{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="p-5 md:p-6" role="tabpanel">
+        {current.content}
       </div>
     </div>
   );
@@ -391,21 +456,6 @@ function PostingCheck({
   );
 }
 
-/** One part of the job, folded shut unless it's the step you're on. */
-function Fold({ n, title, status, open, children }: { n?: number; title: string; status: string; open: boolean; children: React.ReactNode }) {
-  return (
-    <details className="card group" open={open}>
-      <summary className="flex cursor-pointer list-none items-center gap-3 p-5">
-        {n !== undefined && <span className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-soft text-sm">{n}</span>}
-        <span className="display flex-1 text-xl">{title}</span>
-        <span className="text-xs text-ink-3">{status}</span>
-        <span className="text-ink-3 transition-transform group-open:rotate-90">›</span>
-      </summary>
-      <div className="px-5 pb-6">{children}</div>
-    </details>
-  );
-}
-
 /** The one thing to do now for this job, with its button. */
 function NextStep({
   stage,
@@ -437,8 +487,8 @@ function NextStep({
     tailor: ["Write your tailored CV and cover letter", "Also writes a LinkedIn note and an email for the hiring manager."],
     apply: ["Apply", "Opens the form, downloads your tailored CV and copies your cover letter."],
     reach: knows
-      ? ["Ask for a referral", `Applied. You know ${knows} ${knows === 1 ? "person" : "people"} at ${company}: a referral is the strongest way in (step 2). Then message the hiring manager (step 3).`]
-      : ["Get noticed", "Applied. Now message the hiring manager (step 2), and follow up in a week if they don't reply."],
+      ? ["Ask for a referral", `Applied. You know ${knows} ${knows === 1 ? "person" : "people"} at ${company}: a referral is the strongest way in (People tab). Then message the hiring manager.`]
+      : ["Get noticed", "Applied. Now message the hiring manager (People tab), and follow up in a week if they don't reply."],
     interview: [
       job.status === "offer" ? "Weigh the offer" : "Prepare for the interview",
       job.status === "offer"
@@ -452,7 +502,7 @@ function NextStep({
     return (
       <section className="card mb-6 border-warn p-6">
         <div className="label mb-1 text-warn">Next step</div>
-        <h2 className="display text-2xl">Skip this one</h2>
+        <h2 className="text-lg font-semibold">Skip this one</h2>
         <p className="mt-1 mb-4 text-sm text-ink-2">{skip}</p>
         <div className="flex flex-wrap items-start gap-3">
           <ActionButton run={dismiss}>Not for me</ActionButton>
@@ -465,7 +515,7 @@ function NextStep({
   return (
     <section className="card mb-6 border-accent p-6">
       <div className="label mb-1 text-accent">Next step</div>
-      <h2 className="display text-2xl">{text[0]}</h2>
+      <h2 className="text-lg font-semibold">{text[0]}</h2>
       <p className="mt-1 mb-4 text-sm text-ink-2">{text[1]}</p>
       {stage === "score" && (
         <ActionButton run={scoreIt} pending="Scoring…">

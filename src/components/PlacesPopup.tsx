@@ -32,7 +32,7 @@ export function PlacesPopup({ location, workModes }: { location: string; workMod
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 print:hidden" role="dialog" aria-modal="true" aria-labelledby="places-title">
       <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-6">
-        <h2 id="places-title" className="display text-2xl">
+        <h2 id="places-title" className="text-lg font-semibold">
           Where should we search for jobs?
         </h2>
         <p className="mt-2 text-sm text-ink-2">

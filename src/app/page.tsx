@@ -269,14 +269,14 @@ export default function Today() {
         now={now}
         today={[
           { label: "Applied today", done: appliedToday, goal: APPLIES_A_DAY },
-          { label: "Companies asked", done: companiesAskedToday, goal: COMPANIES_A_DAY },
+          { label: "Asked today", done: companiesAskedToday, goal: COMPANIES_A_DAY },
         ]}
         askedTotal={askedTotal}
       />
 
       {!!interviews?.length && (
         <section className="card mb-8 p-6">
-          <h2 className="display mb-4 text-2xl">Interviews coming up</h2>
+          <h2 className="mb-4 text-lg font-semibold">Interviews coming up</h2>
           <ul className="divide-y divide-line text-sm">
             {interviews.map((i) => (
               <li key={i._id} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
@@ -415,7 +415,7 @@ function SearchStrip({ jobs, trialEndsAt, now, today, askedTotal }: { jobs: Doc<
       </div>
       <div className="flex gap-6">
         {today.map((t) => (
-          <div key={t.label} className="w-28">
+          <div key={t.label} className="w-32">
             <div className="flex items-baseline justify-between text-xs text-ink-3">
               <span>{t.label}</span>
               <span className="tabular-nums text-ink">
@@ -828,13 +828,13 @@ function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">
   return (
     <section className="card mt-2 mb-8 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="display text-2xl">Your search so far</h2>
+        <h2 className="text-lg font-semibold">Your search so far</h2>
         <span className="text-sm text-ink-2">{replyNote(total)}</span>
       </div>
       <ol className="mt-4 grid grid-cols-5 gap-1 text-center">
         {STAGES.map((s, i) => (
           <li key={s.key} className={`rounded-lg px-1 py-3 ${i === 0 ? "bg-soft" : ""}`}>
-            <div className="display text-2xl tabular-nums sm:text-3xl">{total[s.key]}</div>
+            <div className="text-lg font-semibold tabular-nums sm:text-3xl">{total[s.key]}</div>
             <div className="mt-1 text-[11px] leading-tight text-ink-3 sm:text-xs">{s.label}</div>
           </li>
         ))}
@@ -915,7 +915,7 @@ function JustRaised({ prospects }: { prospects: Doc<"prospects">[] }) {
   return (
     <section className="card mb-10 p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h2 className="display text-2xl">Just raised money</h2>
+        <h2 className="text-lg font-semibold">Just raised money</h2>
         <Link href="/companies" className="text-sm text-ink-3 hover:text-ink">
           All companies
         </Link>

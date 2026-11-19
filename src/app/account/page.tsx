@@ -27,7 +27,7 @@ function Details({ me }: { me: { email: string; name: string; linkedin: string; 
   const [state, setState] = useState<ActionState>(null);
   return (
     <section className="card mb-6 p-6">
-      <h2 className="display mb-4 text-2xl">Your details</h2>
+      <h2 className="mb-4 text-lg font-semibold">Your details</h2>
       <div className="space-y-4">
         <label className="block">
           <span className="label">Name</span>
@@ -73,7 +73,7 @@ function PasswordForm() {
   const [state, setState] = useState<ActionState>(null);
   return (
     <section className="card p-6">
-      <h2 className="display mb-4 text-2xl">Password</h2>
+      <h2 className="mb-4 text-lg font-semibold">Password</h2>
       <form
         className="space-y-4"
         onSubmit={async (e) => {

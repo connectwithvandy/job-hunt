@@ -96,7 +96,7 @@ function Chat() {
 
       <section className="flex min-h-[calc(100vh-6rem)] min-w-0 flex-1 flex-col">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="display text-3xl">{chat ? chat.title : job ? `About ${job.job.title} at ${job.job.company}` : "Ask anything"}</h1>
+          <h1 className="text-xl font-semibold">{chat ? chat.title : job ? `About ${job.job.title} at ${job.job.company}` : "Ask anything"}</h1>
           <div className="flex shrink-0 gap-2 md:hidden">
             {chats.length > 0 && (
               <select

@@ -54,7 +54,7 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
           setDone(
             ready.length
               ? `${ready.join(", ")}. On the form: click your JobPipe autofill bookmark. It fills your answers and attaches the CV; check it all, then press Submit.`
-              : "Form opened. Write your tailored CV in step 1 first to have it downloaded here too.",
+              : "Form opened. Write your tailored CV on the CV & letter tab first to have it downloaded here too.",
           );
         }}
       >
@@ -1015,7 +1015,7 @@ export function CompanyResearch({ jobId, company, research }: { jobId: Id<"jobs"
   return (
     <div className="card p-6">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="display text-2xl">About {company}</h2>
+        <h2 className="text-lg font-semibold">About {company}</h2>
         <button className="btn btn-ghost btn-sm" disabled={busy} onClick={go}>
           {busy && <Spinner />}
           {busy ? "Searching the web…" : research ? "Refresh" : "Look them up"}
@@ -1079,7 +1079,7 @@ export function InterviewPrep({ jobId, prep, answers }: { jobId: Id<"jobs">; pre
   return (
     <div className="card p-6">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="display text-2xl">Interview prep</h2>
+        <h2 className="text-lg font-semibold">Interview prep</h2>
         <button className={`btn btn-sm ${prep ? "btn-ghost" : "btn-primary"}`} disabled={busy} onClick={go}>
           {busy && <Spinner />}
           {busy ? "Preparing… about a minute" : prep ? "Redo" : "Prepare me"}
@@ -1207,7 +1207,7 @@ export function CallScript({ jobId, script }: { jobId: Id<"jobs">; script?: Doc<
   return (
     <div className="card p-6">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="display text-2xl">Call script</h2>
+        <h2 className="text-lg font-semibold">Call script</h2>
         <button className={`btn btn-sm ${script ? "btn-ghost" : "btn-primary"}`} disabled={busy} onClick={go}>
           {busy && <Spinner />}
           {busy ? "Writing… about 20 seconds" : script ? "Redo" : "Write my call script"}
@@ -1378,7 +1378,7 @@ export function JobEmails({ emails, company, account }: { emails: Doc<"jobEmails
   }, []);
   return (
     <div id="emails" className="card scroll-mt-6 p-6">
-      <h2 className="display mb-4 text-2xl">Emails from {company}</h2>
+      <h2 className="mb-4 text-lg font-semibold">Emails from {company}</h2>
       <ul className="divide-y divide-line text-sm">
         {emails.map((m) => (
           <EmailItem key={m._id} m={m} account={account} />
