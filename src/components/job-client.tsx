@@ -934,7 +934,7 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
 }
 
 const OUTREACH_FLOW: { status: OutreachStatus; label: string }[] = [
-  { status: "sent", label: "Sent" },
+  { status: "sent", label: "Mark sent" },
   { status: "replied", label: "Replied" },
   { status: "referred", label: "Referred me" },
 ];
@@ -978,13 +978,14 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
             Save edits
           </button>
         )}
-        {OUTREACH_FLOW.map((s) => (
+        {/* Only the steps that can come next: not sent yet → Mark sent; sent → Replied or Referred me (19 Nov). */}
+        {OUTREACH_FLOW.filter((s) => (o.status === "draft" ? s.status === "sent" : o.status === "sent" ? s.status !== "sent" : o.status === "replied" ? s.status === "referred" : false)).map((s) => (
           <button
             key={s.status}
             className={`btn btn-sm ${o.status === s.status ? "btn-primary" : "btn-ghost"}`}
             onClick={async () => {
               await setOutreach({ jobId, contactId: o.contactId, status: s.status, message });
-              setSaved(`Marked ${s.label.toLowerCase()}.`);
+              setSaved(s.status === "sent" ? "Marked sent. Follow-up 1 is due in 2 days." : s.status === "referred" ? "Marked: referred you." : "Marked replied.");
             }}
           >
             {s.label}
