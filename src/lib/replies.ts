@@ -5,6 +5,7 @@
 type EmailJob = {
   status: string;
   statusSetAt?: number;
+  meetingEndAt?: number;
   lastEmail?: { at: number; stage: string; repliedAt?: number; subject?: string };
 };
 
@@ -31,17 +32,25 @@ export function waitsForAnswer(j: EmailJob, now: number): boolean {
 
 /** The latest email is an interview invite and the meeting in it has ended. */
 export function interviewOver(j: EmailJob, now: number): boolean {
-  const e = j.lastEmail;
-  if (!e || e.stage !== "interview" || !e.subject) return false;
-  const end = meetingEnd(e.subject);
+  const end = meetingTime(j);
   return end !== null && end < now;
+}
+
+/** When the interview ends: saved on the job from any invite, or read from the latest email's subject. */
+function meetingTime(j: EmailJob): number | null {
+  const e = j.lastEmail;
+  if (!e || e.stage !== "interview") return null;
+  // The invite usually arrives before the "confirmed" email, so the saved time beats the latest subject.
+  const end = j.meetingEndAt ?? (e.subject ? meetingEnd(e.subject) : null);
+  // A time from before this email is an earlier round, not the one this email is about.
+  return end !== null && end >= e.at - 30 * DAY ? end : null;
 }
 
 /** An interview that ended in the last week, on a job still open: time to say how it went and thank them. */
 export function justInterviewed(j: EmailJob, now: number): boolean {
   if (j.status === "rejected" || j.status === "dismissed" || j.status === "offer") return false;
-  if (!interviewOver(j, now)) return false;
-  return now - meetingEnd(j.lastEmail!.subject!)! < 7 * DAY;
+  const end = meetingTime(j);
+  return end !== null && end < now && now - end < 7 * DAY;
 }
 
 /** Interview invites and offers come before a recruiter's first note. */

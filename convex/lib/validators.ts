@@ -225,6 +225,8 @@ export const jobFields = {
   lastEmail: v.optional(v.object({ subject: v.string(), from: v.string(), at: v.number(), stage: v.string(), repliedAt: v.optional(v.number()) })),
   /** When the person last moved this job by hand (tracker drag or status menu), so their choice beats an email's guess. */
   statusSetAt: v.optional(v.number()),
+  /** When the latest interview in a calendar invite ends, so Today stops saying "answer it" once it has happened. */
+  meetingEndAt: v.optional(v.number()),
   brief: v.optional(briefV),
   liveCheck: v.optional(liveCheckV),
   /** You wrote the CV even though the app said to skip it, so results can show whether that pays off. */

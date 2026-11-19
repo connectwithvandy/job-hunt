@@ -11,6 +11,7 @@ import { internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { companyKey } from "./lib/company";
 import { roleNamed, titleFit } from "./lib/inbox";
+import { meetingEnd } from "./lib/meeting";
 
 const FITS = 0.6;
 
@@ -66,3 +67,29 @@ export const rematchEmails = internalMutation({
 function lastEmailOf(e: Doc<"jobEmails">): NonNullable<Doc<"jobs">["lastEmail"]> {
   return { subject: e.subject, from: e.from, at: e.at, stage: e.stage, ...(e.repliedAt ? { repliedAt: e.repliedAt } : {}) };
 }
+
+/**
+ * One-off: save the meeting time on jobs whose interview invite arrived before this was kept (19 Nov), so an
+ * interview that already happened stops asking to be answered. Only jobs whose latest email is an interview.
+ * npx convex run --prod emailFix:backfillMeetings '{"dryRun":true}'
+ */
+export const backfillMeetings = internalMutation({
+  args: { dryRun: v.boolean() },
+  returns: v.array(v.object({ company: v.string(), title: v.string(), meetingEndAt: v.number() })),
+  handler: async (ctx, { dryRun }) => {
+    const out: { company: string; title: string; meetingEndAt: number }[] = [];
+    const users = await ctx.db.query("users").take(1000);
+    for (const u of users) {
+      const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", u._id)).order("desc").take(1000);
+      for (const j of jobs) {
+        if (j.lastEmail?.stage !== "interview" || j.meetingEndAt) continue;
+        const emails = await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", j._id)).order("desc").take(20);
+        const end = emails.map((e) => meetingEnd(e.subject)).find((t): t is number => t !== null);
+        if (!end) continue;
+        out.push({ company: j.company, title: j.title, meetingEndAt: end });
+        if (!dryRun) await ctx.db.patch("jobs", j._id, { meetingEndAt: end });
+      }
+    }
+    return out;
+  },
+});

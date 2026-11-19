@@ -54,3 +54,12 @@ describe("interviews that already happened", () => {
     expect(justInterviewed({ ...job, status: "rejected" }, end + DAY)).toBe(false);
   });
 });
+
+describe("meeting time saved on the job", () => {
+  it("uses the saved time when the latest email has none", () => {
+    const end = Date.UTC(2026, 10, 16, 17, 30);
+    const job = { status: "interview", meetingEndAt: end, lastEmail: { at: end - 3 * DAY, stage: "interview", subject: "Interview Confirmation | Rippling - Vandana Agarwal" } };
+    expect(waitsForAnswer(job, end + DAY)).toBe(false);
+    expect(justInterviewed(job, end + DAY)).toBe(true);
+  });
+});

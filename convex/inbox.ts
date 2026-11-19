@@ -1,3 +1,4 @@
+import { meetingEnd } from "./lib/meeting";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { env, internalQuery, query } from "./_generated/server";
@@ -55,7 +56,8 @@ export const ingest = internalMutation({
       const at = Date.parse(m.date) || Date.now();
       // An automatic confirmation counts as answered, so it never sits on Today waiting for a reply.
       const answered = needsNoAnswer(m) ? at : undefined;
-      const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage, repliedAt: answered }, updatedAt: Date.now() };
+      const meetingEndAt = meetingEnd(m.subject) ?? undefined;
+      const patch = { lastEmail: { subject: m.subject.slice(0, 200), from: m.from.slice(0, 200), at, stage, repliedAt: answered }, updatedAt: Date.now(), ...(meetingEndAt ? { meetingEndAt } : {}) };
       await ctx.db.insert("jobEmails", { userId, jobId: job._id, from: m.from.slice(0, 200), subject: m.subject.slice(0, 200), snippet: m.snippet.slice(0, 1500), at, stage, messageId: m.id, repliedAt: answered });
       await ctx.db.patch("jobs", job._id, status ? { ...patch, status, appliedAt: status === "applied" && !job.appliedAt ? at : job.appliedAt } : patch);
       if (answered) await answerEarlier(ctx, job._id, at);
@@ -93,7 +95,8 @@ export const saveFromEmails = internalMutation({
       let job = titled || (!title ? same[0] : inMotion.length === 1 ? inMotion[0] : undefined);
       if (job) {
         const status = nextStatus(job.status, stage);
-        await ctx.db.patch("jobs", job._id, { lastEmail, updatedAt: Date.now(), ...(status ? { status, appliedAt: job.appliedAt ?? at } : {}) });
+        const meetingEndAt = meetingEnd(m.subject) ?? undefined;
+        await ctx.db.patch("jobs", job._id, { lastEmail, updatedAt: Date.now(), ...(meetingEndAt ? { meetingEndAt } : {}), ...(status ? { status, appliedAt: job.appliedAt ?? at } : {}) });
         if (status) await freezeSent(ctx, job, status);
       } else {
         const id = await ctx.db.insert("jobs", {
