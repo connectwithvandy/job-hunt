@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
+import { PricingPlans } from "@/components/PricingPlans";
 import { PLANS } from "@/lib/legal";
 import { FREE } from "../../../convex/lib/plans";
 
@@ -29,25 +30,7 @@ export default function Pricing() {
           tailored CV a week.
         </p>
       </div>
-      <div className="card p-6 text-ink">
-        <div className="label">1 month</div>
-        <Price now={PLANS.founding} was={PLANS.full} unit="once" />
-        <p className="mt-2 text-sm text-ink-2">
-          Every AI tool for one month, to try it during a busy month of
-          applying. One payment, no auto-renewal. Founding price for the next{" "}
-          {PLANS.foundingSeats} members; ₹{PLANS.full} after that.
-        </p>
-      </div>
-      <div className="card p-6 text-ink">
-        <div className="label">Job Hunt Pass, {PLANS.passMonths} months</div>
-        <Price now={PLANS.foundingPass} was={PLANS.pass} unit="once" />
-        <p className="mt-2 text-sm text-ink-2">
-          Every AI tool for {PLANS.passMonths} months, a typical search. One
-          payment, no auto-renewal. Founding price for the next{" "}
-          {PLANS.foundingSeats} members; ₹{PLANS.pass.toLocaleString("en-IN")}{" "}
-          after that.
-        </p>
-      </div>
+      <PricingPlans />
       <div className="card p-6 text-ink">
         <div className="label">Teams, communities and bootcamps</div>
         <div className="display mt-2 text-4xl">
@@ -65,19 +48,5 @@ export default function Pricing() {
         themselves; GST is added where it applies.
       </p>
     </LegalPage>
-  );
-}
-
-/** A price as a discount off the one real price: the full price struck through, then the offer. */
-function Price({ now, was, unit }: { now: number; was: number; unit: string }) {
-  return (
-    <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
-      <s className="text-xl text-ink-3">₹{was.toLocaleString("en-IN")}</s>
-      <span className="display text-4xl">₹{now.toLocaleString("en-IN")}</span>
-      <span className="text-base text-ink-2">{unit}</span>
-      <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent">
-        {Math.round((1 - now / was) * 100)}% off
-      </span>
-    </div>
   );
 }

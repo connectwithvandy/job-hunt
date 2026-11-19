@@ -40,14 +40,26 @@ export default function Billing() {
   const [busy, setBusy] = useState<PlanKey | null>(null);
   const [state, setState] = useState<ActionState>(null);
   const [now] = useState(() => Date.now());
+  // A promo code typed in; checked live against each plan so the cards show the price after it.
+  const [code, setCode] = useState("");
+  const [applied, setApplied] = useState("");
+  const monthPromo = useQuery(api.payments.checkPromo, applied ? { code: applied, plan: "month" } : "skip");
+  const passPromo = useQuery(api.payments.checkPromo, applied ? { code: applied, plan: "pass" } : "skip");
   if (!status) return <Loading />;
+  const promoOf = (plan: PlanKey) => (plan === "month" ? monthPromo : plan === "pass" ? passPromo : undefined);
 
   const pay = async (plan: PlanKey) => {
     setBusy(plan);
     setState(null);
     try {
       await loadCheckout();
-      const order = await createOrder({ plan });
+      const promo = promoOf(plan)?.ok ? applied : undefined;
+      const order = await createOrder({ plan, promo });
+      if (order.free) {
+        setState({ message: `Code applied. You're covered until ${date(order.until)}.` });
+        setBusy(null);
+        return;
+      }
       const checkout = new window.Razorpay!({
         key: order.keyId,
         order_id: order.orderId,
@@ -123,9 +135,11 @@ export default function Billing() {
       {!status.on ? (
         <p className="card p-6 text-ink-2">Payments aren&apos;t switched on yet. Nothing to do for now.</p>
       ) : (
+        <>
         <div className="grid gap-4 md:grid-cols-3">
           {plans.map(({ key, note }) => {
             const p = status.prices[key];
+            const promo = promoOf(key);
             return (
               <section key={key} className="card flex flex-col p-6">
                 <h2 className="display text-2xl">{p.label}</h2>
@@ -135,15 +149,38 @@ export default function Billing() {
                   {p.was && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent">{p.was.percentOff}% off</span>}
                 </p>
                 {status.founding && <p className="mt-1 text-xs text-good">Founding price for the next {PLANS.foundingSeats} people.</p>}
+                {promo && <p className={`mt-1 text-xs ${promo.ok ? "text-good" : "text-ink-3"}`}>{promo.ok ? `Code ${applied}: ${promo.message}` : promo.message}</p>}
                 <p className="mt-2 flex-1 text-sm text-ink-2">{note}</p>
                 <button className="btn btn-primary mt-4" disabled={busy !== null} onClick={() => void pay(key)}>
                   {busy === key && <Spinner />}
-                  {busy === key ? "Opening payment…" : covered ? { week: "Add a week", month: "Add 1 month", pass: "Add 3 months" }[key] : `Pay ₹${p.rupees.toLocaleString("en-IN")}`}
+                  {busy === key
+                    ? "Opening payment…"
+                    : promo?.ok && promo.rupees === 0
+                      ? "Use my code"
+                      : covered
+                        ? { week: "Add a week", month: "Add 1 month", pass: "Add 3 months" }[key]
+                        : `Pay ₹${(promo?.ok ? promo.rupees : p.rupees).toLocaleString("en-IN")}`}
                 </button>
               </section>
             );
           })}
         </div>
+        <form
+          className="mt-4 flex flex-wrap items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setApplied(code.trim());
+          }}
+        >
+          <label className="text-sm text-ink-2" htmlFor="promo">
+            Have a code?
+          </label>
+          <input id="promo" className="field w-48 py-1.5 text-sm uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code" />
+          <button className="btn btn-ghost btn-sm" type="submit" disabled={!code.trim()}>
+            Apply
+          </button>
+        </form>
+        </>
       )}
       <div className="mt-4">
         <Feedback state={state} />

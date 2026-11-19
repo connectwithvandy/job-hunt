@@ -13,6 +13,7 @@ const TABS = [
   { key: "overview", label: "Overview" },
   { key: "people", label: "People" },
   { key: "partners", label: "Partners" },
+  { key: "codes", label: "Promo codes" },
   { key: "feedback", label: "Feedback" },
   { key: "errors", label: "Errors" },
 ] as const;
@@ -150,6 +151,7 @@ export default function AdminCentre() {
       {usageError && <p className="mb-3 text-sm text-bad">Couldn&apos;t count usage: {usageError}</p>}
       {tab === "overview" && <Overview list={list} usage={usage} count={async () => setUsage(await count({}))} />}
       {tab === "partners" && <Partners groups={partners} usage={usage} />}
+      {tab === "codes" && <PromoCodes />}
       {tab === "people" && (
         <>
       {reset && (
@@ -465,4 +467,98 @@ Here's a new password for JobPipe: ${password}
 Sign in at https://jobpipe.in with ${to} and this password.
 `;
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+/** Discount codes: make one for a partner or a special case, see how many are used, switch one off. */
+function PromoCodes() {
+  const codes = useQuery(api.payments.promoList);
+  const create = useMutation(api.payments.createPromo);
+  const setActive = useMutation(api.payments.setPromoActive);
+  const [form, setForm] = useState({ code: "", percentOff: 100, month: false, pass: true, maxUses: 10, days: 30, note: "" });
+  const [state, setState] = useState<ActionState>(null);
+  const [now] = useState(() => Date.now());
+  const plans = [...(form.month ? (["month"] as const) : []), ...(form.pass ? (["pass"] as const) : [])];
+  return (
+    <section className="space-y-6">
+      <form
+        className="card space-y-3 p-5"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setState(
+            await attempt(async () => {
+              const code = await create({ code: form.code, percentOff: form.percentOff, plans: [...plans], maxUses: form.maxUses, days: form.days || undefined, note: form.note });
+              setForm({ ...form, code: "", note: "" });
+              return `Made ${code}. Members type it on Plan & billing.`;
+            }),
+          );
+        }}
+      >
+        <h2 className="font-medium">Make a code</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            Code
+            <input className="field uppercase" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="SAASPIRE" />
+          </label>
+          <label className="text-sm">
+            Who it&apos;s for (only you see this)
+            <input className="field" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="SaasPire batch 2" />
+          </label>
+          <label className="text-sm">
+            % off (100 = free)
+            <input className="field" type="number" min={1} max={100} value={form.percentOff} onChange={(e) => setForm({ ...form, percentOff: Number(e.target.value) })} />
+          </label>
+          <label className="text-sm">
+            How many people can use it
+            <input className="field" type="number" min={1} max={1000} value={form.maxUses} onChange={(e) => setForm({ ...form, maxUses: Number(e.target.value) })} />
+          </label>
+          <label className="text-sm">
+            Works for how many days (0 = no end)
+            <input className="field" type="number" min={0} value={form.days} onChange={(e) => setForm({ ...form, days: Number(e.target.value) })} />
+          </label>
+          <div className="text-sm">
+            Works on
+            <div className="mt-2 flex gap-4">
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={form.month} onChange={(e) => setForm({ ...form, month: e.target.checked })} /> 1 month
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={form.pass} onChange={(e) => setForm({ ...form, pass: e.target.checked })} /> 3 months
+              </label>
+            </div>
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm" type="submit" disabled={!form.code.trim() || !plans.length}>
+          Make code
+        </button>
+        <Feedback state={state} />
+      </form>
+
+      <div className="card divide-y divide-line">
+        {codes === undefined ? (
+          <p className="p-4 text-sm text-ink-2">Loading…</p>
+        ) : codes.length === 0 ? (
+          <p className="p-4 text-sm text-ink-2">No codes yet.</p>
+        ) : (
+          codes.map((c) => {
+            const expired = !!c.expiresAt && c.expiresAt < now;
+            return (
+              <div key={c._id} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
+                <div>
+                  <span className="font-mono font-medium">{c.code}</span> · {c.percentOff}% off · {c.plans.map((x) => (x === "pass" ? "3 months" : "1 month")).join(", ")}
+                  <div className="text-xs text-ink-3">
+                    {c.uses} of {c.maxUses} used
+                    {c.expiresAt ? ` · ${expired ? "ended" : "ends"} ${new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : ""}
+                    {c.note ? ` · ${c.note}` : ""}
+                  </div>
+                </div>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => void setActive({ id: c._id, active: !c.active }).catch(() => {})}>
+                  {c.active ? "Switch off" : "Switch on"}
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
 }

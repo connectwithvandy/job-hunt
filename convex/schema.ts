@@ -172,6 +172,22 @@ export default defineSchema({
   }).index("by_email", ["email"]),
 
   /** One Razorpay order each: created when someone presses Pay, marked paid once Razorpay confirms it. */
+  /**
+   * Discount codes the owner makes in Admin (e.g. for a partner's people). percentOff 100 turns the plan on
+   * with no payment. Each person can use a code once.
+   */
+  promoCodes: defineTable({
+    code: v.string(),
+    percentOff: v.number(),
+    plans: v.array(v.union(v.literal("month"), v.literal("pass"))),
+    maxUses: v.number(),
+    uses: v.number(),
+    expiresAt: v.optional(v.number()),
+    note: v.string(),
+    active: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_code", ["code"]),
+
   payments: defineTable({
     userId: v.id("users"),
     orderId: v.string(),
@@ -184,6 +200,8 @@ export default defineSchema({
     paidAt: v.optional(v.number()),
     /** The paid period this payment added, so a receipt can show it. */
     until: v.optional(v.number()),
+    /** The promo code used, if any; its use is counted once the payment is paid. */
+    promo: v.optional(v.string()),
   })
     .index("by_orderId", ["orderId"])
     .index("by_userId", ["userId"])

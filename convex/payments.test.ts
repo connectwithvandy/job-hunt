@@ -94,3 +94,31 @@ test("paying before joining the list still turns the plan on", async () => {
   expect(row?.paidUntil).toBe(until);
   expect(row?.approved).toBe(true);
 });
+
+test("promo codes: owner makes one, a member sees the price, a 100% code turns the plan on once", async () => {
+  process.env.OWNER_EMAILS = "owner@example.com";
+  const t = setup();
+  const owner = await member(t, "owner@example.com");
+  const userId = await member(t, "a@example.com");
+  const asOwner = t.withIdentity({ subject: `${owner}|s1` });
+  const asMember = t.withIdentity({ subject: `${userId}|s2` });
+  const { api } = await import("./_generated/api");
+
+  await expect(asMember.mutation(api.payments.createPromo, { code: "x1x", percentOff: 50, plans: ["month"], maxUses: 5, note: "" })).rejects.toThrow(/owner/);
+  await asOwner.mutation(api.payments.createPromo, { code: "half", percentOff: 50, plans: ["month"], maxUses: 5, note: "test" });
+  await asOwner.mutation(api.payments.createPromo, { code: "SAASPIRE", percentOff: 100, plans: ["pass"], maxUses: 1, days: 30, note: "SaasPire" });
+
+  const half = await asMember.query(api.payments.checkPromo, { code: " half ", plan: "month" });
+  expect(half).toMatchObject({ ok: true, rupees: Math.round(PLANS.founding / 2) });
+  expect(await asMember.query(api.payments.checkPromo, { code: "half", plan: "pass" })).toMatchObject({ ok: false });
+  expect(await asMember.query(api.payments.checkPromo, { code: "nope", plan: "pass" })).toMatchObject({ ok: false });
+
+  const r = await asMember.action(api.payments.createOrder, { plan: "pass", promo: "saaspire" });
+  expect(r.free).toBe(true);
+  const row = await t.run(async (ctx) => await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique());
+  expect(row!.paidUntil! - Date.now()).toBeGreaterThan(89 * DAY);
+  // Used up (max 1) and already used by this person.
+  expect(await asMember.query(api.payments.checkPromo, { code: "SAASPIRE", plan: "pass" })).toMatchObject({ ok: false });
+  const codes = await asOwner.query(api.payments.promoList, {});
+  expect(codes.find((c) => c.code === "SAASPIRE")!.uses).toBe(1);
+});
