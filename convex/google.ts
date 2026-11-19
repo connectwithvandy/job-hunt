@@ -158,7 +158,9 @@ export const finish = internalAction({
       internal.google.takeState,
       { state },
     );
-    if (!userId || !code) return `${appUrl()}/tracker?gmail=error`;
+    // No code means the person closed Google's page or pressed "Back to safety"; say so instead of a vague error.
+    if (!userId) return `${appUrl()}/tracker?gmail=error`;
+    if (!code) return `${appUrl()}/tracker?gmail=cancelled`;
     const res = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -175,13 +177,9 @@ export const finish = internalAction({
       id_token?: string;
       scope?: string;
     };
-    // Without Gmail ticked on Google's page there's nothing to read.
-    if (
-      !res.ok ||
-      !body.refresh_token ||
-      !body.scope?.includes("gmail.readonly")
-    )
-      return `${appUrl()}/tracker?gmail=error`;
+    if (!res.ok || !body.refresh_token) return `${appUrl()}/tracker?gmail=error`;
+    // Without Gmail ticked on Google's page there's nothing to read: the most common miss, so it gets its own message.
+    if (!body.scope?.includes("gmail.readonly")) return `${appUrl()}/tracker?gmail=missing`;
     // The id token came straight from Google over HTTPS, so its email can be read without checking the signature.
     let email = "";
     try {

@@ -10,6 +10,7 @@ import { liveBookmarklet } from "@/lib/autofill";
 import { parseConnectionsCsv } from "@/lib/connections";
 import { myOwnMessages, parseMessagesCsv } from "@/lib/linkedinMessages";
 import { errorMessage } from "@/lib/errors";
+import { checkLinkedInFile, fileSize } from "@/lib/linkedinFile";
 import { uploadFile } from "@/lib/upload";
 import { timeAgo } from "./bits";
 import type { Resume } from "./ResumeDoc";
@@ -31,47 +32,159 @@ async function csvFrom(file: File, name: string): Promise<string> {
   return strFromU8(found);
 }
 
-export function ImportConnections() {
-  const clear = useMutation(api.contacts.clearBatch);
-  const importBatch = useMutation(api.contacts.importBatch);
+/**
+ * The big "Choose the LinkedIn file" box: click or drop. The real file input stays (hidden visually, still
+ * reachable by keyboard and screen readers), and the file is checked here before anything uploads.
+ */
+function LinkedInFilePicker({ kind, file, onFile, disabled }: { kind: "connections" | "chats"; file: File | null; onFile: (f: File | null) => void; disabled?: boolean }) {
+  const [over, setOver] = useState(false);
+  const id = `linkedin-file-${kind}`;
+  const check = file ? checkLinkedInFile(file, kind) : null;
+  return (
+    <div className="w-full">
+      <label
+        htmlFor={id}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          if (!disabled) onFile(e.dataTransfer.files?.[0] ?? null);
+        }}
+        className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center text-sm transition-colors ${
+          over ? "border-accent bg-accent/10" : check?.ok ? "border-good bg-soft" : "border-line bg-soft hover:border-ink-3"
+        }`}
+      >
+        <span className="btn btn-sm">{file ? "Choose a different file" : "Choose the LinkedIn file"}</span>
+        {file ? (
+          <span className="min-w-0 break-all text-ink">
+            {file.name} <span className="text-ink-3">· {fileSize(file.size)}</span>
+          </span>
+        ) : (
+          <span className="text-ink-3">or drop it here. It&apos;s called something like Basic_LinkedInDataExport_….zip</span>
+        )}
+      </label>
+      <input
+        id={id}
+        type="file"
+        accept=".zip,.csv,text/csv,application/zip"
+        className="sr-only"
+        disabled={disabled}
+        onChange={(e) => onFile(e.currentTarget.files?.[0] ?? null)}
+      />
+      {check && !check.ok && (
+        <p className="mt-2 text-sm text-bad" role="status">
+          {check.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** "I've requested it": remembered in this browser so the next visit says what's happening instead of starting over. */
+export function RequestedNote({ storageKey, what }: { storageKey: string; what: string }) {
+  const [at, setAt] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const v = localStorage.getItem(storageKey);
+      // The setup guide stores "1"; this page stores the time.
+      return v ? (v === "1" ? 0 : Number(v)) : null;
+    } catch {
+      return null;
+    }
+  });
+  const save = (v: number | null) => {
+    setAt(v);
+    try {
+      if (v === null) localStorage.removeItem(storageKey);
+      else localStorage.setItem(storageKey, String(v));
+    } catch {}
+  };
+  if (at === null) {
+    return (
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => save(Date.now())}>
+        I&apos;ve requested my {what}
+      </button>
+    );
+  }
+  return (
+    <p className="rounded-lg bg-soft px-3 py-2 text-sm text-ink-2">
+      Waiting for LinkedIn&apos;s email{at ? ` (requested ${timeAgo(at)})` : ""}. It usually takes 10 to 30 minutes. Check spam if it takes over an
+      hour.{" "}
+      <button type="button" className="underline" onClick={() => save(null)}>
+        Not yet requested
+      </button>
+    </p>
+  );
+}
+
+/** One LinkedIn upload: pick the file, check it, then load it in batches with progress. */
+function LinkedInUpload({ kind, button, load }: { kind: "connections" | "chats"; button: string; load: (file: File, progress: (s: string) => void) => Promise<string> }) {
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState("");
   const [state, setState] = useState<ActionState>(null);
+  const ok = !!file && checkLinkedInFile(file, kind).ok;
   return (
     <form
-      className="flex flex-wrap items-center gap-3"
+      className="space-y-3"
       onSubmit={async (e) => {
         e.preventDefault();
-        const file = new FormData(e.currentTarget).get("file") as File | null;
-        setState(
-          await attempt(async () => {
-            if (!file?.size) throw new ConvexError("Choose the file LinkedIn sent you.");
-            const rows = parseConnectionsCsv(await csvFrom(file, "Connections.csv"));
-            setBusy("Replacing your old list…");
-            while (await clear()) {
-              // keep deleting until the old list is gone
-            }
-            for (let i = 0; i < rows.length; i += 400) {
-              setBusy(`Loading ${Math.min(i + 400, rows.length).toLocaleString()} of ${rows.length.toLocaleString()}…`);
-              try {
-                await importBatch({ rows: rows.slice(i, i + 400) });
-              } catch (err) {
-                // The old list is already gone, so say how far it got rather than leave a silent half list.
-                throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} connections loaded: ${errorMessage(err)} Load the file again to finish.`);
-              }
-            }
-            return `Loaded ${rows.length.toLocaleString()} connections.`;
-          }),
-        );
+        // The button stays off until a good file is chosen, so this only guards against a stray Enter key.
+        if (!file || !ok) return;
+        setState(await attempt(() => load(file, setBusy)));
         setBusy("");
       }}
     >
-      <input type="file" name="file" accept=".zip,.csv,text/csv,application/zip" className={fileClass} />
-      <button className="btn btn-primary" disabled={!!busy}>
-        {busy && <Spinner />}
-        {busy || "Load connections"}
-      </button>
-      <Feedback state={busy ? null : state} />
+      <LinkedInFilePicker
+        kind={kind}
+        file={file}
+        disabled={!!busy}
+        onFile={(f) => {
+          setFile(f);
+          setState(null);
+        }}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <button className="btn btn-primary" disabled={!ok || !!busy}>
+          {busy && <Spinner />}
+          {busy || button}
+        </button>
+        {!file && !busy && <span className="text-xs text-ink-3">Choose the file first.</span>}
+        <Feedback state={busy ? null : state} />
+      </div>
     </form>
+  );
+}
+
+export function ImportConnections() {
+  const clear = useMutation(api.contacts.clearBatch);
+  const importBatch = useMutation(api.contacts.importBatch);
+  return (
+    <LinkedInUpload
+      kind="connections"
+      button="Load connections"
+      load={async (file, setBusy) => {
+        const rows = parseConnectionsCsv(await csvFrom(file, "Connections.csv"));
+        if (!rows.length) throw new ConvexError("No connections found in that file. Make sure Connections was ticked on LinkedIn's page, then request it again.");
+        setBusy("Replacing your old list…");
+        while (await clear()) {
+          // keep deleting until the old list is gone
+        }
+        for (let i = 0; i < rows.length; i += 400) {
+          setBusy(`Loading ${Math.min(i + 400, rows.length).toLocaleString()} of ${rows.length.toLocaleString()}…`);
+          try {
+            await importBatch({ rows: rows.slice(i, i + 400) });
+          } catch (err) {
+            // The old list is already gone, so say how far it got rather than leave a silent half list.
+            throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} connections loaded: ${errorMessage(err)} Load the file again to finish.`);
+          }
+        }
+        return `Loaded ${rows.length.toLocaleString()} connections.`;
+      }}
+    />
   );
 }
 
@@ -79,46 +192,31 @@ export function ImportChats() {
   const clear = useMutation(api.contacts.clearChats);
   const importChats = useMutation(api.contacts.importChats);
   const setMyMessages = useMutation(api.users.setMyMessages);
-  const [busy, setBusy] = useState("");
-  const [state, setState] = useState<ActionState>(null);
   return (
-    <form
-      className="flex flex-wrap items-center gap-3"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const file = new FormData(e.currentTarget).get("file") as File | null;
-        setState(
-          await attempt(async () => {
-            if (!file?.size) throw new Error("Choose the file LinkedIn sent you.");
-            const text = await csvFrom(file, "messages.csv");
-            const rows = parseMessagesCsv(text);
-            setBusy("Replacing your old chats…");
-            while (await clear()) {
-              // keep deleting until the old chats are gone
-            }
-            for (let i = 0; i < rows.length; i += 200) {
-              setBusy(`Loading ${Math.min(i + 200, rows.length).toLocaleString()} of ${rows.length.toLocaleString()} people…`);
-              try {
-                await importChats({ rows: rows.slice(i, i + 200) });
-              } catch (err) {
-                throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} people loaded: ${errorMessage(err)} Load the file again to finish.`);
-              }
-            }
-            // A few longer messages you wrote yourself, so letters and notes sound like you.
-            await setMyMessages({ messages: myOwnMessages(text) });
-            return `Loaded your chats with ${rows.length.toLocaleString()} people. Your messages will now sound like the ones you send.`;
-          }),
-        );
-        setBusy("");
+    <LinkedInUpload
+      kind="chats"
+      button="Load chats"
+      load={async (file, setBusy) => {
+        const text = await csvFrom(file, "messages.csv");
+        const rows = parseMessagesCsv(text);
+        if (!rows.length) throw new ConvexError("No chats found in that file. Make sure Messages was ticked on LinkedIn's page, then request it again.");
+        setBusy("Replacing your old chats…");
+        while (await clear()) {
+          // keep deleting until the old chats are gone
+        }
+        for (let i = 0; i < rows.length; i += 200) {
+          setBusy(`Loading ${Math.min(i + 200, rows.length).toLocaleString()} of ${rows.length.toLocaleString()} people…`);
+          try {
+            await importChats({ rows: rows.slice(i, i + 200) });
+          } catch (err) {
+            throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} people loaded: ${errorMessage(err)} Load the file again to finish.`);
+          }
+        }
+        // A few longer messages you wrote yourself, so letters and notes sound like you.
+        await setMyMessages({ messages: myOwnMessages(text) });
+        return `Loaded your chats with ${rows.length.toLocaleString()} people. Your messages will now sound like the ones you send.`;
       }}
-    >
-      <input type="file" name="file" accept=".zip,.csv,text/csv,application/zip" className={fileClass} />
-      <button className="btn btn-primary" disabled={!!busy}>
-        {busy && <Spinner />}
-        {busy || "Load chats"}
-      </button>
-      <Feedback state={busy ? null : state} />
-    </form>
+    />
   );
 }
 
@@ -910,36 +1008,72 @@ function ConnectGmail({ connected, email, inboxAt, onScript }: { connected: bool
   const start = useMutation(api.google.start);
   const disconnect = useAction(api.google.disconnect);
   const [busy, setBusy] = useState(false);
-  // Google sends people back here with ?gmail=connected or ?gmail=error.
-  const [failed] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("gmail") === "error");
+  // Google sends people back with ?gmail=connected, or why it didn't work: cancelled, missing (the Gmail box
+  // wasn't ticked) or error.
+  const [failed] = useState(() => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("gmail") : null));
   if (connected) {
     return (
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="text-good">
-          Gmail connected{email ? ` (${email})` : ""}
-          {inboxAt ? `, last checked ${timeAgo(inboxAt)}` : ", checking now"}
-        </span>
-        <button
-          className="btn btn-ghost btn-sm"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            await disconnect({}).catch(() => {});
-            setBusy(false);
-          }}
-        >
-          Disconnect
-        </button>
+      <div className="space-y-2 text-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-good">
+            Gmail connected{email ? ` (${email})` : ""}
+            {inboxAt ? `, last checked ${timeAgo(inboxAt)}` : ", first check within the hour"}
+          </span>
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              await disconnect({}).catch(() => {});
+              setBusy(false);
+            }}
+          >
+            Disconnect
+          </button>
+        </div>
+        <p className="text-ink-3">Replies and interview invites show up in Messages and move the job on your tracker by themselves.</p>
       </div>
     );
   }
+  const why =
+    failed === "missing"
+      ? "Gmail wasn't ticked on Google's permission page, so there's nothing to read. Try again and tick the Gmail box before Continue."
+      : failed === "cancelled"
+        ? "Google's page was closed or \"Back to safety\" was pressed, so nothing connected. Try again and follow the steps below."
+        : failed === "error"
+          ? "That didn't connect. Most often the Gmail box on Google's last page wasn't ticked. Try again and tick it before Continue."
+          : null;
   return (
     <div className="card space-y-3 p-5 text-sm">
       <div>
         <div className="font-medium">Get recruiter replies here automatically</div>
         <p className="text-ink-2">Replies and interview invites move your jobs along by themselves, checked every hour.</p>
       </div>
-      {failed && <p className="text-bad">That didn&apos;t connect. Try again: click Go to JobPipe (unsafe), then tick both boxes on Google&apos;s page.</p>}
+      {why && (
+        <p className="rounded-lg bg-soft px-3 py-2 text-bad" role="status">
+          {why}
+        </p>
+      )}
+      {/* Google's "hasn't verified this app ... (unsafe)" page stopped nearly everyone (18 Nov: ~21 tried, 2 connected),
+          so the steps come before the click, not after. */}
+      <div className="rounded border border-line bg-soft p-4 text-ink-2">
+        <p className="font-medium text-ink">Google will show a warning on the way. Here&apos;s each screen:</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <li>Choose your Gmail account.</li>
+          <li>
+            Google says <b>&quot;Google hasn&apos;t verified this app&quot;</b>. That&apos;s expected: JobPipe is new, and Google&apos;s review of apps
+            that read email takes months.
+          </li>
+          <li>
+            Click <b>Advanced</b>, then <b>Go to JobPipe (unsafe)</b> (it may say jobpipe.in). Don&apos;t press &quot;Back to safety&quot;.
+          </li>
+          <li>
+            On the last page, tick the <b>Gmail</b> box (and Calendar if you like) and press <b>Continue</b>. Without the Gmail tick nothing connects.
+          </li>
+          <li>You come straight back here. The first check runs within the hour.</li>
+        </ol>
+        <p className="mt-2">It&apos;s read only: JobPipe can&apos;t send, delete or change anything, and you can disconnect anytime.</p>
+      </div>
       <button
         className="btn btn-primary"
         disabled={busy}
@@ -948,26 +1082,8 @@ function ConnectGmail({ connected, email, inboxAt, onScript }: { connected: bool
           window.location.href = await start({});
         }}
       >
-        {busy ? "Opening Google…" : "Connect Gmail"}
+        {busy ? "Opening Google…" : why ? "Try again" : "Connect Gmail"}
       </button>
-      {/* Google's "hasn't verified this app ... (unsafe)" page stopped nearly everyone (18 Nov: ~21 tried, 2 connected),
-          so the steps come before the click, not after. */}
-      <div className="rounded border border-line bg-soft p-4 text-ink-2">
-        <p className="font-medium text-ink">Before you click: Google will show a warning. Here&apos;s what to do.</p>
-        <ol className="mt-2 list-decimal space-y-1 pl-5">
-          <li>
-            Google says <b>&quot;Google hasn&apos;t verified this app&quot;</b>. That&apos;s expected: JobPipe is new, and Google&apos;s review of apps that read email
-            takes months.
-          </li>
-          <li>
-            Click <b>Go to JobPipe (unsafe)</b> in the red box. If you don&apos;t see it, click <b>Advanced</b> first. Don&apos;t press &quot;Back to safety&quot;.
-          </li>
-          <li>
-            Tick <b>both boxes</b> (Gmail and Calendar) and press <b>Continue</b>. You come straight back here.
-          </li>
-        </ol>
-        <p className="mt-2">JobPipe can only read, never send, delete or change anything, and you can disconnect anytime.</p>
-      </div>
       <details className="text-ink-2">
         <summary className="cursor-pointer underline">What does it read? Is it safe?</summary>
         <div className="mt-2 space-y-1">

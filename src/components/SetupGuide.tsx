@@ -38,8 +38,8 @@ function ConnectionsHelp({ requested, onRequested }: { requested: boolean; onReq
         </li>
         <li>Choose &quot;Want something in particular?&quot;, tick only Connections, and press Request archive.</li>
         <li>LinkedIn emails you a link, usually in 10 to 30 minutes. You can carry on here meanwhile.</li>
-        <li>Open the email, download the zip file and unzip it. Double-clicking it usually does this.</li>
-        <li>Choose the file called Connections.csv below, then press Load connections.</li>
+        <li>In LinkedIn&apos;s email, click Download archive. The file is called something like Basic_LinkedInDataExport_….zip. Don&apos;t unzip it.</li>
+        <li>Choose that file below, then press Load connections.</li>
       </ol>
       {requested ? (
         <p className="text-ink-3">Waiting for LinkedIn&apos;s email. Check spam if it takes over an hour.</p>
