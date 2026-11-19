@@ -6,7 +6,7 @@ import { FREE } from "../../../convex/lib/plans";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Free forever: daily sales jobs, a tracker, 5 fit scores a day and 1 tailored CV a week. Every AI tool for 3 months: ₹1,499, or ₹999 for the next 50 founding members.",
+    "Free forever: daily sales jobs, a tracker, 5 fit scores a day and 1 tailored CV a week. Every AI tool: 1 month ₹699 (₹499 founding) or 3 months ₹1,499 (₹999 founding).",
   alternates: { canonical: "/pricing" },
 };
 
@@ -27,6 +27,15 @@ export default function Pricing() {
           your application tracker, a fit guess on every job,{" "}
           {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsPerWeek}{" "}
           tailored CV a week.
+        </p>
+      </div>
+      <div className="card p-6 text-ink">
+        <div className="label">1 month</div>
+        <Price now={PLANS.founding} was={PLANS.full} unit="once" />
+        <p className="mt-2 text-sm text-ink-2">
+          Every AI tool for one month, to try it during a busy month of
+          applying. One payment, no auto-renewal. Founding price for the next{" "}
+          {PLANS.foundingSeats} members; ₹{PLANS.full} after that.
         </p>
       </div>
       <div className="card p-6 text-ink">

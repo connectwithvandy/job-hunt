@@ -2,7 +2,8 @@
 
 export const PLANS = {
   trialDays: 7,
-  full: 999,
+  /** 1 month: one payment, no auto-renewal. Back on sale 19 Nov 2026 for people who want a short try first. */
+  full: 699,
   founding: 499,
   /** Founding price for the next 50 payers (17 Nov 2026: 0 had paid). */
   foundingSeats: 50,
@@ -21,10 +22,10 @@ export const PLANS = {
 export type PlanKey = "week" | "month" | "pass";
 
 /**
- * What can be bought. Since 17 Nov 2026 only the Job Hunt Pass: a job hunt lasts months, and one clear offer beats four.
- * "week" and "month" stay as types so older payment rows still read.
+ * What can be bought: 1 month (back 19 Nov 2026, members asked for it) and the 3-month Job Hunt Pass.
+ * "week" stays as a type so older payment rows still read.
  */
-export const OFFERED: PlanKey[] = ["pass"];
+export const OFFERED: PlanKey[] = ["month", "pass"];
 
 /** Rupees and days for one purchase. Founding prices for the first few paying people (PLANS.foundingSeats), kept as long as they stay. */
 export function priceOf(plan: PlanKey, founding: boolean) {

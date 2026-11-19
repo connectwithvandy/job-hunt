@@ -37,7 +37,7 @@ test("signatures match Razorpay's: HMAC-SHA256 of order|payment, and of the raw 
 
 test("founding and full prices", () => {
   expect(priceOf("month", true)).toMatchObject({ rupees: 499, days: 30 });
-  expect(priceOf("month", false)).toMatchObject({ rupees: 999, days: 30 });
+  expect(priceOf("month", false)).toMatchObject({ rupees: 699, days: 30 });
   expect(priceOf("pass", true)).toMatchObject({ rupees: 999, days: 90 });
   expect(priceOf("pass", false)).toMatchObject({ rupees: 1499, days: 90 });
   expect(priceOf("week", true)).toMatchObject({ rupees: 349, days: 7 });

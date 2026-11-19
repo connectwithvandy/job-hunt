@@ -80,6 +80,8 @@ export function landingJsonLd() {
       operatingSystem: "Web",
       offers: [
         { "@type": "Offer", name: "Free plan", price: 0, priceCurrency: "INR" },
+        { "@type": "Offer", name: "1 month, founding price", price: PLANS.founding, priceCurrency: "INR" },
+        { "@type": "Offer", name: "1 month", price: PLANS.full, priceCurrency: "INR" },
         { "@type": "Offer", name: "Job Hunt Pass, founding price (3 months)", price: PLANS.foundingPass, priceCurrency: "INR" },
         { "@type": "Offer", name: "Job Hunt Pass (3 months)", price: PLANS.pass, priceCurrency: "INR" },
       ],

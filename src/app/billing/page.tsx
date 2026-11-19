@@ -81,6 +81,7 @@ export default function Billing() {
 
   const covered = status.paidUntil && status.paidUntil > now;
   const plans: { key: PlanKey; note: string }[] = [
+    { key: "month", note: "One payment for one month, to try every tool. Nothing renews by itself." },
     { key: "pass", note: "One payment for three months, a typical search. Nothing renews by itself." },
   ];
 
