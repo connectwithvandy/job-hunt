@@ -1458,17 +1458,18 @@ export function ApplyQuestions({ jobId, form }: { jobId: Id<"jobs">; form?: Appl
     if (!r.questions) return "This form only asks the standard things (name, email, CV), which the bookmark fills.";
     return r.needsYou ? `Drafted ${r.questions} answers. ${r.needsYou} need your answer: they're marked below.` : `Drafted ${r.questions} answers. Check them below.`;
   };
-  if (!form) {
+  if (!form || (form.source === "pasted" && !form.questions.length)) {
     return (
-      <div className="mb-4 space-y-2">
+      <div className="mb-4 space-y-3">
         <p className="text-sm text-ink-2">Read the form&apos;s own questions (like &quot;Why us?&quot; or visa and notice questions) and draft answers from your CV, before you open it.</p>
         <ActionButton variant="ghost" pending="Reading the form…" run={read}>
           Read the form&apos;s questions
         </ActionButton>
+        <PasteQuestion jobId={jobId} />
       </div>
     );
   }
-  if (!form.questions.length) return null;
+  if (!form.questions.length) return <PasteQuestion jobId={jobId} />;
   const open = form.questions.filter((q) => q.needsYou).length;
   return (
     <div className="mb-4">
@@ -1483,7 +1484,52 @@ export function ApplyQuestions({ jobId, form }: { jobId: Id<"jobs">; form?: Appl
       </ul>
       <div className="mt-2">
         <ActionButton size="sm" variant="ghost" pending="Reading the form…" run={read}>
-          Read again and redraft
+          {form.source === "pasted" ? "Read the form's questions" : "Read again and redraft"}
+        </ActionButton>
+      </div>
+      <div className="mt-4">
+        <PasteQuestion jobId={jobId} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Any question from any application form ("Why Freshworks?", "Tell us about a deal you lost"), pasted in and
+ * answered from the CV, the job and the company notes. The answer joins the list above, ready to edit and autofill.
+ */
+function PasteQuestion({ jobId }: { jobId: Id<"jobs"> }) {
+  const answer = useAction(api.applyForm.answerQuestion);
+  const [question, setQuestion] = useState("");
+  const [words, setWords] = useState(120);
+  return (
+    <div className="space-y-2 rounded-lg border border-line p-3">
+      <div className="label">Got a question on the form?</div>
+      <p className="text-sm text-ink-2">Paste it here, like &quot;Why do you want to work at this company?&quot;. JobPipe answers from your CV and this job, and never makes up facts.</p>
+      <textarea className="field text-sm" rows={2} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Paste the question from the application form" />
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1 text-sm text-ink-2">
+          About
+          <select className="field w-auto py-1 text-sm" value={words} onChange={(e) => setWords(Number(e.target.value))}>
+            {[30, 60, 120, 200, 300].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          words
+        </label>
+        <ActionButton
+          size="sm"
+          pending="Writing the answer…"
+          run={async () => {
+            if (question.trim().length < 5) return "Paste the question first.";
+            const r = await answer({ jobId, question, words });
+            setQuestion("");
+            return r.needsYou ? "Added below. This one needs your own answer: JobPipe won't guess it." : "Answer added below. Check it, then copy it into the form.";
+          }}
+        >
+          Answer it
         </ActionButton>
       </div>
     </div>

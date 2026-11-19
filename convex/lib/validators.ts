@@ -285,7 +285,8 @@ export const prospectV = v.object(prospectFields);
 /** The questions on a job's application form, each with a drafted answer the candidate checks before applying. */
 export const applyFormV = v.object({
   at: v.number(),
-  source: v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby")),
+  /** "pasted": no form read, only questions the candidate pasted from a form JobPipe can't read. */
+  source: v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby"), v.literal("pasted")),
   questions: v.array(
     v.object({
       question: v.string(),
@@ -295,6 +296,8 @@ export const applyFormV = v.object({
       long: v.boolean(),
       /** No safe answer from the CV and saved facts, or a legal or personal question: the candidate fills it in. */
       needsYou: v.boolean(),
+      /** Pasted by the candidate (any form, any site), kept when the form is read again. */
+      pasted: v.optional(v.boolean()),
     }),
   ),
 });

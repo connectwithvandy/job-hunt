@@ -38,6 +38,21 @@ export const save = internalMutation({
   },
 });
 
+/** One pasted question and its drafted answer, added to the job's form answers (the same question is replaced). */
+export const addPasted = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), question: v.string(), answer: v.string(), needsYou: v.boolean(), long: v.boolean() },
+  handler: async (ctx, { userId, jobId, question, answer, needsYou, long }) => {
+    await ownJob(ctx, userId, jobId);
+    const d = await detailsOf(ctx, jobId);
+    const form = d?.applyForm ?? { at: Date.now(), source: "pasted" as const, questions: [] };
+    const row = { question, answer: answer.slice(0, 4000), required: false, long, needsYou, pasted: true };
+    const questions = [...form.questions.filter((q) => q.question !== question), row].slice(-60);
+    if (d) await ctx.db.patch("jobDetails", d._id, { applyForm: { ...form, questions } });
+    else await ctx.db.insert("jobDetails", { jobId, userId, applyForm: { ...form, questions } });
+    return null;
+  },
+});
+
 /** The candidate's own answer to one question; filling it in clears the "needs you" flag. */
 export const edit = mutation({
   args: { jobId: v.id("jobs"), index: v.number(), answer: v.string() },

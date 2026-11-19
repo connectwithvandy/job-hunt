@@ -72,9 +72,62 @@ export const readForm = action({
       schema: drafted,
     });
     await ctx.runMutation(internal.limits.consume, { userId, kind: "notes", count: 1 });
-    const filled = questions.map((q, i) => settle(q, result.answers[i]));
+    // Questions the candidate pasted by hand stay, after the form's own.
+    const old = await ctx.runQuery(internal.applyAnswers.formForAction, { userId, jobId });
+    const read = questions.map((q, i) => settle(q, result.answers[i]));
+    const filled = [...read, ...(old?.questions ?? []).filter((q) => q.pasted && !read.some((r) => r.question === q.question))];
     await ctx.runMutation(internal.applyAnswers.save, { userId, jobId, form: { at: Date.now(), source: form.source, questions: filled } });
     return { questions: filled.length, needsYou: filled.filter((q) => q.needsYou).length };
+  },
+});
+
+const PASTED = `You answer one question from a job application form for a candidate, who checks it before submitting.
+Rules:
+- Use only what the CV, the saved answers, the facts, the job and the company notes say. Never invent numbers, dates, salaries, notice periods, visa or work-permit status, degrees, employers or reasons.
+- When the answer depends on something not given (salary, notice period, visa, a personal reason), return an empty answer and needsYou true.
+- "Why us" or "why this role": tie 2 real CV achievements to what this job and company need. Name the company. First person, plain and specific. No buzzwords, no "I am excited to", no "passionate".
+- Keep to the word limit given. Short questions get short answers.`;
+
+/**
+ * Drafts an answer to one question the candidate pasted from any application form (Workday, a company's own site),
+ * and keeps it with the job's form answers so the autofill bookmark can use it too.
+ */
+export const answerQuestion = action({
+  args: { jobId: v.id("jobs"), question: v.string(), words: v.optional(v.number()) },
+  handler: async (ctx, { jobId, question, words }): Promise<{ answer: string; needsYou: boolean }> => {
+    const userId = await requireUserId(ctx);
+    const q = question.trim().slice(0, 600);
+    if (q.length < 5) throw new ConvexError("Paste the question from the form.");
+    const limit = Math.min(Math.max(Math.round(words ?? 120), 20), 300);
+    const job = (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">;
+    await ctx.runMutation(internal.limits.consume, { userId, kind: "notes", count: 1, checkOnly: true });
+    const me = await ctx.runQuery(internal.users.context, { userId });
+    const pack = job.pack;
+    const cv = pack && !pack.letterOnly ? pack.resume : me.resume;
+    if (!cv) throw new ConvexError("Upload your CV first.");
+    const r = job.research;
+    const result = await askJSON({
+      system: PASTED,
+      tier: "standard",
+      shared: `CV:\n${JSON.stringify(cv)}`,
+      prompt: [
+        `Job: ${job.title} at ${job.company}.`,
+        job.description ? `Job description:\n${job.description.slice(0, 6000)}` : "",
+        r ? `About ${job.company}: ${r.summary} ${r.hiringSignals}`.slice(0, 1500) : "",
+        me.answers.length ? `Saved answers:\n${me.answers.map((a: { question: string; answer: string }) => `- ${a.question}: ${a.answer}`).join("\n")}` : "",
+        me.facts.length ? `Facts the candidate gave beyond the CV:\n${me.facts.map((f: { question: string; answer: string }) => `- ${f.question}: ${f.answer}`).join("\n")}` : "",
+        `Word limit: ${limit}.`,
+        `Question: ${q}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      schema: z.object({ answer: z.string(), needsYou: z.boolean() }),
+    });
+    await ctx.runMutation(internal.limits.consume, { userId, kind: "notes", count: 1 });
+    const answer = mustAnswerYourself(q) ? "" : result.answer.trim();
+    const needsYou = !answer || result.needsYou;
+    await ctx.runMutation(internal.applyAnswers.addPasted, { userId, jobId, question: q, answer, needsYou, long: limit > 40 });
+    return { answer, needsYou };
   },
 });
 
