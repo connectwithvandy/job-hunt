@@ -10,7 +10,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
-import { CompanyMark, FitBadge, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, FitBadge, TrackTag, bestScore, jobTrackKey, likelyScore, timeAgo } from "@/components/bits";
 import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
@@ -541,7 +541,7 @@ function Jobs() {
               )}
               {weakCount > 0 && (
                 <button className="text-ink-3 underline hover:text-ink" onClick={() => setShowWeak(!showWeak)}>
-                  {showWeak ? "Hide weak matches" : `Show ${weakCount} weak ${weakCount === 1 ? "match" : "matches"} (first guess under ${WEAK_GUESS})`}
+                  {showWeak ? "Hide weak matches" : `Show ${weakCount} weak ${weakCount === 1 ? "match" : "matches"} (first guess under ~${likelyScore(WEAK_GUESS)})`}
                 </button>
               )}
             </div>

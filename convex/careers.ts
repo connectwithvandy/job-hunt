@@ -85,6 +85,65 @@ export const prospectCompanies = internalQuery({
   },
 });
 
+// The weekly finder's extra sources (19 Nov 2026). Each read is small and paged, so none nears the read limit.
+
+/** One page of members' LinkedIn connections' companies (people marked "left" don't count). */
+export const connectionCompanyPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ names: v.array(v.string()), cursor: v.string(), isDone: v.boolean() }),
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("contacts").paginate({ numItems: 4000, cursor });
+    return { names: page.page.filter((c) => !c.left).map((c) => c.company), cursor: page.continueCursor, isDone: page.isDone };
+  },
+});
+
+/** Companies behind the paid LinkedIn and Google jobs: with a board of their own, all their roles come free. */
+export const poolCompanies = internalQuery({
+  args: {},
+  returns: v.array(v.string()),
+  handler: async (ctx) => {
+    const names: string[] = [];
+    // ";" sorts right after ":", so this reads exactly the ids starting with each prefix.
+    for (const p of POOLED) {
+      const end = `${p.slice(0, -1)};`;
+      const rows = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.gte("externalId", p).lt("externalId", end)).take(3000);
+      names.push(...rows.map((r) => r.company));
+    }
+    return names;
+  },
+});
+
+/** Companies one member is applying to or hearing from: others in sales will want those roles too. */
+export const appliedCompanies = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.array(v.string()),
+  handler: async (ctx, { userId }) => {
+    const names: string[] = [];
+    for (const status of ["applying", "applied", "screening", "interview", "offer"] as const) {
+      const rows = await ctx.db.query("jobs").withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", status)).take(100);
+      names.push(...rows.filter((j) => j.source !== "careers").map((j) => j.company));
+    }
+    return names;
+  },
+});
+
+/** Member ids, for reading their applications one person at a time. */
+export const memberIds = internalQuery({
+  args: {},
+  returns: v.array(v.id("users")),
+  handler: async (ctx) => (await ctx.db.query("users").take(2000)).map((u) => u._id),
+});
+
+/** Company keys that already have a board we read, so the finder doesn't look them up again. */
+export const boardKeys = internalQuery({
+  args: {},
+  returns: v.array(v.string()),
+  handler: async (ctx) => [
+    ...CAREER_BOARDS.map((b) => companyKey(b.name)),
+    ...(await ctx.db.query("discoveredBoards").take(5000)).map((b) => b.key),
+  ],
+});
+
 export const discovered = internalQuery({
   args: {},
   handler: async (ctx) => {

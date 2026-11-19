@@ -19,7 +19,10 @@ export default function TailoredResume() {
   const all = useQuery(api.users.resumes);
   const data = useQuery(api.jobs.get, { jobId: id as Id<"jobs"> });
   // ?sent=1 shows the copy frozen when you applied, as the company read it.
-  const sent = useSearchParams().get("sent") ? data?.job.sent : undefined;
+  const params = useSearchParams();
+  const sent = params.get("sent") ? data?.job.sent : undefined;
+  // ?edit=1 (from the job page's "Edit this CV") opens the editor straight away.
+  const editing = params.get("edit") === "1";
   const pack = sent ? { ...data!.job.pack!, resume: sent.resume, unverified: [] } : data?.job.pack;
 
   // The page title becomes the PDF's file name when you choose "Save as PDF".
@@ -47,6 +50,11 @@ export default function TailoredResume() {
         <div className="flex items-center gap-3">
           <span className="text-xs text-ink-3">In the print window, pick &quot;Save as PDF&quot; and turn off headers and footers.</span>
           <CvLayoutPick plain={plain} onChange={setPlain} />
+          {!sent && (
+            <a href="#edit" className="btn btn-ghost btn-sm" onClick={() => (document.getElementById("edit") as HTMLDetailsElement | null)?.setAttribute("open", "")}>
+              Edit
+            </a>
+          )}
           <PrintButton />
           <button className="btn btn-ghost btn-sm" onClick={() => void downloadDocx(pack.resume, `${pack.resume.name} CV ${job.company}`)}>
             Download Word
@@ -64,10 +72,13 @@ export default function TailoredResume() {
       {sent ? (
         <p className="no-print w-full max-w-[210mm] text-sm text-ink-2">The CV you sent on {new Date(sent.at).toLocaleDateString()}. It stays as it was when you rewrite this job&apos;s CV.</p>
       ) : (
-      <details className="no-print card w-full max-w-[210mm] p-6">
+      <details id="edit" className="no-print card w-full max-w-[210mm] p-6" open={editing}>
         <summary className="cursor-pointer font-medium">Edit this CV</summary>
-        <p className="mb-4 mt-2 text-sm text-ink-2">Changes show in the CV above, the PDF and the Word file. Numbers are re-checked against your CVs when you save.</p>
-        <TailoredEditor key={pack.createdAt} jobId={job._id} resume={pack.resume} />
+        <p className="mb-4 mt-2 text-sm text-ink-2">
+          Changes show in the CV above, the PDF and the Word file. Numbers are re-checked against your CVs when you save.
+          {pack.written ? " You've edited this CV; \"Undo my edits\" brings back the one JobPipe wrote." : ""}
+        </p>
+        <TailoredEditor key={`${pack.createdAt}:${pack.written ? "edited" : "written"}`} jobId={job._id} resume={pack.resume} edited={!!pack.written} />
       </details>
       )}
     </div>

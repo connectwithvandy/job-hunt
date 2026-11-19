@@ -87,6 +87,8 @@ export const packV = v.object({
   notes: v.optional(v.array(v.string())),
   createdAt: v.number(),
   resume: resumeV,
+  /** The CV as JobPipe wrote it, kept the first time you edit it, so "Undo my edits" can bring it back. */
+  written: v.optional(resumeV),
   coverLetter: v.string(),
   /** A short note to send HR or the hiring manager directly, on LinkedIn or by email. */
   directNote: v.optional(v.string()),

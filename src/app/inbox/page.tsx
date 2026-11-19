@@ -188,7 +188,7 @@ function Inbox() {
                     Open the job
                   </Link>
                 </div>
-                {open.j.lastEmail && <Thread jobId={open.j._id} company={open.j.company} account={account} />}
+                {open.j.lastEmail && <Thread jobId={open.j._id} company={open.j.company} account={account} meetingEndAt={open.j.meetingEndAt} />}
                 {open.r && <Outreach r={open.r} />}
               </>
             ) : (
@@ -210,9 +210,9 @@ function Outreach({ r }: { r: MessageRow }) {
   );
 }
 
-function Thread({ jobId, company, account }: { jobId: Id<"jobs">; company: string; account: string }) {
+function Thread({ jobId, company, account, meetingEndAt }: { jobId: Id<"jobs">; company: string; account: string; meetingEndAt?: number }) {
   const emails = useQuery(api.inbox.thread, { jobId });
   if (!emails) return <div className="h-40 animate-pulse rounded-xl bg-soft" />;
   if (!emails.length) return null;
-  return <JobEmails emails={emails} company={company} account={account} />;
+  return <JobEmails emails={emails} company={company} account={account} meetingEndAt={meetingEndAt} />;
 }

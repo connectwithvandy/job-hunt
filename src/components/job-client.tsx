@@ -16,7 +16,7 @@ import { setApplying } from "@/lib/applying";
 import { downloadDocx, downloadLetterDocx } from "@/lib/docx";
 import { timeAgo } from "./bits";
 import { errorMessage } from "@/lib/errors";
-import { cleanSubject, parseCalendarInvite } from "@/lib/calendarInvite";
+import { cleanSubject, meetingEnd, parseCalendarInvite } from "@/lib/calendarInvite";
 import { ActionButton, type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
@@ -1374,7 +1374,8 @@ function gmailLink(account: string, path: string) {
 }
 
 /** The emails from this company, newest first, with a drafted reply you can send from Gmail in two clicks. */
-export function JobEmails({ emails, company, account }: { emails: Doc<"jobEmails">[]; company: string; account: string }) {
+/** `meetingEndAt` is when the job's interview ends (saved from its calendar invite): after it, invites stop asking for a reply. */
+export function JobEmails({ emails, company, account, meetingEndAt }: { emails: Doc<"jobEmails">[]; company: string; account: string; meetingEndAt?: number }) {
   useEffect(() => {
     if (window.location.hash === "#emails") document.getElementById("emails")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
@@ -1383,14 +1384,14 @@ export function JobEmails({ emails, company, account }: { emails: Doc<"jobEmails
       <h2 className="mb-4 text-lg font-semibold">Emails from {company}</h2>
       <ul className="divide-y divide-line text-sm">
         {emails.map((m) => (
-          <EmailItem key={m._id} m={m} account={account} />
+          <EmailItem key={m._id} m={m} account={account} meetingEndAt={meetingEndAt} />
         ))}
       </ul>
     </div>
   );
 }
 
-function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
+function EmailItem({ m, account, meetingEndAt }: { m: Doc<"jobEmails">; account: string; meetingEndAt?: number }) {
   const draft = useAction(api.agent.draftEmailReply);
   const edit = useMutation(api.inbox.editReply);
   const markReplied = useMutation(api.inbox.markReplied);
@@ -1399,6 +1400,7 @@ function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
   const [text, setText] = useState(m.reply?.text ?? "");
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
+  const [now] = useState(() => Date.now());
   // A fresh draft replaces what's on screen; your own edits stay until then.
   const [draftAt, setDraftAt] = useState(m.reply?.at);
   if (m.reply && m.reply.at !== draftAt) {
@@ -1411,6 +1413,10 @@ function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
   const invite = m.stage === "interview" || m.stage === "screening";
   // Google Calendar's invite email is mostly boilerplate and tracking links: show the meeting itself instead.
   const meeting = parseCalendarInvite(m.subject, m.snippet);
+  // An invite for a meeting that has already happened needs no reply (19 Nov: Rippling's 16 Nov invite still offered one).
+  const end = m.stage === "interview" ? (meetingEnd(m.subject) ?? (meetingEndAt && meetingEndAt >= m.at ? meetingEndAt : null)) : null;
+  const over = end !== null && end < now;
+  const waiting = needsAnswer(m) && !over;
   return (
     <li className="min-w-0 py-4">
       <div className="flex justify-between gap-3">
@@ -1446,15 +1452,17 @@ function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
               Undo
             </button>
           </>
+        ) : over ? (
+          <span className="text-xs text-ink-3">The interview has happened, so no reply is needed.</span>
         ) : (
-          needsAnswer(m) && (
+          waiting && (
             <button className="text-xs text-ink-3 underline" onClick={() => void markReplied({ emailId: m._id, replied: true })}>
               Already answered
             </button>
           )
         )}
       </div>
-      {needsAnswer(m) && (
+      {waiting && (
         <div className="mt-4 rounded-xl border border-line p-4">
           {invite && (
             <label className="mb-3 block">

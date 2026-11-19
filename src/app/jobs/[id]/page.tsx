@@ -196,7 +196,7 @@ export default function JobPage() {
 
       <PostingCheck live={job.liveCheck} checking={stale} ghost={ghost} check={async () => void (await checkPosting({ jobId: job._id }))} />
 
-      {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} />}
+      {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} />}
 
 
       <JobTabs
@@ -277,6 +277,11 @@ export default function JobPage() {
                   <Link href={`/jobs/${job._id}/resume`} className="btn btn-primary">
                     {job.pack.letterOnly ? "Open your CV" : "Open tailored CV"}
                   </Link>
+                  {!job.pack.letterOnly && (
+                    <Link href={`/jobs/${job._id}/resume?edit=1#edit`} className="btn btn-ghost">
+                      Edit this CV
+                    </Link>
+                  )}
                   {job.pack.trackKey && trackByKey.get(job.pack.trackKey) && <span className="text-sm text-ink-2">Pitched as {trackByKey.get(job.pack.trackKey)?.name}</span>}
                 </div>
                 {job.sent && (
@@ -431,7 +436,7 @@ export default function JobPage() {
             ),
           },
           ...(data.emails.length > 0 && !answerFirst
-            ? [{ key: "emails", label: "Emails", done: false, badge: String(data.emails.length), content: <JobEmails emails={data.emails} company={job.company} account={account} /> }]
+            ? [{ key: "emails", label: "Emails", done: false, badge: String(data.emails.length), content: <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} /> }]
             : []),
           ...(job.description
             ? [{ key: "job", label: "Job description", done: false, content: <div className="whitespace-pre-line text-sm leading-relaxed text-ink-2">{job.description}</div> }]

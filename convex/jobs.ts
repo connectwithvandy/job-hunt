@@ -251,17 +251,39 @@ export const saveTailoredResume = mutation({
     const userId = await requireUserId(ctx);
     const job = await withDetails(ctx, await ownJob(ctx, userId, jobId));
     if (!job.pack) throw new ConvexError("Write the CV first.");
-    const masters = await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", userId)).take(20);
     const p = job.pack;
-    const texts = [resume.headline, resume.summary, ...resume.experience.flatMap((e) => e.bullets), p.coverLetter, p.directNote ?? "", p.email ?? ""];
-    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
-    const facts = (profile?.facts ?? []).map((f) => f.answer);
-    const unverified = unverifiedNumbers(masters.map((m) => m.resume), texts, facts);
-    await saveDetails(ctx, job, { pack: { ...p, resume, unverified } });
+    const unverified = await checkNumbers(ctx, userId, p, resume);
+    // The first edit keeps JobPipe's version, so Undo can always go back to it.
+    await saveDetails(ctx, job, { pack: { ...p, resume, unverified, written: p.written ?? p.resume } });
     await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
     return unverified;
   },
 });
+
+/** Puts back the tailored CV as JobPipe wrote it, dropping your edits. */
+export const restoreTailoredResume = mutation({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const userId = await requireUserId(ctx);
+    const job = await withDetails(ctx, await ownJob(ctx, userId, jobId));
+    const p = job.pack;
+    if (!p?.written) throw new ConvexError("There are no edits to undo.");
+    const unverified = await checkNumbers(ctx, userId, p, p.written);
+    const { written, ...rest } = p;
+    await saveDetails(ctx, job, { pack: { ...rest, resume: written, unverified } });
+    await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
+    return null;
+  },
+});
+
+/** Numbers in the CV and messages that none of your master CVs or answers contain. */
+async function checkNumbers(ctx: MutationCtx, userId: Id<"users">, p: NonNullable<Doc<"jobs">["pack"]>, resume: Doc<"resumes">["resume"]) {
+  const masters = await ctx.db.query("resumes").withIndex("by_userId", (q) => q.eq("userId", userId)).take(20);
+  const texts = [resume.headline, resume.summary, ...resume.experience.flatMap((e) => e.bullets), p.coverLetter, p.directNote ?? "", p.email ?? ""];
+  const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+  const facts = (profile?.facts ?? []).map((f) => f.answer);
+  return unverifiedNumbers(masters.map((m) => m.resume), texts, facts);
+}
 
 /** Saves your edits to one of the written messages. */
 export const savePackText = mutation({

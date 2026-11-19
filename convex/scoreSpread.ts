@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
+import { fitScale, GUESS_SCALE, guessShown } from "./lib/guessScale";
 
 export const run = internalAction({
   args: { fromDaysAgo: v.number(), toDaysAgo: v.number() },
@@ -62,7 +63,7 @@ export const guessCheck = internalAction({
       const lostGood = below.filter(([, ai]) => ai >= 60).length;
       const savedPoor = below.filter(([, ai]) => ai < 40).length;
       return {
-        // The guess as stored (0-100); people see it scaled to about 15-55.
+        // The guess as stored (0-100); people see it on the AI scale through lib/guessScale.ts.
         guessUnder: cut,
         skipped: `${below.length} (${pct(below.length, pairs.length)} of scores)`,
         goodHidden: `${lostGood} of ${good} good jobs (${pct(lostGood, good)})`,
@@ -70,5 +71,39 @@ export const guessCheck = internalAction({
       };
     });
     return { jobs: pairs.length, good, poor, cutoffs, goodJobsWithLowGuess: missed.slice(0, 25) };
+  },
+});
+
+/**
+ * Read-only: the free guess against the AI score on jobs that have both, to refit lib/guessScale.ts.
+ * npx convex run --prod scoreSpread:calibrate '{"fromDaysAgo":30}'
+ * Only jobs someone chose to score (or the morning batch's best guesses) have an AI score, so the top bands
+ * lean high: treat the suggestion as a ceiling, not the truth for every job.
+ */
+export const calibrate = internalAction({
+  args: { fromDaysAgo: v.number() },
+  handler: async (ctx, { fromDaysAgo }) => {
+    const now = Date.now();
+    const pairs: [number, number][] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const page: { pairs: [number, number][]; cursor: string; done: boolean } = await ctx.runQuery(internal.jobs.scorePage, { from: now - fromDaysAgo * 86_400_000, to: now, cursor });
+      pairs.push(...page.pairs);
+      if (page.done) break;
+      cursor = page.cursor;
+    }
+    const bands = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map((lo) => {
+      const ais = pairs.filter(([g]) => g >= lo && (lo === 90 ? g <= 100 : g < lo + 10)).map(([, ai]) => ai).sort((a, b) => a - b);
+      const at = (q: number) => (ais.length ? ais[Math.min(ais.length - 1, Math.floor(q * ais.length))] : null);
+      return {
+        guess: `${lo}-${lo === 90 ? 100 : lo + 9}`,
+        jobs: ais.length,
+        aiMedian: at(0.5),
+        aiLowQuarter: at(0.25),
+        aiHighQuarter: at(0.75),
+        shownNow: `~${guessShown(lo)}-${guessShown(lo === 90 ? 100 : lo + 9)}`,
+      };
+    });
+    return { jobs: pairs.length, bands, scaleNow: GUESS_SCALE, suggestedScale: fitScale(pairs) };
   },
 });

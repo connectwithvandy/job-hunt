@@ -1,4 +1,5 @@
 import { companySite, faviconOf } from "../lib/logo";
+import { guessShown } from "../../convex/lib/guessScale";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { trackForTitle } from "../../convex/lib/salesRoles";
 
@@ -35,8 +36,10 @@ export function ScorePill({ score }: { score?: number }) {
  * The free quick fit on the AI score's scale. Raw first guesses ran about 37 points above the AI score for the
  * same job (414 jobs, 1 Nov 2026: a guess of 100 averaged 56, guesses in the 80s averaged 37), so the number
  * shown is scaled to match. Ranking still uses the raw guess.
+ * 19 Nov: the scale lives in convex/lib/guessScale.ts (shared, rising, never 70+), since 15 + guess x 0.4 kept
+ * every guess at 55 or under while the same jobs scored 60-84 once read.
  */
-export const likelyScore = (quickFit: number) => Math.round(15 + quickFit * 0.4);
+export const likelyScore = (quickFit: number) => guessShown(quickFit);
 
 /** The free quick fit, shown faded with a "~" until the AI score replaces it. */
 export function QuickFitPill({ score }: { score?: number }) {
