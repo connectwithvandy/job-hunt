@@ -28,7 +28,7 @@ const NAV = [
   { label: "Today", pages: [{ href: "/", label: "Today" }] },
   { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }] },
   { label: "Applications", pages: [{ href: "/tracker", label: "Applications" }] },
-  { label: "Referrals", pages: [{ href: "/network", label: "Referrals" }] },
+  // Referrals live in Messages (19 Nov): every ask, follow-up and reply in one list.
   { label: "Messages", pages: [{ href: "/inbox", label: "Messages" }] },
   PROFILE,
 ];

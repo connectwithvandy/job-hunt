@@ -1,7 +1,7 @@
 "use client";
 
 // One job's messages (hiring-manager note and email, referral asks) and how urgent they are, shared by the
-// Referrals page and anywhere else that lists what to send.
+// Messages page and anywhere else that lists what to send.
 import type { FunctionReturnType } from "convex/server";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
@@ -27,15 +27,18 @@ export function messageKind(r: MessageRow, now: number): MessageKind {
   return "done";
 }
 
-export function MessageCard({ r }: { r: MessageRow }) {
+/** `bare`: inside the Messages page's conversation pane, which already shows the job above it. */
+export function MessageCard({ r, bare }: { r: MessageRow; bare?: boolean }) {
   return (
-      <li className="card space-y-4 p-6">
+      <li className={bare ? "space-y-4" : "card space-y-4 p-6"}>
+        {!bare && (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <Link href={`/jobs/${r._id}`} className="font-medium hover:underline">
             {r.title} <span className="text-ink-2">at {r.company}</span>
           </Link>
           <span className="text-xs text-ink-3">{r.status === "new" ? "Not applied yet" : (STATUS_LABELS[r.status] ?? r.status)}</span>
         </div>
+        )}
         {r.directNote && (
           <>
             <div>

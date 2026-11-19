@@ -306,7 +306,7 @@ export default function Today() {
             n={1}
             title="To do today"
             items={[...answer, ...chase, ...reach, ...apply]}
-            empty={me.contactsCount ? "Nothing waiting on you. Open a job above, or ask for a referral on Referrals." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
+            empty={me.contactsCount ? "Nothing waiting on you. Open a job above, or find people to ask in Messages." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
           />
         </div>
       </div>

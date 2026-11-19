@@ -35,7 +35,7 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
     q: "How do referrals work?",
     a: (
       <>
-        Load your LinkedIn connections once (Profile → <Link href="/connect" className="underline">LinkedIn &amp; Gmail</Link>). Then Referrals shows who you know at each company, with a short note ready to send.
+        Load your LinkedIn connections once (Profile → <Link href="/connect" className="underline">LinkedIn &amp; Gmail</Link>). Then Messages → Find people to ask shows who you know at each company, with a short note ready to send, and tracks every ask and follow-up.
       </>
     ),
   },
