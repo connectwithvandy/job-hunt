@@ -137,6 +137,24 @@ export default function Billing() {
       ) : (
         <>
         <div className="grid gap-4 md:grid-cols-3">
+          {/* Free first, like Dreamwork's Free / Pro / Dreamer: everyone sees what they keep without paying (19 Nov). */}
+          <section className="card flex flex-col p-6">
+            <h2 className="text-lg font-semibold">Free</h2>
+            <p className="mt-2">
+              <span className="display text-4xl">₹0</span>
+            </p>
+            <p className="mt-1 text-xs text-ink-3">Yours to keep, no card needed.</p>
+            <ul className="mt-2 flex-1 space-y-1 text-sm text-ink-2">
+              <li>New sales jobs every day</li>
+              <li>Fit guess and pay estimate on every job</li>
+              <li>{FREE.scoresPerDay} AI fit scores a day</li>
+              <li>{FREE.tailorsPerWeek} tailored CV a week</li>
+              <li>Your application tracker</li>
+            </ul>
+            <div className="btn btn-ghost mt-4 cursor-default justify-center text-ink-3">
+              {!isOwner && !covered && !(status.partner && status.partner.until > now) ? "Your plan now" : "Always included"}
+            </div>
+          </section>
           {plans.map(({ key, note }) => {
             const p = status.prices[key];
             const promo = promoOf(key);
