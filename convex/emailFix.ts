@@ -74,11 +74,12 @@ function lastEmailOf(e: Doc<"jobEmails">): NonNullable<Doc<"jobs">["lastEmail"]>
  * npx convex run --prod emailFix:backfillMeetings '{"dryRun":true}'
  */
 export const backfillMeetings = internalMutation({
-  args: { dryRun: v.boolean() },
+  args: { dryRun: v.boolean(), userId: v.optional(v.id("users")) },
   returns: v.array(v.object({ company: v.string(), title: v.string(), meetingEndAt: v.number() })),
-  handler: async (ctx, { dryRun }) => {
+  handler: async (ctx, { dryRun, userId }) => {
     const out: { company: string; title: string; meetingEndAt: number }[] = [];
-    const users = await ctx.db.query("users").take(1000);
+    // One person at a time when given, so a big account can't push the run past the read limit.
+    const users = userId ? [{ _id: userId }] : await ctx.db.query("users").take(1000);
     for (const u of users) {
       // Only jobs in motion can hold an interview invite; reading every job ran past the read limit.
       const jobs = [];
