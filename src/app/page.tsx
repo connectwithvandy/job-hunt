@@ -16,6 +16,7 @@ import { CompanyMark, DAY_STARTS_AT, likelyScore, ScorePill, bestScore, dayStart
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
+import { payEstimateText } from "../../convex/lib/payEstimate";
 import { ActionButton } from "@/components/ui";
 import { ReferralFollowUp } from "@/components/job-client";
 
@@ -355,7 +356,7 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
                   {j.title}
                 </Link>
                 <div className="mt-2 text-xs text-ink-3">
-                  {[j.salary, j.location, j.postedAt ? `posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
+                  {[j.salary || (payEstimateText(j) ? `${payEstimateText(j)} (est.)` : null), j.location, j.postedAt ? `posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
                 </div>
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <button

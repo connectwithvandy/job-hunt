@@ -16,6 +16,7 @@ import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
 import { applyFilters, FILTERS, fitFor, fitTier, inRole } from "@/lib/jobFilters";
 import { strongCompany } from "../../../convex/lib/quickFit";
 import { payPerYearInr, payText, useInrRates } from "@/lib/money";
+import { payEstimate, payEstimateText } from "../../../convex/lib/payEstimate";
 import { REGIONS, regionsOf } from "@/lib/regions";
 import { sameRoleKey } from "../../../convex/lib/company";
 import { ScoreTipPopup } from "@/components/ScoreTipPopup";
@@ -38,6 +39,11 @@ const fitOrQuick = (j: ListJob, role: string | null) => {
   return fit >= 0 ? fit : (j.quickFit ?? -1) - stalePenalty(j);
 };
 
+/** Listed pay, else the top of our estimate, so every job has a place in "Highest pay". */
+function payForSort(j: ListJob, rates: Record<string, number>) {
+  return payPerYearInr(j.salary, rates) ?? (payEstimate(j)?.high ?? -0.01) * 100_000;
+}
+
 const SORTS = {
   // AI-scored jobs at the line or above come first, then first guesses, which run high.
   fit: {
@@ -48,7 +54,7 @@ const SORTS = {
   pay: {
     label: "Highest pay",
     compare: (role: string | null, rates: Record<string, number>) => (a: ListJob, b: ListJob) =>
-      (payPerYearInr(b.salary, rates) ?? -1) - (payPerYearInr(a.salary, rates) ?? -1) || fitFor(b, role) - fitFor(a, role),
+      payForSort(b, rates) - payForSort(a, rates) || fitFor(b, role) - fitFor(a, role),
   },
   posted: { label: "Newest posted", compare: () => (a: ListJob, b: ListJob) => byTime(b) - byTime(a) },
   added: { label: "Recently added", compare: () => (a: ListJob, b: ListJob) => b._creationTime - a._creationTime },
@@ -394,7 +400,7 @@ function Jobs() {
                 const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
                 const here = section(j);
                 const heading = here !== null && (i === 0 || section(rows[i - 1]) !== here) ? SECTION_NAMES[here] : null;
-                const pay = payText(j.salary, rates);
+                const pay = payText(j.salary, rates) ?? (payEstimateText(j) ? `${payEstimateText(j)} (est.)` : null);
                 const on = selected === j._id;
                 return (
                   <Fragment key={j._id}>
