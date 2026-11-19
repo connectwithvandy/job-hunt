@@ -9,7 +9,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
-import { CompanyMark, PageHead, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, QuickFitPill, ScorePill, TrackTag, bestScore, jobTrackKey, timeAgo } from "@/components/bits";
 import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
@@ -19,6 +19,7 @@ import { payPerYearInr, payText, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
 import { sameRoleKey } from "../../../convex/lib/company";
 import { ScoreTipPopup } from "@/components/ScoreTipPopup";
+import { JobPanel } from "@/components/JobPanel";
 
 type ListJob = FunctionReturnType<typeof api.jobs.list>[number];
 // First guesses this low are almost never worth opening; they fold away under the list.
@@ -154,91 +155,54 @@ function Jobs() {
     setQ("");
     router.replace(hrefWith({ q: null, ...Object.fromEntries(FILTERS.map((f) => [f.key, null])) }), { scroll: false });
   };
-  const chip = (href: string, label: React.ReactNode, active: boolean) => (
-    <Link key={href} href={href} className={`rounded-full border px-3 py-1 text-sm ${active ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}>
+
+
+  const selected = params.get("job") as Id<"jobs"> | null;
+  const showFilters = params.get("filters") === "1";
+  const regionLabel = REGIONS.find((r) => r.key === region)?.label;
+  const trackName = track ? trackByKey.get(track)?.name : null;
+  // What's narrowing the list, as chips you can remove one by one.
+  const active: { label: string; href: string }[] = [
+    ...(trackName ? [{ label: `Role: ${trackName}`, href: hrefWith({ track: null }) }] : []),
+    ...(show ? [{ label: show === "hidden" ? "Not for me" : show === "applied" ? "Applied" : "Old or closed", href: hrefWith({ show: null }) }] : []),
+    ...(region && !(homeIsBlr && region === "blr") ? [{ label: `Region: ${regionLabel ?? region}`, href: hrefWith({ region: null }) }] : []),
+    ...(region === null && homeIsBlr ? [{ label: "Region: everywhere", href: hrefWith({ region: null }) }] : []),
+    ...FILTERS.filter((f) => params.get(f.key)).map((f) => ({
+      label: `${f.label}: ${f.options.find((o) => o.value === params.get(f.key))?.label ?? params.get(f.key)}`,
+      href: hrefWith({ [f.key]: null }),
+    })),
+  ];
+  const filterCount = active.length;
+  const [selecting, setSelecting] = [picked.size > 0 || params.get("select") === "1", (on: boolean) => router.replace(hrefWith({ select: on ? "1" : null }), { scroll: false })];
+  const open = (e: React.MouseEvent, id: string) => {
+    // On a wide screen the job opens beside the list; on a phone, its full page.
+    if (window.innerWidth >= 1024) {
+      e.preventDefault();
+      router.replace(hrefWith({ job: id }), { scroll: false });
+    }
+  };
+  const sideChip = (href: string, label: React.ReactNode, on: boolean) => (
+    <Link key={href} href={href} scroll={false} className={`rounded-full border px-3 py-1 text-sm ${on ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}>
       {label}
     </Link>
   );
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHead title="Jobs" sub="Every role you're considering, sorted by how well it fits your best role." />
+    <div className="mx-auto max-w-[1440px]">
       {!me.isOwner && !show && <ScoreTipPopup unscored={unscored.length} />}
-
-      {/* On a phone the two forms fold away, so the jobs come first. */}
-      <details className="mb-6 md:hidden">
-        <summary className="btn btn-ghost btn-sm cursor-pointer list-none">+ Find or add jobs</summary>
-        <div className="mt-3 grid gap-4">
-          <FindJobs tracks={me.tracks} />
-          <AddJob />
-        </div>
-      </details>
-      <div className="mb-8 hidden gap-4 md:grid md:grid-cols-2">
-        <FindJobs tracks={me.tracks} />
-        <AddJob />
-      </div>
-      {me.isOwner && (
-        <div className="mb-8">
-          <ActionButton
-            run={async () => {
-              const { added } = await findHiringPosts();
-              return added ? `Saved ${added} ${added === 1 ? "role" : "roles"} from LinkedIn posts, each with the person who posted it.` : "No new fitting roles in last week's posts.";
-            }}
-            pending="Reading last week's LinkedIn posts… about two minutes"
-            variant="ghost"
-            size="sm"
-          >
-            Find &quot;we&apos;re hiring&quot; posts on LinkedIn
-          </ActionButton>
-        </div>
-      )}
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {chip(hrefWith({ track: null, show: null }), "All roles", !track && !show)}
-        {me.tracks.map((t) =>
-          chip(
-            hrefWith({ track: t.key, show: null }),
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />
-              {t.name}
-            </span>,
-            track === t.key,
-          ),
-        )}
-        {chip(hrefWith({ track: null, show: "hidden" }), "Not for me", show === "hidden")}
-        {appliedCount > 0 && chip(hrefWith({ track: null, show: "applied" }), `Applied · ${appliedCount}`, show === "applied")}
-        {oldCount > 0 && chip(hrefWith({ track: null, show: "old" }), `Old or closed · ${oldCount}`, show === "old")}
+      <div className="mb-3 flex flex-wrap items-baseline gap-2">
+        <h1 className="display text-3xl">Jobs</h1>
+        <span className="text-sm text-ink-3">
+          {visible.length} of {inView.length}
+        </span>
         <span className="flex-1" />
-        {batch.length > 0 && (
-          <ActionButton
-            run={async () => {
-              const { scored, failed } = await scoreJobs({ jobIds: batch });
-              return `${failed ? `Scored ${scored}, ${failed} failed. Try those again.` : `Scored ${scored}.`} ${MOVED}`;
-            }}
-            pending={`Scoring ${batch.length} jobs…`}
-            variant="ghost"
-            size="sm"
-          >
-            Score {batch.length} unscored {unscored.length > batch.length ? `of ${unscored.length}` : ""}
-          </ActionButton>
-        )}
         <LeftToday kind="scoresLeft" label="scores" />
       </div>
 
-      {inView.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="label mr-1">Region</span>
-          {chip(hrefWith({ region: homeIsBlr ? "all" : null }), `Everywhere · ${filtered.length}`, !region)}
-          {REGIONS.filter((r) => regionCounts.get(r.key) || region === r.key).map((r) =>
-            chip(hrefWith({ region: homeIsBlr && r.key === "blr" ? null : r.key }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, region === r.key),
-          )}
-        </div>
-      )}
-
-      {inView.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="card mb-5 space-y-3 p-3">
+        <div className="flex flex-wrap items-center gap-2">
           <input
-            className="field !w-56 !py-1.5 text-sm"
+            className="field min-w-48 flex-1 !py-2"
             placeholder="Search title or company"
             value={q}
             onChange={(e) => {
@@ -246,25 +210,9 @@ function Jobs() {
               router.replace(hrefWith({ q: e.target.value.trim() || null }), { scroll: false });
             }}
           />
-          {FILTERS.map((f) => (
-            <select
-              key={f.key}
-              aria-label={f.label}
-              className={`field !w-auto !py-1.5 text-sm ${params.get(f.key) ? "!border-accent" : ""}`}
-              value={params.get(f.key) ?? ""}
-              onChange={(e) => router.replace(hrefWith({ [f.key]: e.target.value || null }), { scroll: false })}
-            >
-              <option value="">{f.label}</option>
-              {f.options.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          ))}
           <select
             aria-label="Sort"
-            className="field !w-auto !py-1.5 text-sm"
+            className="field !w-auto !py-2 text-sm"
             value={sort}
             onChange={(e) => router.replace(hrefWith({ sort: e.target.value === "fit" ? null : e.target.value }), { scroll: false })}
           >
@@ -274,127 +222,255 @@ function Jobs() {
               </option>
             ))}
           </select>
-          {filtersOn && (
-            <button className="text-sm text-ink-3 underline hover:text-ink" onClick={clearFilters}>
-              Clear filters
-            </button>
-          )}
-          <span className="ml-auto text-sm text-ink-3">
-            {visible.length} of {inView.length}
-          </span>
-        </div>
-      )}
-
-      {picked.size > 0 && (
-        <div className="card sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-2 p-3 text-sm">
-          <span className="font-medium">{picked.size} selected</span>
-          <ActionButton
-            run={async () => {
-              await setStatusMany({ jobIds: [...picked] as Id<"jobs">[], status: show === "hidden" ? "new" : "dismissed" });
-              setPicked(new Set());
-              return show === "hidden" ? "Moved back to your list." : "Moved to Not for me.";
-            }}
-            variant="ghost"
-            size="sm"
-          >
-            {show === "hidden" ? "Put back in my list" : "Not for me"}
-          </ActionButton>
-          {show !== "hidden" && (
-            <ActionButton
-              run={async () => {
-                const ids = ([...picked] as Id<"jobs">[]).slice(0, 12);
-                const { scored, failed } = await scoreJobs({ jobIds: ids });
-                setPicked(new Set());
-                return `${failed ? `Scored ${scored}, ${failed} failed.` : `Scored ${scored}.`} ${MOVED}`;
-              }}
-              pending="Scoring…"
-              variant="ghost"
-              size="sm"
-            >
-              Score {Math.min(12, picked.size)}
-            </ActionButton>
-          )}
-          <button className="text-ink-3 underline hover:text-ink" onClick={() => setPicked(new Set(visible.map((j) => j._id)))}>
-            Select all {visible.length}
-          </button>
-          <button className="text-ink-3 underline hover:text-ink" onClick={() => setPicked(new Set())}>
-            Clear
-          </button>
-        </div>
-      )}
-
-      {visible.length === 0 ? (
-        <div className="card p-10 text-center text-ink-2">{inView.length ? "No jobs match these filters." : "No jobs here yet. Search above, or paste a job description you saw."}</div>
-      ) : (
-        <ul className="card divide-y divide-line overflow-hidden">
-          {visible.slice(0, shown).map((j, i, rows) => {
-            const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
-            const here = section(j);
-            const heading = here !== null && (i === 0 || section(rows[i - 1]) !== here) ? SECTION_NAMES[here] : null;
-            return (
-              <Fragment key={j._id}>
-              {heading && <li className="label bg-soft px-4 py-2">{heading}</li>}
-              <li className={`flex items-start ${picked.has(j._id) ? "bg-soft" : ""}`}>
-                <input
-                  type="checkbox"
-                  aria-label={`Select ${j.title}`}
-                  className="ml-4 mt-6 h-4 w-4 shrink-0"
-                  checked={picked.has(j._id)}
-                  onChange={(e) => {
-                    const next = new Set(picked);
-                    if (e.target.checked) next.add(j._id);
-                    else next.delete(j._id);
-                    setPicked(next);
+          <Link href={hrefWith({ filters: showFilters ? null : "1" })} scroll={false} className={`btn btn-sm ${showFilters ? "btn-primary" : "btn-ghost"}`}>
+            Filters{filterCount ? ` · ${filterCount}` : ""}
+          </Link>
+          <details className="relative">
+            <summary className="btn btn-ghost btn-sm cursor-pointer list-none">+ Find or add jobs</summary>
+            <div className="absolute right-0 z-20 mt-2 grid w-[min(90vw,40rem)] gap-4 rounded-xl border border-line bg-paper p-4 shadow-xl">
+              <FindJobs tracks={me.tracks} />
+              <AddJob />
+              {me.isOwner && (
+                <ActionButton
+                  run={async () => {
+                    const { added } = await findHiringPosts();
+                    return added ? `Saved ${added} ${added === 1 ? "role" : "roles"} from LinkedIn posts, each with the person who posted it.` : "No new fitting roles in last week's posts.";
                   }}
-                />
-                <FavoriteStar jobId={j._id} favorite={!!j.favorite} className="ml-3 mt-5 shrink-0" />
-                <Link href={`/jobs/${j._id}`} className="flex min-w-0 flex-1 items-start gap-4 px-4 py-4 transition-colors hover:bg-soft">
-                  <CompanyMark job={j} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-x-2">
-                      <span className="font-medium">{j.title}</span>
-                      <span className="text-sm text-ink-2">{j.company}</span>
-                      {strongCompany(j.company) && (
-                        <span className="self-center rounded-full border border-line px-2 py-0.5 text-[11px] font-medium text-ink-2">Top company</span>
-                      )}
-                      {j.status !== "new" && (
-                        <span className="self-center rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-on-accent">{STATUS_LABELS[j.status]}</span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 text-xs text-ink-3">
-                      {j.location}
-                      {j.postedAt ? ` · ${timeAgo(j.postedAt)}` : ""}
-                      {payText(j.salary, rates) ? ` · ${payText(j.salary, rates)}` : ""}
-                      {j.liveCheck?.state === "closed" && <span className="text-bad"> · Looks closed</span>}
-                      {j.brief?.blocker && <span className="text-bad"> · Rules you out</span>}
-                    </div>
-                    {best && <p className="mt-1.5 line-clamp-2 text-sm text-ink-2">{best.reason}</p>}
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    {best ? <ScorePill score={best.score} /> : <QuickFitPill score={j.quickFit} />}
-                    <TrackTag track={trackByKey.get((track ?? jobTrackKey(j, me.tracks)) ?? "")} />
-                  </div>
-                </Link>
-              </li>
-              </Fragment>
-            );
-          })}
-        </ul>
-      )}
-      {(visible.length > shown || weakCount > 0) && (
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-          {visible.length > shown && (
-            <button className="btn btn-ghost btn-sm" onClick={() => setShown(shown + PAGE * 2)}>
-              Show more ({visible.length - shown} left)
+                  pending="Reading last week's LinkedIn posts… about two minutes"
+                  variant="ghost"
+                  size="sm"
+                >
+                  Find &quot;we&apos;re hiring&quot; posts on LinkedIn
+                </ActionButton>
+              )}
+            </div>
+          </details>
+        </div>
+        {(active.length > 0 || filtersOn || batch.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {active.map((a) => (
+              <Link key={a.label} href={a.href} scroll={false} className="rounded-full border border-accent px-3 py-1 text-sm text-ink hover:bg-soft">
+                {a.label} <span className="text-ink-3">✕</span>
+              </Link>
+            ))}
+            {filtersOn && (
+              <button className="text-sm text-ink-3 underline hover:text-ink" onClick={clearFilters}>
+                Clear all
+              </button>
+            )}
+            <span className="flex-1" />
+            {batch.length > 0 && (
+              <ActionButton
+                run={async () => {
+                  const { scored, failed } = await scoreJobs({ jobIds: batch });
+                  return `${failed ? `Scored ${scored}, ${failed} failed. Try those again.` : `Scored ${scored}.`} ${MOVED}`;
+                }}
+                pending={`Scoring ${batch.length} jobs…`}
+                variant="ghost"
+                size="sm"
+              >
+                Score {batch.length} unscored {unscored.length > batch.length ? `of ${unscored.length}` : ""}
+              </ActionButton>
+            )}
+            <button className="text-sm text-ink-3 underline hover:text-ink" onClick={() => (selecting ? (setPicked(new Set()), setSelecting(false)) : setSelecting(true))}>
+              {selecting ? "Done selecting" : "Select"}
             </button>
+          </div>
+        )}
+      </div>
+
+      <div
+        className={`grid gap-5 ${
+          showFilters && selected ? "lg:grid-cols-[15rem_minmax(0,1fr)_minmax(0,1.15fr)]" : showFilters ? "lg:grid-cols-[15rem_minmax(0,1fr)]" : selected ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]" : ""
+        }`}
+      >
+        {showFilters && (
+          <aside className="card h-fit space-y-5 p-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Filters</span>
+              <Link href={hrefWith({ filters: null })} scroll={false} className="text-ink-3 hover:text-ink">
+                ✕
+              </Link>
+            </div>
+            <div>
+              <div className="label mb-2">Role</div>
+              <div className="flex flex-wrap gap-2">
+                {sideChip(hrefWith({ track: null, show: null }), "All roles", !track && !show)}
+                {me.tracks.map((t) =>
+                  sideChip(
+                    hrefWith({ track: t.key, show: null }),
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />
+                      {t.name}
+                    </span>,
+                    track === t.key,
+                  ),
+                )}
+              </div>
+            </div>
+            {inView.length > 0 && (
+              <div>
+                <div className="label mb-2">Region</div>
+                <div className="flex flex-wrap gap-2">
+                  {sideChip(hrefWith({ region: homeIsBlr ? "all" : null }), `Everywhere · ${filtered.length}`, !region)}
+                  {REGIONS.filter((r) => regionCounts.get(r.key) || region === r.key).map((r) =>
+                    sideChip(hrefWith({ region: homeIsBlr && r.key === "blr" ? null : r.key }), `${r.label} · ${regionCounts.get(r.key) ?? 0}`, region === r.key),
+                  )}
+                </div>
+              </div>
+            )}
+            {FILTERS.map((f) => (
+              <label key={f.key} className="block">
+                <span className="label mb-1 block">{f.label}</span>
+                <select
+                  className={`field !py-1.5 text-sm ${params.get(f.key) ? "!border-accent" : ""}`}
+                  value={params.get(f.key) ?? ""}
+                  onChange={(e) => router.replace(hrefWith({ [f.key]: e.target.value || null }), { scroll: false })}
+                >
+                  <option value="">Any</option>
+                  {f.options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <div>
+              <div className="label mb-2">Also see</div>
+              <div className="flex flex-wrap gap-2">
+                {sideChip(hrefWith({ track: null, show: show === "hidden" ? null : "hidden" }), "Not for me", show === "hidden")}
+                {appliedCount > 0 && sideChip(hrefWith({ track: null, show: show === "applied" ? null : "applied" }), `Applied · ${appliedCount}`, show === "applied")}
+                {oldCount > 0 && sideChip(hrefWith({ track: null, show: show === "old" ? null : "old" }), `Old or closed · ${oldCount}`, show === "old")}
+              </div>
+            </div>
+          </aside>
+        )}
+
+        <div className="min-w-0">
+          {picked.size > 0 && (
+            <div className="card sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-2 p-3 text-sm">
+              <span className="font-medium">{picked.size} selected</span>
+              <ActionButton
+                run={async () => {
+                  await setStatusMany({ jobIds: [...picked] as Id<"jobs">[], status: show === "hidden" ? "new" : "dismissed" });
+                  setPicked(new Set());
+                  return show === "hidden" ? "Moved back to your list." : "Moved to Not for me.";
+                }}
+                variant="ghost"
+                size="sm"
+              >
+                {show === "hidden" ? "Put back in my list" : "Not for me"}
+              </ActionButton>
+              {show !== "hidden" && (
+                <ActionButton
+                  run={async () => {
+                    const ids = ([...picked] as Id<"jobs">[]).slice(0, 12);
+                    const { scored, failed } = await scoreJobs({ jobIds: ids });
+                    setPicked(new Set());
+                    return `${failed ? `Scored ${scored}, ${failed} failed.` : `Scored ${scored}.`} ${MOVED}`;
+                  }}
+                  pending="Scoring…"
+                  variant="ghost"
+                  size="sm"
+                >
+                  Score {Math.min(12, picked.size)}
+                </ActionButton>
+              )}
+              <button className="text-ink-3 underline hover:text-ink" onClick={() => setPicked(new Set(visible.map((j) => j._id)))}>
+                Select all {visible.length}
+              </button>
+              <button className="text-ink-3 underline hover:text-ink" onClick={() => setPicked(new Set())}>
+                Clear
+              </button>
+            </div>
           )}
-          {weakCount > 0 && (
-            <button className="text-ink-3 underline hover:text-ink" onClick={() => setShowWeak(!showWeak)}>
-              {showWeak ? "Hide weak matches" : `Show ${weakCount} weak ${weakCount === 1 ? "match" : "matches"} (first guess under ${WEAK_GUESS})`}
-            </button>
+
+          {visible.length === 0 ? (
+            <div className="card p-10 text-center text-ink-2">{inView.length ? "No jobs match these filters." : "No jobs here yet. Press + Find or add jobs above."}</div>
+          ) : (
+            <ul className="space-y-2">
+              {visible.slice(0, shown).map((j, i, rows) => {
+                const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
+                const here = section(j);
+                const heading = here !== null && (i === 0 || section(rows[i - 1]) !== here) ? SECTION_NAMES[here] : null;
+                const pay = payText(j.salary, rates);
+                const on = selected === j._id;
+                return (
+                  <Fragment key={j._id}>
+                    {heading && <li className="label px-1 pt-3 pb-1">{heading}</li>}
+                    <li className={`card flex items-center gap-2 pr-3 transition ${on ? "!border-accent ring-1 ring-accent" : "hover:border-ink-3"} ${picked.has(j._id) ? "bg-soft" : ""}`}>
+                      {selecting && (
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${j.title}`}
+                          className="ml-3 h-4 w-4 shrink-0"
+                          checked={picked.has(j._id)}
+                          onChange={(e) => {
+                            const next = new Set(picked);
+                            if (e.target.checked) next.add(j._id);
+                            else next.delete(j._id);
+                            setPicked(next);
+                          }}
+                        />
+                      )}
+                      <Link href={`/jobs/${j._id}`} onClick={(e) => open(e, j._id)} scroll={false} className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-3">
+                        <CompanyMark job={j} size={40} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-medium">{j.title}</span>
+                            {j.status !== "new" && <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-on-accent">{STATUS_LABELS[j.status]}</span>}
+                          </div>
+                          <div className="truncate text-sm text-ink-2">
+                            {j.company}
+                            {pay ? ` · ${pay}` : ""}
+                            {j.location ? ` · ${j.location}` : ""}
+                            {j.postedAt ? ` · ${timeAgo(j.postedAt)}` : ""}
+                          </div>
+                          {(strongCompany(j.company) || j.liveCheck?.state === "closed" || j.brief?.blocker) && (
+                            <div className="mt-0.5 flex gap-2 text-[11px]">
+                              {strongCompany(j.company) && <span className="text-ink-3">Top company</span>}
+                              {j.liveCheck?.state === "closed" && <span className="text-bad">Looks closed</span>}
+                              {j.brief?.blocker && <span className="text-bad">Rules you out</span>}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          {best ? <ScorePill score={best.score} /> : <QuickFitPill score={j.quickFit} />}
+                          {!selected && <TrackTag track={trackByKey.get((track ?? jobTrackKey(j, me.tracks)) ?? "")} />}
+                        </div>
+                      </Link>
+                      <FavoriteStar jobId={j._id} favorite={!!j.favorite} className="shrink-0" />
+                    </li>
+                  </Fragment>
+                );
+              })}
+            </ul>
+          )}
+          {(visible.length > shown || weakCount > 0) && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+              {visible.length > shown && (
+                <button className="btn btn-ghost btn-sm" onClick={() => setShown(shown + PAGE * 2)}>
+                  Show more ({visible.length - shown} left)
+                </button>
+              )}
+              {weakCount > 0 && (
+                <button className="text-ink-3 underline hover:text-ink" onClick={() => setShowWeak(!showWeak)}>
+                  {showWeak ? "Hide weak matches" : `Show ${weakCount} weak ${weakCount === 1 ? "match" : "matches"} (first guess under ${WEAK_GUESS})`}
+                </button>
+              )}
+            </div>
           )}
         </div>
-      )}
+
+        {selected && (
+          <div className="hidden lg:block">
+            <div className="sticky top-4">
+              <JobPanel key={selected} jobId={selected} onClose={() => router.replace(hrefWith({ job: null }), { scroll: false })} />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
