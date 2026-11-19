@@ -57,3 +57,30 @@ describe("needsNoAnswer", () => {
     expect(needsNoAnswer({ from: "Lee <lee@acme.com>", subject: "Interview confirmed", snippet: "See you Tuesday" })).toBe(false);
   });
 });
+
+describe("matching an email to the right one of a company's jobs (19 Nov Rippling)", () => {
+  const sr = "Sr Manager, Sales Development";
+  const smb = "Sales Development, Direct - Outbound - SMB";
+  const email = "Hi Vandana , Your virtual interview for the Sr Manager, Sales Development role has been scheduled! Please review the details.";
+  it("reads the role and fits the Sr Manager job, not the SMB one", () => {
+    const role = roleNamed(email)!;
+    expect(role).toBe("Sr Manager, Sales Development");
+    expect(titleFit(sr, role)).toBe(1);
+    expect(titleFit(smb, role)).toBeLessThan(0.6);
+  });
+  it("attaches to the Sr Manager job even when the SMB job is newer", () => {
+    const jobs = [
+      { company: "Rippling", title: smb, updatedAt: 2 },
+      { company: "Rippling", title: sr, updatedAt: 1 },
+    ];
+    const m = { id: "x", from: "Timothy Joseph <mail@ats.rippling.com>", subject: "Interview Confirmation | Rippling - Vandana Agarwal", snippet: email, date: "" };
+    expect(jobFor(m, jobs)?.title).toBe(sr);
+  });
+  it("halves the fit when both titles name different levels, not when one shortens", () => {
+    expect(titleFit("Director, Sales Development", "Manager, Sales Development")).toBeLessThan(0.6);
+    expect(titleFit("Senior Account Executive", "Account Executive")).toBe(1);
+  });
+  it("still keeps the ElevenLabs receipt off SMB Lead - APAC", () => {
+    expect(titleFit("SMB Lead - APAC", "Sales Development Lead - North America")).toBeLessThan(0.6);
+  });
+});

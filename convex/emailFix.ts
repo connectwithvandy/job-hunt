@@ -14,6 +14,8 @@ import { roleNamed, titleFit } from "./lib/inbox";
 import { meetingEnd } from "./lib/meeting";
 
 const FITS = 0.6;
+// How much better another job's title must fit before an email moves there.
+const BETTER_BY = 0.3;
 
 export const rematchEmails = internalMutation({
   args: { userId: v.id("users"), dryRun: v.boolean() },
@@ -27,7 +29,9 @@ export const rematchEmails = internalMutation({
     }),
   ),
   handler: async (ctx, { userId, dryRun }) => {
-    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).take(1000);
+    // Newest first: an account can hold more than 1,000 jobs, and taking the oldest 1,000 missed the ones with
+    // recent emails (19 Nov: the first run found nothing).
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
     const changes: { emailId: Id<"jobEmails">; subject: string; role: string; fromJob: string; toJob: string | null }[] = [];
     const touched = new Set<Id<"jobs">>();
 
@@ -36,13 +40,18 @@ export const rematchEmails = internalMutation({
       const emails = await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", job._id)).take(200);
       for (const e of emails) {
         const role = roleNamed(`${e.subject}\n${e.snippet.slice(0, 800)}`);
-        if (!role || titleFit(job.title, role) >= FITS) continue;
+        if (!role) continue;
+        const here = titleFit(job.title, role);
         const key = companyKey(job.company);
         const target = jobs
           .filter((j) => j._id !== job._id && companyKey(j.company) === key)
           .map((j) => ({ j, fit: titleFit(j.title, role) }))
           .filter((x) => x.fit >= FITS)
           .sort((a, b) => b.fit - a.fit)[0]?.j;
+        // Move it when it doesn't fit here, or when another of the company's jobs fits clearly better.
+        const better = target && titleFit(target.title, role) >= here + BETTER_BY;
+        // Otherwise it stays. An email that fits nowhere comes off this job below (it's still in Gmail).
+        if (here >= FITS && !better) continue;
         changes.push({ emailId: e._id, subject: e.subject, role, fromJob: `${job.company} · ${job.title}`, toJob: target ? `${target.company} · ${target.title}` : null });
         if (dryRun) continue;
         if (target) {

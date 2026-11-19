@@ -9,7 +9,7 @@ import { PageHead } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { Feedback, Spinner, type ActionState } from "@/components/ui";
 import { errorMessage } from "@/lib/errors";
-import { PAID_ADDS } from "@/lib/paidFeatures";
+import { PlanCards } from "@/components/PlanCards";
 
 type RazorpayReply = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 type RazorpayCheckout = { open: () => void; on: (event: string, fn: (e: { error?: { description?: string } }) => void) => void };
@@ -44,6 +44,7 @@ export default function Billing() {
   // A promo code typed in; checked live against each plan so the cards show the price after it.
   const [code, setCode] = useState("");
   const [applied, setApplied] = useState("");
+  const [codeOpen, setCodeOpen] = useState(false);
   const monthPromo = useQuery(api.payments.checkPromo, applied ? { code: applied, plan: "month" } : "skip");
   const passPromo = useQuery(api.payments.checkPromo, applied ? { code: applied, plan: "pass" } : "skip");
   if (!status) return <Loading />;
@@ -93,10 +94,6 @@ export default function Billing() {
   };
 
   const covered = status.paidUntil && status.paidUntil > now;
-  const plans: { key: PlanKey; note: string }[] = [
-    { key: "month", note: "One payment for one month, to try every tool. Nothing renews by itself." },
-    { key: "pass", note: "One payment for three months, a typical search. Nothing renews by itself." },
-  ];
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -117,7 +114,7 @@ export default function Billing() {
         </p>
         {!isOwner && !covered && !(status.partner && status.partner.until > now) && (
           <p className="mt-2 text-sm text-ink-2">
-            Free plan, yours to keep: daily jobs, your tracker, the fit guess on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsTotal} tailored CV to try. A paid plan adds
+            Free plan, yours to keep: daily jobs, your tracker, a quick match % on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsTotal} tailored CV to try. A paid plan adds
             more scores and CVs, company research, interview prep, referral and hiring-manager messages, and the chat.
           </p>
         )}
@@ -137,74 +134,62 @@ export default function Billing() {
         <p className="card p-6 text-ink-2">Payments aren&apos;t switched on yet. Nothing to do for now.</p>
       ) : (
         <>
-        <div className="grid gap-4 md:grid-cols-3">
-          {/* Free first, like Dreamwork's Free / Pro / Dreamer: everyone sees what they keep without paying (19 Nov). */}
-          <section className="card flex flex-col p-6">
-            <h2 className="text-lg font-semibold">Free</h2>
-            <p className="mt-2">
-              <span className="display text-4xl">₹0</span>
-            </p>
-            <p className="mt-1 text-xs text-ink-3">Yours to keep, no card needed.</p>
-            <ul className="mt-2 flex-1 space-y-1 text-sm text-ink-2">
-              <li>New sales jobs every day</li>
-              <li>Fit guess on every job, and pay when the posting lists it</li>
-              <li>{FREE.scoresPerDay} AI fit scores a day</li>
-              <li>{FREE.tailorsTotal} tailored CV to try</li>
-              <li>Your application tracker</li>
-            </ul>
-            <div className="btn btn-ghost mt-4 cursor-default justify-center text-ink-3">
+        <PlanCards
+          prices={{ month: status.prices.month, pass: status.prices.pass }}
+          founding={
+            status.founding
+              ? status.foundingLeft > 0
+                ? `Founding price: ${status.foundingLeft} of ${PLANS.foundingSeats} places left. You keep it for as long as you stay.`
+                : "You keep your founding price."
+              : null
+          }
+          freeAction={
+            <div className="btn btn-ghost w-full cursor-default justify-center text-ink-3">
               {!isOwner && !covered && !(status.partner && status.partner.until > now) ? "Your plan now" : "Always included"}
             </div>
-          </section>
-          {plans.map(({ key, note }) => {
-            const p = status.prices[key];
+          }
+          note={(key) => {
+            const promo = promoOf(key);
+            return promo ? <p className={`mt-2 text-xs ${promo.ok ? "text-good" : "text-ink-3"}`}>{promo.ok ? `Code ${applied}: ${promo.message}` : promo.message}</p> : null;
+          }}
+          action={(key) => {
             const promo = promoOf(key);
             return (
-              <section key={key} className="card flex flex-col p-6">
-                <h2 className="text-lg font-semibold">{p.label}</h2>
-                <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
-                  {p.was && <s className="text-xl text-ink-3">₹{p.was.rupees.toLocaleString("en-IN")}</s>}
-                  <span className="display text-4xl">₹{p.rupees.toLocaleString("en-IN")}</span>
-                  {p.was && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent">{p.was.percentOff}% off</span>}
-                </p>
-                {status.founding && <p className="mt-1 text-xs text-good">Founding price for the next {PLANS.foundingSeats} people.</p>}
-                {promo && <p className={`mt-1 text-xs ${promo.ok ? "text-good" : "text-ink-3"}`}>{promo.ok ? `Code ${applied}: ${promo.message}` : promo.message}</p>}
-                <p className="mt-2 text-sm text-ink-2">{note}</p>
-                <ul className="mt-2 flex-1 space-y-1 text-sm text-ink-2">
-                  <li className="font-medium text-ink">Everything in Free, plus:</li>
-                  {PAID_ADDS.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-                <button className="btn btn-primary mt-4" disabled={busy !== null} onClick={() => void pay(key)}>
-                  {busy === key && <Spinner />}
-                  {busy === key
-                    ? "Opening payment…"
-                    : promo?.ok && promo.rupees === 0
-                      ? "Use my code"
-                      : covered
-                        ? { week: "Add a week", month: "Add 1 month", pass: "Add 3 months" }[key]
-                        : `Pay ₹${(promo?.ok ? promo.rupees : p.rupees).toLocaleString("en-IN")}`}
-                </button>
-              </section>
+              <button className="btn btn-primary w-full justify-center" disabled={busy !== null} onClick={() => void pay(key)}>
+                {busy === key && <Spinner />}
+                {busy === key
+                  ? "Opening payment…"
+                  : promo?.ok && promo.rupees === 0
+                    ? "Use my code"
+                    : covered
+                      ? { week: "Add a week", month: "Add 1 month", pass: "Add 3 months" }[key]
+                      : `Pay ₹${(promo?.ok ? promo.rupees : status.prices[key].rupees).toLocaleString("en-IN")}`}
+              </button>
             );
-          })}
-        </div>
-        <form
-          className="mt-4 flex flex-wrap items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setApplied(code.trim().toUpperCase());
           }}
-        >
-          <label className="text-sm text-ink-2" htmlFor="promo">
+        />
+        {/* A small link, not a full-width box: most people have no code (19 Nov). */}
+        {codeOpen || applied ? (
+          <form
+            className="mt-4 flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setApplied(code.trim().toUpperCase());
+            }}
+          >
+            <label className="text-sm text-ink-2" htmlFor="promo">
+              Your code
+            </label>
+            <input id="promo" autoFocus className="field w-48 py-1.5 text-sm uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code" />
+            <button className="btn btn-ghost btn-sm" type="submit" disabled={!code.trim()}>
+              Apply
+            </button>
+          </form>
+        ) : (
+          <button type="button" className="mt-4 text-sm text-ink-2 underline" onClick={() => setCodeOpen(true)}>
             Have a code?
-          </label>
-          <input id="promo" className="field w-48 py-1.5 text-sm uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code" />
-          <button className="btn btn-ghost btn-sm" type="submit" disabled={!code.trim()}>
-            Apply
           </button>
-        </form>
+        )}
         </>
       )}
       <div className="mt-4">

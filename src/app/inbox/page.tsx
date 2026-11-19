@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { STATUS_LABELS } from "../../../convex/lib/defaults";
 import { CompanyMark, timeAgo } from "@/components/bits";
 import { FindPeople } from "@/components/FindPeople";
@@ -188,7 +188,7 @@ function Inbox() {
                     Open the job
                   </Link>
                 </div>
-                {open.j.lastEmail && <Thread jobId={open.j._id} company={open.j.company} account={account} meetingEndAt={open.j.meetingEndAt} />}
+                {open.j.lastEmail && <Thread job={open.j} account={account} myName={me.resume?.name ?? ""} />}
                 {open.r && <Outreach r={open.r} />}
               </>
             ) : (
@@ -210,9 +210,10 @@ function Outreach({ r }: { r: MessageRow }) {
   );
 }
 
-function Thread({ jobId, company, account, meetingEndAt }: { jobId: Id<"jobs">; company: string; account: string; meetingEndAt?: number }) {
-  const emails = useQuery(api.inbox.thread, { jobId });
+function Thread({ job, account, myName }: { job: Doc<"jobs">; account: string; myName: string }) {
+  const emails = useQuery(api.inbox.thread, { jobId: job._id });
   if (!emails) return <div className="h-40 animate-pulse rounded-xl bg-soft" />;
   if (!emails.length) return null;
-  return <JobEmails emails={emails} company={company} account={account} meetingEndAt={meetingEndAt} />;
+  // key: a new conversation starts with its newest email open again.
+  return <JobEmails key={job._id} emails={emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={myName} />;
 }

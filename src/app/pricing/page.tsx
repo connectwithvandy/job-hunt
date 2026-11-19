@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { PricingPlans } from "@/components/PricingPlans";
 import { PLANS } from "@/lib/legal";
-import { FREE } from "../../../convex/lib/plans";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -20,16 +19,6 @@ export default function Pricing() {
         and cover letters, referral and hiring-manager messages, interview prep
         and the morning summary.
       </p>
-      <div className="card p-6 text-ink">
-        <div className="label">Free plan</div>
-        <div className="display mt-2 text-4xl">₹0</div>
-        <p className="mt-2 text-sm text-ink-2">
-          Yours to keep after the {PLANS.trialDays}-day trial: daily sales jobs,
-          your application tracker, a fit guess on every job,{" "}
-          {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsTotal}{" "}
-          tailored CV to try.
-        </p>
-      </div>
       <PricingPlans />
       <div className="card p-6 text-ink">
         <div className="label">Teams, communities and bootcamps</div>

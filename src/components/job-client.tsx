@@ -17,6 +17,8 @@ import { downloadDocx, downloadLetterDocx } from "@/lib/docx";
 import { timeAgo } from "./bits";
 import { errorMessage } from "@/lib/errors";
 import { cleanSubject, meetingEnd, parseCalendarInvite } from "@/lib/calendarInvite";
+import { interviewAhead, justInterviewed } from "@/lib/replies";
+import { interviewerFirstName, thankYouNote } from "@/lib/thankYou";
 import { ActionButton, type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
@@ -1375,23 +1377,120 @@ function gmailLink(account: string, path: string) {
 
 /** The emails from this company, newest first, with a drafted reply you can send from Gmail in two clicks. */
 /** `meetingEndAt` is when the job's interview ends (saved from its calendar invite): after it, invites stop asking for a reply. */
-export function JobEmails({ emails, company, account, meetingEndAt }: { emails: Doc<"jobEmails">[]; company: string; account: string; meetingEndAt?: number }) {
+/** With `job`, a next-step box sits on top: the interview ahead, or "how did it go" once it has happened. */
+export function JobEmails({
+  emails,
+  company,
+  account,
+  meetingEndAt,
+  job,
+  myName = "",
+}: {
+  emails: Doc<"jobEmails">[];
+  company: string;
+  account: string;
+  meetingEndAt?: number;
+  job?: Doc<"jobs">;
+  myName?: string;
+}) {
   useEffect(() => {
     if (window.location.hash === "#emails") document.getElementById("emails")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
   return (
-    <div id="emails" className="card scroll-mt-6 p-6">
-      <h2 className="mb-4 text-lg font-semibold">Emails from {company}</h2>
-      <ul className="divide-y divide-line text-sm">
-        {emails.map((m) => (
-          <EmailItem key={m._id} m={m} account={account} meetingEndAt={meetingEndAt} />
-        ))}
-      </ul>
+    <div id="emails" className="scroll-mt-6 space-y-4">
+      {job && <NextStep job={job} emails={emails} account={account} myName={myName} />}
+      <div className="card p-6">
+        <h2 className="mb-4 text-lg font-semibold">Emails from {company}</h2>
+        <ul className="divide-y divide-line text-sm">
+          {emails.map((m, i) => (
+            <EmailItem key={m._id} m={m} account={account} meetingEndAt={meetingEndAt} startOpen={i === 0} />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
 
-function EmailItem({ m, account, meetingEndAt }: { m: Doc<"jobEmails">; account: string; meetingEndAt?: number }) {
+/**
+ * What to do next about this job's interview (19 Nov: Messages said "say how it went" but offered no way to).
+ * Before it: when, Join and Prepare. After it: how it went, as buttons that move the job, and a thank-you note.
+ */
+function NextStep({ job, emails, account, myName }: { job: Doc<"jobs">; emails: Doc<"jobEmails">[]; account: string; myName: string }) {
+  const setStatus = useSetStatus();
+  // "Still waiting" changes nothing worth confetti, so it skips the celebration.
+  const setQuietly = useMutation(api.jobs.setStatus);
+  const [now] = useState(() => Date.now());
+  const [busy, start] = useTransition();
+  // The newest calendar invite says when and where; the newest interview email names who to thank.
+  const invite = emails.map((e) => ({ e, meeting: parseCalendarInvite(e.subject, e.snippet) })).find((x) => x.meeting);
+  const person = emails.find((e) => e.stage === "interview" && interviewerFirstName(e.from)) ?? invite?.e;
+  if (interviewAhead(job, now)) {
+    const when = invite?.meeting?.when || (job.meetingEndAt ? new Date(job.meetingEndAt).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
+    return (
+      <div className="card flex flex-wrap items-center gap-3 border-accent p-5 ring-1 ring-accent">
+        <div className="min-w-0">
+          <div className="text-xs text-ink-3">Your interview</div>
+          <div className="font-medium">{when || "Coming up"}</div>
+        </div>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Link href={`/jobs/${job._id}#prepare`} className="btn btn-ghost btn-sm">
+            Prepare
+          </Link>
+          {invite?.meeting?.join && (
+            <a className="btn btn-primary btn-sm" href={invite.meeting.join} target="_blank" rel="noreferrer">
+              Join ↗
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+  if (!justInterviewed(job, now)) return null;
+  const note = thankYouNote({ interviewer: person ? interviewerFirstName(person.from) : "", company: job.company, role: job.title, myName });
+  const to = person ? replyTo(person.from) : "";
+  const answer = (status: JobStatus) => start(async () => void (await setStatus({ jobId: job._id, status })));
+  return (
+    <div className="card space-y-4 border-accent p-5 ring-1 ring-accent">
+      <div>
+        <h2 className="text-lg font-semibold">How did the {job.company} interview go?</h2>
+        <p className="text-sm text-ink-2">Pick one so your tracker stays right.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => answer("interview")}>
+          Next round
+        </button>
+        <button className="btn btn-sm" disabled={busy} onClick={() => answer("offer")}>
+          Got an offer
+        </button>
+        <button className="btn btn-sm" disabled={busy} onClick={() => answer("rejected")}>
+          Didn&apos;t go ahead
+        </button>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => start(async () => void (await setQuietly({ jobId: job._id, status: job.status })))}>
+          Still waiting
+        </button>
+      </div>
+      <div className="rounded-xl border border-line p-4">
+        <div className="mb-2 text-sm font-medium">Thank-you note</div>
+        <p className="mb-2 text-xs text-ink-3">Send within a day. Add one thing you talked about, so it&apos;s yours.</p>
+        <pre className="whitespace-pre-wrap font-sans text-sm text-ink-2">{note.body}</pre>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            className="btn btn-primary btn-sm"
+            href={gmailLink(account, `&view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(note.subject)}&body=${encodeURIComponent(note.body)}`)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Gmail ↗
+          </a>
+          <CopyButton text={note.body} />
+        </div>
+        {!to && <p className="mt-2 text-xs text-ink-3">Add the interviewer&apos;s email in Gmail&apos;s &quot;To&quot;.</p>}
+      </div>
+    </div>
+  );
+}
+
+function EmailItem({ m, account, meetingEndAt, startOpen = true }: { m: Doc<"jobEmails">; account: string; meetingEndAt?: number; startOpen?: boolean }) {
   const draft = useAction(api.agent.draftEmailReply);
   const edit = useMutation(api.inbox.editReply);
   const markReplied = useMutation(api.inbox.markReplied);
@@ -1417,6 +1516,23 @@ function EmailItem({ m, account, meetingEndAt }: { m: Doc<"jobEmails">; account:
   const end = m.stage === "interview" ? (meetingEnd(m.subject) ?? (meetingEndAt && meetingEndAt >= m.at ? meetingEndAt : null)) : null;
   const over = end !== null && end < now;
   const waiting = needsAnswer(m) && !over;
+  // A calendar card for a meeting that's over says so instead of offering Join.
+  const calEnd = meeting ? meetingEnd(m.subject) : null;
+  const ended = over || (calEnd !== null && calEnd < now);
+  // Only the newest email (or one still waiting on you) starts open; older ones fold to a line.
+  const [open, setOpen] = useState(startOpen || waiting);
+  if (!open)
+    return (
+      <li className="min-w-0">
+        <button type="button" className="flex w-full items-baseline justify-between gap-3 py-3 text-left hover:bg-soft" onClick={() => setOpen(true)}>
+          <span className="min-w-0 truncate">
+            <span className="font-medium">{meeting ? meeting.title : cleanSubject(m.subject)}</span>
+            <span className="text-ink-3"> · {m.from.replace(/<[^>]*>/, "").trim() || m.from}</span>
+          </span>
+          <span className="shrink-0 text-xs text-ink-3">{timeAgo(m.at)}</span>
+        </button>
+      </li>
+    );
   return (
     <li className="min-w-0 py-4">
       <div className="flex justify-between gap-3">
@@ -1430,10 +1546,14 @@ function EmailItem({ m, account, meetingEndAt }: { m: Doc<"jobEmails">; account:
             <div className="text-xs text-ink-3">Calendar invite</div>
             {meeting.when && <div className="font-medium">{meeting.when}</div>}
           </div>
-          {meeting.join && (
-            <a className="btn btn-primary btn-sm ml-auto" href={meeting.join} target="_blank" rel="noreferrer">
-              Join ↗
-            </a>
+          {ended ? (
+            <span className="ml-auto rounded-full bg-soft px-3 py-1 text-xs text-ink-3">Ended</span>
+          ) : (
+            meeting.join && (
+              <a className="btn btn-primary btn-sm ml-auto" href={meeting.join} target="_blank" rel="noreferrer">
+                Join ↗
+              </a>
+            )
           )}
         </div>
       ) : (

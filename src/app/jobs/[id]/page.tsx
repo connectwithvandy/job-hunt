@@ -196,7 +196,7 @@ export default function JobPage() {
 
       <PostingCheck live={job.liveCheck} checking={stale} ghost={ghost} check={async () => void (await checkPosting({ jobId: job._id }))} />
 
-      {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} />}
+      {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={me.resume?.name ?? ""} />}
 
 
       <JobTabs
@@ -436,7 +436,7 @@ export default function JobPage() {
             ),
           },
           ...(data.emails.length > 0 && !answerFirst
-            ? [{ key: "emails", label: "Emails", done: false, badge: String(data.emails.length), content: <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} /> }]
+            ? [{ key: "emails", label: "Emails", done: false, badge: String(data.emails.length), content: <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={me.resume?.name ?? ""} /> }]
             : []),
           ...(job.description
             ? [{ key: "job", label: "Job description", done: false, content: <div className="whitespace-pre-line text-sm leading-relaxed text-ink-2">{job.description}</div> }]

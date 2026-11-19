@@ -16,9 +16,14 @@ const keys = () => (env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET ? { id: env.R
 
 /** Whether this person pays founding prices: they already did, or fewer than PLANS.foundingSeats people have. */
 export async function foundingFor(ctx: QueryCtx, userId: Id<"users">) {
-  const paid = await ctx.db.query("payments").withIndex("by_status_and_founding", (q) => q.eq("status", "paid").eq("founding", true)).take(500);
-  const people = new Set(paid.map((p) => p.userId));
+  const people = await foundingPeople(ctx);
   return people.has(userId) || people.size < PLANS.foundingSeats;
+}
+
+/** Everyone who paid a founding price, read from one small index range. */
+async function foundingPeople(ctx: QueryCtx) {
+  const paid = await ctx.db.query("payments").withIndex("by_status_and_founding", (q) => q.eq("status", "paid").eq("founding", true)).take(500);
+  return new Set(paid.map((p) => p.userId));
 }
 
 const tidyCode = (code: string) => code.trim().toUpperCase().replace(/\s+/g, "");
@@ -138,13 +143,16 @@ export const status = query({
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
     const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
-    const founding = await foundingFor(ctx, userId);
+    const people = await foundingPeople(ctx);
+    const founding = people.has(userId) || people.size < PLANS.foundingSeats;
     const history = await ctx.db.query("payments").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(20);
     return {
       on: !!keys(),
       paidUntil: row?.paidUntil ?? null,
       partner: row?.partner ?? null,
       founding,
+      // Real seats left at the founding price, so the card can say "41 of 50 left" instead of a vague "next 50".
+      foundingLeft: Math.max(0, PLANS.foundingSeats - people.size),
       prices: { week: { ...priceOf("week", founding), was: wasOf("week", founding) }, month: { ...priceOf("month", founding), was: wasOf("month", founding) }, pass: { ...priceOf("pass", founding), was: wasOf("pass", founding) } },
       paid: history.filter((p) => p.status === "paid").map((p) => ({ plan: p.plan, amount: p.amount / 100, paidAt: p.paidAt ?? 0, until: p.until ?? 0, paymentId: p.paymentId ?? "" })),
     };

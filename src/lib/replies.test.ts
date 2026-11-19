@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { justInterviewed, trackerStatus, waitsForAnswer } from "./replies";
+import { interviewAhead, justInterviewed, trackerStatus, waitsForAnswer } from "./replies";
 
 const DAY = 86_400_000;
 const now = 100 * DAY;
@@ -61,5 +61,19 @@ describe("meeting time saved on the job", () => {
     const job = { status: "interview", meetingEndAt: end, lastEmail: { at: end - 3 * DAY, stage: "interview", subject: "Interview Confirmation | Rippling - Vandana Agarwal" } };
     expect(waitsForAnswer(job, end + DAY)).toBe(false);
     expect(justInterviewed(job, end + DAY)).toBe(true);
+  });
+});
+
+describe("how-did-it-go prompt and upcoming interviews", () => {
+  const end = Date.UTC(2026, 10, 16, 17, 30);
+  const job = { status: "interview", meetingEndAt: end, lastEmail: { at: end - 3 * DAY, stage: "interview" } };
+  it("drops the prompt once the person answers it after the interview", () => {
+    expect(justInterviewed(job, end + DAY)).toBe(true);
+    expect(justInterviewed({ ...job, statusSetAt: end + 3_600_000 }, end + DAY)).toBe(false);
+    expect(justInterviewed({ ...job, statusSetAt: end - DAY }, end + DAY)).toBe(true);
+  });
+  it("shows an interview still to come", () => {
+    expect(interviewAhead(job, end - DAY)).toBe(true);
+    expect(interviewAhead(job, end + 60_000)).toBe(false);
   });
 });

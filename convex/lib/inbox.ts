@@ -85,14 +85,26 @@ export function roleNamed(text: string): string | null {
   return null;
 }
 
-/** How much of the shorter of a job title and a named role the other one shares, 0 to 1. */
+// Words that say how senior a role is. "Sr Manager, Sales Development" and "Sales Development, Direct - Outbound - SMB"
+// share "sales development" but are different jobs (19 Nov: Rippling's Sr Manager interview email sat on the SMB job).
+const SENIORITY = new Set(["sr", "senior", "manager", "director", "head", "lead", "vp", "chief", "principal", "associate", "junior", "jr", "intern"]);
+
+/**
+ * How much of the shorter of a job title and a named role the other one shares, 0 to 1.
+ * When both name a level and the levels differ ("Director" vs "Manager"), the fit halves. A level on one side only
+ * ("Senior Account Executive" vs "Account Executive") doesn't count against it: emails often shorten the title.
+ */
 export function titleFit(title: string, role: string): number {
   const a = roleWords(title);
   const b = roleWords(role);
   if (!a.size || !b.size) return 0;
   let common = 0;
   for (const w of a) if (b.has(w)) common++;
-  return common / Math.min(a.size, b.size);
+  const fit = common / Math.min(a.size, b.size);
+  const la = [...a].filter((w) => SENIORITY.has(w));
+  const lb = [...b].filter((w) => SENIORITY.has(w));
+  const clash = la.length > 0 && lb.length > 0 && (la.some((w) => !b.has(w)) || lb.some((w) => !a.has(w)));
+  return clash ? fit / 2 : fit;
 }
 
 // Applicant tracking systems send emails for many companies, so their domains say nothing about which one.

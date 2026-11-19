@@ -37,7 +37,7 @@ export function interviewOver(j: EmailJob, now: number): boolean {
 }
 
 /** When the interview ends: saved on the job from any invite, or read from the latest email's subject. */
-function meetingTime(j: EmailJob): number | null {
+export function meetingTime(j: EmailJob): number | null {
   const e = j.lastEmail;
   if (!e || e.stage !== "interview") return null;
   // The invite usually arrives before the "confirmed" email, so the saved time beats the latest subject.
@@ -50,7 +50,16 @@ function meetingTime(j: EmailJob): number | null {
 export function justInterviewed(j: EmailJob, now: number): boolean {
   if (j.status === "rejected" || j.status === "dismissed" || j.status === "offer") return false;
   const end = meetingTime(j);
-  return end !== null && end < now && now - end < 7 * DAY;
+  if (end === null || end >= now || now - end >= 7 * DAY) return false;
+  // Answered "how did it go" (Next round, Still waiting…) after the interview: the question is done.
+  return !(j.statusSetAt && j.statusSetAt > end);
+}
+
+/** An interview still to come on a job that's open: show when it is, with Join and a way to prepare. */
+export function interviewAhead(j: EmailJob, now: number): boolean {
+  if (j.status === "rejected" || j.status === "dismissed") return false;
+  const end = meetingTime(j);
+  return end !== null && end >= now;
 }
 
 /** Interview invites and offers come before a recruiter's first note. */

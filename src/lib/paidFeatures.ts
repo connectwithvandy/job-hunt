@@ -3,10 +3,12 @@
 import { DAILY_LIMITS } from "../../convex/lib/defaults";
 import { FREE } from "../../convex/lib/plans";
 
+// Short lines: they sit once under both paid cards, two columns wide.
 export const PAID_ADDS: string[] = [
-  `${DAILY_LIMITS.score} real fit scores a day (free: ${FREE.scoresPerDay})`,
-  `${DAILY_LIMITS.tailor} tailored CVs and cover letters a day (free: ${FREE.tailorsTotal} in total)`,
-  "Referral notes, hiring-manager messages and answers to form questions",
-  "Interview prep and a call script for every job",
-  "Company research and Ask JobPipe, the chat",
+  `${DAILY_LIMITS.score} full fit scores a day · free has ${FREE.scoresPerDay}`,
+  `${DAILY_LIMITS.tailor} tailored CVs + cover letters a day · free has ${FREE.tailorsTotal} in total`,
+  "Referral and hiring-manager notes",
+  "Answers to application form questions",
+  "Interview prep and call scripts",
+  "Ask JobPipe chat and company research",
 ];
