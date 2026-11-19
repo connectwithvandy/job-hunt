@@ -354,7 +354,7 @@ export default function Today() {
         {(applyJobs.length > 0 || apply.length > 0) && (
           <Group label="Apply" more={{ href: "/jobs", text: "All jobs →" }}>
             <ApplyRows jobs={applyJobs} verbFor={verbFor} />
-            {apply.length > 0 && <TodoList items={apply} plain />}
+            {apply.length > 0 && <TodoList items={apply} plain group="Apply" />}
           </Group>
         )}
         {answer.length > 0 && (
@@ -364,7 +364,7 @@ export default function Today() {
         )}
         {followUpItems.length > 0 && (
           <Group label="Follow up">
-            <TodoList items={followUpItems} plain />
+            <TodoList items={followUpItems} plain group="Follow up" />
           </Group>
         )}
         {(referralItems.length > 0 || companiesAskedToday > 0) && (
@@ -620,11 +620,14 @@ const VERB_TONE: Record<string, string> = {
   Connect: "text-ink-3",
 };
 
-function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
+function TodoRow({ t, arrow, group }: { t: Todo; arrow: string; group?: string }) {
   return (
     <>
       <span className="min-w-0 flex-1">
-        <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
+        {/* Under a group header that already says it ("Follow up"), the same word again on every row is noise. */}
+        {t.verb.toLowerCase() !== group?.toLowerCase() && (
+          <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
+        )}
         <span className="block truncate text-sm font-medium">{t.main}</span>
         {/* Whole on a phone: one cut-off line showed a third of "Recruiter replies…" at 390px (13 Nov). */}
         <span className="block text-xs text-ink-2 md:truncate">{t.sub}</span>
@@ -641,7 +644,7 @@ const SURE = 5;
 const PATTERNS = 10;
 
 /** The first five things to do, the rest one tap away: more read as a wall (13 Nov). */
-function TodoList({ items, plain }: { items: Todo[]; plain?: boolean }) {
+function TodoList({ items, plain, group }: { items: Todo[]; plain?: boolean; group?: string }) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const shown = all ? items : items.slice(0, SHOWN);
@@ -653,7 +656,7 @@ function TodoList({ items, plain }: { items: Todo[]; plain?: boolean }) {
             {t.panel ? (
               <>
                 <button type="button" onClick={() => setOpen(open === t.key ? null : t.key)} className="group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-soft" aria-expanded={open === t.key}>
-                  <TodoRow t={t} arrow={open === t.key ? "▴" : "▾"} />
+                  <TodoRow t={t} group={group} arrow={open === t.key ? "▴" : "▾"} />
                 </button>
                 {open === t.key && (
                   <div className="px-3 pb-3">
@@ -666,7 +669,7 @@ function TodoList({ items, plain }: { items: Todo[]; plain?: boolean }) {
               </>
             ) : (
               <Link href={t.href} className="group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
-                <TodoRow t={t} arrow="→" />
+                <TodoRow t={t} group={group} arrow="→" />
               </Link>
             )}
           </li>
