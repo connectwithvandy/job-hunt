@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { CompanyMark, ScorePill, timeAgo } from "@/components/bits";
+import { CompanyMark, FitBadge, timeAgo } from "@/components/bits";
 import { payText, useInrRates } from "@/lib/money";
 import { payEstimateText } from "../../convex/lib/payEstimate";
 
@@ -88,7 +88,7 @@ export function JobPanel({ jobId, onClose }: { jobId: Id<"jobs">; onClose: () =>
         <div className="rounded-xl border border-line p-5">
           <div className="mb-2 flex items-center justify-between">
             <div className="label">Is it a fit?</div>
-            {best ? <ScorePill score={best.score} /> : <span className="text-xs text-ink-3">Not scored yet</span>}
+            <FitBadge job={job} size={36} />
           </div>
           {best ? (
             <>

@@ -21,10 +21,13 @@ export default function Tracker() {
   if (!me || !jobs) return <Loading />;
   const color = new Map(me.tracks.map((t) => [t.key, t.color]));
   const total = jobs.filter((j) => PIPELINE.some((p) => p.status === j.status)).length;
+  // "In progress" matches Today's Live applications; closed ones are counted apart (19 Nov: 30 here vs 25 there).
+  const closed = jobs.filter((j) => j.status === "rejected").length;
+  const live = total - closed;
 
   return (
     <div>
-      <PageHead title="Application tracker" sub={total ? `${total} ${total === 1 ? "application" : "applications"} in motion. Drag a card to another column to move it.` : "Applications show up here once you start one."} />
+      <PageHead title="Application tracker" sub={total ? `${live} in progress${closed ? `, ${closed} closed` : ""}. Drag a card to another column to move it.` : "Applications show up here once you start one."} />
       <div className="mb-6">
         <GmailSync />
       </div>

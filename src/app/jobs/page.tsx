@@ -409,8 +409,11 @@ function Jobs() {
             <ul className={`grid gap-3 sm:grid-cols-2 ${selected ? "2xl:grid-cols-3" : showFilters ? "xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>
               {visible.slice(0, shown).map((j) => {
                 const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
-                const listed = payText(j.salary, rates);
-                const est = listed ? null : payEstimateText(j);
+                // Some boards send their own guess ("₹22–36 L (est.)"): that's an estimate too, not the company's figure.
+                const raw = payText(j.salary, rates);
+                const boardGuess = !!raw && /\best\b|estimat/i.test(j.salary ?? "");
+                const listed = raw && !boardGuess ? raw : null;
+                const est = listed ? null : boardGuess ? raw!.replace(/\s*\(est\.?\)/i, "") : payEstimateText(j);
                 const isNew = now - j._creationTime < 2 * 86_400_000 && j.status === "new";
                 return (
                   <li key={j._id} className={`card flex flex-col p-4 transition ${selected === j._id ? "!border-accent ring-1 ring-accent" : "hover:border-ink-3"}`}>

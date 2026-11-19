@@ -180,7 +180,14 @@ export default function Today() {
       href: `/jobs/${j._id}`,
     }));
   // AI-scored jobs first, new then older; first guesses after them, never ahead of a real score.
-  const bestNew = [...freshScored.slice(0, 8), ...older, ...freshGuessed.slice(0, Math.max(0, 8 - freshScored.length))];
+  const firstPick = [...freshScored.slice(0, 8), ...older, ...freshGuessed.slice(0, Math.max(0, 8 - freshScored.length))];
+  // A quiet morning still fills the row: the best open jobs not applied to yet, real scores first (19 Nov: only 2 cards).
+  const picked = new Set(firstPick.map((j) => j._id));
+  const fillers = jobs
+    .filter((j) => j.status === "new" && !picked.has(j._id) && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j) && !(j.postedAt && msSince(Date.parse(j.postedAt)) > 60 * DAY) && fit(j) >= SKIP_BELOW)
+    .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || rankFit(fit(b), b) - rankFit(fit(a), a))
+    .slice(0, 8);
+  const bestNew = [...firstPick, ...fillers];
   void applyNew;
   const apply: Todo[] = [
     ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
@@ -527,8 +534,8 @@ const STAGE_WORDS: Record<string, string> = { screening: "Recruiter wrote", inte
 function Step({ n, title, items, empty, blocked }: { n: number; title: string; items: Todo[]; empty: string; blocked?: boolean }) {
   // Setup prompts ("Connect Gmail", "Score the new jobs") aren't things to do today, so they don't count,
   // and a step that can't start yet isn't "Done".
-  const real = items.filter((i) => i.verb !== "Connect" && i.verb !== "Score").length;
-  const label = real || (items.length || blocked ? "" : "Done");
+  // The same number "Show all" uses, so the two never disagree (19 Nov: 18 beside "Show all 19").
+  const label = items.length || (blocked ? "" : "Done");
   return (
     // The steps fade up one after another when Today opens.
     <section className="rise mb-8" style={{ animationDelay: `${n * 90}ms` }}>
