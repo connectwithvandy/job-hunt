@@ -110,8 +110,8 @@ export default function Today() {
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
   // Follow-ups that are due: referral asks and messages to hiring managers that got no reply in a week.
   const followUps = jobs.flatMap((j) => [
-    ...j.outreach.map((o) => ({ j, name: o.name, o, n: nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps }, REFERRAL_FOLLOW_UP_AFTER) })),
-    ...(j.hiringContacts ?? []).map((c) => ({ j, name: c.name, o: undefined, n: nextFollowUp({ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps }) })),
+    ...j.outreach.map((o) => ({ j, name: o.name, o, lastAt: o.followUps?.filter((f) => f.sentAt).at(-1)?.sentAt ?? o.sentAt, n: nextFollowUp({ sentAt: o.status === "sent" ? o.sentAt : undefined, replied: false, followUps: o.followUps }, REFERRAL_FOLLOW_UP_AFTER) })),
+    ...(j.hiringContacts ?? []).map((c) => ({ j, name: c.name, o: undefined, lastAt: c.followUps?.filter((f) => f.sentAt).at(-1)?.sentAt ?? c.sentAt, n: nextFollowUp({ sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps }) })),
   ]).filter((f) => f.n && f.n.dueAt <= now && stillChasing(f.j.status));
   const quiet = jobs.filter((j) => j.status === "applied" && j.appliedAt && msSince(j.appliedAt) > 10 * DAY);
   const raised = (prospects ?? [])
@@ -147,22 +147,25 @@ export default function Today() {
         .map((o) => ({
           key: `o${j._id}${o.contactId}`,
           verb: o.status === "referred" ? "Apply" : "Reply",
-          main: o.name,
-          sub: o.status === "referred" ? `Referred you for ${j.title} at ${j.company}. Apply now and thank them.` : `Answered your ask about ${j.title} at ${j.company}`,
+          main: `${j.company} · ${o.status === "referred" ? `${o.name} referred you` : `${o.name} answered`}`,
+          sub: o.status === "referred" ? `For ${j.title}. Apply now and thank them.` : `About your ask for ${j.title}`,
           href: `/jobs/${j._id}`,
+          mark: j,
+          cta: o.status === "referred" ? "Apply" : "Reply",
+          primary: true,
         })),
     ),
     ...jobs.flatMap((j) =>
       (j.hiringContacts ?? [])
         .filter((c) => c.repliedAt && msSince(c.repliedAt) < 7 * DAY && stillChasing(j.status) && !["interview", "offer"].includes(j.status))
-        .map((c) => ({ key: `h${j._id}${c.name}`, verb: "Reply", main: c.name, sub: `Wrote back ${timeAgo(new Date(c.repliedAt!).toISOString())} about ${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
+        .map((c) => ({ key: `h${j._id}${c.name}`, verb: "Reply", main: `${j.company} · ${c.name} wrote back`, sub: `${timeAgo(new Date(c.repliedAt!).toISOString())} about ${j.title}`, href: `/jobs/${j._id}`, mark: j, cta: "Reply", primary: true })),
     ),
     // Without Gmail, replies can't show up here, so "Done" would be a guess.
     ...(!me.inboxAt || msSince(me.inboxAt) > DAY
-      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once under Profile → LinkedIn & Gmail.", href: "/connect" }]
+      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once under Profile → LinkedIn & Gmail.", href: "/connect", cta: "Connect" }]
       : []),
     ...(interviewing.length && stories?.length === 0
-      ? [{ key: "stories", verb: "Prepare", main: "Your proof of work", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six examples cover most questions.`, href: "/stories" }]
+      ? [{ key: "stories", verb: "Prepare", main: "Your proof of work", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six examples cover most questions.`, href: "/stories", cta: "Prepare" }]
       : []),
   ];
 
@@ -205,8 +208,8 @@ export default function Today() {
   void applyNew;
   // Started but not sent: these are still to do, not live applications (19 Nov walk).
   const gettingReady = jobs.filter((j) => j.status === "applying" && j.liveCheck?.state !== "closed");
-  const apply: Todo[] = [
-    ...gettingReady.map((j) => ({ key: `g${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: "Started, not sent yet. Finish and send the application.", href: `/jobs/${j._id}` })),
+  // Fixes to the search itself sit in a short note under the list, not among the jobs to apply to (19 Nov).
+  const fixes: Todo[] = [
     ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
     // One line for scoring (19 Nov: new jobs and older ones were two lines saying the same thing).
     ...(unscored.length ? [{ key: "score", verb: "Score", main: `Check the fit of ${unscored.length} ${unscored.length === 1 ? "job" : "jobs"} not scored yet`, sub: freshUnscored ? `${freshUnscored} found in the last day. The ~% is a first guess; the real score reads the whole job.` : "The ~% is a first guess; the real score reads the whole job.", href: "/jobs?fit=unscored" }] : []),
@@ -216,18 +219,20 @@ export default function Today() {
   const chase: Todo[] = [
     // Many drafts read as a wall of the same line (19 Nov: 18 of 19 to-dos), so more than one becomes a single line.
     ...(drafts.length > 1
-      ? [{ key: "drafts", verb: "Send", main: `${drafts.length} referral notes ready to send`, sub: "Written for you. Read each one, then send it from Messages.", href: "/inbox?show=ready" }]
-      : drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `Drafted, not sent yet · ${j.title} at ${j.company}`, href: `/jobs/${j._id}` }))),
+      ? [{ key: "drafts", verb: "Send", main: `${drafts.length} referral notes ready`, sub: `Written for you: ${[...new Set(drafts.map(({ j }) => j.company))].slice(0, 3).join(", ")}. Read each one, then send it.`, href: "/inbox?show=ready", mark: drafts[0].j, cta: "Review notes", primary: true }]
+      : drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `${j.company} · Note to ${o.name}`, sub: `Written, not sent yet · for ${j.title}`, href: `/jobs/${j._id}`, mark: j, cta: "Review note", primary: true }))),
     // A referral ask's follow-up opens right here, written and ready to copy.
-    ...followUps.map(({ j, name, n, o }) => ({
+    ...followUps.map(({ j, name, n, o, lastAt }) => ({
       key: `f${j._id}${name}${n!.n}`,
       verb: "Follow up",
-      main: name,
-      sub: `Follow-up ${n!.n} about ${j.title} at ${j.company}, no reply yet`,
+      main: `${j.company} · Follow up with ${name.split(" ")[0]}`,
+      sub: [`${ORDINAL[n!.n] ?? `${n!.n}th`} follow-up`, lastAt ? `no reply in ${Math.max(1, Math.floor(msSince(lastAt) / DAY))} days` : "no reply yet", j.title].join(" · "),
       href: `/jobs/${j._id}`,
+      mark: j,
+      cta: "Write follow-up",
       panel: o ? <ReferralFollowUp jobId={j._id} o={o} /> : undefined,
     })),
-    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` })),
+    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.company} · ${j.title}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}`, mark: j, cta: "Nudge" })),
   ];
 
   // 4. New companies to open up, once the rest is done.
@@ -238,13 +243,18 @@ export default function Today() {
       return {
         key: `a${c.key}`,
         verb: "Ask",
-        main: p ? `${p.firstName} ${p.lastName} at ${c.company}` : c.company,
-        sub: [c.jobs[0]?.title, p?.position, c.peopleCount > 1 ? `you know ${c.peopleCount} there` : null, c.funding ? "just raised" : null].filter(Boolean).join(" · "),
+        main: p ? `${c.company} · Ask ${p.firstName} ${p.lastName}` : `${c.company} · Find someone to ask`,
+        // The job and the person's own title used to run together ("Account Executive · Corporate Growth Strategist").
+        sub: [c.jobs[0]?.title ? `For ${c.jobs[0].title}` : null, p?.position ? `their role: ${p.position}` : null, c.peopleCount > 1 ? `you know ${c.peopleCount} there` : null].filter(Boolean).join(" · "),
         href: `/jobs/${c.jobs[0]._id}`,
+        // The warm list carries only the job's id and title; the full job has the logo.
+        mark: jobs.find((j) => j._id === c.jobs[0]?._id) ?? { company: c.company },
+        cta: "Ask",
       };
     }),
-    ...raised.map((p) => ({ key: `r${p._id}`, verb: "Reach out", main: p.name, sub: `Just raised: ${p.funding ?? "new funding"}`, href: `/companies?open=${p._id}` })),
   ];
+  // Newly funded companies aren't referral asks: their own small group at the end.
+  const worth: Todo[] = raised.map((p) => ({ key: `r${p._id}`, verb: "Reach out", main: `${p.name} · just raised money`, sub: p.funding ?? "New funding", href: `/companies?open=${p._id}`, mark: { company: p.name }, cta: "Have a look" }));
 
   // Trial day, shown beside the date (it used to sit in the summary line the pipeline replaced).
   const trialEndsAt = account && !account.isOwner && !account.paidUntil && !account.trialOver ? account.trialEndsAt : undefined;
@@ -257,12 +267,12 @@ export default function Today() {
   const offerTotal = jobs.filter((j) => j.status === "offer").length;
   // "Do this first" takes the best job only when nothing more urgent is waiting; then the list starts after it.
   const firstIsJob = !replies.length && !interviewed.length && !!bestNew[0];
-  const applyJobs = bestNew.filter((j) => !(j.postedAt && now - Date.parse(j.postedAt) > 120 * DAY)).slice(firstIsJob ? 1 : 0, firstIsJob ? 4 : 3);
+  const applyJobs = bestNew.filter((j) => !(j.postedAt && now - Date.parse(j.postedAt) > 120 * DAY)).slice(firstIsJob ? 1 : 0, firstIsJob ? 9 : 8);
   // Two or more quiet applications read as one line, not a wall (19 Nov).
   const quietItems: Todo[] =
     quiet.length > 1
-      ? [{ key: "quiet", verb: "Follow up", main: `${quiet.length} applications quiet for 10+ days`, sub: quiet.slice(0, 3).map((j) => j.company).join(", ") + (quiet.length > 3 ? " and more" : ""), href: "/tracker" }]
-      : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.title} at ${j.company}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}` }));
+      ? [{ key: "quiet", verb: "Follow up", main: `${quiet.length} applications quiet for 10+ days`, sub: quiet.slice(0, 3).map((j) => j.company).join(", ") + (quiet.length > 3 ? ` and ${quiet.length - 3} more` : ""), href: "/tracker", mark: quiet[0], cta: "Nudge them" }]
+      : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.company} · ${j.title}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}`, mark: j, cta: "Nudge" }));
   const followUpItems = [...chase.filter((t) => t.verb === "Follow up" && !t.key.startsWith("q")), ...quietItems];
   const referralItems = [...chase.filter((t) => t.verb === "Send"), ...reach];
 
@@ -351,15 +361,14 @@ export default function Today() {
             </ul>
           </Group>
         )}
-        {(applyJobs.length > 0 || apply.length > 0) && (
+        {(applyJobs.length > 0 || gettingReady.length > 0) && (
           <Group label="Apply" more={{ href: "/jobs", text: "All jobs →" }}>
-            <ApplyRows jobs={applyJobs} verbFor={verbFor} />
-            {apply.length > 0 && <TodoList items={apply} plain group="Apply" />}
+            <ApplyRows ready={gettingReady} jobs={applyJobs} verbFor={verbFor} />
           </Group>
         )}
         {answer.length > 0 && (
           <Group label="Replies">
-            <TodoList items={answer} plain />
+            <TodoList items={answer} plain group="Replies" />
           </Group>
         )}
         {followUpItems.length > 0 && (
@@ -369,10 +378,27 @@ export default function Today() {
         )}
         {(referralItems.length > 0 || companiesAskedToday > 0) && (
           <Group label="Referrals" more={{ text: `Asked today ${companiesAskedToday} of ${COMPANIES_A_DAY}` }}>
-            {referralItems.length > 0 ? <TodoList items={referralItems} plain /> : <p className="px-3 py-3 text-sm text-ink-2">Today&apos;s asks are sent.</p>}
+            {referralItems.length > 0 ? <TodoList items={referralItems} plain group="Referrals" /> : <p className="px-3 py-3 text-sm text-ink-2">Today&apos;s asks are sent.</p>}
           </Group>
         )}
-        {!applyJobs.length && !apply.length && !answer.length && !followUpItems.length && !referralItems.length && !interviews?.length && (
+        {worth.length > 0 && (
+          <Group label="Worth a look">
+            <TodoList items={worth} plain group="Worth a look" />
+          </Group>
+        )}
+        {fixes.length > 0 && (
+          <div className="border-t border-line px-3 py-3 text-xs text-ink-3">
+            {fixes.map((f) => (
+              <p key={f.key}>
+                {f.main}.{" "}
+                <Link href={f.href} className="text-ink-2 underline hover:text-ink">
+                  {f.key === "score" ? "Get real scores" : "Fix the role"}
+                </Link>
+              </p>
+            ))}
+          </div>
+        )}
+        {!applyJobs.length && !gettingReady.length && !answer.length && !followUpItems.length && !referralItems.length && !interviews?.length && (
           <p className="px-3 py-4 text-sm text-ink-2">
             {me.contactsCount ? "Nothing waiting on you. Open Jobs, or find people to ask in Messages." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
           </p>
@@ -548,50 +574,78 @@ function Group({ label, more, children }: { label: string; more?: { text: string
   );
 }
 
-/** Best jobs as rows: fit ring, company and title, place and age, Skip or the next step. Pay only when the posting lists it. */
-function ApplyRows({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"jobs">) => string }) {
+/** Started-but-not-sent first (closest to done), then the best new jobs: logo or fit ring, "Company · title", one line
+ *  of detail, one button. Five rows, the rest one tap away. Pay only when the posting lists it. */
+function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"jobs">[]; verbFor: (j: Doc<"jobs">) => string }) {
   const setStatus = useMutation(api.jobs.setStatus);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [all, setAll] = useState(false);
   const rates = useInrRates();
-  const shown = jobs.filter((j) => !skipped.has(j._id));
-  if (!shown.length) return null;
+  const rows = [...ready.map((j) => ({ j, started: true })), ...jobs.filter((j) => !skipped.has(j._id)).map((j) => ({ j, started: false }))];
+  if (!rows.length) return null;
+  const shown = all ? rows : rows.slice(0, SHOWN);
   return (
-    <ul className="divide-y divide-line">
-      {shown.map((j) => {
-        const verb = verbFor(j);
-        const pay = payText(j.salary, rates);
-        return (
-          <li key={j._id} className="flex items-center gap-3 px-3 py-3">
-            <FitBadge job={j} size={36} />
-            <Link href={`/jobs/${j._id}`} className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">
-                {j.company} · {j.title}
-              </span>
-              <span className="block truncate text-xs text-ink-3">{[pay, j.location, j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}</span>
-            </Link>
-            <button
-              type="button"
-              className="hidden px-2 text-sm text-ink-3 hover:text-ink sm:inline"
-              onClick={() => {
-                setSkipped(new Set([...skipped, j._id]));
-                void setStatus({ jobId: j._id, status: "dismissed" }).catch(() => {});
-              }}
-            >
-              Skip
-            </button>
-            <Link href={`/jobs/${j._id}`} className="btn btn-primary btn-sm shrink-0">
-              {/* One rule per state: no real score yet, no CV for this job yet, CV ready. */}
-              {verb === "Check" ? "Check the fit" : j.hasPack || j.pack ? "Apply" : "Write my CV"}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="divide-y divide-line">
+        {shown.map(({ j, started }) => {
+          const verb = verbFor(j);
+          const pay = payText(j.salary, rates);
+          return (
+            <li key={j._id} className="flex flex-wrap items-center gap-3 px-3 py-3">
+              {started ? <CompanyMark job={j} size={36} /> : <FitBadge job={j} size={36} />}
+              <Link href={`/jobs/${j._id}`} className="min-w-0 flex-1 basis-48">
+                <span className="block truncate text-sm font-medium">
+                  {j.company} · {j.title}
+                </span>
+                <span className="block truncate text-xs text-ink-2">
+                  {started ? "Started, not sent yet" : [pay, j.location, j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
+                </span>
+              </Link>
+              {!started && (
+                <button
+                  type="button"
+                  className="px-2 text-sm text-ink-3 hover:text-ink"
+                  onClick={() => {
+                    setSkipped(new Set([...skipped, j._id]));
+                    void setStatus({ jobId: j._id, status: "dismissed" }).catch(() => {});
+                  }}
+                >
+                  Skip
+                </button>
+              )}
+              <Link href={`/jobs/${j._id}`} className="btn btn-primary btn-sm shrink-0">
+                {/* One rule per state: started and not sent, no real score yet, no CV for this job yet, CV ready. */}
+                {started ? "Finish" : verb === "Check" ? "Check the fit" : j.hasPack || j.pack ? "Apply" : "Write my CV"}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      {rows.length > SHOWN && (
+        <button type="button" className="px-3 py-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show ${rows.length - SHOWN} more`}
+        </button>
+      )}
+    </>
   );
 }
 
 /** `panel` opens in place on a click instead of going to `href`. */
-type Todo = { key: string; verb: string; main: string; sub: string; href: string; panel?: React.ReactNode };
+type Todo = {
+  key: string;
+  verb: string;
+  main: string;
+  sub: string;
+  href: string;
+  panel?: React.ReactNode;
+  /** The company logo on the left of the row. */
+  mark?: { company: string; companyLogo?: string; url?: string; sourceUrl?: string };
+  /** The one button on the right; the whole row opens the same place. */
+  cta?: string;
+  primary?: boolean;
+};
+
+const ORDINAL: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd" };
 
 /** Steps forward that happened without a click (Gmail moved a job, a recruiter replied), celebrated once each. */
 function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
@@ -623,16 +677,15 @@ const VERB_TONE: Record<string, string> = {
 function TodoRow({ t, arrow, group }: { t: Todo; arrow: string; group?: string }) {
   return (
     <>
-      <span className="min-w-0 flex-1">
-        {/* Under a group header that already says it ("Follow up"), the same word again on every row is noise. */}
-        {t.verb.toLowerCase() !== group?.toLowerCase() && (
-          <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>
-        )}
+      {t.mark && <CompanyMark job={t.mark} size={36} />}
+      <span className="min-w-0 flex-1 basis-48">
+        {/* Inside a group the header says what kind of task it is, so rows carry no coloured label of their own (19 Nov). */}
+        {!group && <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>}
         <span className="block truncate text-sm font-medium">{t.main}</span>
         {/* Whole on a phone: one cut-off line showed a third of "Recruiter replies…" at 390px (13 Nov). */}
         <span className="block text-xs text-ink-2 md:truncate">{t.sub}</span>
       </span>
-      <span className="nudge text-ink-3">{arrow}</span>
+      {t.cta ? <span className={`btn btn-sm shrink-0 ${t.primary ? "btn-primary" : ""}`}>{t.panel && arrow === "▴" ? "Close" : t.cta}</span> : <span className="nudge text-ink-3">{arrow}</span>}
     </>
   );
 }
@@ -655,7 +708,7 @@ function TodoList({ items, plain, group }: { items: Todo[]; plain?: boolean; gro
           <li key={t.key}>
             {t.panel ? (
               <>
-                <button type="button" onClick={() => setOpen(open === t.key ? null : t.key)} className="group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-soft" aria-expanded={open === t.key}>
+                <button type="button" onClick={() => setOpen(open === t.key ? null : t.key)} className="group flex w-full flex-wrap items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-soft" aria-expanded={open === t.key}>
                   <TodoRow t={t} group={group} arrow={open === t.key ? "▴" : "▾"} />
                 </button>
                 {open === t.key && (
@@ -668,7 +721,7 @@ function TodoList({ items, plain, group }: { items: Todo[]; plain?: boolean; gro
                 )}
               </>
             ) : (
-              <Link href={t.href} className="group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
+              <Link href={t.href} className="group flex flex-wrap items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
                 <TodoRow t={t} group={group} arrow="→" />
               </Link>
             )}
@@ -677,7 +730,7 @@ function TodoList({ items, plain, group }: { items: Todo[]; plain?: boolean; gro
       </ul>
       {items.length > SHOWN && (
         <button type="button" className="px-3 py-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
-          {all ? "Show fewer" : `Show all ${items.length}`}
+          {all ? "Show fewer" : `Show ${items.length - SHOWN} more`}
         </button>
       )}
     </div>
