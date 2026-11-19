@@ -75,33 +75,32 @@ function Inbox() {
   const myName = me.resume?.name ?? "";
 
   const switchTo = (t: Tab) => go({ tab: t, show: null, job: null, p: null });
+  // Big underlined tabs under the heading: the small grey pill switch in the corner was easy to miss (19 Nov).
   const segment = (t: Tab, label: string, count: number) => (
     <button
       type="button"
       onClick={() => switchTo(t)}
       aria-pressed={tab === t}
-      className={`rounded-full px-4 py-1.5 text-sm whitespace-nowrap ${tab === t ? "bg-card font-semibold text-ink shadow-sm" : "text-ink-2 hover:text-ink"}`}
+      className={`-mb-px flex items-center gap-2 border-b-2 px-1 pb-3 text-base whitespace-nowrap ${tab === t ? "border-ink font-semibold text-ink" : "border-transparent text-ink-2 hover:text-ink"}`}
     >
       {label}
-      {count > 0 && <span className="ml-1.5 text-xs text-ink-3">{count}</span>}
+      {count > 0 && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-ink">{count}</span>}
     </button>
   );
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          {tab === "outreach" && (
-            <button type="button" onClick={() => go({ show: finding ? null : "find", p: null, job: null })} className="text-sm text-ink-2 underline hover:text-ink">
-              {finding ? "← Back to your outreach" : "+ Find people to ask"}
-            </button>
-          )}
-          <div className="inline-flex rounded-full bg-soft p-1" role="group" aria-label="Which messages">
-            {segment("companies", "From companies", companies.filter((c) => c.needs).length)}
-            {segment("outreach", "Your outreach", people.filter((p) => p.needs).length)}
-          </div>
+      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Messages</h1>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-line">
+        <div className="flex gap-6" role="group" aria-label="Which messages">
+          {segment("companies", "From companies", companies.filter((c) => c.needs).length)}
+          {segment("outreach", "Your outreach", people.filter((p) => p.needs).length)}
         </div>
+        {tab === "outreach" && (
+          <button type="button" onClick={() => go({ show: finding ? null : "find", p: null, job: null })} className="btn btn-sm mb-2">
+            {finding ? "← Back to your outreach" : "+ Find people to ask"}
+          </button>
+        )}
       </div>
 
       {tab === "outreach" && finding ? (
