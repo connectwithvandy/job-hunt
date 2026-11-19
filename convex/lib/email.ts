@@ -309,7 +309,7 @@ export function weeklyEmail(p: { name?: string; found: number; strong: number; t
   const first = word && word[0].toUpperCase() + word.slice(1);
   const n = (k: number, one: string, many: string) => `${k.toLocaleString("en-IN")} ${k === 1 ? one : many}`;
   const next = p.refreshConnections
-    ? ["Your next step: refresh your LinkedIn connections. Anyone you've connected with lately won't show up on your jobs until you load a fresh file.", "Refresh connections", `${appUrl()}/network`]
+    ? ["Your next step: refresh your LinkedIn connections. Anyone you've connected with lately won't show up on your jobs until you load a fresh file.", "Refresh connections", `${appUrl()}/connect`]
     : !p.tailored
       ? ["Your next step: open your best-fit job and tailor your CV for it. That's where JobPipe saves the most time.", "See your jobs", `${appUrl()}/jobs`]
       : !p.applied
@@ -787,7 +787,7 @@ export function setupHelpEmail(p: { name?: string; kind: SetupHelpKind }) {
         `Open LinkedIn's "Get a copy of your data" page: https://www.linkedin.com/mypreferences/d/download-my-data`,
         `Pick "Want something in particular?", tick only Connections, and press Request archive.`,
         "LinkedIn emails you a link, usually in 10 to 30 minutes.",
-        `Download the file and upload it as it is (no need to unzip) on ${url}/network.`,
+        `Download the file and upload it as it is (no need to unzip) on ${url}/connect.`,
       ],
     });
   const outro = "If anything gets stuck, just reply with a screenshot and I'll sort it.";

@@ -837,7 +837,7 @@ export function WritingSampleForm({ sample, rules, posts, myMessagesCount }: { s
           Paste three or four posts you wrote. Notes and emails pick up your personality from them: your energy, your humour, the way you make a point.
           {myMessagesCount > 0
             ? ` They also use ${myMessagesCount} messages you sent on LinkedIn, from your chats file.`
-            : " Loading your LinkedIn chats under People adds the messages you send too."}
+            : " Loading your LinkedIn chats (Profile → LinkedIn & Gmail) adds the messages you send too."}
         </span>
         <textarea
           className="field mt-2 h-40 text-sm"

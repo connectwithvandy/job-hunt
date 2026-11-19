@@ -147,7 +147,7 @@ export default function Today() {
     ),
     // Without Gmail, replies can't show up here, so "Done" would be a guess.
     ...(!me.inboxAt || msSince(me.inboxAt) > DAY
-      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once on the Application tracker page.", href: "/tracker" }]
+      ? [{ key: "gmail", verb: "Connect", main: me.inboxAt ? "Gmail stopped checking" : "Connect Gmail so replies show up here", sub: "Recruiter replies and interview invites land here by themselves. Set it up once under Profile → LinkedIn & Gmail.", href: "/connect" }]
       : []),
     ...(interviewing.length && stories?.length === 0
       ? [{ key: "stories", verb: "Prepare", main: "Your proof of work", sub: `${interviewing.length} interview${interviewing.length > 1 ? "s" : ""} coming. Six examples cover most questions.`, href: "/stories" }]
@@ -255,7 +255,7 @@ export default function Today() {
             <p className="font-medium">Refresh your LinkedIn connections</p>
             <p className="mt-1 text-sm text-ink-2">You loaded them {timeAgo(new Date(me.contactsLoadedAt).toISOString())}. Anyone you&apos;ve connected with since won&apos;t show up on your jobs yet.</p>
           </div>
-          <Link href="/network" className="btn btn-primary btn-sm">
+          <Link href="/connect" className="btn btn-primary btn-sm">
             Refresh
           </Link>
         </section>
@@ -302,7 +302,7 @@ export default function Today() {
         title="Ask for referrals"
         items={reach}
         blocked={!me.contactsCount}
-        empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections under People to see who you know at each company."}
+        empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
       />
 
 
@@ -696,7 +696,7 @@ function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">
                 <div className="mt-1 text-xs tabular-nums text-ink-2">
                   {/* "Finds no jobs" only when it truly found none: a new role's jobs aren't scored yet (14 Nov: said this beside 75 found). */}
                   {found === 0 ? (
-                    <span className="text-pink">Finds no jobs yet: widen its titles on Setup</span>
+                    <span className="text-pink">Finds no jobs yet: widen its titles under Profile → Roles</span>
                   ) : f.good + f.applied === 0 ? (
                     `${found} ${found === 1 ? "job" : "jobs"} found · score them to see the good fits`
                   ) : (
@@ -795,6 +795,6 @@ function firstFound(jobs: Doc<"jobs">[], searching: boolean) {
   const good = scored.filter((j) => (bestScore(j)?.score ?? 0) >= SKIP_BELOW).length;
   if (good) return `${jobs.length} found, ${good} worth applying to. Open Jobs to see why each one fits.`;
   if (scored.length)
-    return `${jobs.length} found. The AI scored the ${scored.length} likeliest and none fits well yet: add another role on Setup, or check back after tomorrow's search.`;
+    return `${jobs.length} found. The AI scored the ${scored.length} likeliest and none fits well yet: add another role under Profile → Roles, or check back after tomorrow's search.`;
   return searching ? `${jobs.length} found. Scoring the best ones now, about a minute.` : `${jobs.length} found. Score them to see which fit.`;
 }

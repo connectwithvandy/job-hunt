@@ -9,24 +9,34 @@ import { api } from "../../convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 import { ThemeToggle } from "./ThemeToggle";
 
-/** Six places, each with the pages that belong together shown as tabs at the top. */
+/** Five places, each with the pages that belong together shown as tabs at the top. */
+const PROFILE = {
+  label: "Profile",
+  pages: [
+    { href: "/account", label: "About you" },
+    { href: "/resume", label: "CVs" },
+    { href: "/tracks", label: "Roles" },
+    { href: "/stories", label: "Proof of work" },
+    { href: "/connect", label: "LinkedIn & Gmail" },
+    { href: "/billing", label: "Plan & billing" },
+  ],
+};
 const NAV = [
   { label: "Today", pages: [{ href: "/", label: "Today" }] },
-  { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }] },
-  { label: "Application tracker", pages: [{ href: "/tracker", label: "Application tracker" }] },
-  { label: "Companies", pages: [{ href: "/companies", label: "Companies" }] },
-  { label: "People", pages: [{ href: "/messages", label: "Messages" }, { href: "/network", label: "Your network" }] },
-  { label: "Setup", pages: [{ href: "/resume", label: "CVs" }, { href: "/tracks", label: "Roles" }, { href: "/stories", label: "Proof of work" }] },
+  { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }, { href: "/companies", label: "Companies" }] },
+  { label: "Applications", pages: [{ href: "/tracker", label: "Applications" }] },
+  { label: "Connections", pages: [{ href: "/network", label: "Ask for referrals" }, { href: "/messages", label: "Messages" }] },
+  PROFILE,
 ];
-/** Your own account: reached from your name at the bottom of the menu, not a place in it. */
-const ACCOUNT = { label: "Account", pages: [{ href: "/account", label: "Profile" }, { href: "/billing", label: "Plan & billing" }] };
+/** Your name at the bottom also opens Profile. */
+const ACCOUNT = PROFILE;
 
 const isOn = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
-/** Tabs for the other pages in the same place, like Messages and Your network under People. */
+/** Tabs for the other pages in the same place, like Ask for referrals and Messages under Connections. */
 export function SubTabs() {
   const path = usePathname();
-  const group = [...NAV, ACCOUNT].find((g) => g.pages.some((p) => isOn(path, p.href)));
+  const group = NAV.find((g) => g.pages.some((p) => isOn(path, p.href)));
   if (!group || group.pages.length < 2) return null;
   return (
     <div className="no-print mb-6 flex gap-1 border-b border-line text-sm">

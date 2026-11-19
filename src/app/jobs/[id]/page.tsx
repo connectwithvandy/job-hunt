@@ -101,7 +101,7 @@ export default function JobPage() {
     <Fold key="referral" n={referralFirst ? 2 : 3} title="Ask your connections for a referral" status={job.outreach.length ? `${job.outreach.length} asked` : people.length ? `You know ${people.length} there` : "No connections there"} open={referralFirst && stage === "reach"}>
         {me.contactsCount === 0 ? (
           <p className="text-sm text-ink-2">
-            Load your LinkedIn connections under People → <Link className="underline" href="/network">Your network</Link> to see who you know at {job.company}.
+            Load your LinkedIn connections under Profile → <Link className="underline" href="/connect">LinkedIn &amp; Gmail</Link> to see who you know at {job.company}.
           </p>
         ) : people.length === 0 ? (
           <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager in step 2, or a second-degree intro.</p>
