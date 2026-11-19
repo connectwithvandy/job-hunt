@@ -115,7 +115,7 @@ export const warmCompanies = query({
     if (!userId) return [];
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(600);
     const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
-    // Funding and dream marks come from the Companies page.
+    // Funding and dream marks come from the Dream companies page (Profile).
     const prospects = await ctx.db.query("prospects").withIndex("by_userId", (q) => q.eq("userId", userId)).take(400);
     const prospectByKey = new Map(prospects.map((p) => [companyKey(p.name), p]));
     // Queries can't read the clock, so "now" is your last visit.

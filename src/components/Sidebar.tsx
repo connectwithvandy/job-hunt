@@ -15,6 +15,8 @@ const PROFILE = {
     { href: "/account", label: "About you" },
     { href: "/resume", label: "CVs" },
     { href: "/tracks", label: "Roles" },
+    // A set-once list that feeds your Jobs each morning, so it lives with your preferences (19 Nov: confusing under Jobs, then Referrals).
+    { href: "/companies", label: "Dream companies" },
     { href: "/stories", label: "Proof of work" },
     { href: "/connect", label: "LinkedIn & Gmail" },
     { href: "/billing", label: "Plan & billing" },
@@ -26,8 +28,7 @@ const NAV = [
   { label: "Today", pages: [{ href: "/", label: "Today" }] },
   { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }] },
   { label: "Applications", pages: [{ href: "/tracker", label: "Applications" }] },
-  // Companies sits with Referrals (19 Nov): both are about who's hiring and who you know there, not single jobs.
-  { label: "Referrals", pages: [{ href: "/network", label: "People to ask" }, { href: "/companies", label: "Companies" }] },
+  { label: "Referrals", pages: [{ href: "/network", label: "Referrals" }] },
   { label: "Messages", pages: [{ href: "/inbox", label: "Messages" }] },
   PROFILE,
 ];

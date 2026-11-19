@@ -76,7 +76,7 @@ export const saveMove = internalMutation({
   },
 });
 
-/** Startups people have gathered on the Companies page (YC, recently funded, dream lists). */
+/** Startups people have gathered on the Dream companies page (YC, recently funded, dream lists). */
 export const prospectCompanies = internalQuery({
   args: {},
   handler: async (ctx) => {

@@ -69,8 +69,8 @@ function Companies() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHead
-        title="Companies"
-        sub="Startups worth approaching before they post a role: recent YC companies and ones that just raised money. Reach the founders or sales leaders early, when there's no queue."
+        title="Dream companies"
+        sub="Companies you'd love to work for. Their sales openings land in your Jobs list every morning. Startups that just raised money are here too, worth approaching before they post a role."
       />
       <div className="mb-5 flex gap-2">
         {(
