@@ -18,11 +18,12 @@ test("a guess never reaches the tailor-worthy or strong-fit range", () => {
 
 test("strong title and place matches reach the 60s; clear mismatches stay low", () => {
   // Before 19 Nov: 15 + raw x 0.4, so raw 95 showed 53 and raw 20 showed 23.
-  expect(guessShown(95)).toBe(65);
-  expect(guessShown(90)).toBe(61);
-  expect(guessShown(80)).toBe(54);
-  expect(guessShown(50)).toBe(33);
-  expect(guessShown(20)).toBe(18);
+  // Refitted 19 Nov on 221 real scores.
+  expect(guessShown(95)).toBe(66);
+  expect(guessShown(90)).toBe(64);
+  expect(guessShown(80)).toBe(55);
+  expect(guessShown(50)).toBe(28);
+  expect(guessShown(20)).toBe(15);
   expect(guessShown(0)).toBe(10);
 });
 

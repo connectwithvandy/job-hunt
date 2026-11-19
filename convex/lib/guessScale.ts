@@ -13,12 +13,16 @@
 //   score that has read the whole job may say that.
 
 /** [raw guess, shown number] points; values in between are drawn on a straight line. */
+// Refitted 19 Nov from 221 prod jobs with both a guess and a real score (scoreSpread:calibrate): real medians were
+// 22 / 33 / 42 for guesses 40s / 50s / 60s and 66 for 80+, so the top is lifted; the 70s band (median 27, wide) is
+// a weakness of the guess itself and is left on the line between its neighbours.
 export const GUESS_SCALE: [number, number][] = [
   [0, 10],
-  [30, 22],
-  [50, 33],
-  [70, 47],
-  [85, 58],
+  [45, 22],
+  [55, 33],
+  [65, 42],
+  [75, 48],
+  [85, 62],
   [100, 68],
 ];
 
