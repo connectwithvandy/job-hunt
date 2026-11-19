@@ -141,7 +141,16 @@ export const list = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     // Room for a long search across several roles; older roles past this drop off the list.
-    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
+    // Jobs in motion always load, however old: past the newest 1,000 they vanished from Applications, Messages and
+    // Today (19 Nov: a Rippling Sr Manager interview went missing). A few small indexed reads per status.
+    const seen = new Set(recent.map((j) => j._id));
+    const moving = [];
+    for (const status of ["applying", "applied", "screening", "interview", "offer"] as const) {
+      const rows = await ctx.db.query("jobs").withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", status)).take(200);
+      moving.push(...rows.filter((j) => !seen.has(j._id)));
+    }
+    const jobs = [...recent, ...moving];
     // Job preferences from Profile hide new jobs you said no to; anything you've already acted on stays.
     const prefs = await ctx.db.query("jobPrefs").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     // Jobs not moved to jobDetails yet still carry their heavy parts; leave them out of the list.

@@ -131,7 +131,7 @@ function Inbox() {
           <ul className={`max-h-[75vh] overflow-y-auto border-line md:border-r ${explicit ? "hidden md:block" : ""}`}>
             {tab === "companies"
               ? companies.map((c) => (
-                  <Row key={c.j._id} selected={c.j._id === picked} onClick={() => go({ job: c.j._id })} mark={<CompanyMark job={c.j} size={34} />} title={c.j.company} line={c.text} at={c.at} needs={c.needs} />
+                  <Row key={c.j._id} selected={c.j._id === picked} onClick={() => go({ job: c.j._id })} mark={<CompanyMark job={c.j} size={34} />} title={c.j.company} line={`${c.text} · ${c.j.title}`} at={c.at} needs={c.needs} />
                 ))
               : people.map((p) => (
                     <Row
