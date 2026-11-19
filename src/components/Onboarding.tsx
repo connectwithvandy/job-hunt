@@ -8,7 +8,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { CUSTOM_COLORS, PRESET_TRACKS } from "../../convex/lib/defaults";
 import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
-import { AnswersForm, AutofillLink, LocationPicker } from "./forms";
+import { LocationPicker } from "./forms";
 import type { WorkMode } from "../../convex/lib/defaults";
 import { Spinner } from "./ui";
 
@@ -240,6 +240,12 @@ function StepWhere({ location, modes, onChange, onBack, onDone }: { location: st
   );
 }
 
+const SETUP_QUESTIONS = [
+  { question: "Notice period", placeholder: "e.g. 30 days, or serving notice till 15 Dec" },
+  { question: "Current CTC (fixed + variable)", placeholder: "e.g. ₹18 L fixed + ₹6 L variable" },
+  { question: "Expected CTC", placeholder: "e.g. ₹28–32 L" },
+];
+
 function StepAnswers({
   modes,
   me,
@@ -271,20 +277,28 @@ function StepAnswers({
     { question: "Email", answer: me.email },
     { question: "LinkedIn profile", answer: linkedin && !linkedin.startsWith("http") ? `https://${linkedin}` : linkedin },
   ].filter((r) => r.answer);
-  // What the bookmark carries: the answers on screen, saved or not.
-  const filled = (rows ?? (me.answers.length ? me.answers : known)).filter((r) => r.question.trim() && r.answer.trim());
+  // Only the three questions nearly every Indian sales form asks (19 Nov: 34 questions here was too many).
+  // Name, email and LinkedIn are already known; the rest can be added later under Profile → CVs.
+  const base = rows ?? (me.answers.length ? me.answers : known);
+  const asked = SETUP_QUESTIONS.map((q) => ({ question: q.question, answer: base.find((b) => b.question === q.question)?.answer ?? "" }));
+  const setAnswer = (question: string, answer: string) => {
+    const rest = base.filter((b) => b.question !== question);
+    setRows([...rest, { question, answer }]);
+  };
+  const filled = base.filter((r) => r.question.trim() && r.answer.trim());
   const [error, setError] = useState("");
 
   return (
     <div className="mt-10">
-      <h1 className="display text-4xl md:text-5xl">The questions every form asks.</h1>
-      <p className="mt-3 text-ink-2">
-        Notice period, expected pay, LinkedIn. Answer them once and the autofill bookmark fills them into application forms for you. Skip any you&apos;d
-        rather not answer; you can change them later on the CVs page.
-      </p>
-      <div className="mt-8 space-y-6">
-        <AnswersForm answers={rows ?? (me.answers.length ? me.answers : known)} location={location} onChange={setRows} firstFew={6} />
-        {filled.length > 0 && <AutofillLink answers={filled} />}
+      <h1 className="display text-4xl md:text-5xl">Three quick questions.</h1>
+      <p className="mt-3 text-ink-2">Almost every application form asks these. Answer once and JobPipe has them ready when you apply. Skip any; you can change them later.</p>
+      <div className="card mt-8 space-y-4 p-5">
+        {SETUP_QUESTIONS.map((q) => (
+          <label key={q.question} className="block">
+            <span className="label mb-1 block">{q.question}</span>
+            <input className="field" placeholder={q.placeholder} value={asked.find((a) => a.question === q.question)?.answer ?? ""} onChange={(e) => setAnswer(q.question, e.target.value)} />
+          </label>
+        ))}
       </div>
       <label className="card mt-8 flex cursor-pointer items-start gap-3 p-5">
         <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={morning} onChange={(e) => setMorning(e.target.checked)} />

@@ -23,7 +23,8 @@ export default defineSchema({
   googleStates: defineTable({ userId: v.id("users"), state: v.string() }).index("by_state", ["state"]),
 
   /** What testers wrote in the Send feedback box, for the owner to read on the waitlist page. */
-  feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string() }),
+  /** Help messages and feedback from members. `solvedAt` once the owner has answered it (Admin → Feedback). */
+  feedback: defineTable({ userId: v.id("users"), email: v.string(), text: v.string(), page: v.string(), solvedAt: v.optional(v.number()) }),
 
   /** Answers to the timed "how's it going" pop-up (lib/survey.ts). skipped means they closed it without answering. */
   surveyAnswers: defineTable({

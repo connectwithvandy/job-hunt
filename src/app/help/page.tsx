@@ -6,6 +6,13 @@ import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 
+/**
+ * The founder's intro video (a YouTube link, unlisted is fine). Empty: the video box stays hidden.
+ * Paste the link here once it's recorded, e.g. "https://www.youtube.com/watch?v=abc123".
+ */
+const INTRO_VIDEO = "";
+const youTubeId = (url: string) => url.match(/(?:youtu\.be\/|v=|embed\/)([\w-]{11})/)?.[1];
+
 /** Short answers, one question each, then a box to tell the owner anything else. */
 const QUESTIONS: { q: string; a: React.ReactNode }[] = [
   {
@@ -53,7 +60,22 @@ export default function Help() {
   const [error, setError] = useState("");
   return (
     <div className="max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Help &amp; feedback</h1>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Help &amp; support</h1>
+      <p className="mb-6 text-sm text-ink-2">Stuck, or something not working? Ask below and Vandana answers by email, usually the same day.</p>
+      {youTubeId(INTRO_VIDEO) && (
+        <div className="card mb-6 overflow-hidden">
+          <div className="aspect-video">
+            <iframe
+              className="h-full w-full"
+              src={`https://www.youtube-nocookie.com/embed/${youTubeId(INTRO_VIDEO)}`}
+              title="How to get the most out of JobPipe"
+              allow="accelerometer; encrypted-media; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+          <p className="p-4 text-sm font-medium">New here? Start with this short walkthrough.</p>
+        </div>
+      )}
       <div className="card divide-y divide-line">
         {QUESTIONS.map(({ q, a }) => (
           <details key={q} className="group p-5">
@@ -67,9 +89,9 @@ export default function Help() {
       </div>
 
       <section className="card mt-6 space-y-3 p-5">
-        <h2 className="font-medium">Something broken, confusing or missing?</h2>
+        <h2 className="font-medium">Ask a question or tell us what&apos;s broken</h2>
         {state === "sent" ? (
-          <p className="text-sm text-ink-2">Thanks, that&apos;s sent. You&apos;ll hear back by email if it needs an answer.</p>
+          <p className="text-sm text-ink-2">Thanks, that&apos;s sent. You&apos;ll get an answer by email.</p>
         ) : (
           <>
             <textarea className="field h-28 text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Tell it like you'd tell a friend." />

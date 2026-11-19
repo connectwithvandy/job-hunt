@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { errorMessage } from "@/lib/errors";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Five places, each with the pages that belong together shown as tabs at the top. */
@@ -20,7 +19,7 @@ const PROFILE = {
     { href: "/connect", label: "LinkedIn & Gmail" },
     { href: "/billing", label: "Plan & billing" },
     { href: "/notifications", label: "Notifications" },
-    { href: "/help", label: "Help & feedback" },
+    { href: "/help", label: "Help & support" },
   ],
 };
 const NAV = [
@@ -157,7 +156,9 @@ export function TopBar({ isOwner }: { isOwner: boolean }) {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-4 text-sm">
-          {!isOwner && <FeedbackButton />}
+          <Link href="/help" className={isOn(path, "/help") ? "font-medium text-ink" : "text-ink-2 hover:text-ink"}>
+            Help
+          </Link>
           {isOwner && (
             <Link href="/admin" className={isOn(path, "/admin") ? "font-medium text-ink" : "text-ink-2 hover:text-ink"}>
               Admin
@@ -201,66 +202,5 @@ function AccountLink({ active }: { active: boolean }) {
         <span className="block text-[11px] text-ink-3">{plan}</span>
       </span>
     </Link>
-  );
-}
-
-/** A small box for testers to tell the owner what's broken or missing. */
-function FeedbackButton() {
-  const send = useMutation(api.feedback.send);
-  const path = usePathname();
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
-  const [error, setError] = useState("");
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className="text-left text-sm text-ink-2 hover:text-ink">
-        <span className="md:hidden">Feedback</span>
-        <span className="hidden md:inline">Send feedback</span>
-      </button>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-md space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
-            {state === "sent" ? (
-              <>
-                <p className="font-medium">Thanks, that&apos;s sent.</p>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => (setOpen(false), setState("idle"), setText(""))}>
-                  Close
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="font-medium">What&apos;s broken, confusing or missing?</div>
-                <textarea className="field h-32 text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Tell it like you'd tell a friend." autoFocus />
-                {error && <p className="text-sm text-bad">{error}</p>}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={state === "sending" || !text.trim()}
-                    onClick={async () => {
-                      setState("sending");
-                      setError("");
-                      try {
-                        await send({ text, page: path });
-                        setState("sent");
-                      } catch (err) {
-                        setError(errorMessage(err));
-                        setState("idle");
-                      }
-                    }}
-                  >
-                    {state === "sending" ? "Sending…" : "Send"}
-                  </button>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </>
   );
 }

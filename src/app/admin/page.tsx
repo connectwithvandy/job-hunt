@@ -23,6 +23,7 @@ export default function AdminCentre() {
   const me = useQuery(api.users.me);
   const list = useQuery(api.access.list, me?.isOwner ? {} : "skip");
   const feedback = useQuery(api.feedback.list, me?.isOwner ? {} : "skip");
+  const setSolved = useMutation(api.feedback.setSolved);
   const reviews = useQuery(api.cvReviews.list, me?.isOwner ? {} : "skip");
   const errors = useQuery(api.errors.recent, me?.isOwner ? {} : "skip");
   const surveys = useQuery(api.surveys.list, me?.isOwner ? {} : "skip");
@@ -224,14 +225,26 @@ export default function AdminCentre() {
       ) : (
         <p className="mb-10 text-sm text-ink-3">Nobody yet. They come from jobpipe.in/cv-review.</p>
       )}
-      <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">Feedback ({feedback?.length ?? 0})</h2>
+      <h2 className="mt-10 mb-2 text-sm font-medium text-ink-2">
+        Help messages and feedback ({feedback?.filter((f) => !f.solvedAt).length ?? 0} open of {feedback?.length ?? 0})
+      </h2>
       {feedback?.length ? (
         <ul>
           {feedback.map((f) => (
-            <li key={f._id} className="border-b border-line py-3 text-sm">
+            <li key={f._id} className={`border-b border-line py-3 text-sm ${f.solvedAt ? "opacity-60" : ""}`}>
               <p className="whitespace-pre-wrap">{f.text}</p>
-              <p className="mt-1 text-xs text-ink-3">
-                {f.email} · {f.page} · {new Date(f._creationTime).toLocaleString()}
+              <p className="mt-1 flex flex-wrap items-center gap-3 text-xs text-ink-3">
+                <span>
+                  {f.email} · {f.page} · {new Date(f._creationTime).toLocaleString()}
+                </span>
+                {f.email && (
+                  <a className="underline hover:text-ink" href={`mailto:${f.email}?subject=${encodeURIComponent("Re: your JobPipe question")}`}>
+                    Reply by email
+                  </a>
+                )}
+                <button type="button" className="underline hover:text-ink" onClick={() => void setSolved({ id: f._id, solved: !f.solvedAt })}>
+                  {f.solvedAt ? "Solved · open again" : "Mark solved"}
+                </button>
               </p>
             </li>
           ))}
