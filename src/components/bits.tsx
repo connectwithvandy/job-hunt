@@ -1,3 +1,4 @@
+import { companySite, faviconOf } from "../lib/logo";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { trackForTitle } from "../../convex/lib/salesRoles";
 
@@ -61,10 +62,11 @@ export function jobTrackKey(job: JobLike, tracks?: { key: string; titles: string
   return job.trackKey ?? (tracks && trackForTitle(tracks, job.title)) ?? bestScore(job)?.trackKey ?? job.foundFor;
 }
 
-export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" | "companyLogo">; size?: number }) {
+export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" | "companyLogo"> & { url?: string; sourceUrl?: string }; size?: number }) {
   // Clearbit's free logo service shut down; Google's favicon service still works for any domain.
   const domain = job.companyLogo?.match(/logo\.clearbit\.com\/([^/?]+)/)?.[1];
-  const logo = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : job.companyLogo;
+  const site = !job.companyLogo ? companySite(job.company, job.sourceUrl || job.url) : null;
+  const logo = domain ? faviconOf(domain) : (job.companyLogo ?? (site ? faviconOf(site) : undefined));
   if (logo) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={logo} alt="" width={size} height={size} className="rounded-lg border border-line bg-white object-contain" style={{ width: size, height: size }} />;

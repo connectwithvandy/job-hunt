@@ -37,7 +37,8 @@ const isOn = (path: string, href: string) => (href === "/" ? path === "/" : path
 export function SubTabs() {
   const path = usePathname();
   const group = NAV.find((g) => g.pages.some((p) => isOn(path, p.href)));
-  if (!group || group.pages.length < 2) return null;
+  // Profile has its own menu down the left (ProfileMenu), like most apps' settings.
+  if (!group || group.pages.length < 2 || group === PROFILE) return null;
   return (
     <div className="no-print mb-6 flex gap-1 border-b border-line text-sm">
       {group.pages.map((p) => (
@@ -50,6 +51,40 @@ export function SubTabs() {
         </Link>
       ))}
     </div>
+  );
+}
+
+export const inProfile = (path: string) => PROFILE.pages.some((p) => isOn(path, p.href));
+
+/** Profile's pages as a menu down the left on a wide screen, and a row of tabs on a phone. */
+export function ProfileMenu() {
+  const path = usePathname();
+  const me = useQuery(api.access.mine);
+  const user = useQuery(api.users.me);
+  return (
+    <nav className="no-print mb-6 md:sticky md:top-12 md:mb-0 md:w-52 md:shrink-0 md:self-start">
+      {me && (
+        <div className="mb-5 hidden md:block">
+          <div className="display text-xl">{me.name || "Your profile"}</div>
+          <div className="text-xs text-ink-3">{user?.email}</div>
+        </div>
+      )}
+      <ul className="flex gap-1 overflow-x-auto border-b border-line text-sm md:flex-col md:border-b-0">
+        {PROFILE.pages.map((p) => {
+          const on = isOn(path, p.href);
+          return (
+            <li key={p.href}>
+              <Link
+                href={p.href}
+                className={`block whitespace-nowrap rounded-lg px-3 py-2 ${on ? "bg-soft font-medium text-ink" : "text-ink-2 hover:bg-soft hover:text-ink"}`}
+              >
+                {p.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
 

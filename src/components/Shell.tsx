@@ -8,7 +8,7 @@ import { useSyncExternalStore } from "react";
 import { api } from "../../convex/_generated/api";
 import { Onboarding } from "./Onboarding";
 import { Celebrations } from "./Celebrate";
-import { ChatButton, Sidebar, SubTabs } from "./Sidebar";
+import { ChatButton, inProfile, ProfileMenu, Sidebar, SubTabs } from "./Sidebar";
 import { SurveyPopup } from "./SurveyPopup";
 import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
@@ -79,7 +79,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <main className="min-w-0 flex-1 px-5 pt-8 pb-24 md:px-12 md:pt-12 md:pb-24 print:p-0">
         {!bare && <TrialOverNotice />}
         {!bare && <SubTabs />}
-        {children}
+        {!bare && inProfile(path) ? (
+          <div className="md:flex md:gap-10">
+            <ProfileMenu />
+            <div className="min-w-0 flex-1">{children}</div>
+          </div>
+        ) : (
+          children
+        )}
       </main>
       {!bare && <ChatButton />}
       {!bare && <SurveyPopup />}
