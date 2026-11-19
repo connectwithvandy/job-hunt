@@ -1,5 +1,6 @@
 "use client";
 
+import { afterApplyNudge } from "@/lib/outreachPlan";
 import { useMutation, useQuery } from "convex/react";
 import { isArchived } from "@/lib/archive";
 import { useEffect, useState } from "react";
@@ -234,10 +235,46 @@ export default function Today() {
     ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.company} · ${j.title}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}`, mark: j, cta: "Nudge" })),
   ];
 
+  // Just applied and nobody asked or messaged there yet: suggest the next way in, alongside the application (19 Nov, owner:
+  // apply stays front, referral asks and HR messages run with it). Shown for 3 days after applying.
+  const warmByKey = new Map((warm ?? []).map((c) => [c.key, c]));
+  const applyNudges = jobs
+    .map((j) => ({ j, c: warmByKey.get(companyKey(j.company)) }))
+    .map(({ j, c }) => ({ j, c, kind: afterApplyNudge(j, !!c?.people.length, now) }))
+    .filter((x) => x.kind);
+  const nudgedCompanies = new Set(applyNudges.map(({ j }) => companyKey(j.company)));
+  const askAfterApply: Todo[] = applyNudges
+    .filter((x) => x.kind === "referral")
+    .map(({ j, c }) => {
+      const p = c!.people[0];
+      return {
+        key: `aa${j._id}`,
+        verb: "Ask",
+        main: `${j.company} · Also ask ${p.firstName} ${p.lastName} for a referral`,
+        sub: [`You applied ${timeAgo(j.appliedAt)}`, p.position ? `their role: ${p.position}` : null, c!.peopleCount > 1 ? `you know ${c!.peopleCount} there` : null].filter(Boolean).join(" · "),
+        href: `/jobs/${j._id}#people`,
+        mark: j,
+        cta: "Ask",
+        primary: true,
+      };
+    });
+  const hrAfterApply: Todo[] = applyNudges
+    .filter((x) => x.kind === "hr")
+    .map(({ j }) => ({
+      key: `ah${j._id}`,
+      verb: "Message",
+      main: `${j.company} · Also message the hiring manager`,
+      sub: `You applied ${timeAgo(j.appliedAt)}. A short note puts a name to your application.`,
+      href: `/jobs/${j._id}#people`,
+      mark: j,
+      cta: "Message HR",
+    }));
+
   // 4. New companies to open up, once the rest is done.
   const reach: Todo[] = [
     // One section for referrals: it used to repeat as a card at the top of the page too (13 Nov).
-    ...toAsk.map(({ c }) => {
+    // A company you just applied to already has its own "Also ask" row above.
+    ...toAsk.filter(({ c }) => !nudgedCompanies.has(c.key)).map(({ c }) => {
       const p = c.people[0];
       return {
         key: `a${c.key}`,
@@ -272,8 +309,8 @@ export default function Today() {
     quiet.length > 1
       ? [{ key: "quiet", verb: "Follow up", main: `${quiet.length} applications quiet for 10+ days`, sub: quiet.slice(0, 3).map((j) => j.company).join(", ") + (quiet.length > 3 ? ` and ${quiet.length - 3} more` : ""), href: "/tracker", many: quiet.length, cta: "Nudge them" }]
       : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.company} · ${j.title}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}`, mark: j, cta: "Nudge" }));
-  const followUpItems = [...chase.filter((t) => t.verb === "Follow up" && !t.key.startsWith("q")), ...quietItems];
-  const referralItems = [...chase.filter((t) => t.verb === "Send"), ...reach];
+  const followUpItems = [...hrAfterApply, ...chase.filter((t) => t.verb === "Follow up" && !t.key.startsWith("q")), ...quietItems];
+  const referralItems = [...askAfterApply, ...chase.filter((t) => t.verb === "Send"), ...reach];
 
   // The job the guide points to: the best fit still open, else any open one.
   const bestToOpen = [...jobs].filter((j) => j.status === "new" || j.status === "applying").sort((a, b) => fit(b) - fit(a))[0];

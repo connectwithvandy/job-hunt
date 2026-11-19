@@ -19,7 +19,7 @@ import { errorMessage } from "@/lib/errors";
 import { cleanSubject, meetingEnd, parseCalendarInvite } from "@/lib/calendarInvite";
 import { interviewAhead, justInterviewed } from "@/lib/replies";
 import { interviewerFirstName, thankYouNote } from "@/lib/thankYou";
-import { ActionButton, type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
+import { ActionButton, type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, noteOpened, SentCheck, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
 type Outreach = Doc<"jobs">["outreach"][number];
@@ -568,14 +568,28 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
                     LinkedIn profile ↗
                   </a>
                 )}
-                {c.linkedinUrl && (c.note || note) && <CopyAndOpen text={c.note ?? personalise(note!, c.name)} url={c.linkedinUrl} />}
+                {c.linkedinUrl && (c.note || note) && (
+                  <CopyAndOpen
+                    text={c.note ?? personalise(note!, c.name)}
+                    url={c.linkedinUrl}
+                    sent={c.sentAt ? undefined : { id: `hr:${c.id}`, who: c.name.split(" ")[0], onSent: () => store(contacts.map((x) => (x.id === c.id ? { ...x, sentAt: Date.now(), channel: "linkedin", asked: asks(c.note ?? note) } : x))) }}
+                  />
+                )}
                 {c.email && (
                   <a
                     className="btn btn-ghost btn-sm"
                     href={`mailto:${c.email}?${new URLSearchParams({ subject: c.emailSubject ?? emailSubject ?? "", body: c.email2 ?? personalise(email ?? note ?? "", c.name) }).toString().replace(/\+/g, "%20")}`}
+                    onClick={() => !c.sentAt && noteOpened(`hr-mail:${c.id}`)}
                   >
                     Email {c.email} ↗
                   </a>
+                )}
+                {c.email && !c.sentAt && (
+                  <SentCheck
+                    id={`hr-mail:${c.id}`}
+                    who={c.name.split(" ")[0]}
+                    onSent={() => store(contacts.map((x) => (x.id === c.id ? { ...x, sentAt: Date.now(), channel: "email", asked: asks(c.email2 ?? email ?? note) } : x)))}
+                  />
                 )}
                 {c.email && c.emailLookup?.email === c.email && (
                   <span className="self-center text-xs text-ink-3" title="Found with Hunter.io">
@@ -851,6 +865,7 @@ export function FollowUpBox({
                 url={url}
                 label={channel === "email" ? "Copy & open email" : write.kind === "referral" && name ? `Copy & open ${name.split(" ")[0]}'s profile` : "Copy & open LinkedIn"}
                 compose={channel !== "email" && write.kind === "referral" ? name.split(" ")[0] || "their name" : undefined}
+                sent={{ id: `fu:${write.kind}:${write.contactId}:${index}`, who: name.split(" ")[0] || undefined, onSent: () => markSent(index, text) }}
               />
             ) : (
               <CopyButton text={text} />
@@ -1010,7 +1025,13 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
       />
       {cvName && <p className="mt-1 text-xs text-ink-3">Attach {cvName} in LinkedIn before you send.</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <CopyAndOpen text={message} url={o.url} label={`Copy note & open ${o.name.split(" ")[0]}'s profile`} compose={o.name.split(" ")[0]} />
+        <CopyAndOpen
+          text={message}
+          url={o.url}
+          label={`Copy note & open ${o.name.split(" ")[0]}'s profile`}
+          compose={o.name.split(" ")[0]}
+          sent={o.status === "draft" ? { id: `ref:${jobId}:${o.contactId}`, who: o.name.split(" ")[0], onSent: () => setOutreach({ jobId, contactId: o.contactId, status: "sent", message }) } : undefined}
+        />
         {message !== tidyMessage(o.message) && (
           <button
             className="btn btn-ghost btn-sm"

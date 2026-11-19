@@ -17,6 +17,7 @@ import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, 
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton, DownloadMenu } from "@/components/ui";
 import { inInr, payText, useInrRates } from "@/lib/money";
+import { afterApplyNudge, hrTrack, referralTrack, type Track } from "@/lib/outreachPlan";
 
 export default function JobPage() {
   const { id } = useParams<{ id: string }>();
@@ -151,7 +152,8 @@ export default function JobPage() {
   const nextTab =
     stage === "score" ? "fit"
     : stage === "tailor" ? "cv"
-    : stage === "apply" ? (people.length > 0 && !reachedOut ? "people" : "apply")
+    // Apply is always the main step; a referral ask runs alongside it, shown in the strip above (19 Nov, owner).
+    : stage === "apply" ? "apply"
     : stage === "reach" ? "people"
     : stage === "interview" ? "prepare"
     : "fit";
@@ -199,6 +201,8 @@ export default function JobPage() {
 
       {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={me.resume?.name ?? ""} />}
 
+
+      <OutreachStrip job={job} peopleCount={people.length} now={now} applied={!(job.status === "new" || job.status === "applying")} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
 
       <JobTabs
         initial={nextTab}
@@ -469,9 +473,21 @@ function JobTabs({ tabs, initial }: { tabs: { key: string; label: string; done: 
     } catch {}
     return initial;
   });
+  // The outreach strip links to "#people" and "#apply": follow the address, then bring the steps into view.
+  useEffect(() => {
+    const go = () => {
+      const hash = window.location.hash.slice(1);
+      const key = hash === "prep" ? "prepare" : hash;
+      if (!tabs.some((t) => t.key === key)) return;
+      setOn(key);
+      document.getElementById("job-steps")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    window.addEventListener("hashchange", go);
+    return () => window.removeEventListener("hashchange", go);
+  }, [tabs]);
   const current = tabs.find((t) => t.key === on) ?? tabs[0];
   return (
-    <div className="card overflow-hidden md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
+    <div id="job-steps" className="card scroll-mt-24 overflow-hidden md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
       <nav className="flex gap-1 overflow-x-auto border-b border-line p-2 md:flex-col md:border-r md:border-b-0" role="tablist" aria-label="This job">
         {tabs.map((t) => (
           <button
@@ -501,6 +517,87 @@ function JobTabs({ tabs, initial }: { tabs: { key: string; label: string; done: 
 }
 
 type Stage = "score" | "tailor" | "apply" | "reach" | "interview" | "done";
+
+/** Open a step below (Referral, HR & calls; Apply) even when the address already points at it. */
+function openStep(key: string) {
+  if (window.location.hash === `#${key}`) window.dispatchEvent(new HashChangeEvent("hashchange"));
+  else window.location.hash = key;
+}
+
+const TONE: Record<Track["tone"], string> = { todo: "text-ink", waiting: "text-ink-2", good: "text-good", off: "text-ink-3" };
+
+/**
+ * Three ways into this job side by side: apply (always the main button), a referral from someone you know, and a
+ * message to HR or the hiring manager, each with where it stands and the one next step. The referral and HR steps
+ * run alongside applying, never before it (19 Nov, owner). Just after applying, it suggests the next way in.
+ */
+function OutreachStrip({
+  job,
+  peopleCount,
+  now,
+  applied,
+  markApplied,
+}: {
+  job: Parameters<typeof ApplyButton>[0]["job"] & { outreach: Parameters<typeof referralTrack>[0]; hiringContacts?: Parameters<typeof hrTrack>[0] };
+  peopleCount: number;
+  now: number;
+  applied: boolean;
+  markApplied: () => Promise<void>;
+}) {
+  if (job.status === "rejected" || job.status === "dismissed") return null;
+  const referral = referralTrack(job.outreach, peopleCount, job.company, now);
+  const hr = hrTrack(job.hiringContacts ?? [], now);
+  const nudge = afterApplyNudge(job, peopleCount > 0, now);
+  const best = job.outreach.find((o) => o.status === "draft")?.name;
+  const tracks: { key: string; label: string; t: Track }[] = [
+    { key: "referral", label: "Referral", t: referral },
+    { key: "hr", label: "HR or hiring manager", t: hr },
+  ];
+  return (
+    <section className="card mb-6 p-4" aria-label="Ways into this job">
+      {nudge && (
+        <p className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-accent/15 px-3 py-2 text-sm">
+          <span>
+            Applied to {job.company}.{" "}
+            {nudge === "referral"
+              ? `Also ask ${best ? best.split(" ")[0] : `one of the ${peopleCount} people you know there`} for a referral: a referred application gets read first.`
+              : "Also message the hiring manager or HR: a short note puts a name to your application."}
+          </span>
+          <button type="button" onClick={() => openStep("people")} className="btn btn-primary btn-sm">
+            {nudge === "referral" ? "Ask for a referral" : "Message HR"}
+          </button>
+        </p>
+      )}
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="min-w-0">
+          <div className="label mb-1">Application</div>
+          {applied ? (
+            <p className="text-sm text-good">Applied{job.appliedAt ? ` ${timeAgo(job.appliedAt)}` : ""}</p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <ApplyButton job={job} />
+              <ActionButton run={markApplied} variant="ghost" size="sm">
+                I&apos;ve applied
+              </ActionButton>
+            </div>
+          )}
+        </div>
+        {/* Until you apply, Apply is the only main button here; the asks beside it stay quieter. */}
+        {tracks.map(({ key, label, t }) => (
+          <div key={key} className="min-w-0 md:border-l md:border-line md:pl-4">
+            <div className="label mb-1">{label}</div>
+            <p className={`text-sm ${TONE[t.tone]}`}>{t.line}</p>
+            {t.action && (
+              <button type="button" onClick={() => openStep("people")} className={`btn btn-sm mt-2 ${applied && t.tone === "todo" && t.action !== "Find them" ? "btn-primary" : "btn-ghost"}`}>
+                {t.action}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 /** Whether the posting is still up, and any signs it isn't a real opening. */
 function PostingCheck({

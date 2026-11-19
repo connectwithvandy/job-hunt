@@ -16,6 +16,7 @@ import {
 } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import type { CalendarEvent, InboxMessage } from "./lib/inbox";
+import { sentToContacts } from "./lib/sentMail";
 
 const SCOPES = [
   "openid",
@@ -317,6 +318,43 @@ export const forSync = internalQuery({
   },
 });
 
+/** HR and hiring-manager contacts with an email address who aren't marked as messaged yet, on jobs you're working on. */
+export const pendingHrEmails = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const out: { jobId: Id<"jobs">; contactId: string; email: string }[] = [];
+    // Only jobs in motion: reading every job each hour would cost more than the check is worth.
+    for (const status of ["applying", "applied", "screening", "interview"] as const) {
+      const jobs = await ctx.db
+        .query("jobs")
+        .withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", status))
+        .take(100);
+      for (const j of jobs)
+        for (const c of j.hiringContacts ?? [])
+          if (c.email && !c.sentAt && /@/.test(c.email)) out.push({ jobId: j._id, contactId: c.id, email: c.email.trim() });
+    }
+    return out.slice(0, 40);
+  },
+});
+
+/** Marks these contacts as messaged by email, at the time the email went, unless already marked. */
+export const markHrEmailed = internalMutation({
+  args: { userId: v.id("users"), hits: v.array(v.object({ jobId: v.id("jobs"), contactId: v.string(), at: v.number() })) },
+  handler: async (ctx, { userId, hits }) => {
+    for (const h of hits) {
+      const job = await ctx.db.get("jobs", h.jobId);
+      if (!job || job.userId !== userId) continue;
+      const contacts = job.hiringContacts ?? [];
+      if (!contacts.some((c) => c.id === h.contactId && !c.sentAt)) continue;
+      await ctx.db.patch("jobs", h.jobId, {
+        hiringContacts: contacts.map((c) => (c.id === h.contactId && !c.sentAt ? { ...c, sentAt: h.at, channel: "email" as const } : c)),
+        updatedAt: Date.now(),
+      });
+    }
+    return null;
+  },
+});
+
 /** Of these Gmail message ids, the ones not read before, so each email is fetched once. */
 export const unseen = internalQuery({
   args: { userId: v.id("users"), ids: v.array(v.string()) },
@@ -368,6 +406,16 @@ export const syncOne = internalAction({
       token: me.inboxToken,
       messages,
     });
+    // An email to HR or a hiring manager sent from Gmail marks that person as messaged, so nobody has to tick
+    // "Sent" by hand and the follow-up comes due on time (19 Nov). Same read-only permission, one extra search.
+    const pending: { jobId: Id<"jobs">; contactId: string; email: string }[] = await ctx.runQuery(internal.google.pendingHrEmails, { userId });
+    if (pending.length) {
+      const emails = [...new Set(pending.map((p) => p.email.toLowerCase()))];
+      const sentIds = await searchIds(access, `in:sent newer_than:7d to:(${emails.join(" OR ")})`, 30);
+      const sent = (await Promise.all(sentIds.slice(0, 20).map((id) => readRecipients(access, id)))).filter((m): m is { to: string; at: number } => !!m);
+      const hits = sentToContacts(pending, sent);
+      if (hits.length) await ctx.runMutation(internal.google.markHrEmailed, { userId, hits });
+    }
     if (me.calendar) {
       const events = await calendarEvents(access);
       if (events)
@@ -470,6 +518,17 @@ async function readMessage(
     snippet: (bodyText(m.payload) || m.snippet || "").slice(0, 1500),
     date: new Date(Number(m.internalDate) || Date.now()).toISOString(),
   };
+}
+
+/** Who a sent email went to (To and Cc) and when, from its headers only. */
+async function readRecipients(access: string, id: string): Promise<{ to: string; at: number } | null> {
+  const m = await google<{ internalDate?: string; payload?: { headers?: { name: string; value: string }[] } }>(
+    access,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc`,
+  );
+  if (!m) return null;
+  const to = (m.payload?.headers ?? []).filter((h) => /^(to|cc)$/i.test(h.name)).map((h) => h.value).join(", ");
+  return { to, at: Number(m.internalDate) || Date.now() };
 }
 
 type GEvent = {
