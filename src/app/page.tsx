@@ -326,7 +326,9 @@ export default function Today() {
 function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"jobs">) => string }) {
   const setStatus = useMutation(api.jobs.setStatus);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
-  const shown = jobs.filter((j) => !skipped.has(j._id)).slice(0, 5);
+  const [now] = useState(() => Date.now());
+  // A posting over 4 months old isn't a "new" job, even when it scores well (19 Nov: an 8-month-old SDR role here).
+  const shown = jobs.filter((j) => !skipped.has(j._id) && !(j.postedAt && now - Date.parse(j.postedAt) > 120 * 86_400_000)).slice(0, 6);
   return (
     <section className="rise mb-8">
       <div className="mb-3 flex items-baseline justify-between gap-3">
