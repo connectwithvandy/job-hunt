@@ -82,7 +82,7 @@ export function SurveyPopup() {
                 key={n}
                 type="button"
                 aria-pressed={score === n}
-                className={`rounded border py-1.5 text-sm tabular-nums ${score === n ? "border-accent bg-accent text-white" : "border-line hover:border-ink-3"}`}
+                className={`rounded border py-1.5 text-sm tabular-nums ${score === n ? "border-accent bg-accent text-on-accent" : "border-line hover:border-ink-3"}`}
                 onClick={() => setScore(n)}
               >
                 {n}
@@ -101,7 +101,7 @@ export function SurveyPopup() {
               key={c}
               type="button"
               aria-pressed={choice === c}
-              className={`rounded-full border px-3 py-1.5 text-sm ${choice === c ? "border-accent bg-accent text-white" : "border-line hover:border-ink-3"}`}
+              className={`rounded-full border px-3 py-1.5 text-sm ${choice === c ? "border-accent bg-accent text-on-accent" : "border-line hover:border-ink-3"}`}
               onClick={() => setChoice(c)}
             >
               {c}
