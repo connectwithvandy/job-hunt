@@ -31,7 +31,14 @@ export const rematchEmails = internalMutation({
   handler: async (ctx, { userId, dryRun }) => {
     // Newest first: an account can hold more than 1,000 jobs, and taking the oldest 1,000 missed the ones with
     // recent emails (19 Nov: the first run found nothing).
-    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
+    // Jobs in motion count however old they are: the Sr Manager job sat past the newest 1,000, so its email had nowhere to go.
+    const moving = [];
+    for (const status of ["applying", "applied", "screening", "interview", "offer"] as const) {
+      moving.push(...(await ctx.db.query("jobs").withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", status)).take(200)));
+    }
+    const seen = new Set(recent.map((j) => j._id));
+    const jobs = [...recent, ...moving.filter((j) => !seen.has(j._id))];
     const changes: { emailId: Id<"jobEmails">; subject: string; role: string; fromJob: string; toJob: string | null }[] = [];
     const touched = new Set<Id<"jobs">>();
 
@@ -50,16 +57,13 @@ export const rematchEmails = internalMutation({
           .sort((a, b) => b.fit - a.fit)[0]?.j;
         // Move it when it doesn't fit here, or when another of the company's jobs fits clearly better.
         const better = target && titleFit(target.title, role) >= here + BETTER_BY;
-        // Otherwise it stays. An email that fits nowhere comes off this job below (it's still in Gmail).
-        if (here >= FITS && !better) continue;
+        // Only move to a job that clearly fits better. With no such job the email stays put: deleting it would lose
+        // a real email when the role's wording just differs (Trail "GTM Builder" vs "Enterprise GTM Manager").
+        if (!target || (here >= FITS && !better)) continue;
         changes.push({ emailId: e._id, subject: e.subject, role, fromJob: `${job.company} · ${job.title}`, toJob: target ? `${target.company} · ${target.title}` : null });
         if (dryRun) continue;
-        if (target) {
-          await ctx.db.patch("jobEmails", e._id, { jobId: target._id });
-          touched.add(target._id);
-        } else {
-          await ctx.db.delete("jobEmails", e._id);
-        }
+        await ctx.db.patch("jobEmails", e._id, { jobId: target._id });
+        touched.add(target._id);
         touched.add(job._id);
       }
     }
