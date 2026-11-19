@@ -33,14 +33,22 @@ export const status = query({
 
 /** Put yourself on the waitlist. Safe to call more than once. */
 export const join = mutation({
-  args: {},
-  handler: async (ctx) => {
+  // `ref`: the invite code from the link they arrived by, if a friend sent it.
+  args: { ref: v.optional(v.string()) },
+  handler: async (ctx, { ref }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("Please sign in again.");
     const existing = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if (existing) return null;
     const user = await ctx.db.get("users", userId);
-    const accessId = await ctx.db.insert("access", { userId, email: user?.email ?? "", approved: false });
+    const code = ref?.trim().toUpperCase().slice(0, 12);
+    const inviter = code ? await ctx.db.query("access").withIndex("by_inviteCode", (q) => q.eq("inviteCode", code)).first() : null;
+    const accessId = await ctx.db.insert("access", {
+      userId,
+      email: user?.email ?? "",
+      approved: false,
+      ...(inviter && inviter.userId !== userId ? { invitedBy: inviter.userId } : {}),
+    });
     await applyPartnerGrant(ctx, accessId);
     // The owner hears about new joiners in the one morning email (growth.sendMorning), not one email each.
     return null;
@@ -410,7 +418,32 @@ export const mine = query({
       // The owner has no waitlist row, so there's nowhere to keep an edited name.
       canEdit: !!row,
       alertsOff: !!row?.alertsOff,
+      inviteCode: row?.inviteCode ?? null,
+      // How many people signed up through their invite link.
+      invited: row ? (await ctx.db.query("access").withIndex("by_invitedBy", (q) => q.eq("invitedBy", userId)).take(100)).length : 0,
     };
+  },
+});
+
+/** Your invite code, made the first time you share: six letters and digits that are easy to read aloud. */
+export const inviteCode = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in again.");
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    // The owner has no access row; their link still works, just without tracking.
+    if (!row) return null;
+    if (row.inviteCode) return row.inviteCode;
+    const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    for (let tries = 0; tries < 5; tries++) {
+      const code = Array.from({ length: 6 }, () => letters[Math.floor(Math.random() * letters.length)]).join("");
+      const taken = await ctx.db.query("access").withIndex("by_inviteCode", (q) => q.eq("inviteCode", code)).first();
+      if (taken) continue;
+      await ctx.db.patch("access", row._id, { inviteCode: code });
+      return code;
+    }
+    throw new ConvexError("Couldn't make your invite link. Try again.");
   },
 });
 

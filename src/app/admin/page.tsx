@@ -70,6 +70,11 @@ export default function AdminCentre() {
           <div className="font-medium">
             {a.name ? `${a.name} · ${a.email}` : a.email || "No email"}
             {a.partner && <span className="ml-2 rounded-full bg-line px-2 py-0.5 text-xs font-normal text-ink-2">{a.partner.name}</span>}
+            {a.invitedBy && (
+              <span className="ml-2 rounded-full bg-soft px-2 py-0.5 text-xs font-normal text-ink-2">
+                invited by {[...list.approved, ...list.waiting].find((x) => x.userId === a.invitedBy)?.email ?? "a member"}
+              </span>
+            )}
           </div>
           <div className="text-xs text-ink-3">
             {[a.role, `Signed up ${new Date(a._creationTime).toLocaleDateString()}`, !approve && (a.welcomedAt ? "Welcome email sent" : list.emailOn ? "Welcome email not sent yet" : ""), !approve && (a.paidUntil ? `Paid until ${new Date(a.paidUntil).toLocaleDateString()}` : "Not paid")]

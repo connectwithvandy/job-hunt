@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -95,25 +95,41 @@ export function ProfileMenu() {
 
 /** Share JobPipe with a friend who's looking: the phone's share sheet, or the link copied. No rewards promised. */
 function InviteFriend() {
-  const [done, setDone] = useState(false);
+  const me = useQuery(api.access.mine);
+  const makeCode = useMutation(api.access.inviteCode);
+  const [done, setDone] = useState("");
   const text = "I'm using JobPipe for my sales job search: it finds sales roles in India, writes a CV for each one and shows who I know there. Try it:";
-  const url = "https://jobpipe.in";
   return (
-    <button
-      type="button"
-      className="btn btn-primary btn-sm mt-3"
-      onClick={async () => {
-        try {
-          if (navigator.share) await navigator.share({ title: "JobPipe", text, url });
-          else await navigator.clipboard.writeText(`${text} ${url}`);
-          setDone(true);
-        } catch {
-          // Closing the share sheet isn't an error worth showing.
-        }
-      }}
-    >
-      {done ? "Thanks for sharing" : "Invite a friend"}
-    </button>
+    <div className="mt-3">
+      <button
+        type="button"
+        className="btn btn-primary btn-sm"
+        onClick={async () => {
+          try {
+            // Each member's own link, so we can see who joined through whose invite.
+            const code = me?.inviteCode ?? (await makeCode());
+            const url = code ? `https://jobpipe.in/?ref=${code}` : "https://jobpipe.in";
+            if (navigator.share) {
+              await navigator.share({ title: "JobPipe", text, url });
+              setDone("Thanks for sharing");
+            } else {
+              await navigator.clipboard.writeText(`${text} ${url}`);
+              setDone("Link copied. Paste it to a friend.");
+            }
+          } catch {
+            // Closing the share sheet isn't an error worth showing.
+          }
+        }}
+      >
+        Invite a friend
+      </button>
+      {done && <p className="mt-1 text-xs text-ink-3">{done}</p>}
+      {!!me?.invited && (
+        <p className="mt-1 text-xs text-ink-2">
+          {me.invited} {me.invited === 1 ? "friend" : "friends"} joined through your link
+        </p>
+      )}
+    </div>
   );
 }
 

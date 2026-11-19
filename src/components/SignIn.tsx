@@ -4,7 +4,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { JobsByEmail } from "./JobsByEmail";
 import { CvTopJobs } from "./CvTopJobs";
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { LEGAL, PLANS } from "@/lib/legal";
 import { FAQ, jsonLdGraph, landingJsonLd } from "@/lib/marketing";
 import { CountUp, Reveal, Rotate } from "./Motion";
@@ -109,6 +109,14 @@ export function SignIn() {
     () => "",
   );
   const query = new URLSearchParams(search);
+  // A friend's invite link (jobpipe.in/?ref=CODE): remember the code until they sign up, so the friend gets the credit.
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (!ref) return;
+    try {
+      localStorage.setItem("jobpipeRef", ref.slice(0, 12));
+    } catch {}
+  }, []);
   const [picked, setFlow] = useState<
     "signUp" | "signIn" | "reset" | "reset-verification" | null
   >(null);

@@ -133,10 +133,16 @@ export default defineSchema({
     paywallAt: v.optional(v.number()),
     paywallWhat: v.optional(v.string()),
     paywallCount: v.optional(v.number()),
+    /** The code in this person's "Invite a friend" link (jobpipe.in/?ref=CODE), made the first time they share. */
+    inviteCode: v.optional(v.string()),
+    /** Who invited them: the member whose invite link they signed up through. */
+    invitedBy: v.optional(v.id("users")),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"])
-    .index("by_unsubKey", ["unsubKey"]),
+    .index("by_unsubKey", ["unsubKey"])
+    .index("by_inviteCode", ["inviteCode"])
+    .index("by_invitedBy", ["invitedBy"]),
 
   /**
    * People who get the daily sales jobs email without an account: up to 3 titles, one place, their email (lowercase).

@@ -19,7 +19,13 @@ export function Waitlist({ email, onWaitlist, answered, rejected }: { email: str
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
-    if (!onWaitlist) void join();
+    if (onWaitlist) return;
+    // The invite code saved when they arrived by a friend's link (SignIn keeps it).
+    let ref: string | undefined;
+    try {
+      ref = localStorage.getItem("jobpipeRef") ?? undefined;
+    } catch {}
+    void join(ref ? { ref } : {});
   }, [onWaitlist, join]);
 
   return (
