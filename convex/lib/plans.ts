@@ -50,8 +50,9 @@ export function wasOf(plan: PlanKey, founding: boolean) {
  * free fit guess cost no AI and stay open; these are the AI allowances on top. Everything else needs a pass.
  */
 export const FREE = {
-  scoresPerDay: 5,
-  tailorsPerWeek: 1,
+  // 19 Nov: 3 scores a day (5 cost too much) and 1 tailored CV in total, to try it, not 1 a week.
+  scoresPerDay: 3,
+  tailorsTotal: 1,
   addedJobsPerDay: 2,
 };
 

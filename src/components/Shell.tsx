@@ -34,7 +34,7 @@ function TrialOverNotice() {
   return (
     <div className="card mx-auto mb-6 flex max-w-3xl flex-wrap items-center justify-between gap-3 p-4 text-sm">
       <p className="text-ink-2">
-        Your trial has ended, so you&apos;re on the free plan: daily jobs, your tracker, {FREE.scoresPerDay} fit scores a day and {FREE.tailorsPerWeek} tailored CV a week. Research, interview prep, messages and the chat need a pass.
+        Your trial has ended, so you&apos;re on the free plan: daily jobs, your tracker, {FREE.scoresPerDay} fit scores a day and {FREE.tailorsTotal} tailored CV to try. Research, interview prep, messages and the chat need a pass.
       </p>
       <Link href="/billing" className="btn btn-primary btn-sm">
         Get the Job Hunt Pass · from ₹{PLANS.foundingPass}

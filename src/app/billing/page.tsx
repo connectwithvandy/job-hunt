@@ -116,7 +116,7 @@ export default function Billing() {
         </p>
         {!isOwner && !covered && !(status.partner && status.partner.until > now) && (
           <p className="mt-2 text-sm text-ink-2">
-            Free plan, yours to keep: daily jobs, your tracker, the fit guess on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsPerWeek} tailored CV a week. A paid plan adds
+            Free plan, yours to keep: daily jobs, your tracker, the fit guess on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsTotal} tailored CV to try. A paid plan adds
             more scores and CVs, company research, interview prep, referral and hiring-manager messages, and the chat.
           </p>
         )}
@@ -148,7 +148,7 @@ export default function Billing() {
               <li>New sales jobs every day</li>
               <li>Fit guess and pay estimate on every job</li>
               <li>{FREE.scoresPerDay} AI fit scores a day</li>
-              <li>{FREE.tailorsPerWeek} tailored CV a week</li>
+              <li>{FREE.tailorsTotal} tailored CV to try</li>
               <li>Your application tracker</li>
             </ul>
             <div className="btn btn-ghost mt-4 cursor-default justify-center text-ink-3">

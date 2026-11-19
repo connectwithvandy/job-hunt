@@ -229,7 +229,8 @@ export function ResumeDoc({ r, photoUrl, logos = {}, plain = false }: { r: Resum
             {x.items.map((it, i) =>
               it.heading ? (
                 <div key={i} className="mb-3" style={{ fontSize: "8.8pt" }}>
-                  <strong>{it.heading}</strong>
+                  {/* "Languages" under a "Languages" section said it twice (19 Nov). */}
+                  {it.heading.trim().toLowerCase() !== x.title.trim().toLowerCase() && <strong>{it.heading}</strong>}
                   <div>{it.text}</div>
                 </div>
               ) : (

@@ -40,7 +40,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   findEmail: { kind: "fixed window", rate: DAILY_LIMITS.findEmail, period: DAY },
   // The free plan, after the trial: on top of the daily limits above.
   freeScore: { kind: "fixed window", rate: FREE.scoresPerDay, period: DAY },
-  freeTailor: { kind: "fixed window", rate: FREE.tailorsPerWeek, period: 7 * DAY },
+  // One tailored CV for the whole free plan: a ten-year window, so it never comes back.
+  freeTailor: { kind: "fixed window", rate: FREE.tailorsTotal, period: 3650 * DAY },
   freeAddJob: { kind: "fixed window", rate: FREE.addedJobsPerDay, period: DAY },
   // The free CV review on /cv-review, for everyone together: caps what strangers can spend on AI in a day.
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
@@ -57,7 +58,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
 /** What the free plan says when its allowance is used up. */
 const FREE_USED: Record<(typeof FREE_ALLOWANCE)[keyof typeof FREE_ALLOWANCE], string> = {
   freeScore: `The free plan scores ${FREE.scoresPerDay} jobs a day, and today's are used.`,
-  freeTailor: `The free plan writes ${FREE.tailorsPerWeek} tailored CV a week, and this week's is used.`,
+  freeTailor: `The free plan includes ${FREE.tailorsTotal} tailored CV to try, and yours is used.`,
   freeAddJob: `The free plan adds ${FREE.addedJobsPerDay} jobs a day by hand, and today's are used.`,
 };
 

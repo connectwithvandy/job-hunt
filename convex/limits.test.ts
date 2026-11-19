@@ -136,20 +136,20 @@ describe("E. The free plan after the trial", () => {
     });
   }
 
-  test("5 scores a day, then a pass message", async () => {
+  test("3 scores a day, then a pass message", async () => {
     const { t } = await setup();
     const free = await ended(t);
-    await t.mutation(internal.limits.consume, { userId: free, kind: "score", count: 4 });
+    await t.mutation(internal.limits.consume, { userId: free, kind: "score", count: 2 });
     await t.mutation(internal.limits.consume, { userId: free, kind: "score", checkOnly: true });
     await t.mutation(internal.limits.consume, { userId: free, kind: "score" });
     await expect(t.mutation(internal.limits.consume, { userId: free, kind: "score" })).rejects.toThrow("Job Hunt Pass");
   });
 
-  test("1 tailored CV a week and 2 added jobs a day", async () => {
+  test("1 tailored CV in total and 2 added jobs a day", async () => {
     const { t } = await setup();
     const free = await ended(t);
     await t.mutation(internal.limits.consume, { userId: free, kind: "tailor" });
-    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "tailor" })).rejects.toThrow("1 tailored CV a week");
+    await expect(t.mutation(internal.limits.consume, { userId: free, kind: "tailor" })).rejects.toThrow("1 tailored CV to try");
     await t.mutation(internal.limits.consume, { userId: free, kind: "addJob", count: 2 });
     await expect(t.mutation(internal.limits.consume, { userId: free, kind: "addJob" })).rejects.toThrow("Job Hunt Pass");
   });

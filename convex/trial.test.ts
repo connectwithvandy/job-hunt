@@ -113,7 +113,7 @@ test("the lock comes on day 10, not for payers, and not for anyone with no let-i
   expect(trialOver({ approved: true }, NOW)).toBe(false);
 });
 
-test("after the trial, the free plan: search, one CV a week, a few scores; the chat needs a pass", async () => {
+test("after the trial, the free plan: search, one CV to try, a few scores; the chat needs a pass", async () => {
   const t = setup();
   const start = Date.now();
   const ids = await t.run(async (ctx) => {

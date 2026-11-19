@@ -282,7 +282,7 @@ export function trialExtendedEmail(p: { name?: string; month: number; pass: numb
   const paras = [
     "Your free week on JobPipe ended today, and job hunts rarely fit into a week, so I've added 3 more days for you.",
     "If you haven't tried it yet, star a job you like and open its tailored CV. That's where it saves the most time.",
-    `After that you move to the free plan: daily jobs, your tracker, ${FREE.scoresPerDay} fit scores a day and ${FREE.tailorsPerWeek} tailored CV a week. Everything else needs the Job Hunt Pass: ${rupees(p.pass)} for 3 months, one payment. Nothing renews on its own.`,
+    `After that you move to the free plan: daily jobs, your tracker, ${FREE.scoresPerDay} fit scores a day and ${FREE.tailorsTotal} tailored CV to try. Everything else needs the Job Hunt Pass: ${rupees(p.pass)} for 3 months, one payment. Nothing renews on its own.`,
     "If it isn't helping, reply and tell me what's missing. It comes straight to me, and I read every one.",
   ];
   return { subject, ...founderNote(first ? `Hi ${first},` : "Hi,", paras, "See plans", `${appUrl()}/billing`) };
@@ -296,7 +296,7 @@ export function trialEndedEmail(p: { name?: string; month: number; pass: number 
   const subject = first ? `${first}, your JobPipe trial has ended` : "Your JobPipe trial has ended";
   const paras = [
     "Your free trial on JobPipe has ended. Your jobs, CVs and notes are all still there, and you're now on the free plan.",
-    `The free plan keeps going for as long as you like: new jobs every day, your tracker, ${FREE.scoresPerDay} AI fit scores a day and ${FREE.tailorsPerWeek} tailored CV a week.`,
+    `The free plan keeps going for as long as you like: new jobs every day, your tracker, ${FREE.scoresPerDay} AI fit scores a day and ${FREE.tailorsTotal} tailored CV to try.`,
     `Company research, interview prep, referral notes and the chat need the Job Hunt Pass: ${rupees(p.pass)} for 3 months, one payment. Nothing renews on its own, and UPI works.`,
     "If the price or something else is in the way, reply and tell me. It comes straight to me.",
   ];
