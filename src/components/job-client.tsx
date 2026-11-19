@@ -1071,7 +1071,7 @@ export function CompanyResearch({ jobId, company, research }: { jobId: Id<"jobs"
 }
 
 /** Likely questions, stories to tell, questions to ask, and a 90-day plan. */
-export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"jobs">["prep"] }) {
+export function InterviewPrep({ jobId, prep, answers }: { jobId: Id<"jobs">; prep?: Doc<"jobs">["prep"]; answers?: Doc<"jobDetails">["interviewAnswers"] }) {
   const run = useAction(api.agent.prep);
   const [busy, start] = useTransition();
   const [state, setState] = useState<ActionState>(null);
@@ -1152,6 +1152,48 @@ export function InterviewPrep({ jobId, prep }: { jobId: Id<"jobs">; prep?: Doc<"
         </div>
       )}
       <Feedback state={busy ? null : state} />
+      <AskInterview jobId={jobId} answers={answers ?? []} />
+    </div>
+  );
+}
+
+/**
+ * The candidate's own interview question ("Tell me about a deal you lost", "Why should we hire you?"), answered
+ * out loud-style from their CV for this job. Saved with the job, newest first.
+ */
+function AskInterview({ jobId, answers }: { jobId: Id<"jobs">; answers: NonNullable<Doc<"jobDetails">["interviewAnswers"]> }) {
+  const ask = useAction(api.applyForm.answerInterview);
+  const [question, setQuestion] = useState("");
+  return (
+    <div className="mt-6 space-y-3 border-t border-line pt-5">
+      <div className="label">Ask your own interview question</div>
+      <p className="text-sm text-ink-2">
+        Type a question you expect or were asked, like &quot;Tell me about a deal you lost&quot; or &quot;Why are you leaving?&quot;. You get an answer to say out loud, built from your real
+        numbers.
+      </p>
+      <textarea className="field text-sm" rows={2} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Type the interview question" />
+      <ActionButton
+        size="sm"
+        pending="Writing your answer…"
+        run={async () => {
+          if (question.trim().length < 5) return "Type the question first.";
+          await ask({ jobId, question });
+          setQuestion("");
+          return "Answer added below.";
+        }}
+      >
+        Answer it
+      </ActionButton>
+      {answers.length > 0 && (
+        <ul className="space-y-3">
+          {[...answers].reverse().map((a) => (
+            <li key={a.question} className="rounded-lg border border-line p-3 text-sm">
+              <div className="font-medium">{a.question}</div>
+              <p className="mt-1 whitespace-pre-line text-ink-2">{a.answer}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

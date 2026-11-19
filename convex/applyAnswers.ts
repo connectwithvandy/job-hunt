@@ -53,6 +53,20 @@ export const addPasted = internalMutation({
   },
 });
 
+/** One interview question and its drafted answer, kept with the job (the same question is replaced). */
+export const addInterview = internalMutation({
+  args: { userId: v.id("users"), jobId: v.id("jobs"), question: v.string(), answer: v.string() },
+  handler: async (ctx, { userId, jobId, question, answer }) => {
+    await ownJob(ctx, userId, jobId);
+    const d = await detailsOf(ctx, jobId);
+    const row = { question, answer: answer.slice(0, 4000), at: Date.now() };
+    const interviewAnswers = [...(d?.interviewAnswers ?? []).filter((q) => q.question !== question), row].slice(-30);
+    if (d) await ctx.db.patch("jobDetails", d._id, { interviewAnswers });
+    else await ctx.db.insert("jobDetails", { jobId, userId, interviewAnswers });
+    return null;
+  },
+});
+
 /** The candidate's own answer to one question; filling it in clears the "needs you" flag. */
 export const edit = mutation({
   args: { jobId: v.id("jobs"), index: v.number(), answer: v.string() },

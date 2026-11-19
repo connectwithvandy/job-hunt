@@ -288,6 +288,8 @@ export default defineSchema({
     brief: v.optional(briefV),
     /** The application form's questions with drafted answers, read when the candidate asks. */
     applyForm: v.optional(applyFormV),
+    /** Interview questions the candidate typed in, with answers drafted from their CV (newest last). */
+    interviewAnswers: v.optional(v.array(v.object({ question: v.string(), answer: v.string(), at: v.number() }))),
   }).index("by_jobId", ["jobId"]),
 
   jobs: defineTable({ userId: v.id("users"), ...jobFields })

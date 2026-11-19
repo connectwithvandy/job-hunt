@@ -131,6 +131,50 @@ export const answerQuestion = action({
   },
 });
 
+const INTERVIEW = `You help a sales candidate answer one interview question out loud, for a specific job.
+Rules:
+- Use only what the CV, the saved facts, the job and the company notes say. Never invent numbers, deals, clients, team sizes, titles or outcomes. If the CV has no example that fits, say so in one line and suggest which real experience to use instead.
+- Behaviour questions ("tell me about a time…"): a STAR answer, Situation, Task, Action, Result, with the real numbers from the CV, then one line on what it means for this job.
+- Other questions ("why us", "walk me through your CV", "your biggest weakness"): a direct spoken answer that ties real experience to this job and company.
+- 120 to 220 words, first person, how a person speaks: short sentences, no buzzwords, no "I am passionate".
+- Keep claims exactly as big as the CV makes them: "helped set up" stays "helped set up".`;
+
+/** Drafts a spoken answer to one interview question the candidate types in, and keeps it with the job. */
+export const answerInterview = action({
+  args: { jobId: v.id("jobs"), question: v.string() },
+  handler: async (ctx, { jobId, question }): Promise<{ answer: string }> => {
+    const userId = await requireUserId(ctx);
+    const q = question.trim().slice(0, 600);
+    if (q.length < 5) throw new ConvexError("Type the interview question.");
+    const job = (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">;
+    await ctx.runMutation(internal.limits.consume, { userId, kind: "notes", count: 1, checkOnly: true });
+    const me = await ctx.runQuery(internal.users.context, { userId });
+    const pack = job.pack;
+    const cv = pack && !pack.letterOnly ? pack.resume : me.resume;
+    if (!cv) throw new ConvexError("Upload your CV first.");
+    const r = job.research;
+    const result = await askJSON({
+      system: INTERVIEW,
+      tier: "standard",
+      shared: `CV:\n${JSON.stringify(cv)}`,
+      prompt: [
+        `Job: ${job.title} at ${job.company}.`,
+        job.description ? `Job description:\n${job.description.slice(0, 6000)}` : "",
+        r ? `About ${job.company}: ${r.summary} ${r.hiringSignals}`.slice(0, 1500) : "",
+        me.facts.length ? `Facts the candidate gave beyond the CV:\n${me.facts.map((f: { question: string; answer: string }) => `- ${f.question}: ${f.answer}`).join("\n")}` : "",
+        `Interview question: ${q}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      schema: z.object({ answer: z.string() }),
+    });
+    await ctx.runMutation(internal.limits.consume, { userId, kind: "notes", count: 1 });
+    const answer = result.answer.trim();
+    await ctx.runMutation(internal.applyAnswers.addInterview, { userId, jobId, question: q, answer });
+    return { answer };
+  },
+});
+
 /** The board's own address for a job, so its id can be read the usual way. */
 function formLinkFor(ats: string, slug: string, id: string) {
   if (ats === "greenhouse") return `https://job-boards.greenhouse.io/${slug}/jobs/${id}`;

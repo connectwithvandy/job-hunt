@@ -25,7 +25,7 @@ const NAV = [
   { label: "Today", pages: [{ href: "/", label: "Today" }] },
   { label: "Jobs", pages: [{ href: "/jobs", label: "Jobs" }, { href: "/companies", label: "Companies" }] },
   { label: "Applications", pages: [{ href: "/tracker", label: "Applications" }] },
-  { label: "Connections", pages: [{ href: "/network", label: "Ask for referrals" }, { href: "/messages", label: "Messages" }] },
+  { label: "Referrals", pages: [{ href: "/network", label: "Referrals" }] },
   PROFILE,
 ];
 /** Your name at the bottom also opens Profile. */
@@ -33,7 +33,7 @@ const ACCOUNT = PROFILE;
 
 const isOn = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
-/** Tabs for the other pages in the same place, like Ask for referrals and Messages under Connections. */
+/** Tabs for the other pages in the same place, like CVs and Roles under Profile. */
 export function SubTabs() {
   const path = usePathname();
   const group = NAV.find((g) => g.pages.some((p) => isOn(path, p.href)));

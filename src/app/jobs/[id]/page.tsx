@@ -334,7 +334,7 @@ export default function JobPage() {
             <p className="mt-1 text-sm text-ink-2">Know the company, prepare for the interview, and know what to say when you call.</p>
           </div>
           <CompanyResearch jobId={job._id} company={job.company} research={job.research} />
-          <InterviewPrep jobId={job._id} prep={job.prep} />
+          <InterviewPrep jobId={job._id} prep={job.prep} answers={job.interviewAnswers} />
           <CallScript jobId={job._id} script={job.callScript} />
           {job.description && (
             <details className="card p-6">
