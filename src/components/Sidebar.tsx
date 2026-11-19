@@ -94,28 +94,40 @@ export function ProfileMenu() {
   );
 }
 
-/** Share JobPipe with a friend who's looking: the phone's share sheet, or the link copied. No rewards promised. */
+/**
+ * Share JobPipe with a friend who's looking. On a computer: our own small box with the link, Copy and the usual
+ * apps (Safari's system share menu popped up on a laptop and looked broken, 19 Nov). On a phone: the share sheet.
+ * No rewards promised.
+ */
 function InviteFriend() {
   const me = useQuery(api.access.mine);
   const makeCode = useMutation(api.access.inviteCode);
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
   const [done, setDone] = useState("");
   const text = "I'm using JobPipe for my sales job search: it finds sales roles in India, writes a CV for each one and shows who I know there. Try it:";
+  const linkOf = async () => {
+    // Each member's own link, so we can see who joined through whose invite.
+    const code = me?.inviteCode ?? (await makeCode());
+    return code ? `https://jobpipe.in/?ref=${code}` : "https://jobpipe.in";
+  };
+  const message = `${text} ${url}`;
   return (
-    <div className="mt-3">
+    <div className="relative mt-3">
       <button
         type="button"
         className="btn btn-primary btn-sm"
+        aria-expanded={open}
         onClick={async () => {
           try {
-            // Each member's own link, so we can see who joined through whose invite.
-            const code = me?.inviteCode ?? (await makeCode());
-            const url = code ? `https://jobpipe.in/?ref=${code}` : "https://jobpipe.in";
-            if (navigator.share) {
-              await navigator.share({ title: "JobPipe", text, url });
+            const link = await linkOf();
+            setUrl(link);
+            const phone = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+            if (phone && navigator.share) {
+              await navigator.share({ title: "JobPipe", text, url: link });
               setDone("Thanks for sharing");
             } else {
-              await navigator.clipboard.writeText(`${text} ${url}`);
-              setDone("Link copied. Paste it to a friend.");
+              setOpen((o) => !o);
             }
           } catch {
             // Closing the share sheet isn't an error worth showing.
@@ -124,6 +136,42 @@ function InviteFriend() {
       >
         Invite a friend
       </button>
+      {open && url && (
+        <div className="card absolute left-0 top-full z-30 mt-2 w-72 p-4 text-sm shadow-lg">
+          <p className="mb-2 font-medium">Send a friend your link</p>
+          <div className="mb-3 flex items-center gap-2">
+            <input readOnly value={url} className="field min-w-0 flex-1 text-xs" onFocus={(e) => e.currentTarget.select()} aria-label="Your invite link" />
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(message);
+                  setDone("Copied. Paste it to a friend.");
+                } catch {
+                  setDone("Select the link and copy it.");
+                }
+              }}
+            >
+              Copy
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a className="btn btn-sm" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">
+              WhatsApp
+            </a>
+            <a className="btn btn-sm" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer">
+              LinkedIn
+            </a>
+            <a className="btn btn-sm" href={`mailto:?subject=${encodeURIComponent("Try JobPipe for your sales job search")}&body=${encodeURIComponent(message)}`}>
+              Email
+            </a>
+          </div>
+          <button type="button" className="mt-3 text-xs text-ink-3 underline hover:text-ink" onClick={() => setOpen(false)}>
+            Close
+          </button>
+        </div>
+      )}
       {done && <p className="mt-1 text-xs text-ink-3">{done}</p>}
       {!!me?.invited && (
         <p className="mt-1 text-xs text-ink-2">
