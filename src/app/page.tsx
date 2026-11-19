@@ -184,10 +184,8 @@ export default function Today() {
   void applyNew;
   const apply: Todo[] = [
     ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
-    // The free first guess is rough, so scoring comes before applying.
-    ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} likeliest ${freshUnscored === 1 ? "job" : "jobs"} found in the last day`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
-    // The jobs themselves show as cards above the list (bestNew); here only the setup steps around them.
-    ...(unscored.length > freshUnscored ? [{ key: "score", verb: "Score", main: `${unscored.length - freshUnscored} older ${unscored.length - freshUnscored === 1 ? "job" : "jobs"} not scored yet`, sub: "See which ones are worth your time", href: "/jobs?sort=added" }] : []),
+    // One line for scoring (19 Nov: new jobs and older ones were two lines saying the same thing).
+    ...(unscored.length ? [{ key: "score", verb: "Score", main: `Check the fit of ${unscored.length} ${unscored.length === 1 ? "job" : "jobs"} not scored yet`, sub: freshUnscored ? `${freshUnscored} found in the last day. The ~% is a first guess; the real score reads the whole job.` : "The ~% is a first guess; the real score reads the whole job.", href: "/jobs?fit=unscored" }] : []),
   ];
 
   // 3. Messages and applications with no answer yet.
@@ -313,8 +311,6 @@ export default function Today() {
         </div>
       </div>
 
-      {/* Closed unless opened: Today is the to-do list. New jobs are step 2, so they aren't listed again here (13 Nov). */}
-      <Pipeline jobs={jobs} tracks={me.tracks} />
 
       <details className="mt-8">
         <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">
@@ -326,9 +322,6 @@ export default function Today() {
         </div>
       </details>
 
-      <p className="mt-16 text-xs text-ink-3">
-        {me.email} · {me.contactsCount.toLocaleString()} connections loaded
-      </p>
     </div>
   );
 }
@@ -773,103 +766,6 @@ function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Les
   );
 }
 
-/** One role's search, or all of them together: what's worth applying to, then each step after it. */
-type Funnel = { good: number; applied: number; asked: number; heard: number; tried: number; interviews: number };
-
-const APPLIED = new Set(["applied", "screening", "interview", "offer", "rejected"]);
-
-function funnelOf(jobs: Doc<"jobs">[]): Funnel {
-  const live = jobs.filter((j) => j.status !== "dismissed");
-  // Worth a look: AI 60+. Not every saved job ("294 in play" said nothing), and not first guesses: two in three
-  // guesses of 70+ were scored under 60 by the AI (13 Nov, 1,533 jobs).
-  const good = live.filter((j) => (j.status === "new" || j.status === "applying") && (bestScore(j)?.score ?? -1) >= 60);
-  // Messages you sent: referral asks and notes to hiring managers.
-  const messaged = (j: Doc<"jobs">) => j.outreach.some((o) => o.status !== "draft") || (j.hiringContacts ?? []).some((c) => c.sentAt);
-  // Heard back, per job: someone answered your message, or the company moved you on or said no.
-  // Counting only message replies showed "0 replies" beside an interview (13 Nov).
-  const heard = (j: Doc<"jobs">) =>
-    ["screening", "interview", "offer", "rejected"].includes(j.status) ||
-    j.outreach.some((o) => o.status === "replied" || o.status === "referred") ||
-    (j.hiringContacts ?? []).some((c) => c.repliedAt);
-  const tried = live.filter((j) => APPLIED.has(j.status) || messaged(j));
-  return {
-    good: good.length,
-    applied: live.filter((j) => APPLIED.has(j.status)).length,
-    asked: live.reduce((n, j) => n + j.outreach.filter((o) => o.status !== "draft").length + (j.hiringContacts ?? []).filter((c) => c.sentAt).length, 0),
-    heard: tried.filter(heard).length,
-    tried: tried.length,
-    interviews: live.filter((j) => j.status === "interview" || j.status === "offer").length,
-  };
-}
-
-/** Of the jobs you applied to or messaged about, how many answered: "1 of 3" until 5 make a rate meaningful. */
-function replyNote(f: Funnel) {
-  if (!f.tried) return "Nothing sent yet";
-  return f.tried >= SURE ? `Heard back on ${Math.round((f.heard / f.tried) * 100)}%` : `Heard back on ${f.heard} of ${f.tried}`;
-}
-
-const STAGES: { key: keyof Funnel; label: string }[] = [
-  { key: "good", label: "Good fits" },
-  { key: "applied", label: "Applied" },
-  { key: "asked", label: "Messages sent" },
-  { key: "heard", label: "Heard back" },
-  { key: "interviews", label: "Interviews" },
-];
-
-/** Your whole search at a glance, then role by role, so you can see which role is moving and which is stuck. */
-function Pipeline({ jobs, tracks }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">[] }) {
-  const active = tracks.filter((t) => t.status === "active");
-  const total = funnelOf(jobs);
-  if (!active.length) return null;
-  const rows = active.map((t) => {
-    const mine = jobs.filter((j) => jobTrackKey(j, tracks) === t.key);
-    return { t, f: funnelOf(mine), found: mine.length };
-  });
-  return (
-    <section className="card mt-2 mb-8 p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">Your search so far</h2>
-        <span className="text-sm text-ink-2">{replyNote(total)}</span>
-      </div>
-      <ol className="mt-4 grid grid-cols-5 gap-1 text-center">
-        {STAGES.map((s, i) => (
-          <li key={s.key} className={`rounded-lg px-1 py-3 ${i === 0 ? "bg-soft" : ""}`}>
-            <div className="text-lg font-semibold tabular-nums sm:text-3xl">{total[s.key]}</div>
-            <div className="mt-1 text-[11px] leading-tight text-ink-3 sm:text-xs">{s.label}</div>
-          </li>
-        ))}
-      </ol>
-      {rows.length > 1 && (
-        <ul className="mt-4 divide-y divide-line border-t border-line text-sm">
-          {rows.map(({ t, f, found }) => (
-            <li key={t._id}>
-              <Link href={`/jobs?track=${t.key}`} className="block py-3 hover:bg-soft sm:-mx-2 sm:px-2">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-2 font-medium">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: t.color }} />
-                    <span className="truncate">{t.name}</span>
-                  </span>
-                  <span className="shrink-0 text-xs text-ink-3">{f.interviews ? `${f.interviews} in interviews` : replyNote(f)}</span>
-                </div>
-                <div className="mt-1 text-xs tabular-nums text-ink-2">
-                  {/* "Finds no jobs" only when it truly found none: a new role's jobs aren't scored yet (14 Nov: said this beside 75 found). */}
-                  {found === 0 ? (
-                    <span className="text-pink">Finds no jobs yet: widen its titles under Profile → Roles</span>
-                  ) : f.good + f.applied === 0 ? (
-                    `${found} ${found === 1 ? "job" : "jobs"} found · score them to see the good fits`
-                  ) : (
-                    `${f.good} good fits · ${f.applied} applied · ${f.asked} messages · heard back on ${f.heard}`
-                  )}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
 /** The morning search-and-score switch, and what the last run found. */
 function Autopilot({ on, last, now, found }: { now: number; on: boolean; found: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
@@ -898,9 +794,6 @@ function Autopilot({ on, last, now, found }: { now: number; on: boolean; found: 
           See strong fits
         </Link>
       )}
-      <button className="text-xs text-ink-3 underline hover:text-ink" onClick={() => void setAutopilot({ on: false })}>
-        Turn off morning search
-      </button>
     </p>
   );
 }
