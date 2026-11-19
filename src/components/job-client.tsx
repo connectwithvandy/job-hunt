@@ -507,7 +507,8 @@ const blankContact = (): HiringContact => ({ id: crypto.randomUUID(), name: "", 
 /** Contacts live on a job, or on a company you're approaching before it posts a role. */
 export type ContactOwner = { jobId: Id<"jobs"> } | { prospectId: Id<"prospects"> };
 
-export function HiringContacts({ owner, contacts, note, emailSubject, email }: { owner: ContactOwner; contacts: HiringContact[]; note?: string; emailSubject?: string; email?: string }) {
+/** `only`: show just this one person (Messages' reading pane). Saves still write the whole list, so nobody else is lost. */
+export function HiringContacts({ owner, contacts, note, emailSubject, email, only }: { owner: ContactOwner; contacts: HiringContact[]; note?: string; emailSubject?: string; email?: string; only?: string }) {
   const saveForJob = useMutation(api.jobs.saveHiringContacts);
   const saveForProspect = useMutation(api.prospects.saveContacts);
   const jobId = "jobId" in owner ? owner.jobId : null;
@@ -546,7 +547,7 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
     <div>
       {contacts.length > 0 && (
         <ul className="mb-3 space-y-2">
-          {contacts.map((c) => (
+          {contacts.filter((c) => !only || c.id === only).map((c) => (
             <li key={c.id} className="rounded-lg border border-line p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
@@ -674,9 +675,11 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email }: {
           </div>
         </form>
       ) : (
-        <button className="btn btn-ghost btn-sm" onClick={() => setEditing(blankContact())}>
-          + Add a person
-        </button>
+        !only && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setEditing(blankContact())}>
+            + Add a person
+          </button>
+        )
       )}
       <Feedback state={state} />
     </div>
