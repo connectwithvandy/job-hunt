@@ -1,6 +1,7 @@
 "use client";
 
 import { stalePenalty } from "../../../convex/lib/posting";
+import { ARCHIVE_DAYS_DEFAULT, archiveLabel, isArchived } from "@/lib/archive";
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -87,6 +88,7 @@ function Jobs() {
   const me = useQuery(api.users.me);
   const findHiringPosts = useAction(api.agent.findHiringPosts);
   const jobs = useQuery(api.jobs.list);
+  const prefs = useQuery(api.users.jobPrefs);
   const scoreJobs = useAction(api.agent.scoreJobs);
   const scoresLeft = useLeftToday("scoresLeft");
   const setStatusMany = useMutation(api.jobs.setStatusMany);
@@ -102,15 +104,13 @@ function Jobs() {
   const region = regionPicks.length ? regionPicks.join(",") : null;
 
   // New jobs posted (or found) over 45 days ago are likely filled; they move to their own chip.
-  // A role from a company's own careers board was live when found, so its age counts from then.
   // Closed postings join them (the morning re-check marks them): nobody should apply to those by mistake.
-  // Careers-board roles count from when we found them (still live on the company's own board), but one posted
-  // 6+ months ago is an evergreen listing, not a fresh role (16 Nov walk: Flyy 32 months, Datadog 10 months near the top).
-  const isOld = (j: (typeof jobs)[number]) =>
-    j.status === "new" &&
-    (j.liveCheck?.state === "closed" ||
-      now - (j.postedAt && j.source !== "careers" ? Date.parse(j.postedAt) : j._creationTime) > 45 * 86_400_000 ||
-      (j.source === "careers" && !!j.postedAt && now - Date.parse(j.postedAt) > 180 * 86_400_000));
+  // Careers-board roles used to count from when we found them (still live on the company's own board), with a 6-month
+  // evergreen cut-off (16 Nov walk: Flyy 32 months, Datadog 10 months near the top). That let a card say "Posted 3mo ago"
+  // in the main list (19 Nov), so every source now counts from the posting date the card shows.
+  // Archived: closed, or a posting older than the limit in Job preferences (lib/archive.ts, shared with Today).
+  const maxAgeDays = prefs?.maxAgeDays ?? ARCHIVE_DAYS_DEFAULT;
+  const isOld = (j: (typeof jobs)[number]) => isArchived(j, now, maxAgeDays);
   const oldCount = jobs.filter(isOld).length;
   // Applied and later live on the Tracker, so this list stays jobs you can still apply to.
   const isApplied = (j: (typeof jobs)[number]) => j.status !== "new" && j.status !== "applying" && j.status !== "dismissed";
@@ -186,7 +186,7 @@ function Jobs() {
   // What's narrowing the list, as chips you can remove one by one.
   const active: { label: string; href: string }[] = [
     ...(trackName ? [{ label: `Role: ${trackName}`, href: hrefWith({ track: null }) }] : []),
-    ...(show ? [{ label: show === "hidden" ? "Not for me" : show === "applied" ? "Applied" : "Old or closed", href: hrefWith({ show: null }) }] : []),
+    ...(show ? [{ label: show === "hidden" ? "Not for me" : show === "applied" ? "Applied" : "Archived", href: hrefWith({ show: null }) }] : []),
     ...(homeIsBlr && regionParam === null ? [] : regionPicks.map((k) => ({ label: regionLabel(k), href: hrefWith({ region: regionAfter(k) }) }))),
     ...(regionPicks.length === 0 && homeIsBlr ? [{ label: "Everywhere", href: hrefWith({ region: null }) }] : []),
     ...FILTERS.flatMap((f) =>
@@ -368,7 +368,7 @@ function Jobs() {
               <div className="flex flex-wrap gap-2">
                 {sideChip(hrefWith({ track: null, show: show === "hidden" ? null : "hidden" }), "Not for me", show === "hidden")}
                 {appliedCount > 0 && sideChip(hrefWith({ track: null, show: show === "applied" ? null : "applied" }), `Applied · ${appliedCount}`, show === "applied")}
-                {oldCount > 0 && sideChip(hrefWith({ track: null, show: show === "old" ? null : "old" }), `Old or closed · ${oldCount}`, show === "old")}
+                {oldCount > 0 && sideChip(hrefWith({ track: null, show: show === "old" ? null : "old" }), `Archived · ${oldCount}`, show === "old")}
               </div>
             </div>
           </aside>
@@ -413,6 +413,15 @@ function Jobs() {
             </div>
           )}
 
+          {show === "old" && (
+            <p className="mb-3 text-sm text-ink-2">
+              Postings older than {archiveLabel(maxAgeDays)}, or closed. Change this in{" "}
+              <Link href="/preferences" className="underline hover:text-ink">
+                Job preferences
+              </Link>
+              .
+            </p>
+          )}
           {visible.length === 0 ? (
             <div className="card p-10 text-center text-ink-2">{inView.length ? "No jobs match these filters." : "No jobs here yet. Press + Find or add jobs above."}</div>
           ) : view === "grid" ? (

@@ -26,6 +26,7 @@ import type * as cvReviewFollowUp from "../cvReviewFollowUp.js";
 import type * as cvReviews from "../cvReviews.js";
 import type * as cvTopJobs from "../cvTopJobs.js";
 import type * as emailFinder from "../emailFinder.js";
+import type * as emailFix from "../emailFix.js";
 import type * as errors from "../errors.js";
 import type * as feedback from "../feedback.js";
 import type * as fixTitles from "../fixTitles.js";
@@ -126,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   cvReviews: typeof cvReviews;
   cvTopJobs: typeof cvTopJobs;
   emailFinder: typeof emailFinder;
+  emailFix: typeof emailFix;
   errors: typeof errors;
   feedback: typeof feedback;
   fixTitles: typeof fixTitles;

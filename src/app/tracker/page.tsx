@@ -12,6 +12,7 @@ import { StatusSelect } from "@/components/job-client";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
 import { trackerStatus } from "@/lib/replies";
+import { cleanSubject } from "@/lib/calendarInvite";
 
 export default function Tracker() {
   const me = useQuery(api.users.me);
@@ -91,7 +92,7 @@ export default function Tracker() {
                       )}
                       {j.lastEmail && (
                         <p className="mt-2 truncate text-xs text-ink-2" title={`${j.lastEmail.from}: ${j.lastEmail.subject}`}>
-                          Email {timeAgo(j.lastEmail.at)}: {j.lastEmail.subject}
+                          Email {timeAgo(j.lastEmail.at)}: {cleanSubject(j.lastEmail.subject)}
                         </p>
                       )}
                       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-ink-3">

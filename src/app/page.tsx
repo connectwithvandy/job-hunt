@@ -1,6 +1,7 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
+import { isArchived } from "@/lib/archive";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -67,6 +68,7 @@ export default function Today() {
   const [searching] = useState(startedFirstSearch);
   const [searchError] = useState(firstSearchError);
   const jobs = useQuery(api.jobs.list);
+  const prefs = useQuery(api.users.jobPrefs);
   const prospects = useQuery(api.prospects.list);
   const stories = useQuery(api.stories.list);
   const warm = useQuery(api.contacts.warmCompanies);
@@ -94,9 +96,11 @@ export default function Today() {
   const place = readPlace(me.location);
   const nearby = (j: Doc<"jobs">) => j.source === "pasted" || j.source === "link" || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title);
   const recent = (j: Doc<"jobs">) => !j.postedAt || !(msSince(Date.parse(j.postedAt)) > 30 * DAY);
+  // Archived postings (closed, or older than the limit in Job preferences) never show on Today: same rule as Jobs → Archived.
+  const live = (j: Doc<"jobs">) => !isArchived(j, now, prefs?.maxAgeDays);
   const strongAll = jobs
     // A closed posting or one that rules you out isn't worth the evening.
-    .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j))
+    .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && live(j) && !j.brief?.blocker && nearby(j))
     .sort((a, b) => rankFit(bestScore(b)!.score, b) - rankFit(bestScore(a)!.score, a));
   const strong = strongAll.slice(0, 5);
   // The same rule as Messages' "Needs you": offers and interview invites first, then newest.
@@ -168,7 +172,7 @@ export default function Today() {
   // AI-scored jobs rank above first guesses, which run high.
   const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
   const fresh = jobs
-    .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j) && recent(j))
+    .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && live(j) && !j.brief?.blocker && nearby(j) && recent(j))
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || rankFit(fit(b), b) - rankFit(fit(a), a));
   const freshIds = new Set(fresh.map((j) => j._id));
   const freshScored = fresh.filter((j) => j.scores?.length);
@@ -193,7 +197,7 @@ export default function Today() {
   // A quiet morning still fills the row: the best open jobs not applied to yet, real scores first (19 Nov: only 2 cards).
   const picked = new Set(firstPick.map((j) => j._id));
   const fillers = jobs
-    .filter((j) => j.status === "new" && !picked.has(j._id) && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j) && !(j.postedAt && msSince(Date.parse(j.postedAt)) > 60 * DAY) && fit(j) >= SKIP_BELOW)
+    .filter((j) => j.status === "new" && !picked.has(j._id) && live(j) && !j.brief?.blocker && nearby(j) && fit(j) >= SKIP_BELOW)
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || rankFit(fit(b), b) - rankFit(fit(a), a))
     .slice(0, 8);
   // Shown in the order the eye reads the rings: real scores highest first, then first guesses highest first

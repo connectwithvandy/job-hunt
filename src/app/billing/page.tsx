@@ -9,6 +9,7 @@ import { PageHead } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { Feedback, Spinner, type ActionState } from "@/components/ui";
 import { errorMessage } from "@/lib/errors";
+import { PAID_ADDS } from "@/lib/paidFeatures";
 
 type RazorpayReply = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 type RazorpayCheckout = { open: () => void; on: (event: string, fn: (e: { error?: { description?: string } }) => void) => void };
@@ -168,7 +169,13 @@ export default function Billing() {
                 </p>
                 {status.founding && <p className="mt-1 text-xs text-good">Founding price for the next {PLANS.foundingSeats} people.</p>}
                 {promo && <p className={`mt-1 text-xs ${promo.ok ? "text-good" : "text-ink-3"}`}>{promo.ok ? `Code ${applied}: ${promo.message}` : promo.message}</p>}
-                <p className="mt-2 flex-1 text-sm text-ink-2">{note}</p>
+                <p className="mt-2 text-sm text-ink-2">{note}</p>
+                <ul className="mt-2 flex-1 space-y-1 text-sm text-ink-2">
+                  <li className="font-medium text-ink">Everything in Free, plus:</li>
+                  {PAID_ADDS.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
                 <button className="btn btn-primary mt-4" disabled={busy !== null} onClick={() => void pay(key)}>
                   {busy === key && <Spinner />}
                   {busy === key

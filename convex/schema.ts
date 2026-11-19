@@ -284,6 +284,8 @@ export default defineSchema({
     minPayL: v.optional(v.number()),
     levels: v.optional(v.array(v.union(v.literal("director"), v.literal("manager"), v.literal("senior"), v.literal("mid"), v.literal("junior")))),
     blockedWords: v.optional(v.array(v.string())),
+    /** Postings older than this many days are archived (14, 30, 45 or 90). Missing means 45. */
+    maxAgeDays: v.optional(v.number()),
   }).index("by_userId", ["userId"]),
 
   /** Several master CVs, e.g. one pitched for SDR leadership and one for GTM roles. */

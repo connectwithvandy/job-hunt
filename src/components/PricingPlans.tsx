@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PLANS } from "../../convex/lib/plans";
+import { PAID_ADDS } from "@/lib/paidFeatures";
 
 /** The paid plans on /pricing behind a 1 month / 3 months switch, 3 months picked first (the better deal). */
 export function PricingPlans() {
@@ -49,6 +50,12 @@ export function PricingPlans() {
           </p>
         </>
       )}
+      <ul className="mt-3 space-y-1 text-sm text-ink-2">
+        <li className="font-medium text-ink">Everything in Free, plus:</li>
+        {PAID_ADDS.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
       <p className="mt-3 text-xs text-ink-3">Have a partner or promo code? Add it on Plan &amp; billing after you sign in.</p>
     </div>
   );

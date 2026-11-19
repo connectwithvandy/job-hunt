@@ -22,6 +22,22 @@ export function stalePenalty(j: { postedAt?: string | null; liveCheck?: { state:
 /** A fit score (or -1 when not scored) lowered for age or a closed posting, for sorting only. Never below 0 when scored. */
 export const rankFit = (fit: number, j: Parameters<typeof stalePenalty>[0], now = Date.now()) => (fit < 0 ? fit : Math.max(0, fit - stalePenalty(j, now)));
 
+/**
+ * The Jobs page's "Best fit" order, for the morning email too (19 Nov: the email still docked older jobs by up to
+ * 25 points, so its list didn't match the number on each job): real scores first, highest first, then first
+ * guesses, highest first. A closed posting goes last; age only breaks a tie, newest first.
+ */
+export function byShownFit<J extends Parameters<typeof stalePenalty>[0]>(
+  a: { fit?: number; guess: number; j: J },
+  b: { fit?: number; guess: number; j: J },
+) {
+  const closed = (x: { j: J }) => (x.j.liveCheck?.state === "closed" ? 1 : 0);
+  const scored = (x: { fit?: number }) => (x.fit === undefined || x.fit < 0 ? 1 : 0);
+  const shown = (x: { fit?: number; guess: number }) => (x.fit === undefined || x.fit < 0 ? x.guess : x.fit);
+  const posted = (x: { j: J }) => (x.j.postedAt ? Date.parse(x.j.postedAt) || 0 : 0);
+  return closed(a) - closed(b) || scored(a) - scored(b) || shown(b) - shown(a) || posted(b) - posted(a);
+}
+
 /** From this AI score up, a job is worth a tailored CV: Today and the morning email say so. */
 export const TAILOR_FROM = 70;
 

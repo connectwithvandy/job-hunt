@@ -16,6 +16,7 @@ import { setApplying } from "@/lib/applying";
 import { downloadDocx, downloadLetterDocx } from "@/lib/docx";
 import { timeAgo } from "./bits";
 import { errorMessage } from "@/lib/errors";
+import { cleanSubject, parseCalendarInvite } from "@/lib/calendarInvite";
 import { ActionButton, type ActionState, attempt, CopyAndOpen, CopyButton, Feedback, LeftToday, Spinner } from "./ui";
 
 type JobStatus = Doc<"jobs">["status"];
@@ -1408,14 +1409,30 @@ function EmailItem({ m, account }: { m: Doc<"jobEmails">; account: string }) {
   const to = replyTo(m.from);
   const gaps = text.match(/\[[^\]]+\]/g) ?? [];
   const invite = m.stage === "interview" || m.stage === "screening";
+  // Google Calendar's invite email is mostly boilerplate and tracking links: show the meeting itself instead.
+  const meeting = parseCalendarInvite(m.subject, m.snippet);
   return (
-    <li className="py-4">
+    <li className="min-w-0 py-4">
       <div className="flex justify-between gap-3">
-        <span className="font-medium">{m.subject}</span>
+        <span className="min-w-0 break-words font-medium">{meeting ? meeting.title : cleanSubject(m.subject)}</span>
         <span className="shrink-0 text-xs text-ink-3">{timeAgo(m.at)}</span>
       </div>
-      <div className="text-xs text-ink-3">{m.from}</div>
-      <p className="mt-1 whitespace-pre-line text-ink-2">{m.snippet}</p>
+      <div className="break-all text-xs text-ink-3">{m.from}</div>
+      {meeting ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-xs text-ink-3">Calendar invite</div>
+            {meeting.when && <div className="font-medium">{meeting.when}</div>}
+          </div>
+          {meeting.join && (
+            <a className="btn btn-primary btn-sm ml-auto" href={meeting.join} target="_blank" rel="noreferrer">
+              Join ↗
+            </a>
+          )}
+        </div>
+      ) : (
+        <p className="mt-1 whitespace-pre-line text-ink-2 [overflow-wrap:anywhere]">{m.snippet}</p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {m.messageId && (
           <a className="btn btn-ghost btn-sm" href={gmailLink(account, `#all/${m.messageId}`)} target="_blank" rel="noreferrer">

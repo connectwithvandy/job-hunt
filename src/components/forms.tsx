@@ -14,7 +14,6 @@ import { uploadFile } from "@/lib/upload";
 import { timeAgo } from "./bits";
 import type { Resume } from "./ResumeDoc";
 import { type ActionState, ActionButton, attempt, Feedback, Spinner } from "./ui";
-import { payRange } from "@/lib/money";
 
 const fileClass =
   "block w-full max-w-full text-sm text-ink-2 file:mr-3 file:rounded-full file:border-0 file:bg-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line";
@@ -377,7 +376,6 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
           </div>
         )}
       </div>
-      {!isNew && <PayLine trackKey={track.key} pay={track.pay} />}
       {resumes.length > 0 && (
         <label className="block">
           <span className="label">Pitch from this CV</span>
@@ -416,25 +414,6 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
         <Feedback state={busy ? null : state} />
       </div>
     </form>
-  );
-}
-
-/** What to ask for in this role, researched on the web when you press the button. */
-function PayLine({ trackKey, pay }: { trackKey: string; pay?: TrackInput["pay"] }) {
-  const estimate = useAction(api.agent.estimateRolePay);
-  return (
-    <div className="rounded-lg bg-soft p-3 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span>
-          <span className="label mr-2">Pay to ask for</span>
-          {pay ? <b>{payRange(pay)}</b> : <span className="text-ink-3">Not checked yet</span>}
-        </span>
-        <ActionButton size="sm" variant="ghost" pending="Checking salaries…" run={async () => void (await estimate({ trackKey }))}>
-          {pay ? "Check again" : "Estimate my pay"}
-        </ActionButton>
-      </div>
-      {pay && <p className="mt-1 text-xs text-ink-2">{pay.basis}</p>}
-    </div>
   );
 }
 

@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import { Loading } from "@/components/Loading";
 import { attempt, Feedback, type ActionState } from "@/components/ui";
 import type { Seniority } from "../../../convex/lib/jobPrefs";
+import { ARCHIVE_CHOICES, archiveLabel } from "@/lib/archive";
 
 const LEVELS: { value: Seniority; label: string }[] = [
   { value: "director", label: "Director and up" },
@@ -15,7 +16,7 @@ const LEVELS: { value: Seniority; label: string }[] = [
   { value: "junior", label: "Junior" },
 ];
 
-/** Job preferences: a pay floor, the seniority you want and words you never want in a title. Jobs and Today leave out the rest. */
+/** Job preferences: a pay floor, the seniority you want, words you never want in a title and how old a posting can be. Jobs and Today leave out the rest. */
 export default function Preferences() {
   const prefs = useQuery(api.users.jobPrefs);
   if (prefs === undefined) return <Loading />;
@@ -23,11 +24,12 @@ export default function Preferences() {
   return <Form prefs={prefs} />;
 }
 
-function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[]; blockedWords: string[]; expected: string | null } }) {
+function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[]; blockedWords: string[]; maxAgeDays: number; expected: string | null } }) {
   const save = useMutation(api.users.setJobPrefs);
   const [minPay, setMinPay] = useState(prefs.minPayL ? String(prefs.minPayL) : "");
   const [levels, setLevels] = useState<Seniority[]>(prefs.levels);
   const [words, setWords] = useState(prefs.blockedWords.join(", "));
+  const [maxAge, setMaxAge] = useState(prefs.maxAgeDays);
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
   const toggle = (l: Seniority) => setLevels((now) => (now.includes(l) ? now.filter((x) => x !== l) : [...now, l]));
@@ -72,6 +74,22 @@ function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[];
           <input className="field mt-1" value={words} onChange={(e) => setWords(e.target.value)} placeholder="e.g. Trainer, Franchise, Recruiter" />
           <span className="mt-1 block text-xs text-ink-3">Separate words with commas.</span>
         </label>
+        <div>
+          <span className="label">Archive postings older than</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ARCHIVE_CHOICES.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setMaxAge(d)}
+                className={`rounded-full border px-3 py-1 text-sm ${maxAge === d ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+              >
+                {archiveLabel(d)}
+              </button>
+            ))}
+          </div>
+          <span className="mt-1 block text-xs text-ink-3">An old posting is often already filled. Archived jobs move to Jobs → Archived, and closed ones go there too.</span>
+        </div>
         <div className="flex items-center gap-3">
           <button
             className="btn btn-primary btn-sm"
@@ -81,7 +99,7 @@ function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[];
               const pay = minPay ? Number(minPay) : null;
               setState(
                 await attempt(async () => {
-                  await save({ minPayL: pay && Number.isFinite(pay) ? pay : null, levels, blockedWords: words.split(",") });
+                  await save({ minPayL: pay && Number.isFinite(pay) ? pay : null, levels, blockedWords: words.split(","), maxAgeDays: maxAge });
                   return "Saved. Jobs and Today now follow these.";
                 }),
               );

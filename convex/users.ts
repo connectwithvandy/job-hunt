@@ -250,21 +250,24 @@ export const jobPrefs = query({
     const prefs = await ctx.db.query("jobPrefs").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     // Expected CTC from setup, shown beside the pay floor so the two don't drift apart.
     const expected = profile?.answers?.find((a) => a.question === "Expected CTC")?.answer ?? null;
-    return { minPayL: prefs?.minPayL ?? null, levels: prefs?.levels ?? [], blockedWords: prefs?.blockedWords ?? [], expected };
+    return { minPayL: prefs?.minPayL ?? null, levels: prefs?.levels ?? [], blockedWords: prefs?.blockedWords ?? [], maxAgeDays: prefs?.maxAgeDays ?? 45, expected };
   },
 });
 
 export const setJobPrefs = mutation({
-  args: { minPayL: v.union(v.number(), v.null()), levels: v.array(levelV), blockedWords: v.array(v.string()) },
-  handler: async (ctx, { minPayL, levels, blockedWords }) => {
+  args: { minPayL: v.union(v.number(), v.null()), levels: v.array(levelV), blockedWords: v.array(v.string()), maxAgeDays: v.optional(v.number()) },
+  handler: async (ctx, { minPayL, levels, blockedWords, maxAgeDays }) => {
     const userId = await requireUserId(ctx);
     if (minPayL !== null && (minPayL < 0 || minPayL > 1000)) throw new ConvexError("Type the pay in lakhs a year, like 25.");
+    if (maxAgeDays !== undefined && ![14, 30, 45, 90].includes(maxAgeDays)) throw new ConvexError("Pick 2 weeks, 30 days, 45 days or 3 months.");
     const words = [...new Set(blockedWords.map((w) => w.trim()).filter(Boolean))].slice(0, 30).map((w) => w.slice(0, 40));
     const doc = {
       userId,
       minPayL: minPayL || undefined,
       levels: levels.length ? [...new Set(levels)] : undefined,
       blockedWords: words.length ? words : undefined,
+      // 45 is the default, so it isn't stored.
+      maxAgeDays: maxAgeDays && maxAgeDays !== 45 ? maxAgeDays : undefined,
     };
     const existing = await ctx.db.query("jobPrefs").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if (existing) await ctx.db.replace("jobPrefs", existing._id, doc);
