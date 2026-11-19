@@ -12,7 +12,7 @@ export default function Account() {
   if (!me) return <Loading />;
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHead title="Profile" sub="Who you are to JobPipe. Your CVs, roles, proof of work and LinkedIn data are in the tabs above." />
+      <PageHead title="Profile" sub="Who you are to JobPipe. Your CVs, roles, proof of work and LinkedIn data are in the menu on the left." />
       <Details me={me} />
       <PasswordForm />
     </div>
