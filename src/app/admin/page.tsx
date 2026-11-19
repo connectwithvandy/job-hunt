@@ -370,13 +370,15 @@ function Overview({ list: all, usage, ownerEmail, count }: { list: { waiting: Do
   // Partner people have paid time too, but nobody paid us in the app for it, so they're counted on their own.
   const paid = usage ? list.approved.filter((a) => (a.paidUntil ?? 0) > usage.now && !a.partner).length : null;
   const partnered = list.approved.filter((a) => a.partner).length;
+  const seats = useQuery(api.access.partnerSeats) ?? 0;
   const tiles = [
     { label: "Waiting to be let in", value: list.waiting.length },
     { label: "Let in", value: list.approved.length },
     { label: "Used it in the last 7 days", value: active },
     { label: "Quiet 3+ days or never opened", value: quiet },
     { label: "Paying now", value: paid },
-    ...(partnered ? [{ label: "Through a partner", value: partnered }] : []),
+    // Places partners paid for vs people who signed up: "4" alone read as a missing person (19 Nov, Aryama not signed up yet).
+    ...(partnered || seats ? [{ label: seats ? `of ${seats} partner places signed up` : "Through a partner", value: partnered }] : []),
   ];
   return (
     <>

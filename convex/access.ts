@@ -556,3 +556,13 @@ export const notePaywall = mutation({
     return null;
   },
 });
+
+/** Places partners paid for, so Admin can say "4 of 5 signed up" instead of only counting those who did. */
+export const partnerSeats = query({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+    return (await ctx.db.query("partnerGrants").take(500)).length;
+  },
+});
