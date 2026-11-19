@@ -11,6 +11,44 @@ import { CountUp, Reveal, Rotate } from "./Motion";
 import { ThemeToggle } from "./ThemeToggle";
 import { Spinner } from "./ui";
 
+/** The home page footer: what JobPipe does, how it compares, the guides, and the free research. */
+const FOOTER: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { href: "/", label: "Find sales jobs in India" },
+      { href: "/#top-jobs", label: "Top 5 jobs from your CV" },
+      { href: "/cv-review", label: "Free CV review" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/#faq", label: "FAQ" },
+    ],
+  },
+  {
+    title: "Compare",
+    links: [{ href: "/compare", label: "JobPipe vs other tools" }],
+  },
+  {
+    title: "Guides",
+    links: [
+      { href: "/sales-jobs/sdr-vs-bdr", label: "SDR vs BDR" },
+      { href: "/sales-jobs/sdr-salary-india", label: "SDR salary in India" },
+      { href: "/sales-jobs/account-executive-salary-india", label: "AE salary in India" },
+      { href: "/sales-jobs/sales-interview-questions", label: "Sales interview questions" },
+      { href: "/sales-jobs/sales-resume", label: "Sales resume guide" },
+      { href: "/sales-jobs", label: "All guides" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { href: "/sales-jobs/india-sales-hiring-index", label: "India sales hiring index" },
+      { href: "/sales-jobs/sdr-bdr-jobs-india", label: "SDR and BDR jobs in India" },
+      { href: "/sales-jobs/account-executive-jobs-bengaluru", label: "AE jobs in Bengaluru" },
+      { href: "/sales-jobs/remote-sales-jobs-apac", label: "Remote sales jobs in APAC" },
+    ],
+  },
+];
+
 const noSubscribe = () => () => {};
 
 // Small line icons for the feature cards.
@@ -481,45 +519,37 @@ export function SignIn() {
       </a>
       </div>
 
-      <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line py-8 text-xs text-ink-3">
-        <span>
-          JobPipe<span className="text-accent">.</span>
-        </span>
-        <Link href="/cv-review" className="hover:text-ink">
-          Free CV review
-        </Link>
-        <Link href="/sales-jobs" className="hover:text-ink">
-          Sales job guides
-        </Link>
-        <Link href="/compare" className="hover:text-ink">
-          JobPipe vs other tools
-        </Link>
-        <Link href="/about" className="hover:text-ink">
-          About
-        </Link>
-        <a href="/pricing" className="hover:text-ink">
-          Pricing
-        </a>
-        <a href="/terms" className="hover:text-ink">
-          Terms
-        </a>
-        <a href="/privacy" className="hover:text-ink">
-          Privacy
-        </a>
-        <a href="/refunds" className="hover:text-ink">
-          Refunds
-        </a>
-        <a href="/contact" className="hover:text-ink">
-          Contact
-        </a>
-        <a
-          href="https://github.com/connectwithvandy/job-hunt"
-          className="hover:text-ink"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open source on GitHub
-        </a>
+      {/* Grouped like Dreamwork's footer (19 Nov): easier to scan, and every guide is one click from the home page for search engines. */}
+      <footer className="border-t border-line py-10 text-sm">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          {FOOTER.map((col) => (
+            <div key={col.title}>
+              <div className="label mb-3">{col.title}</div>
+              <ul className="space-y-2">
+                {col.links.map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="text-ink-2 hover:text-ink">
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-6 text-xs text-ink-3">
+          <span>
+            © 2026 JobPipe<span className="text-accent">.</span>
+          </span>
+          <Link href="/about" className="hover:text-ink">About</Link>
+          <Link href="/terms" className="hover:text-ink">Terms</Link>
+          <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+          <Link href="/refunds" className="hover:text-ink">Refunds</Link>
+          <Link href="/contact" className="hover:text-ink">Contact</Link>
+          <a href="https://github.com/connectwithvandy/job-hunt" className="hover:text-ink" target="_blank" rel="noreferrer">
+            Open source on GitHub
+          </a>
+        </div>
       </footer>
     </div>
     </div>
