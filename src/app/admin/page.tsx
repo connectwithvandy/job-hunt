@@ -1,5 +1,6 @@
 "use client";
 
+import { isInternalAccount } from "../../../convex/lib/internalAccounts";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useState, useTransition } from "react";
 import { api } from "../../../convex/_generated/api";
@@ -155,7 +156,7 @@ export default function AdminCentre() {
         ))}
       </div>
       {usageError && <p className="mb-3 text-sm text-bad">Couldn&apos;t count usage: {usageError}</p>}
-      {tab === "overview" && <Overview list={list} usage={usage} count={async () => setUsage(await count({}))} />}
+      {tab === "overview" && <Overview list={list} usage={usage} ownerEmail={me?.email} count={async () => setUsage(await count({}))} />}
       {tab === "partners" && <Partners groups={partners} usage={usage} />}
       {tab === "codes" && <PromoCodes />}
       {tab === "people" && (
@@ -359,7 +360,10 @@ function UsageLine({ now, u }: { now: number; u?: { lastSeenAt?: number; setUp: 
 }
 
 /** The numbers at a glance: who's waiting, who's using it, who's gone quiet, who paid. Then the step-by-step funnel. */
-function Overview({ list, usage, count }: { list: { waiting: Doc<"access">[]; approved: Doc<"access">[] }; usage: { usage: { lastSeenAt?: number }[]; steps: { step: string; people: number }[]; now: number } | null; count: () => Promise<void> }) {
+function Overview({ list: all, usage, ownerEmail, count }: { list: { waiting: Doc<"access">[]; approved: Doc<"access">[] }; usage: { usage: { lastSeenAt?: number }[]; steps: { step: string; people: number }[]; now: number } | null; ownerEmail?: string; count: () => Promise<void> }) {
+  // Your own account and your test accounts aren't members, so they don't count (the funnel leaves them out too).
+  const member = (a: Doc<"access">) => !isInternalAccount(a.email, ownerEmail ? [ownerEmail] : []);
+  const list = { waiting: all.waiting.filter(member), approved: all.approved.filter(member) };
   const day = 86_400_000;
   const active = usage ? usage.usage.filter((u) => u.lastSeenAt && usage.now - u.lastSeenAt < 7 * day).length : null;
   const quiet = usage ? usage.usage.filter((u) => !u.lastSeenAt || usage.now - u.lastSeenAt > 3 * day).length : null;

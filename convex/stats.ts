@@ -2,7 +2,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalAction, internalQuery } from "./_generated/server";
+import { action, env, internalAction, internalQuery } from "./_generated/server";
+import { isInternalAccount } from "./lib/internalAccounts";
 import { isOwnerEmail } from "./lib/auth";
 import type { HealthFacts } from "./lib/health";
 import { lockAt, trialOver } from "./lib/trial";
@@ -60,7 +61,10 @@ export const funnelData = internalQuery({
     const people = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(200);
     const counts = Object.fromEntries(STEPS.map((s) => [s, 0])) as Record<(typeof STEPS)[number], number>;
     const usage: Usage[] = [];
+    const owners = (env.OWNER_EMAILS ?? "").split(",").map((x) => x.trim());
     for (const p of people) {
+      // The owner and her test accounts aren't members: leave them out of every number.
+      if (isInternalAccount(p.email, owners)) continue;
       counts["Let in"]++;
       const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", p.userId)).unique();
       if (profile?.onboarded) counts["Set up"]++;
