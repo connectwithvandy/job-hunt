@@ -1,6 +1,6 @@
 "use client";
 
-import { rankFit, stalePenalty } from "../../../convex/lib/posting";
+import { stalePenalty } from "../../../convex/lib/posting";
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,7 +16,6 @@ import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
 import { applyFilters, FILTERS, fitFor, fitTier, inRole, picks, togglePick } from "@/lib/jobFilters";
 import { strongCompany } from "../../../convex/lib/quickFit";
 import { payPerYearInr, payText, useInrRates } from "@/lib/money";
-import { payEstimate, payEstimateText } from "../../../convex/lib/payEstimate";
 import { REGIONS, regionsOf } from "@/lib/regions";
 import { sameRoleKey } from "../../../convex/lib/company";
 import { ScoreTipPopup } from "@/components/ScoreTipPopup";
@@ -32,16 +31,18 @@ const PAGE = 60;
 const byTime = (j: ListJob) => (j.postedAt ? Date.parse(j.postedAt) : j._creationTime);
 
 /** Ways to order the list. Jobs without the thing being sorted on go last. */
-/** The AI score when there is one, else the quick fit. */
+/** The AI score when there is one, else the quick fit: the number on the ring, so the list reads in order. */
 const fitOrQuick = (j: ListJob, role: string | null) => {
-  // Old or closed postings sink below fresh ones with the same fit (see stalePenalty).
-  const fit = rankFit(fitFor(j, role), j);
-  return fit >= 0 ? fit : (j.quickFit ?? -1) - stalePenalty(j);
+  const fit = fitFor(j, role);
+  return fit >= 0 ? fit : (j.quickFit ?? -1);
 };
+// A closed posting goes to the end of its group; age only breaks ties between equal fits. It used to be
+// taken off the score, so 66% showed under 60% and ~54% under ~47% (19 Nov walk).
+const closedLast = (j: ListJob) => (j.liveCheck?.state === "closed" ? 1 : 0);
 
-/** Listed pay, else the top of our estimate, so every job has a place in "Highest pay". */
+/** Listed pay only; jobs that don't list pay go last in "Highest pay" (owner, 19 Nov: no guessed pay). */
 function payForSort(j: ListJob, rates: Record<string, number>) {
-  return payPerYearInr(j.salary, rates) ?? (payEstimate(j)?.high ?? -0.01) * 100_000;
+  return payPerYearInr(j.salary, rates) ?? -1;
 }
 
 const SORTS = {
@@ -49,7 +50,11 @@ const SORTS = {
   fit: {
     label: "Best fit",
     compare: (role: string | null) => (a: ListJob, b: ListJob) =>
-      fitTier(rankFit(fitFor(b, role), b)) - fitTier(rankFit(fitFor(a, role), a)) || fitOrQuick(b, role) - fitOrQuick(a, role) || b._creationTime - a._creationTime,
+      fitTier(fitFor(b, role)) - fitTier(fitFor(a, role)) ||
+      closedLast(a) - closedLast(b) ||
+      fitOrQuick(b, role) - fitOrQuick(a, role) ||
+      stalePenalty(a) - stalePenalty(b) ||
+      b._creationTime - a._creationTime,
   },
   pay: {
     label: "Highest pay",
@@ -286,17 +291,22 @@ function Jobs() {
             )}
             <span className="flex-1" />
             {batch.length > 0 && (
+              <span
+                title={`Reads each job against your CV and gives a real fit score in place of the "~" first guess.${unscored.length > batch.length ? ` ${unscored.length} jobs here still have only a first guess.` : ""}`}
+              >
               <ActionButton
                 run={async () => {
                   const { scored, failed } = await scoreJobs({ jobIds: batch });
                   return `${failed ? `Scored ${scored}, ${failed} failed. Try those again.` : `Scored ${scored}.`} ${MOVED}`;
                 }}
-                pending={`Scoring ${batch.length} jobs…`}
+                pending={`Reading ${batch.length} jobs against your CV…`}
                 variant="ghost"
                 size="sm"
               >
-                Score {batch.length} unscored {unscored.length > batch.length ? `of ${unscored.length}` : ""}
+                {/* Plain words: reads each job against your CV and replaces the "~" first guess (was "Score 12 unscored of 272"). */}
+                Get real fit scores for {batch.length} {batch.length === 1 ? "job" : "jobs"}
               </ActionButton>
+              </span>
             )}
             <button className="text-sm text-ink-3 underline hover:text-ink" onClick={() => (selecting ? (setPicked(new Set()), setSelecting(false)) : setSelecting(true))}>
               {selecting ? "Done selecting" : "Select"}
@@ -409,11 +419,8 @@ function Jobs() {
             <ul className={`grid gap-3 sm:grid-cols-2 ${selected ? "2xl:grid-cols-3" : showFilters ? "xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>
               {visible.slice(0, shown).map((j) => {
                 const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
-                // Some boards send their own guess ("₹22–36 L (est.)"): that's an estimate too, not the company's figure.
-                const raw = payText(j.salary, rates);
-                const boardGuess = !!raw && /\best\b|estimat/i.test(j.salary ?? "");
-                const listed = raw && !boardGuess ? raw : null;
-                const est = listed ? null : boardGuess ? raw!.replace(/\s*\(est\.?\)/i, "") : payEstimateText(j);
+                // Only pay the posting lists; a board's own guess counts as not listed (see payText).
+                const listed = payText(j.salary, rates);
                 const isNew = now - j._creationTime < 2 * 86_400_000 && j.status === "new";
                 return (
                   <li key={j._id} className={`card flex flex-col p-4 transition ${selected === j._id ? "!border-accent ring-1 ring-accent" : "hover:border-ink-3"}`}>
@@ -432,11 +439,8 @@ function Jobs() {
                     <Link href={`/jobs/${j._id}`} onClick={(e) => open(e, j._id)} scroll={false} className="mt-0.5 line-clamp-2 font-medium leading-snug hover:underline">
                       {j.title}
                     </Link>
-                    <div className="mt-3 text-lg font-semibold">{listed ?? est ?? <span className="text-sm font-normal text-ink-3">Pay not listed</span>}</div>
-                    <div className="text-[11px] text-ink-3">
-                      {listed ? "Listed salary" : est ? "Estimated salary" : ""}
-                      {j.postedAt ? `${listed || est ? " · " : ""}Posted ${timeAgo(j.postedAt)}` : ""}
-                    </div>
+                    {listed && <div className="mt-3 text-lg font-semibold">{listed}</div>}
+                    {j.postedAt && <div className={`${listed ? "" : "mt-3 "}text-[11px] text-ink-3`}>Posted {timeAgo(j.postedAt)}</div>}
                     {(j.liveCheck?.state === "closed" || j.brief?.blocker) && (
                       <div className="mt-1 text-[11px] text-bad">{j.liveCheck?.state === "closed" ? "Looks closed" : "Rules you out"}</div>
                     )}
@@ -465,7 +469,7 @@ function Jobs() {
                 const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
                 const here = section(j);
                 const heading = here !== null && (i === 0 || section(rows[i - 1]) !== here) ? SECTION_NAMES[here] : null;
-                const pay = payText(j.salary, rates) ?? (payEstimateText(j) ? `${payEstimateText(j)} (est.)` : null);
+                const pay = payText(j.salary, rates);
                 const on = selected === j._id;
                 return (
                   <Fragment key={j._id}>

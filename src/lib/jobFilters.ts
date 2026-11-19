@@ -28,15 +28,8 @@ export const fitFor = (j: Pick<FilterableJob, "scores">, role: string | null) =>
  */
 export const fitTier = (aiScore: number) => (aiScore < 0 ? 1 : aiScore >= SKIP_BELOW ? 2 : 0);
 
-/** Seniority read from the title, since most boards don't send it. */
-export function seniorityOf(title: string) {
-  const t = title.toLowerCase();
-  if (/\b(vp|vice president|chief|head of|director|cro|cxo)\b/.test(t)) return "director";
-  if (/\b(manager|lead|leader|principal|staff)\b/.test(t)) return "manager";
-  if (/\b(senior|sr\.?|enterprise|strategic)\b/.test(t)) return "senior";
-  if (/\b(junior|jr\.?|associate|intern|trainee|entry)\b/.test(t)) return "junior";
-  return "mid";
-}
+export { seniorityOf } from "../../convex/lib/jobPrefs";
+import { seniorityOf } from "../../convex/lib/jobPrefs";
 
 export const FILTERS: Filter[] = [
   {
@@ -77,7 +70,7 @@ export const FILTERS: Filter[] = [
   {
     key: "pay",
     label: "Pay",
-    options: [{ value: "listed", label: "Pay listed", test: (j) => !!j.salary }],
+    options: [{ value: "listed", label: "Pay listed", test: (j) => !!j.salary && !/\best\b|estimat/i.test(j.salary) }],
   },
   {
     key: "fit",

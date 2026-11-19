@@ -16,8 +16,8 @@ import { CompanyMark, DAY_STARTS_AT, FitBadge, likelyScore, ScorePill, bestScore
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
-import { payEstimateText } from "../../convex/lib/payEstimate";
-import { payForCard, useInrRates } from "@/lib/money";
+import { payText, useInrRates } from "@/lib/money";
+import { answerRank, waitsForAnswer } from "@/lib/replies";
 import { ActionButton } from "@/components/ui";
 import { ReferralFollowUp } from "@/components/job-client";
 
@@ -99,8 +99,8 @@ export default function Today() {
     .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j))
     .sort((a, b) => rankFit(bestScore(b)!.score, b) - rankFit(bestScore(a)!.score, a));
   const strong = strongAll.slice(0, 5);
-  // Unanswered for a week at most: after that it's stale, and the job's follow-ups take over.
-  const replies = jobs.filter((j) => j.lastEmail && !j.lastEmail.repliedAt && msSince(j.lastEmail.at) < 7 * DAY && ["screening", "interview", "offer"].includes(j.status));
+  // The same rule as Messages' "Needs you": offers and interview invites first, then newest.
+  const replies = jobs.filter((j) => waitsForAnswer(j, now)).sort((a, b) => answerRank(a) - answerRank(b) || b.lastEmail!.at - a.lastEmail!.at);
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
   // Follow-ups that are due: referral asks and messages to hiring managers that got no reply in a week.
   const followUps = jobs.flatMap((j) => [
@@ -214,7 +214,7 @@ export default function Today() {
   const chase: Todo[] = [
     // Many drafts read as a wall of the same line (19 Nov: 18 of 19 to-dos), so more than one becomes a single line.
     ...(drafts.length > 1
-      ? [{ key: "drafts", verb: "Send", main: `${drafts.length} referral notes ready to send`, sub: "Written for you. Read each one, then send it from Messages.", href: "/inbox" }]
+      ? [{ key: "drafts", verb: "Send", main: `${drafts.length} referral notes ready to send`, sub: "Written for you. Read each one, then send it from Messages.", href: "/inbox?show=ready" }]
       : drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `Drafted, not sent yet · ${j.title} at ${j.company}`, href: `/jobs/${j._id}` }))),
     // A referral ask's follow-up opens right here, written and ready to copy.
     ...followUps.map(({ j, name, n, o }) => ({
@@ -374,7 +374,8 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {shown.map((j) => {
             const verb = verbFor(j);
-            const pay = payForCard(j.salary, payEstimateText(j), rates);
+            // Only pay the posting lists; no guesses (owner, 19 Nov).
+            const pay = payText(j.salary, rates);
             return (
               <li key={j._id} className="card flex flex-col p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -385,12 +386,9 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
                 <Link href={`/jobs/${j._id}`} className="font-medium leading-snug hover:underline">
                   {j.title}
                 </Link>
-                <div className="mt-3 text-sm font-medium">
-                  {pay ? pay.text : <span className="font-normal text-ink-3">Pay not listed</span>}
-                  {pay?.estimated && <span className="ml-1 text-[11px] font-normal text-ink-3">Estimated</span>}
-                </div>
+                {pay && <div className="mt-3 text-sm font-medium">{pay}</div>}
                 {/* Place and date on their own lines, so "posted 10d ago" is never cut off. */}
-                <div className="mt-0.5 truncate text-xs text-ink-3">{j.location}</div>
+                <div className={`${pay ? "mt-0.5" : "mt-3"} truncate text-xs text-ink-3`}>{j.location}</div>
                 {j.postedAt && <div className="text-xs text-ink-3">Posted {timeAgo(j.postedAt)}</div>}
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <button
@@ -463,10 +461,7 @@ function SearchStrip({ jobs, trialEndsAt, now, today, askedTotal }: { jobs: Doc<
 function LiveApplications({ jobs }: { jobs: Doc<"jobs">[] }) {
   const setStatus = useMutation(api.jobs.setStatus);
   const rates = useInrRates();
-  const pay = (j: Doc<"jobs">) => {
-    const p = payForCard(j.salary, payEstimateText(j), rates);
-    return p ? `${p.text}${p.estimated ? " est." : ""}` : null;
-  };
+  const pay = (j: Doc<"jobs">) => payText(j.salary, rates);
   const [all, setAll] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [search, setSearch] = useState("");
@@ -545,7 +540,11 @@ function LiveApplications({ jobs }: { jobs: Doc<"jobs">[] }) {
  */
 function NeedsAnswer({ jobs }: { jobs: Doc<"jobs">[] }) {
   if (!jobs.length) return null;
-  const what = (j: Doc<"jobs">) => (j.status === "interview" ? `${j.company} invited you to interview` : j.status === "offer" ? `${j.company} sent you an offer` : `${j.company}'s recruiter wrote to you`);
+  // The email says what it is; the job's own status can lag behind it.
+  const what = (j: Doc<"jobs">) => {
+    const s = j.lastEmail?.stage;
+    return s === "interview" ? `${j.company} invited you to interview` : s === "offer" ? `${j.company} sent you an offer` : `${j.company}'s recruiter wrote to you`;
+  };
   return (
     <section className="card mb-6 border-accent p-5 ring-1 ring-accent">
       <h2 className="mb-3 text-lg font-semibold">{jobs.length === 1 ? "A company is waiting on your answer" : `${jobs.length} companies are waiting on your answer`}</h2>

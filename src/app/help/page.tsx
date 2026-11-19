@@ -25,7 +25,7 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "Is the pay real?",
-    a: "Pay the company listed shows as listed. When they didn't list it, you see a rough estimate from the job title and city, marked Estimated. Use it as a guide, not a promise.",
+    a: "Yes. We only show pay when the job posting lists it. When the company didn't list pay, we show nothing rather than guess.",
   },
   {
     q: "Does the CV it writes make things up?",

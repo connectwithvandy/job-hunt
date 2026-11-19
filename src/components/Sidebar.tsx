@@ -15,6 +15,7 @@ const PROFILE = {
     { href: "/account", label: "About you" },
     { href: "/resume", label: "CVs" },
     { href: "/tracks", label: "Roles" },
+    { href: "/preferences", label: "Job preferences" },
     // A set-once list that feeds your Jobs each morning, so it lives with your preferences (19 Nov: confusing under Jobs, then Referrals).
     { href: "/companies", label: "Dream companies" },
     { href: "/stories", label: "Proof of work" },

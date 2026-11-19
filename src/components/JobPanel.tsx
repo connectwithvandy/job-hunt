@@ -9,7 +9,6 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { CompanyMark, FitBadge, timeAgo } from "@/components/bits";
 import { payText, useInrRates } from "@/lib/money";
-import { payEstimateText } from "../../convex/lib/payEstimate";
 
 export function JobPanel({ jobId, onClose }: { jobId: Id<"jobs">; onClose: () => void }) {
   const data = useQuery(api.jobs.get, { jobId });
@@ -55,16 +54,8 @@ export function JobPanel({ jobId, onClose }: { jobId: Id<"jobs">; onClose: () =>
           </div>
           <h2 className="display mt-2 text-2xl leading-tight">{job.title}</h2>
           <p className="mt-1 text-sm text-ink-3">{job.postedAt ? `Posted ${timeAgo(job.postedAt)}` : `Found ${timeAgo(new Date(job._creationTime).toISOString())}`}</p>
-          <p className="mt-3 text-lg">
-            {pay ||
-              (payEstimateText(job) ? (
-                <>
-                  {payEstimateText(job)} <span className="text-sm text-ink-3" title="Our rough guess from the job title and city, before incentives. The company hasn't listed pay.">estimate</span>
-                </>
-              ) : (
-                <span className="text-ink-3">Salary not listed</span>
-              ))}
-          </p>
+          {/* Only pay the posting lists; nothing when it doesn't (owner, 19 Nov: no guessed pay). */}
+          {pay && <p className="mt-3 text-lg">{pay}</p>}
         </div>
 
         <div className="space-y-2">

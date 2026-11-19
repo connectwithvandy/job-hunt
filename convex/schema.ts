@@ -274,6 +274,18 @@ export default defineSchema({
     .index("by_autopilot", ["autopilot"])
     .index("by_inboxToken", ["inboxToken"]),
 
+  /**
+   * Job preferences from Profile (lib/jobPrefs.ts): lowest yearly pay in lakhs, seniority wanted, words that hide a job title.
+   * Its own table, not on profiles: the job list reads it, and profiles change on every Gmail check-in and visit,
+   * which would rerun the whole job list each time.
+   */
+  jobPrefs: defineTable({
+    userId: v.id("users"),
+    minPayL: v.optional(v.number()),
+    levels: v.optional(v.array(v.union(v.literal("director"), v.literal("manager"), v.literal("senior"), v.literal("mid"), v.literal("junior")))),
+    blockedWords: v.optional(v.array(v.string())),
+  }).index("by_userId", ["userId"]),
+
   /** Several master CVs, e.g. one pitched for SDR leadership and one for GTM roles. */
   resumes: defineTable({ userId: v.id("users"), label: v.string(), resume: resumeV }).index("by_userId", ["userId"]),
 

@@ -238,6 +238,41 @@ export const setLocation = mutation({
   },
 });
 
+const levelV = v.union(v.literal("director"), v.literal("manager"), v.literal("senior"), v.literal("mid"), v.literal("junior"));
+
+/** Your job preferences, for the Profile page. */
+export const jobPrefs = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const profile = await findProfile(ctx, userId);
+    const prefs = await ctx.db.query("jobPrefs").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    // Expected CTC from setup, shown beside the pay floor so the two don't drift apart.
+    const expected = profile?.answers?.find((a) => a.question === "Expected CTC")?.answer ?? null;
+    return { minPayL: prefs?.minPayL ?? null, levels: prefs?.levels ?? [], blockedWords: prefs?.blockedWords ?? [], expected };
+  },
+});
+
+export const setJobPrefs = mutation({
+  args: { minPayL: v.union(v.number(), v.null()), levels: v.array(levelV), blockedWords: v.array(v.string()) },
+  handler: async (ctx, { minPayL, levels, blockedWords }) => {
+    const userId = await requireUserId(ctx);
+    if (minPayL !== null && (minPayL < 0 || minPayL > 1000)) throw new ConvexError("Type the pay in lakhs a year, like 25.");
+    const words = [...new Set(blockedWords.map((w) => w.trim()).filter(Boolean))].slice(0, 30).map((w) => w.slice(0, 40));
+    const doc = {
+      userId,
+      minPayL: minPayL || undefined,
+      levels: levels.length ? [...new Set(levels)] : undefined,
+      blockedWords: words.length ? words : undefined,
+    };
+    const existing = await ctx.db.query("jobPrefs").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (existing) await ctx.db.replace("jobPrefs", existing._id, doc);
+    else await ctx.db.insert("jobPrefs", doc);
+    return null;
+  },
+});
+
 // ---------- For actions ----------
 
 /**

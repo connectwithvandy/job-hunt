@@ -13,7 +13,7 @@ export default function Terms() {
       <h2 className="display text-xl text-ink">Your account</h2>
       <p>You need an account, and access is given from a waitlist. Keep your login private. You are responsible for what you send using drafts from {LEGAL.product}; check every CV, letter and message before you use it.</p>
       <h2 className="display text-xl text-ink">AI drafts</h2>
-      <p>Drafts are written by AI from your own CV and the job posting. We instruct it to use only facts from your CV and flag numbers that don&apos;t match, but it can still make mistakes. Fit scores and pay estimates are guidance, not promises.</p>
+      <p>Drafts are written by AI from your own CV and the job posting. We instruct it to use only facts from your CV and flag numbers that don&apos;t match, but it can still make mistakes. Fit scores and pay figures are guidance, not promises.</p>
       <h2 className="display text-xl text-ink">Payments</h2>
       <p>Everyone gets a {PLANS.trialDays}-day free trial, then a free plan with limited AI features. The paid plans (1 month, or the {PLANS.passMonths}-month Job Hunt Pass) are one-time payments in Indian rupees that don&apos;t renew by themselves. Daily limits on AI features keep the service fair for everyone. See the refund and cancellation policy for how cancelling works.</p>
       <h2 className="display text-xl text-ink">Fair use</h2>

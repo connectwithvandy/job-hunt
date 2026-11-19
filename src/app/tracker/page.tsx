@@ -11,6 +11,7 @@ import { useSetStatus } from "@/components/Celebrate";
 import { StatusSelect } from "@/components/job-client";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
+import { trackerStatus } from "@/lib/replies";
 
 export default function Tracker() {
   const me = useQuery(api.users.me);
@@ -33,7 +34,8 @@ export default function Tracker() {
       </div>
       <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-6 md:-mx-12 md:px-12">
         {PIPELINE.map((col) => {
-          const cards = jobs.filter((j) => j.status === col.status).sort((a, b) => b.updatedAt - a.updatedAt);
+          // An interview-invite email puts the card under Interviewing even when the job still says applied or screening.
+          const cards = jobs.filter((j) => trackerStatus(j) === col.status).sort((a, b) => b.updatedAt - a.updatedAt);
           return (
             <section key={col.status} className="w-72 shrink-0">
               <h2 className="mb-3 flex items-baseline justify-between px-1">
@@ -66,7 +68,7 @@ export default function Tracker() {
                       key={j._id}
                       draggable
                       onDragStart={(e) => {
-                        e.dataTransfer.setData("text/plain", `${j._id}|${j.status}`);
+                        e.dataTransfer.setData("text/plain", `${j._id}|${trackerStatus(j)}`);
                         e.dataTransfer.effectAllowed = "move";
                       }}
                       onDragEnd={() => setOver(null)}
@@ -97,7 +99,7 @@ export default function Tracker() {
                           {j.appliedAt ? `Applied ${timeAgo(j.appliedAt)}` : `Updated ${timeAgo(j.updatedAt)}`}
                           {asked ? ` · ${warm}/${asked} warm` : ""}
                         </span>
-                        <StatusSelect jobId={j._id} status={j.status} />
+                        <StatusSelect jobId={j._id} status={trackerStatus(j) as Doc<"jobs">["status"]} />
                       </div>
                     </div>
                   );

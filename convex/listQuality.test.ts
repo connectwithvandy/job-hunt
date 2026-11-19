@@ -60,7 +60,9 @@ test("pay that can't be a year's pay is hidden", () => {
 
 test("long rupee pay reads in lakhs", () => {
   expect(payText("400000 per month", {})).toBe("₹4 L/month");
-  expect(payText("₹1,400,000 – ₹2,400,000/year (est.)", {})).toBe("₹14–24 L/yr (est.)");
+  // A board's own guess is not listed pay: we show nothing (owner, 19 Nov).
+  expect(payText("₹1,400,000 – ₹2,400,000/year (est.)", {})).toBeNull();
+  expect(payText("₹1,400,000 – ₹2,400,000/year", {})).toBe("₹14–24 L/yr");
   expect(payText("INR 650000 per year", {})).toBe("₹6.5 L/yr");
   expect(payText("₹25 LPA", {})).toBe("₹25 LPA");
 });

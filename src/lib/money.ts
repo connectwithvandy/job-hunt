@@ -44,9 +44,15 @@ export function inInr(salary: string | null | undefined, rates: Record<string, n
   return lo === hi ? `≈ ₹${lo} L/yr` : `≈ ₹${lo}–${hi} L/yr`;
 }
 
+/**
+ * Some boards send their own guess ("₹22–36 L (est.)"). That isn't the company's figure, so we treat
+ * it like no pay at all: we only show pay the posting lists (owner, 19 Nov: "dont add salary if we dont know").
+ */
+const isGuess = (salary: string) => /\best\b|estimat/i.test(salary);
+
 /** The top of a job's pay band in rupees a year, for sorting by pay. Null when no pay is listed or readable. */
 export function payPerYearInr(salary: string | null | undefined, rates: Record<string, number>) {
-  if (!salary) return null;
+  if (!salary || isGuess(salary)) return null;
   const s = salary.toLowerCase();
   // Indian posts often say "25-35 LPA" or "₹30 L": lakhs per year.
   const lakhs = s.match(/(\d+(?:\.\d+)?)\s*(?:-|–|to)?\s*(\d+(?:\.\d+)?)?\s*(lpa|lakhs?|l\b)/);
@@ -67,10 +73,11 @@ export function payRange(pay: { low: number; high: number; currency: string }) {
 
 /**
  * A job's pay to show: in rupees when it converts, else as written. Null when the figure can't be a
- * year's pay, like "USD 45 – 90/year" (really an hourly rate) or "45000-55000 per year" with no currency.
+ * year's pay, like "USD 45 – 90/year" (really an hourly rate) or "45000-55000 per year" with no currency,
+ * and null for a board's own guess: we show only pay the posting lists.
  */
 export function payText(salary: string | null | undefined, rates: Record<string, number>) {
-  if (!salary) return null;
+  if (!salary || isGuess(salary)) return null;
   const converted = inInr(salary, rates);
   if (converted) return converted;
   const s = salary.toLowerCase();
@@ -89,19 +96,7 @@ export function payText(salary: string | null | undefined, rates: Record<string,
     const l = (n: number) => +(n / 100_000).toFixed(n < 1_000_000 ? 1 : 0);
     const [lo, hi] = [l(Math.min(...big)), l(Math.max(...big))];
     const unit = monthly ? "month" : /week|day|hour|hr\b/.test(s) ? null : "yr";
-    if (unit) return `₹${lo === hi ? lo : `${lo}–${hi}`} L/${unit}${/est/.test(s) ? " (est.)" : ""}`;
+    if (unit) return `₹${lo === hi ? lo : `${lo}–${hi}`} L/${unit}`;
   }
   return salary;
-}
-
-/**
- * A job's pay in one shape for cards: "₹22–36 L/yr" and whether it's an estimate (a board's own guess
- * or ours from title and city). Null text when neither is known.
- */
-export function payForCard(salary: string | null | undefined, estimate: string | null, rates: Record<string, number>) {
-  const raw = payText(salary, rates);
-  const boardGuess = !!raw && /\best\b|estimat/i.test(salary ?? "");
-  if (raw && !boardGuess) return { text: raw, estimated: false };
-  if (raw) return { text: raw.replace(/\s*\(est\.?\)/i, ""), estimated: true };
-  return estimate ? { text: estimate, estimated: true } : null;
 }

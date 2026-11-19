@@ -30,16 +30,19 @@ export function CvMatch({
   const m = fitted ?? mine;
   if (!description || !m) return null;
 
-  const tone = m.score >= 75 ? "text-good" : m.score >= 50 ? "" : "text-warn";
+  // Shown as a count, not a %: a second percentage next to the Fit score read as a rival verdict
+  // ("Fit 84%" beside "CV match 58%", 19 Nov walk). The fit score is the one to go by.
+  const total = m.covered.length + m.missing.length;
+  const before = mine && fitted ? mine.covered.length : null;
   const missing = m.missing.slice(0, 8);
   return (
     <div className="mt-4 rounded-lg border border-line p-3 text-sm">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className={`font-medium ${tone}`}>CV match {m.score}%</span>
-        <span className="text-xs text-ink-3">
-          {fitted ? "your tailored CV" : "your CV as it is, before tailoring"}
-          {fitted && mine ? ` · ${mine.score}% before tailoring` : ""}
+        <span className="font-medium">Keyword check</span>
+        <span className="text-ink-2">
+          {m.covered.length} of {total} key terms from the posting are in {fitted ? "your tailored CV" : "your CV"}
         </span>
+        {before !== null && <span className="text-xs text-ink-3">{before} before tailoring</span>}
       </div>
       {missing.length > 0 ? (
         <>
@@ -57,7 +60,7 @@ export function CvMatch({
           <p className="mt-1 text-xs text-ink-2">{m.covered.map((t) => t.label).join(", ")}</p>
         </details>
       )}
-      <p className="mt-1 text-xs text-ink-3">Counts the sales terms and repeated phrases in the posting that your CV also uses. A guide, not a verdict.</p>
+      <p className="mt-1 text-xs text-ink-3">Counts the sales terms and repeated phrases in the posting that your CV also uses. A guide for wording; the Fit score is the one to go by.</p>
     </div>
   );
 }

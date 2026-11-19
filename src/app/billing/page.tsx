@@ -146,7 +146,7 @@ export default function Billing() {
             <p className="mt-1 text-xs text-ink-3">Yours to keep, no card needed.</p>
             <ul className="mt-2 flex-1 space-y-1 text-sm text-ink-2">
               <li>New sales jobs every day</li>
-              <li>Fit guess and pay estimate on every job</li>
+              <li>Fit guess on every job, and pay when the posting lists it</li>
               <li>{FREE.scoresPerDay} AI fit scores a day</li>
               <li>{FREE.tailorsTotal} tailored CV to try</li>
               <li>Your application tracker</li>

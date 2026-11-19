@@ -223,6 +223,8 @@ export const jobFields = {
   quickFit: v.optional(v.number()),
   /** The latest recruiting email about this job, read by the Gmail script. */
   lastEmail: v.optional(v.object({ subject: v.string(), from: v.string(), at: v.number(), stage: v.string(), repliedAt: v.optional(v.number()) })),
+  /** When the person last moved this job by hand (tracker drag or status menu), so their choice beats an email's guess. */
+  statusSetAt: v.optional(v.number()),
   brief: v.optional(briefV),
   liveCheck: v.optional(liveCheckV),
   /** You wrote the CV even though the app said to skip it, so results can show whether that pays off. */

@@ -12,6 +12,7 @@ import { FindPeople } from "@/components/FindPeople";
 import { JobEmails } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { MessageCard, messageKind, type MessageRow } from "@/components/MessageCard";
+import { answerRank, waitsForAnswer } from "@/lib/replies";
 
 /**
  * Every conversation about a job in one place (19 Nov: Referrals and Messages merged): referral asks to people you
@@ -26,7 +27,7 @@ export default function InboxPage() {
   );
 }
 
-type Filter = "needs" | "waiting" | "all" | "find";
+type Filter = "needs" | "ready" | "waiting" | "all" | "find";
 const STAGE: Record<string, string> = { applied: "Application received", screening: "Recruiter wrote", interview: "Interview invite", offer: "Offer", rejected: "A no" };
 
 function Inbox() {
@@ -48,7 +49,8 @@ function Inbox() {
     .map((j) => {
       const r = outreachById.get(j._id);
       const kind = r ? messageKind(r, now) : "done";
-      const emailWaiting = !!j.lastEmail && !j.lastEmail.repliedAt && j.lastEmail.stage !== "applied" && j.lastEmail.stage !== "rejected";
+      // The same rule as Today's "A company is waiting on your answer" box.
+      const emailWaiting = waitsForAnswer(j, now);
       const asked = r?.outreach.filter((o) => o.status !== "draft").length ?? 0;
       const answered = r?.outreach.filter((o) => o.status === "replied" || o.status === "referred").length ?? 0;
       const hm = r?.hiringContacts.filter((c) => c.sentAt).length ?? 0;
@@ -67,14 +69,19 @@ function Inbox() {
                   : "Done";
       const parts = [asked ? `${asked} referral ${asked === 1 ? "ask" : "asks"}` : null, hm ? `${hm} to hiring manager or HR` : null, j.lastEmail ? "emails" : null].filter(Boolean);
       const at = Math.max(j.lastEmail?.at ?? 0, r?.updatedAt ?? 0);
-      return { j, r, needs: emailWaiting || kind === "followup" || kind === "todo", waiting: !emailWaiting && kind === "waiting", status, parts, at };
+      // Needs you: a company wrote and waits on you, or a follow-up is due. Notes we wrote that you haven't sent are "Ready to send".
+      const needs = emailWaiting || kind === "followup";
+      const ready = !needs && kind === "todo";
+      // Interview invites and offers sit at the very top, then anything else that needs you, then the rest; newest first in each.
+      const rank = emailWaiting ? answerRank(j) : needs ? 3 : ready ? 4 : 5;
+      return { j, r, needs, ready, waiting: !emailWaiting && kind === "waiting", status, parts, at, rank };
     })
-    .sort((a, b) => Number(b.needs) - Number(a.needs) || b.at - a.at);
+    .sort((a, b) => a.rank - b.rank || b.at - a.at);
 
-  const counts = { needs: threads.filter((t) => t.needs).length, waiting: threads.filter((t) => t.waiting).length, all: threads.length };
-  const filter = (params.get("show") as Filter | null) ?? (counts.needs ? "needs" : "all");
+  const counts = { needs: threads.filter((t) => t.needs).length, ready: threads.filter((t) => t.ready).length, waiting: threads.filter((t) => t.waiting).length, all: threads.length };
+  const filter = (params.get("show") as Filter | null) ?? (counts.needs ? "needs" : counts.ready ? "ready" : "all");
   const words = q.trim().toLowerCase();
-  const shown = threads.filter((t) => (filter === "needs" ? t.needs : filter === "waiting" ? t.waiting : true) && (!words || `${t.j.company} ${t.j.title}`.toLowerCase().includes(words)));
+  const shown = threads.filter((t) => (filter === "needs" ? t.needs : filter === "ready" ? t.ready : filter === "waiting" ? t.waiting : true) && (!words || `${t.j.company} ${t.j.title}`.toLowerCase().includes(words)));
   const picked = (params.get("job") as Id<"jobs"> | null) ?? shown[0]?.j._id ?? null;
   const open = threads.find((t) => t.j._id === picked);
   const account = gmail?.email || me.email;
@@ -103,6 +110,7 @@ function Inbox() {
       <p className="mt-1 mb-4 text-sm text-ink-2">Referral asks, notes to hiring managers and HR, and replies from companies, with what to do next on each.</p>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {chip("needs", `Needs you · ${counts.needs}`)}
+        {chip("ready", `Ready to send · ${counts.ready}`)}
         {chip("waiting", `Waiting · ${counts.waiting}`)}
         {chip("all", `All · ${counts.all}`)}
         <span className="flex-1" />
@@ -131,7 +139,7 @@ function Inbox() {
               <input className="field !py-2 text-sm" placeholder="Search company or role" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             {shown.length === 0 ? (
-              <p className="px-4 pb-4 text-sm text-ink-3">{filter === "needs" ? "Nothing needs you right now." : "Nothing here."}</p>
+              <p className="px-4 pb-4 text-sm text-ink-3">{filter === "needs" ? "Nothing needs you right now." : filter === "ready" ? "No notes waiting to be sent." : "Nothing here."}</p>
             ) : (
               <ul className="max-h-[70vh] overflow-y-auto">
                 {shown.map((t) => (

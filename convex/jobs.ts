@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { hiddenByPrefs } from "./lib/jobPrefs";
 import { internal } from "./_generated/api";
 import { internalQuery, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./lib/functions";
@@ -141,11 +142,13 @@ export const list = query({
     if (!userId) return [];
     // Room for a long search across several roles; older roles past this drop off the list.
     const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(1000);
+    // Job preferences from Profile hide new jobs you said no to; anything you've already acted on stays.
+    const prefs = await ctx.db.query("jobPrefs").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     // Jobs not moved to jobDetails yet still carry their heavy parts; leave them out of the list.
     // Lists show two lines of the score reason and only check the brief for a blocker; the job page loads the rest.
     // Sending all of it made the list close to 2 MB for 900 jobs and held Today up for seconds.
     // Job boards' reposts saved before 13 Nov stay out of the list unless you've acted on one.
-    return jobs.filter((j) => j.status !== "new" || !AGGREGATORS.test(j.company)).map((j) => ({
+    return jobs.filter((j) => j.status !== "new" || (!AGGREGATORS.test(j.company) && !hiddenByPrefs(j, prefs))).map((j) => ({
       ...j,
       description: undefined,
       pack: undefined,
@@ -185,6 +188,7 @@ export const setStatus = mutation({
       status,
       appliedAt: status === "applied" && !job.appliedAt ? Date.now() : job.appliedAt,
       updatedAt: Date.now(),
+      statusSetAt: Date.now(),
     });
     await freezeSent(ctx, job, status);
     return null;
@@ -222,7 +226,7 @@ export const setStatusMany = mutation({
     if (jobIds.length > 200) throw new ConvexError("Pick up to 200 jobs at a time.");
     for (const jobId of jobIds) {
       await ownJob(ctx, userId, jobId);
-      await ctx.db.patch("jobs", jobId, { status, updatedAt: Date.now() });
+      await ctx.db.patch("jobs", jobId, { status, updatedAt: Date.now(), statusSetAt: Date.now() });
     }
     return null;
   },

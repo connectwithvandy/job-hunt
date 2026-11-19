@@ -16,7 +16,6 @@ import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, 
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton } from "@/components/ui";
 import { inInr, payRange, payText, useInrRates } from "@/lib/money";
-import { payEstimateText } from "../../../../convex/lib/payEstimate";
 
 export default function JobPage() {
   const { id } = useParams<{ id: string }>();
@@ -181,7 +180,6 @@ export default function JobPage() {
             {job.workSetting && job.workSetting !== "unknown" ? ` · ${job.workSetting}` : ""}
             {payText(job.salary, rates) ? ` · ${inInr(job.salary, rates) ? job.salary : payText(job.salary, rates)}` : ""}
             {payText(job.salary, rates) && inInr(job.salary, rates) ? ` (${inInr(job.salary, rates)})` : ""}
-            {!payText(job.salary, rates) && payEstimateText(job) ? ` · ${payEstimateText(job)} (estimate)` : ""}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
             <TrackTag track={currentTrack} />
