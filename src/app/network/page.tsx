@@ -14,6 +14,7 @@ export default function Network() {
   const warm = useQuery(api.contacts.warmCompanies);
   const rows = useQuery(api.jobs.messages);
   const [now] = useState(() => Date.now());
+  const [companiesShown, setCompaniesShown] = useState(10);
   if (!me || !warm || !rows) return <Loading />;
   const todo = rows.filter((r) => messageKind(r, now) === "todo");
   const followup = rows.filter((r) => messageKind(r, now) === "followup");
@@ -64,8 +65,8 @@ export default function Network() {
               more jobs and check back.
             </div>
           ) : (
-            <div className="space-y-6">
-              {warm.map((c, rank) => {
+            <div className="space-y-3">
+              {warm.slice(0, companiesShown).map((c, rank) => {
                 const [job, ...others] = c.jobs;
                 const why = [
                   c.fitting > 1
@@ -80,11 +81,6 @@ export default function Network() {
                 const notAsked = c.people.filter((p) => !asked.has(p._id));
                 return (
                   <div key={c.key}>
-                    {(rank === 0 || rank === 20) && (
-                      <h3 className="display mt-8 mb-3 text-2xl first:mt-0">
-                        {rank === 0 ? "Dream 20 · today" : "Next 30 · tomorrow"}
-                      </h3>
-                    )}
                     <details className="card group p-5" open={rank < 3}>
                       <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-2">
                         <h3 className="display text-xl">
@@ -162,6 +158,11 @@ export default function Network() {
                 );
               })}
             </div>
+          )}
+          {warm.length > companiesShown && (
+            <button className="btn btn-ghost btn-sm mt-4" onClick={() => setCompaniesShown(companiesShown + 10)}>
+              Show 10 more ({warm.length - companiesShown} left)
+            </button>
           )}
         </section>
       )}
