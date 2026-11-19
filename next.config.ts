@@ -15,12 +15,16 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
-    return ["myjobpipe.vercel.app", "www.jobpipe.in"].map((host) => ({
-      source: "/:path((?!google1e06ebb533b6dcaa\\.html$).*)",
-      has: [{ type: "host" as const, value: host }],
-      destination: "https://jobpipe.in/:path",
-      permanent: true,
-    }));
+    return [
+      ...["myjobpipe.vercel.app", "www.jobpipe.in"].map((host) => ({
+        source: "/:path((?!google1e06ebb533b6dcaa\\.html$).*)",
+        has: [{ type: "host" as const, value: host }],
+        destination: "https://jobpipe.in/:path",
+        permanent: true,
+      })),
+      // Today lives at the home address; people type /today (19 Nov: it showed "page not found").
+      { source: "/today", destination: "/", permanent: false },
+    ];
   },
   turbopack: {
     rules: {

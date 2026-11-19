@@ -93,3 +93,15 @@ export function payText(salary: string | null | undefined, rates: Record<string,
   }
   return salary;
 }
+
+/**
+ * A job's pay in one shape for cards: "₹22–36 L/yr" and whether it's an estimate (a board's own guess
+ * or ours from title and city). Null text when neither is known.
+ */
+export function payForCard(salary: string | null | undefined, estimate: string | null, rates: Record<string, number>) {
+  const raw = payText(salary, rates);
+  const boardGuess = !!raw && /\best\b|estimat/i.test(salary ?? "");
+  if (raw && !boardGuess) return { text: raw, estimated: false };
+  if (raw) return { text: raw.replace(/\s*\(est\.?\)/i, ""), estimated: true };
+  return estimate ? { text: estimate, estimated: true } : null;
+}

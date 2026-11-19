@@ -17,6 +17,7 @@ import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
 import { payEstimateText } from "../../convex/lib/payEstimate";
+import { payForCard, useInrRates } from "@/lib/money";
 import { ActionButton } from "@/components/ui";
 import { ReferralFollowUp } from "@/components/job-client";
 
@@ -73,6 +74,14 @@ export default function Today() {
   const [now] = useState(() => Date.now());
   const markSeen = useMutation(api.users.markSeen);
   useEffect(() => void markSeen().catch(() => {}), [markSeen]);
+  // The tab says where you are, not the website's sales line (19 Nov walk).
+  useEffect(() => {
+    const before = document.title;
+    document.title = "Today · JobPipe";
+    return () => {
+      document.title = before;
+    };
+  }, []);
   if (!me || !jobs) return <Loading />;
   // The name on the account first, so the greeting matches the menu; the CV name only if none was given.
   const firstName = (account?.name || me.resume?.name || "").split(" ")[0];
@@ -85,11 +94,11 @@ export default function Today() {
   const place = readPlace(me.location);
   const nearby = (j: Doc<"jobs">) => j.source === "pasted" || j.source === "link" || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title);
   const recent = (j: Doc<"jobs">) => !j.postedAt || !(msSince(Date.parse(j.postedAt)) > 30 * DAY);
-  const strong = jobs
+  const strongAll = jobs
     // A closed posting or one that rules you out isn't worth the evening.
     .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j))
-    .sort((a, b) => rankFit(bestScore(b)!.score, b) - rankFit(bestScore(a)!.score, a))
-    .slice(0, 5);
+    .sort((a, b) => rankFit(bestScore(b)!.score, b) - rankFit(bestScore(a)!.score, a));
+  const strong = strongAll.slice(0, 5);
   // Unanswered for a week at most: after that it's stale, and the job's follow-ups take over.
   const replies = jobs.filter((j) => j.lastEmail && !j.lastEmail.repliedAt && msSince(j.lastEmail.at) < 7 * DAY && ["screening", "interview", "offer"].includes(j.status));
   const drafts = jobs.flatMap((j) => j.outreach.filter((o) => o.status === "draft").map((o) => ({ j, o })));
@@ -129,7 +138,7 @@ export default function Today() {
   // 1. People who wrote back: companies by email, connections who answered a referral ask, hiring managers.
   const open = (j: Doc<"jobs">) => j.status === "new" || j.status === "applying";
   const answer: Todo[] = [
-    ...replies.map((j) => ({ key: `r${j._id}`, verb: "Reply", main: `${j.title} at ${j.company}`, sub: `${STAGE_WORDS[j.status] ?? "Email"} ${timeAgo(new Date(j.lastEmail!.at).toISOString())}. Draft your answer`, href: `/jobs/${j._id}#emails` })),
+    // Company replies (interview invites, recruiter emails) sit in their own box at the top of the page instead.
     ...jobs.flatMap((j) =>
       j.outreach
         .filter((o) => (o.status === "replied" || o.status === "referred") && open(j))
@@ -187,9 +196,15 @@ export default function Today() {
     .filter((j) => j.status === "new" && !picked.has(j._id) && j.liveCheck?.state !== "closed" && !j.brief?.blocker && nearby(j) && !(j.postedAt && msSince(Date.parse(j.postedAt)) > 60 * DAY) && fit(j) >= SKIP_BELOW)
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || rankFit(fit(b), b) - rankFit(fit(a), a))
     .slice(0, 8);
-  const bestNew = [...firstPick, ...fillers];
+  // Shown in the order the eye reads the rings: real scores highest first, then first guesses highest first
+  // (19 Nov: 84, ~50, 70, 74, 68 looked random).
+  const shownFit = (j: Doc<"jobs">) => bestScore(j)?.score ?? likelyScore(j.quickFit ?? 0);
+  const bestNew = [...firstPick, ...fillers].sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || shownFit(b) - shownFit(a));
   void applyNew;
+  // Started but not sent: these are still to do, not live applications (19 Nov walk).
+  const gettingReady = jobs.filter((j) => j.status === "applying" && j.liveCheck?.state !== "closed");
   const apply: Todo[] = [
+    ...gettingReady.map((j) => ({ key: `g${j._id}`, verb: "Apply", main: `${j.title} at ${j.company}`, sub: "Started, not sent yet. Finish and send the application.", href: `/jobs/${j._id}` })),
     ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
     // One line for scoring (19 Nov: new jobs and older ones were two lines saying the same thing).
     ...(unscored.length ? [{ key: "score", verb: "Score", main: `Check the fit of ${unscored.length} ${unscored.length === 1 ? "job" : "jobs"} not scored yet`, sub: freshUnscored ? `${freshUnscored} found in the last day. The ~% is a first guess; the real score reads the whole job.` : "The ~% is a first guess; the real score reads the whole job.", href: "/jobs?fit=unscored" }] : []),
@@ -197,7 +212,10 @@ export default function Today() {
 
   // 3. Messages and applications with no answer yet.
   const chase: Todo[] = [
-    ...drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `Drafted, not sent yet · ${j.title} at ${j.company}`, href: `/jobs/${j._id}` })),
+    // Many drafts read as a wall of the same line (19 Nov: 18 of 19 to-dos), so more than one becomes a single line.
+    ...(drafts.length > 1
+      ? [{ key: "drafts", verb: "Send", main: `${drafts.length} referral notes ready to send`, sub: "Written for you. Read each one, then send it from Messages.", href: "/inbox" }]
+      : drafts.map(({ j, o }) => ({ key: `d${j._id}${o.contactId}`, verb: "Send", main: `Referral note to ${o.name}`, sub: `Drafted, not sent yet · ${j.title} at ${j.company}`, href: `/jobs/${j._id}` }))),
     // A referral ask's follow-up opens right here, written and ready to copy.
     ...followUps.map(({ j, name, n, o }) => ({
       key: `f${j._id}${name}${n!.n}`,
@@ -237,7 +255,7 @@ export default function Today() {
           {firstName ? `, ${firstName}` : ""}
           <span className="ml-3 text-sm font-normal text-ink-3">{new Date(dayStart(now)).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</span>
         </h1>
-        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={jobs.length} />
+        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={jobs.length} strongNow={strongAll.length} />
       </header>
 
       {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
@@ -268,6 +286,7 @@ export default function Today() {
       )}
 
       <CelebrateWins jobs={jobs} now={now} />
+      <NeedsAnswer jobs={replies} />
       <SearchStrip
         jobs={jobs}
         trialEndsAt={account && !account.isOwner && !account.paidUntil && !account.trialOver ? (account.trialEndsAt ?? undefined) : undefined}
@@ -338,6 +357,7 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
   const setStatus = useMutation(api.jobs.setStatus);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [now] = useState(() => Date.now());
+  const rates = useInrRates();
   // A posting over 4 months old isn't a "new" job, even when it scores well (19 Nov: an 8-month-old SDR role here).
   const shown = jobs.filter((j) => !skipped.has(j._id) && !(j.postedAt && now - Date.parse(j.postedAt) > 120 * 86_400_000)).slice(0, 5);
   return (
@@ -354,6 +374,7 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {shown.map((j) => {
             const verb = verbFor(j);
+            const pay = payForCard(j.salary, payEstimateText(j), rates);
             return (
               <li key={j._id} className="card flex flex-col p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -365,10 +386,12 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
                   {j.title}
                 </Link>
                 <div className="mt-3 text-sm font-medium">
-                  {j.salary || payEstimateText(j) || <span className="font-normal text-ink-3">Pay not listed</span>}
-                  {!j.salary && payEstimateText(j) && <span className="ml-1 text-[11px] font-normal text-ink-3">Estimated</span>}
+                  {pay ? pay.text : <span className="font-normal text-ink-3">Pay not listed</span>}
+                  {pay?.estimated && <span className="ml-1 text-[11px] font-normal text-ink-3">Estimated</span>}
                 </div>
-                <div className="mt-0.5 truncate text-xs text-ink-3">{[j.location, j.postedAt ? `posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}</div>
+                {/* Place and date on their own lines, so "posted 10d ago" is never cut off. */}
+                <div className="mt-0.5 truncate text-xs text-ink-3">{j.location}</div>
+                {j.postedAt && <div className="text-xs text-ink-3">Posted {timeAgo(j.postedAt)}</div>}
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <button
                     type="button"
@@ -381,7 +404,8 @@ function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"job
                     Skip
                   </button>
                   <Link href={`/jobs/${j._id}`} className="btn btn-primary btn-sm flex-1 justify-center">
-                    {verb === "Tailor" ? "Write my CV" : verb === "Check" ? "Check the fit" : "Apply"}
+                    {/* One rule per state: no real score yet, no CV for this job yet, CV ready (19 Nov: a 68 said "Apply" with no CV). */}
+                    {verb === "Check" ? "Check the fit" : j.hasPack || j.pack ? "Apply" : "Write my CV"}
                   </Link>
                 </div>
               </li>
@@ -438,6 +462,11 @@ function SearchStrip({ jobs, trialEndsAt, now, today, askedTotal }: { jobs: Doc<
  */
 function LiveApplications({ jobs }: { jobs: Doc<"jobs">[] }) {
   const setStatus = useMutation(api.jobs.setStatus);
+  const rates = useInrRates();
+  const pay = (j: Doc<"jobs">) => {
+    const p = payForCard(j.salary, payEstimateText(j), rates);
+    return p ? `${p.text}${p.estimated ? " est." : ""}` : null;
+  };
   const [all, setAll] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [search, setSearch] = useState("");
@@ -447,7 +476,8 @@ function LiveApplications({ jobs }: { jobs: Doc<"jobs">[] }) {
   // Saved but not sent yet, and the posting has gone: nothing to do but clear them away.
   const closed = live.filter((j) => j.status === "applying" && j.liveCheck?.state === "closed");
   const q = search.trim().toLowerCase();
-  const rows = live.filter((j) => !closed.includes(j) && (!q || `${j.title} ${j.company}`.toLowerCase().includes(q)));
+  // Started but not sent yet isn't live: those sit in To do today (19 Nov walk).
+  const rows = live.filter((j) => j.status !== "applying" && (!q || `${j.title} ${j.company}`.toLowerCase().includes(q)));
   const shown = all ? rows : rows.slice(0, 8);
   return (
     <section className="rise mb-8">
@@ -467,7 +497,7 @@ function LiveApplications({ jobs }: { jobs: Doc<"jobs">[] }) {
                 <CompanyMark job={j} size={36} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{j.title}</span>
-                  <span className="block truncate text-xs text-ink-3">{[j.company, j.salary || (payEstimateText(j) ? `${payEstimateText(j)} est.` : null), j.location].filter(Boolean).join(" · ")}</span>
+                  <span className="block truncate text-xs text-ink-3">{[j.company, pay(j), j.location].filter(Boolean).join(" · ")}</span>
                 </span>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${j.status === "interview" || j.status === "offer" ? "bg-accent text-on-accent" : j.status === "screening" ? "bg-violet/15 text-violet" : "bg-soft text-ink-2"}`}>
                   {LIVE[j.status]}
@@ -509,6 +539,35 @@ function LiveApplications({ jobs }: { jobs: Doc<"jobs">[] }) {
   );
 }
 
+/**
+ * Companies waiting on your answer (interview invites, recruiter emails, offers), first on the page:
+ * they matter more than anything else here (19 Nov: a 3-day-old interview invite sat below the fold).
+ */
+function NeedsAnswer({ jobs }: { jobs: Doc<"jobs">[] }) {
+  if (!jobs.length) return null;
+  const what = (j: Doc<"jobs">) => (j.status === "interview" ? `${j.company} invited you to interview` : j.status === "offer" ? `${j.company} sent you an offer` : `${j.company}'s recruiter wrote to you`);
+  return (
+    <section className="card mb-6 border-accent p-5 ring-1 ring-accent">
+      <h2 className="mb-3 text-lg font-semibold">{jobs.length === 1 ? "A company is waiting on your answer" : `${jobs.length} companies are waiting on your answer`}</h2>
+      <ul className="divide-y divide-line">
+        {jobs.map((j) => (
+          <li key={j._id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <span className="min-w-0">
+              <span className="block font-medium">{what(j)}</span>
+              <span className="block text-sm text-ink-2">
+                {j.title} · {timeAgo(new Date(j.lastEmail!.at).toISOString())}
+              </span>
+            </span>
+            <Link href={`/jobs/${j._id}#emails`} className="btn btn-primary btn-sm">
+              Reply now
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** `panel` opens in place on a click instead of going to `href`. */
 type Todo = { key: string; verb: string; main: string; sub: string; href: string; panel?: React.ReactNode };
 
@@ -528,7 +587,6 @@ function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
 }
 
 /** Today's goals and how far along you are. Counts start again at 4 AM. */
-const STAGE_WORDS: Record<string, string> = { screening: "Recruiter wrote", interview: "Interview invite", offer: "Offer" };
 
 /** One step of the daily routine, with how many things are in it. */
 function Step({ n, title, items, empty, blocked }: { n: number; title: string; items: Todo[]; empty: string; blocked?: boolean }) {
@@ -774,7 +832,7 @@ function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Les
 }
 
 /** The morning search-and-score switch, and what the last run found. */
-function Autopilot({ on, last, now, found }: { now: number; on: boolean; found: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
+function Autopilot({ on, last, now, found, strongNow }: { now: number; on: boolean; found: number; strongNow: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
   // Off: a clear card, since nothing arrives without it.
   if (!on) {
@@ -792,11 +850,12 @@ function Autopilot({ on, last, now, found }: { now: number; on: boolean; found: 
     <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
       <span>
         {last
-          ? `${dayStart(now) <= last.at ? "This morning" : `Last search ${timeAgo(new Date(last.at).toISOString())}`}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}, ${last.scored} scored, ${last.strong} strong ${last.strong === 1 ? "fit" : "fits"} (75+).`
+          ? // Strong fits counted across every open job, not just this morning's (19 Nov: "0 strong fits" beside an 84% card).
+            `${dayStart(now) <= last.at ? "This morning" : `Last search ${timeAgo(new Date(last.at).toISOString())}`}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}. ${strongNow ? `${strongNow} strong ${strongNow === 1 ? "fit" : "fits"} (75+) open to apply to.` : "No strong fits (75+) open right now."}`
           : // Signing up runs a first search, so a new person already has jobs (14 Nov: this said "runs tomorrow" beside 75 found).
             `${found ? `Your first search found ${found} ${found === 1 ? "job" : "jobs"}; the likeliest are below. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
       </span>
-      {last && last.strong > 0 && (
+      {last && strongNow > 0 && (
         <Link href="/jobs?fit=strong" className="text-accent underline">
           See strong fits
         </Link>
