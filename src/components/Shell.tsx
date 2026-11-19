@@ -82,7 +82,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {!bare && inProfile(path) ? (
           <div className="md:flex md:gap-10">
             <ProfileMenu />
-            <div className="min-w-0 flex-1">{children}</div>
+            {/* Profile pages start at the same left edge whatever their width: each centred itself, so the heading
+                jumped sideways from one menu item to the next (19 Nov walk). */}
+            <div className="min-w-0 flex-1 [&>*]:mx-0!">{children}</div>
           </div>
         ) : (
           children
