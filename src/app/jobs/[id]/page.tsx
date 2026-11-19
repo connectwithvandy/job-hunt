@@ -334,6 +334,30 @@ export default function JobPage() {
             ),
           },
           {
+            key: "questions",
+            label: "Application questions",
+            done: !!job.applyForm?.questions?.length,
+            content: (
+              <>
+            {me.answers.length > 0 ? (
+              <div className="mb-6">
+                <div className="label mb-2">Your answers, for the form</div>
+                <div className="flex flex-wrap gap-2">
+                  {me.answers.map((a) => (
+                    <CopyButton key={a.question} text={a.answer} label={a.question} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mb-4 text-sm text-ink-2">
+                Save your standard form answers (notice period, pay, why you&apos;re moving) on the <Link className="underline" href="/resume">CVs page</Link> to copy them here in one click.
+              </p>
+            )}
+            <ApplyQuestions jobId={job._id} form={job.applyForm} />
+              </>
+            ),
+          },
+          {
             key: "people",
             label: "Referral & hiring manager",
             done: reachedOut,
@@ -358,21 +382,6 @@ export default function JobPage() {
               Apply opens the form and downloads your tailored CV. Then click your JobPipe autofill bookmark (set it up on the{" "}
               <Link className="underline" href="/resume">CVs page</Link>): it fills your answers and attaches the CV. Check everything and press Submit yourself.
             </p>
-            {me.answers.length > 0 ? (
-              <div className="mb-4">
-                <div className="label mb-2">Your answers, for the form</div>
-                <div className="flex flex-wrap gap-2">
-                  {me.answers.map((a) => (
-                    <CopyButton key={a.question} text={a.answer} label={a.question} />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mb-4 text-sm text-ink-2">
-                Save your standard form answers (notice period, pay, why you&apos;re moving) on the <Link className="underline" href="/resume">CVs page</Link> to copy them here in one click.
-              </p>
-            )}
-            <ApplyQuestions jobId={job._id} form={job.applyForm} />
               </>
             ),
           },
