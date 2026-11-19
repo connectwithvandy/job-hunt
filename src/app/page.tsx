@@ -1,25 +1,23 @@
 "use client";
 
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { isArchived } from "@/lib/archive";
-import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
-import { companyKey, linkedInPeopleSearch } from "../../convex/lib/company";
-import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER, replyTiming } from "../../convex/lib/followups";
+import { companyKey } from "../../convex/lib/company";
+import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../convex/lib/followups";
 import { rankFit, SKIP_BELOW, TAILOR_FROM } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
-import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
+import { tallyBy } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useCelebrateNewWins, useSetStatus, WIN_WORDS } from "@/components/Celebrate";
-import { CompanyMark, DAY_STARTS_AT, FitBadge, likelyScore, ScorePill, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, DAY_STARTS_AT, FitBadge, likelyScore, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
 import { payText, useInrRates } from "@/lib/money";
 import { answerRank, justInterviewed, waitsForAnswer } from "@/lib/replies";
-import { ActionButton } from "@/components/ui";
 import { ReferralFollowUp } from "@/components/job-client";
 
 const DAY = 86_400_000;
@@ -119,9 +117,9 @@ export default function Today() {
     .sort((a, b) => (b.fit?.score ?? 0) - (a.fit?.score ?? 0))
     .slice(0, 2);
 
-  // Every three new noes, there's something new to learn from them.
-  const noes = countNoes(jobs, now);
-  const learn = noes >= 3 && (!me.lessons || noes - me.lessons.basedOn >= 3);
+  // One line about results; the full breakdown is on Applications. Under five results a rate means little.
+  const resulted = tallyBy(jobs, () => "all", now).get("all");
+  const replyRate = resulted && resulted.total >= SURE ? resulted : null;
   const interviewing = jobs.filter((j) => j.status === "interview");
 
   // What you've done since the day started (4 AM), so late nights still count and the day starts fresh each morning.
@@ -212,7 +210,8 @@ export default function Today() {
   const fixes: Todo[] = [
     ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
     // One line for scoring (19 Nov: new jobs and older ones were two lines saying the same thing).
-    ...(unscored.length ? [{ key: "score", verb: "Score", main: `Check the fit of ${unscored.length} ${unscored.length === 1 ? "job" : "jobs"} not scored yet`, sub: freshUnscored ? `${freshUnscored} found in the last day. The ~% is a first guess; the real score reads the whole job.` : "The ~% is a first guess; the real score reads the whole job.", href: "/jobs?fit=unscored" }] : []),
+    // The Jobs page scores up to 12 at a time, so the note promises 12, not every unscored job (19 Nov: "513 jobs").
+    ...(unscored.length ? [{ key: "score", verb: "Score", main: `Get real fit scores for your ${Math.min(SCORE_BATCH, unscored.length)} best new ${Math.min(SCORE_BATCH, unscored.length) === 1 ? "job" : "jobs"}`, sub: freshUnscored ? `${freshUnscored} found in the last day. The ~% is a first guess; the real score reads the whole job.` : "The ~% is a first guess; the real score reads the whole job.", href: "/jobs?fit=unscored" }] : []),
   ];
 
   // 3. Messages and applications with no answer yet.
@@ -382,7 +381,7 @@ export default function Today() {
           </Group>
         )}
         {worth.length > 0 && (
-          <Group label="Worth a look">
+          <Group label="Worth a look" more={{ href: "/companies?tab=startups", text: "All funded companies →" }}>
             <TodoList items={worth} plain group="Worth a look" />
           </Group>
         )}
@@ -390,10 +389,18 @@ export default function Today() {
           <div className="border-t border-line px-3 py-3 text-xs text-ink-3">
             {fixes.map((f) => (
               <p key={f.key}>
-                {f.main}.{" "}
-                <Link href={f.href} className="text-ink-2 underline hover:text-ink">
-                  {f.key === "score" ? "Get real scores" : "Fix the role"}
-                </Link>
+                {f.key === "score" ? (
+                  <Link href={f.href} className="text-ink-2 underline hover:text-ink">
+                    {f.main}
+                  </Link>
+                ) : (
+                  <>
+                    {f.main}.{" "}
+                    <Link href={f.href} className="text-ink-2 underline hover:text-ink">
+                      Fix the role
+                    </Link>
+                  </>
+                )}
               </p>
             ))}
           </div>
@@ -412,15 +419,15 @@ export default function Today() {
         </Link>
       </p>
 
-      <details className="mt-8">
-        <summary className="cursor-pointer text-sm text-ink-2 hover:text-ink">
-          See more: what&apos;s working{learn ? ` (${noes} noes and silences to learn from)` : ""}, newly funded companies
-        </summary>
-        <div className="mt-6">
-          <WhatsWorking jobs={jobs} tracks={me.tracks} lessons={me.lessons} />
-          <JustRaised prospects={prospects ?? []} />
-        </div>
-      </details>
+      {/* What's working lives on Applications now; Today keeps one line about it (19 Nov: a fold at the very bottom). */}
+      {replyRate && (
+        <p className="mt-2 px-1 text-sm text-ink-3">
+          {replyRate.responses} of {replyRate.total} applications with a result got a reply ({Math.round((replyRate.responses / replyRate.total) * 100)}%).{" "}
+          <Link href="/tracker#working" className="text-ink-2 underline hover:text-ink">
+            See what&apos;s working
+          </Link>
+        </p>
+      )}
 
     </div>
   );
@@ -576,54 +583,78 @@ function Group({ label, more, children }: { label: string; more?: { text: string
 
 /** Started-but-not-sent first (closest to done), then the best new jobs: logo or fit ring, "Company · title", one line
  *  of detail, one button. Five rows, the rest one tap away. Pay only when the posting lists it. */
+const STARTED_SHOWN = 2;
+
 function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"jobs">[]; verbFor: (j: Doc<"jobs">) => string }) {
   const setStatus = useMutation(api.jobs.setStatus);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [all, setAll] = useState(false);
   const rates = useInrRates();
-  const rows = [...ready.map((j) => ({ j, started: true })), ...jobs.filter((j) => !skipped.has(j._id)).map((j) => ({ j, started: false }))];
-  if (!rows.length) return null;
-  const shown = all ? rows : rows.slice(0, SHOWN);
+  // Two started applications, then the rest as one line, so new jobs aren't pushed out of sight (19 Nov: four rows).
+  const started = ready.slice(0, STARTED_SHOWN);
+  const moreStarted = ready.slice(STARTED_SHOWN);
+  const fresh = jobs.filter((j) => !skipped.has(j._id));
+  if (!started.length && !moreStarted.length && !fresh.length) return null;
+  // The started rows and the "more started" line always show; new jobs fill the list up to five rows.
+  const room = Math.max(1, SHOWN - started.length - (moreStarted.length ? 1 : 0));
+  const shownFresh = all ? fresh : fresh.slice(0, room);
+  const row = (j: Doc<"jobs">, isStarted: boolean) => {
+    const verb = verbFor(j);
+    const pay = payText(j.salary, rates);
+    return (
+      <li key={j._id} className="flex flex-wrap items-center gap-3 px-3 py-3">
+        {isStarted ? <CompanyMark job={j} size={36} /> : <FitBadge job={j} size={36} />}
+        <Link href={`/jobs/${j._id}`} className="min-w-0 flex-1 basis-48">
+          <span className="block truncate text-sm font-medium">
+            {j.company} · {j.title}
+          </span>
+          <span className="block truncate text-xs text-ink-2">
+            {isStarted ? "Started, not sent yet" : [pay, j.location, j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
+          </span>
+        </Link>
+        {!isStarted && (
+          <button
+            type="button"
+            className="px-2 text-sm text-ink-3 hover:text-ink"
+            onClick={() => {
+              setSkipped(new Set([...skipped, j._id]));
+              void setStatus({ jobId: j._id, status: "dismissed" }).catch(() => {});
+            }}
+          >
+            Skip
+          </button>
+        )}
+        <Link href={`/jobs/${j._id}`} className="btn btn-primary btn-sm shrink-0">
+          {/* One rule per state: started and not sent, no real score yet, no CV for this job yet, CV ready. */}
+          {isStarted ? "Finish" : verb === "Check" ? "Check the fit" : j.hasPack || j.pack ? "Apply" : "Write my CV"}
+        </Link>
+      </li>
+    );
+  };
   return (
     <>
       <ul className="divide-y divide-line">
-        {shown.map(({ j, started }) => {
-          const verb = verbFor(j);
-          const pay = payText(j.salary, rates);
-          return (
-            <li key={j._id} className="flex flex-wrap items-center gap-3 px-3 py-3">
-              {started ? <CompanyMark job={j} size={36} /> : <FitBadge job={j} size={36} />}
-              <Link href={`/jobs/${j._id}`} className="min-w-0 flex-1 basis-48">
-                <span className="block truncate text-sm font-medium">
-                  {j.company} · {j.title}
-                </span>
-                <span className="block truncate text-xs text-ink-2">
-                  {started ? "Started, not sent yet" : [pay, j.location, j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
-                </span>
-              </Link>
-              {!started && (
-                <button
-                  type="button"
-                  className="px-2 text-sm text-ink-3 hover:text-ink"
-                  onClick={() => {
-                    setSkipped(new Set([...skipped, j._id]));
-                    void setStatus({ jobId: j._id, status: "dismissed" }).catch(() => {});
-                  }}
-                >
-                  Skip
-                </button>
-              )}
-              <Link href={`/jobs/${j._id}`} className="btn btn-primary btn-sm shrink-0">
-                {/* One rule per state: started and not sent, no real score yet, no CV for this job yet, CV ready. */}
-                {started ? "Finish" : verb === "Check" ? "Check the fit" : j.hasPack || j.pack ? "Apply" : "Write my CV"}
-              </Link>
-            </li>
-          );
-        })}
+        {started.map((j) => row(j, true))}
+        {moreStarted.length > 0 && (
+          <li className="flex flex-wrap items-center gap-3 px-3 py-3">
+            <CompanyMark job={moreStarted[0]} size={36} />
+            <Link href="/tracker" className="min-w-0 flex-1 basis-48">
+              <span className="block truncate text-sm font-medium">
+                {moreStarted.length} more started, not sent: {moreStarted.slice(0, 2).map((j) => j.company).join(", ")}
+                {moreStarted.length > 2 ? " and more" : ""}
+              </span>
+              <span className="block truncate text-xs text-ink-2">Finish them from Applications</span>
+            </Link>
+            <Link href="/tracker" className="btn btn-sm shrink-0">
+              See them
+            </Link>
+          </li>
+        )}
+        {shownFresh.map((j) => row(j, false))}
       </ul>
-      {rows.length > SHOWN && (
+      {fresh.length > room && (
         <button type="button" className="px-3 py-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
-          {all ? "Show fewer" : `Show ${rows.length - SHOWN} more`}
+          {all ? "Show fewer" : `Show ${fresh.length - room} more`}
         </button>
       )}
     </>
@@ -691,10 +722,10 @@ function TodoRow({ t, arrow, group }: { t: Todo; arrow: string; group?: string }
 }
 
 const SHOWN = 5;
+/** How many jobs one "Get real fit scores" press scores on the Jobs page. */
+const SCORE_BATCH = 12;
 /** A percentage means something from this many results; below it, "1 of 3" says it honestly. */
 const SURE = 5;
-/** Splits by role, fit score and habit need this many results before they show a pattern (13 Nov: 9 results showed noise). */
-const PATTERNS = 10;
 
 /** The first five things to do, the rest one tap away: more read as a wall (13 Nov). */
 function TodoList({ items, plain, group }: { items: Todo[]; plain?: boolean; group?: string }) {
@@ -742,153 +773,6 @@ function greeting() {
   return h < DAY_STARTS_AT ? "Good evening" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-/** Which roles and which fit scores actually get replies, from every application with a known result. */
-const SOURCE_LABELS: Record<string, string> = {
-  careers: "Company careers boards",
-  dreamwork: "Job boards",
-  jsearch: "Job boards",
-  adzuna: "Job boards",
-  himalayas: "Job boards",
-  hn: "Job boards",
-  email: "From your email",
-  linkedin: "LinkedIn jobs",
-  link: "Added by you",
-  pasted: "Added by you",
-  post: "LinkedIn posts",
-};
-
-type Lessons = NonNullable<NonNullable<FunctionReturnType<typeof api.users.me>>["lessons"]>;
-
-function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; tracks: Doc<"tracks">[]; lessons: Lessons | null }) {
-  const [now] = useState(() => Date.now());
-  const { total, byTrack, byBand } = tallyOutcomes(jobs, jobTrackKey, now);
-  if (!total) return null;
-  const rate = (t: Tally) => Math.round((t.responses / t.total) * 100);
-  const line = (label: string, t: Tally | undefined, color?: string) =>
-    t && (
-      <li key={label} className="flex items-center justify-between gap-3 py-2 text-sm">
-        <span className="flex items-center gap-2">
-          {color && <span className="h-2 w-2 rounded-full" style={{ background: color }} />}
-          {label}
-        </span>
-        <span className="tabular-nums text-ink-2">
-          {t.responses} of {t.total} replied {t.total >= SURE && <b className="ml-1 text-ink">{rate(t)}%</b>}
-        </span>
-      </li>
-    );
-  // The habits behind replies: asking for a referral, applying early, and where the job came from.
-  const referral = tallyBy(jobs, (j) => (j.outreach.some((o) => o.status !== "draft") ? "With a referral ask" : "Without one"), now);
-  const speed = tallyBy(
-    jobs,
-    (j) => {
-      const posted = j.postedAt ? new Date(j.postedAt).getTime() : NaN;
-      if (!j.appliedAt || !Number.isFinite(posted)) return null;
-      return j.appliedAt - posted <= 3 * DAY ? "Applied within 3 days of posting" : "Applied later";
-    },
-    now,
-  );
-  const anyway = jobs.some((j) => j.wroteAnyway) ? tallyBy(jobs, (j) => (j.wroteAnyway ? "Wrote it anyway" : "Above the line"), now) : new Map<string, Tally>();
-  const source = tallyBy(jobs, (j) => SOURCE_LABELS[j.source] ?? null, now);
-  const habits = [...referral, ...speed, ...anyway];
-  // Messages you marked sent, and whether a reply came to the first message or to a follow-up.
-  const threads = jobs.flatMap((j) => [
-    ...j.outreach.map((o) => ({ kind: "Referral asks", sentAt: o.status === "draft" ? undefined : (o.sentAt ?? 1), replied: o.status === "replied" || o.status === "referred", followUps: o.followUps })),
-    ...(j.hiringContacts ?? []).map((c) => ({ kind: c.channel === "email" ? "Emails to hiring managers" : "LinkedIn notes to hiring managers", sentAt: c.sentAt, replied: !!c.repliedAt, followUps: c.followUps })),
-  ]);
-  const kinds = ["Referral asks", "LinkedIn notes to hiring managers", "Emails to hiring managers"].map((k) => {
-    const t = threads.filter((x) => x.kind === k && x.sentAt);
-    return [k, { total: t.length, responses: t.filter((x) => x.replied).length }] as const;
-  });
-  const timing = replyTiming(threads);
-  // Asking for a call against just putting yourself on their radar, to see which your readers answer.
-  const contacted = jobs.flatMap((j) => (j.hiringContacts ?? []).filter((c) => c.sentAt && c.asked !== undefined));
-  const askSplit = (["With an ask", "On your radar, no ask"] as const).map((label) => {
-    const t = contacted.filter((c) => c.asked === (label === "With an ask"));
-    return [label, { total: t.length, responses: t.filter((c) => c.repliedAt).length }] as const;
-  });
-  return (
-    <section id="whats-working" className="mb-12 scroll-mt-6">
-      <h2 className="display mb-1 text-3xl">What&apos;s working</h2>
-      <p className="mb-4 text-sm text-ink-3">
-        From {total} application{total > 1 ? "s" : ""} with a result: a reply, a no, or silence after {SILENT_AFTER / 86_400_000} days.{" "}
-        {total >= 3 ? "Fit scores now lean toward what gets replies." : "After three results, fit scores start learning from them too."}
-      </p>
-      <LessonsCard jobs={jobs} lessons={lessons} now={now} />
-      {total >= PATTERNS ? (
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card p-5">
-          <h3 className="font-medium">By role</h3>
-          <ul className="divide-y divide-line">{tracks.map((t) => line(t.name, byTrack.get(t.key), t.color))}</ul>
-        </div>
-        <div className="card p-5">
-          <h3 className="font-medium">By fit score</h3>
-          <ul className="divide-y divide-line">{BANDS.map((b) => line(b.label, byBand.get(b.key)))}</ul>
-        </div>
-        <div className="card p-5">
-          <h3 className="font-medium">By how you applied</h3>
-          <ul className="divide-y divide-line">{habits.map(([label, t]) => line(label, t))}</ul>
-        </div>
-        <div className="card p-5">
-          <h3 className="font-medium">By message</h3>
-          <ul className="divide-y divide-line">{[...kinds, ...askSplit].filter(([, t]) => t.total).map(([label, t]) => line(label, t))}</ul>
-          {timing.toFirst + timing.toFollowUp > 0 && (
-            <p className="mt-2 text-xs text-ink-3">
-              {timing.toFollowUp} of {timing.toFirst + timing.toFollowUp} replies came after a follow-up.
-            </p>
-          )}
-        </div>
-        <div className="card p-5">
-          <h3 className="font-medium">By where you found it</h3>
-          <ul className="divide-y divide-line">{[...source].map(([label, t]) => line(label, t))}</ul>
-        </div>
-      </div>
-      ) : (
-        <p className="text-sm text-ink-3">Patterns by role, fit score and habit show after {PATTERNS} results. You have {total}.</p>
-      )}
-    </section>
-  );
-}
-
-const KIND_WORDS = { cv: "Show it on your CV", skill: "Build it", targeting: "Aim differently" };
-
-/** The gaps that keep coming up in your noes, read by AI once there are enough of them. */
-function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Lessons | null; now: number }) {
-  const learn = useAction(api.agent.learnFromNoes);
-  const noes = countNoes(jobs, now);
-  if (noes < 3 && !lessons) {
-    return <p className="card mb-4 p-5 text-sm text-ink-2">After three noes or silences, JobPipe reads them together and names the gap that keeps costing you. {noes} so far.</p>;
-  }
-  const fresh = lessons && noes - lessons.basedOn < 3;
-  return (
-    <div className="card mb-4 border-accent p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-medium">What keeps costing you</h3>
-        <ActionButton run={async () => void (await learn())} pending="Reading your noes…" variant={fresh ? "ghost" : "primary"} size="sm">
-          {lessons ? (fresh ? "Read again" : `Read the ${noes - lessons.basedOn} new ones`) : `Read my ${noes} noes`}
-        </ActionButton>
-      </div>
-      {lessons ? (
-        <>
-          <p className="mt-2 text-sm">{lessons.summary}</p>
-          <ol className="mt-3 space-y-3 text-sm">
-            {lessons.items.map((i) => (
-              <li key={i.gap}>
-                <div className="font-medium">
-                  {i.gap} <span className="text-xs font-normal text-ink-3">· in {i.seen} applications · {KIND_WORDS[i.kind]}</span>
-                </div>
-                <p className="text-ink-2">{i.fix}</p>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-3 text-xs text-ink-3">From {lessons.basedOn} noes and silences, {timeAgo(lessons.at)}.</p>
-        </>
-      ) : (
-        <p className="mt-2 text-sm text-ink-2">You have {noes} noes and silences. One read finds the gaps that come up again and again, and what to do about each.</p>
-      )}
-    </div>
-  );
-}
-
 /** The morning search-and-score switch, and what the last run found. */
 function Autopilot({ on, last, now, found, strongNow }: { now: number; on: boolean; found: number; strongNow: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
@@ -919,48 +803,6 @@ function Autopilot({ on, last, now, found, strongNow }: { now: number; on: boole
         </Link>
       )}
     </p>
-  );
-}
-
-/** Companies that raised money in the last two weeks: worth a note to the founder, role or no role. */
-function JustRaised({ prospects }: { prospects: Doc<"prospects">[] }) {
-  const fresh = prospects
-    .filter((p) => p.source === "funded" && p.status === "new" && msSince(p._creationTime) < 14 * DAY)
-    .sort((a, b) => (b.fit?.score ?? 0) - (a.fit?.score ?? 0))
-    .slice(0, 5);
-  if (!fresh.length) return null;
-  return (
-    <section className="card mb-10 p-5">
-      <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">Just raised money</h2>
-        <Link href="/companies" className="text-sm text-ink-3 hover:text-ink">
-          All companies
-        </Link>
-      </div>
-      <p className="mb-3 text-sm text-ink-2">Fresh funding means hiring soon. Reach the founder or sales leader now, before a role is posted.</p>
-      <ul className="divide-y divide-line">
-        {fresh.map((p) => (
-          <li key={p._id} className="flex items-start justify-between gap-3 py-3">
-            <div className="min-w-0">
-              <div className="font-medium">
-                {p.name} <span className="text-sm font-normal text-ink-2">{p.oneLiner}</span>
-              </div>
-              <div className="text-xs text-ink-3">{p.funding}</div>
-              {p.fit && <div className="mt-1 text-sm text-ink-2">Angle: {p.fit.angle}</div>}
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1">
-              <ScorePill score={p.fit?.score} />
-              <Link href={`/companies?open=${p._id}`} className="text-xs font-medium text-accent hover:underline">
-                Reach out →
-              </Link>
-              <a className="text-xs text-ink-3 underline hover:text-ink" href={linkedInPeopleSearch(p.name, "Founder")} target="_blank" rel="noreferrer">
-                Find founders ↗
-              </a>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 

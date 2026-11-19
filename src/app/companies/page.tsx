@@ -33,7 +33,10 @@ export default function CompaniesPage() {
 function Companies() {
   const rows = useQuery(api.prospects.list);
   // ?open=<id> comes from Reach out on the Today page: show that company with its outreach open.
-  const openId = useSearchParams().get("open");
+  const params = useSearchParams();
+  const openId = params.get("open");
+  // Today's "All funded companies" link opens the Startups tab.
+  const tabParam = params.get("tab") === "startups" ? "startups" : null;
   const findYc = useAction(api.agent.findYcCompanies);
   const findFunded = useAction(api.agent.findFunded);
   const findVcs = useAction(api.agent.findFromVcs);
@@ -52,7 +55,7 @@ function Companies() {
   const [newName, setNewName] = useState("");
   const target = rows?.find((r) => r._id === openId);
   // Until you pick a tab or filter yourself, follow the company the link points at.
-  const tab = pickedTab ?? (target && !target.dream ? "startups" : "dream");
+  const tab = pickedTab ?? tabParam ?? (target && !target.dream ? "startups" : "dream");
   const show = pickedShow ?? target?.status ?? "new";
   useEffect(() => {
     if (target) document.getElementById(`company-${target._id}`)?.scrollIntoView({ block: "center" });

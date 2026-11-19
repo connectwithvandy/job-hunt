@@ -13,6 +13,7 @@ import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
 import { trackerStatus } from "@/lib/replies";
 import { cleanSubject } from "@/lib/calendarInvite";
+import { WhatsWorking } from "@/components/WhatsWorking";
 
 export default function Tracker() {
   const me = useQuery(api.users.me);
@@ -137,6 +138,8 @@ export default function Tracker() {
           );
         })}
       </div>
+      {/* What gets replies, moved here from Today (19 Nov): results belong next to the applications they come from. */}
+      <WhatsWorking jobs={jobs} tracks={me.tracks} lessons={me.lessons} />
     </div>
   );
 }
