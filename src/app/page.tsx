@@ -12,7 +12,7 @@ import { openTo, readPlace } from "../../convex/lib/sources";
 import { BANDS, SILENT_AFTER, countNoes, tallyBy, tallyOutcomes, type Tally } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useCelebrateNewWins, WIN_WORDS } from "@/components/Celebrate";
-import { DAY_STARTS_AT, likelyScore, ScorePill, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, DAY_STARTS_AT, likelyScore, ScorePill, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
@@ -178,14 +178,14 @@ export default function Today() {
       sub: [j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : `Found ${timeAgo(new Date(j._creationTime).toISOString())}`, bestScore(j) ? `Fit ${bestScore(j)!.score}` : `First guess ~${likelyScore(j.quickFit ?? 0)}, not scored yet`].join(" · "),
       href: `/jobs/${j._id}`,
     }));
+  // AI-scored jobs first, new then older; first guesses after them, never ahead of a real score.
+  const bestNew = [...freshScored.slice(0, 8), ...older, ...freshGuessed.slice(0, Math.max(0, 8 - freshScored.length))];
+  void applyNew;
   const apply: Todo[] = [
     ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
     // The free first guess is rough, so scoring comes before applying.
     ...(freshUnscored ? [{ key: "scorefresh", verb: "Score", main: `Score the ${freshUnscored} likeliest ${freshUnscored === 1 ? "job" : "jobs"} found in the last day`, sub: "The first guess only reads titles and words; the AI score reads the whole job", href: "/jobs?sort=added" }] : []),
-    // AI-scored jobs first, new then older; first guesses after them, never ahead of a real score.
-    ...applyNew(freshScored.slice(0, 8)),
-    ...older.map((j) => ({ key: `s${j._id}`, verb: verbFor(j), main: `${j.title} at ${j.company}`, sub: `Fit ${bestScore(j)!.score}, found ${timeAgo(new Date(j._creationTime).toISOString())}`, href: `/jobs/${j._id}` })),
-    ...applyNew(freshGuessed.slice(0, Math.max(0, 8 - freshScored.length))),
+    // The jobs themselves show as cards above the list (bestNew); here only the setup steps around them.
     ...(unscored.length > freshUnscored ? [{ key: "score", verb: "Score", main: `${unscored.length - freshUnscored} older ${unscored.length - freshUnscored === 1 ? "job" : "jobs"} not scored yet`, sub: "See which ones are worth your time", href: "/jobs?sort=added" }] : []),
   ];
 
@@ -224,7 +224,7 @@ export default function Today() {
   const bestToOpen = [...jobs].filter((j) => j.status === "new" || j.status === "applying").sort((a, b) => fit(b) - fit(a))[0];
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-5xl">
       <header className="mb-8">
         <p className="text-sm text-ink-3">{new Date(dayStart(now)).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
         <h1 className="display mt-1 text-4xl uppercase md:text-5xl">
@@ -294,17 +294,13 @@ export default function Today() {
         </section>
       )}
 
-      <Step n={1} title={answer.some((t) => t.verb === "Reply" || t.verb === "Apply") ? "Answer people who wrote back" : "Replies and interviews"} items={answer} empty="No one waiting on a reply from you." />
-      <Step n={2} title="Apply to new jobs" items={apply} empty="Nothing new that fits in the last 24 hours. Run a search on the Jobs page." />
-      <Step n={3} title="Follow-ups to do today" items={chase} empty="No follow-ups due today." />
+      <BestNew jobs={bestNew} verbFor={verbFor} />
       <Step
-        n={4}
-        title="Ask for referrals"
-        items={reach}
-        blocked={!me.contactsCount}
-        empty={me.contactsCount ? "You've asked at every company on your top 50 list." : "Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
+        n={1}
+        title="To do today"
+        items={[...answer, ...chase, ...reach, ...apply]}
+        empty={me.contactsCount ? "Nothing waiting on you. Open a job above, or ask for a referral on Referrals." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
       />
-
 
       {/* Closed unless opened: Today is the to-do list. New jobs are step 2, so they aren't listed again here (13 Nov). */}
       <Pipeline jobs={jobs} tracks={me.tracks} />
@@ -323,6 +319,63 @@ export default function Today() {
         {me.email} · {me.contactsCount.toLocaleString()} connections loaded
       </p>
     </div>
+  );
+}
+
+/** Today's best jobs as cards: fit, pay and place at a glance, Skip or the next step in one tap. */
+function BestNew({ jobs, verbFor }: { jobs: Doc<"jobs">[]; verbFor: (j: Doc<"jobs">) => string }) {
+  const setStatus = useMutation(api.jobs.setStatus);
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const shown = jobs.filter((j) => !skipped.has(j._id)).slice(0, 5);
+  return (
+    <section className="rise mb-8">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="display text-3xl">Best new jobs for you</h2>
+        <Link href="/jobs" className="text-sm text-ink-2 hover:text-ink">
+          All jobs →
+        </Link>
+      </div>
+      {shown.length === 0 ? (
+        <div className="card p-5 text-sm text-ink-2">Nothing new that fits in the last 24 hours. Tomorrow morning&apos;s search adds more, or search now on Jobs.</div>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {shown.map((j) => {
+            const best = bestScore(j);
+            const verb = verbFor(j);
+            return (
+              <li key={j._id} className="card flex flex-col p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <CompanyMark job={j} size={40} />
+                  {best ? <ScorePill score={best.score} /> : <span className="text-xs text-ink-3">~{likelyScore(j.quickFit ?? 0)} guess</span>}
+                </div>
+                <div className="mt-3 text-sm text-ink-2">{j.company}</div>
+                <Link href={`/jobs/${j._id}`} className="font-medium leading-snug hover:underline">
+                  {j.title}
+                </Link>
+                <div className="mt-2 text-xs text-ink-3">
+                  {[j.salary, j.location, j.postedAt ? `posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
+                </div>
+                <div className="mt-auto flex items-center gap-2 pt-4">
+                  <button
+                    type="button"
+                    className="px-2 text-sm text-ink-3 hover:text-ink"
+                    onClick={() => {
+                      setSkipped(new Set([...skipped, j._id]));
+                      void setStatus({ jobId: j._id, status: "dismissed" }).catch(() => {});
+                    }}
+                  >
+                    Skip
+                  </button>
+                  <Link href={`/jobs/${j._id}`} className="btn btn-primary btn-sm flex-1 justify-center">
+                    {verb === "Tailor" ? "Write my CV" : verb === "Check" ? "Check the fit" : "Apply"}
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -380,9 +433,7 @@ function Step({ n, title, items, empty, blocked }: { n: number; title: string; i
     // The steps fade up one after another when Today opens.
     <section className="rise mb-8" style={{ animationDelay: `${n * 90}ms` }}>
       <h2 className="mb-3 flex items-baseline gap-3">
-        <span className="display text-3xl">
-          {n}. {title}
-        </span>
+        <span className="display text-3xl">{title}</span>
         <span className="text-sm text-ink-3">{label}</span>
       </h2>
       {items.length ? <TodoList items={items} /> : <div className="card p-5 text-sm text-ink-2">{empty}</div>}
