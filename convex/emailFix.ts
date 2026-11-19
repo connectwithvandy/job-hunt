@@ -80,7 +80,11 @@ export const backfillMeetings = internalMutation({
     const out: { company: string; title: string; meetingEndAt: number }[] = [];
     const users = await ctx.db.query("users").take(1000);
     for (const u of users) {
-      const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", u._id)).order("desc").take(1000);
+      // Only jobs in motion can hold an interview invite; reading every job ran past the read limit.
+      const jobs = [];
+      for (const status of ["applied", "screening", "interview"] as const) {
+        jobs.push(...(await ctx.db.query("jobs").withIndex("by_userId_and_status", (q) => q.eq("userId", u._id).eq("status", status)).take(100)));
+      }
       for (const j of jobs) {
         if (j.lastEmail?.stage !== "interview" || j.meetingEndAt) continue;
         const emails = await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", j._id)).order("desc").take(20);
