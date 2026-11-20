@@ -165,8 +165,9 @@ async function linkedInPostJobs(ctx: ActionCtx, now: number): Promise<PostJob[]>
     .map((j) => ({ company: j.company, title: j.title, where: place(j.location, j.workSetting), url: j.applyUrl ?? j.url }));
 }
 
-/** Today's LinkedIn post: new SDR, AE and sales manager jobs with their links, ready to paste. Null when too few to post. */
-async function jobsPostSection(ctx: ActionCtx): Promise<string | null> {
+/** Today's LinkedIn post: new SDR, AE and sales manager jobs with their links. `post` is the public text alone,
+ * `section` wraps it for the owner's email. Null when too few to post. */
+async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section: string } | null> {
   const now = Date.now();
   const [boards, linkedIn]: [PostJob[], PostJob[]] = await Promise.all([ctx.runQuery(internal.growth.newSalesJobs, { now }), linkedInPostJobs(ctx, now)]);
   // Careers boards first: they link straight to the company. One role once, two per company at most.
@@ -195,12 +196,37 @@ ${[list("SDR / BDR", sdrs), list("AE and sales managers", closers)].filter(Boole
 I find these every morning with JobPipe, the tool I built for my own sales job hunt. It also scores each role against your CV and tailors the CV for you: https://jobpipe.in
 
 ${TAGS}`;
-  return `LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
+  const section = `LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
 ------------
 ${post}
 ------------`;
+  return { post, section };
 }
 const JOBS_PER_POST = 6;
+
+// Buffer posts to the owner's LinkedIn (meet-vandana). Set BUFFER_API_KEY in Convex to turn auto posting on.
+const BUFFER_LINKEDIN_CHANNEL = "6afde15bece6dfde5f0e978d";
+const POST_DELAY_MS = 15 * 60_000;
+
+/** Schedules today's jobs post on LinkedIn through Buffer, 15 minutes from now. Returns a line for the email. */
+async function scheduleOnBuffer(text: string, now: number): Promise<string> {
+  const key = env.BUFFER_API_KEY;
+  if (!key) return "Not posted automatically: BUFFER_API_KEY is not set. Paste it yourself.";
+  const dueAt = new Date(now + POST_DELAY_MS).toISOString();
+  const query = `mutation { createPost(input: { text: ${JSON.stringify(text)}, channelId: "${BUFFER_LINKEDIN_CHANNEL}", schedulingType: automatic, mode: customScheduled, dueAt: "${dueAt}" }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`;
+  const res = await fetch("https://api.buffer.com", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ query }),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | { data?: { createPost?: { post?: { id: string }; message?: string } }; errors?: { message: string }[] }
+    | null;
+  const id = body?.data?.createPost?.post?.id;
+  if (id) return `Scheduled on LinkedIn through Buffer for ${new Date(now + POST_DELAY_MS).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })} (Buffer post ${id}). No need to paste it.`;
+  const why = body?.data?.createPost?.message ?? body?.errors?.[0]?.message ?? `HTTP ${res.status}`;
+  return `Not posted automatically: Buffer said ${cut(why, 200)}. Paste it yourself.`;
+}
 
 /** Emails the owner a weekly post on sales roles that keep coming back, framed as a question to ask, not an accusation. */
 export const sendRepostPost = internalAction({
@@ -514,7 +540,11 @@ export const sendMorning = internalAction({
       parts.push(`WAITING TO BE LET IN (${waitingList.length}): ${appUrl()}/admin
 ${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not given"} · ${w.email}${w.linkedin ? ` · ${w.linkedin}` : ""}`).join("\n")}`);
     }
-    if (post) parts.push(post);
+    if (post) {
+      // Dry runs never post. A Buffer failure only changes the note: the email still carries the post to paste.
+      const note = dryRun ? "(Dry run: not sent to Buffer.)" : await scheduleOnBuffer(post.post, now).catch((err) => `Not posted automatically: ${cut(String(err), 200)}. Paste it yourself.`);
+      parts.push(`${post.section}\n${note}`);
+    }
     if (picked.length) {
       // A personal comment per person, written from their post; the plain one if that fails.
       const written: { comments: (string | null)[]; error?: string } = await ctx.runAction(internal.growthNotes.write, {

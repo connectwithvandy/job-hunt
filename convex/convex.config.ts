@@ -14,6 +14,8 @@ const app = defineApp({
     APP_URL: v.optional(v.string()),
     /** Reads LinkedIn posts through Apify (lib/apify.ts). The owner's account only, for now. */
     APIFY_TOKEN: v.optional(v.string()),
+    /** Posts the morning jobs post to the owner's LinkedIn through Buffer (growth.scheduleOnBuffer). Off when missing. */
+    BUFFER_API_KEY: v.optional(v.string()),
     /** Google Jobs through RapidAPI (lib/sources.ts). Off when missing. */
     JSEARCH_API_KEY: v.optional(v.string()),
     SUBSCRIBER_DAILY: v.optional(v.string()),

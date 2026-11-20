@@ -37,6 +37,7 @@ type Env = {
   readonly APIFY_OWNER_EXTRAS: string | undefined;
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
+  readonly BUFFER_API_KEY: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly FRESH_SCORING: string | undefined;
   readonly GOOGLE_CLIENT_ID: string | undefined;
