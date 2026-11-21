@@ -372,3 +372,40 @@ export const market = internalAction({
     };
   },
 });
+
+/** One member's recent jobs: how many have a real AI score, how many score 70+ (where Today says "Tailor"), and the best. */
+export const fitsFor = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.object({ scored: v.number(), s70: v.number(), best: v.number() }),
+  handler: async (ctx, { userId }) => {
+    const jobs = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(300);
+    let scored = 0, s70 = 0, best = 0;
+    for (const j of jobs) {
+      if (!j.scores?.length) continue;
+      const top = Math.max(...j.scores.map((s) => s.score));
+      scored++;
+      if (top >= 70) s70++;
+      best = Math.max(best, top);
+    }
+    return { scored, s70, best };
+  },
+});
+
+/**
+ * Why set-up members haven't tailored a CV: for each one with no tailored CV, their best real fit score and how many
+ * jobs reach 70. npx convex run --prod postStats:tailorGap '{}'
+ */
+export const tailorGap = internalAction({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const people: { userId: Id<"users">; email: string; lastSeenAt: number | null; tailored: number }[] = await ctx.runQuery(internal.postStats.reviewPeople, {});
+    const out = [];
+    for (const p of people) {
+      if (p.tailored) continue;
+      const f: { scored: number; s70: number; best: number } = await ctx.runQuery(internal.postStats.fitsFor, { userId: p.userId });
+      out.push({ email: p.email, lastSeenDaysAgo: p.lastSeenAt ? Math.round((Date.now() - p.lastSeenAt) / 86_400_000) : null, ...f });
+    }
+    return out;
+  },
+});
