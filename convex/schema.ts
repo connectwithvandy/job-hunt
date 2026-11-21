@@ -460,4 +460,11 @@ export default defineSchema({
   linkedinChats: defineTable({ userId: v.id("users"), ...chatRowV.fields })
     .index("by_userId_and_profileKey", ["userId", "profileKey"])
     .index("by_userId_and_nameKey", ["userId", "nameKey"]),
+
+  /**
+   * One morning's results from a job board with a small free quota (Adzuna), kept for everyone searching the same
+   * title in the same place that day: "SDR in Bengaluru" is one search, not one per member (21 Nov: ~90 people's own
+   * searches used up Adzuna's free plan). `jobs` is JSON. A row with `blocked` marks the board as out of searches.
+   */
+  sourceCache: defineTable({ key: v.string(), jobs: v.string(), fetchedAt: v.number(), blocked: v.optional(v.boolean()) }).index("by_key", ["key"]),
 });

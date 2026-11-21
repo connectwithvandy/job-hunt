@@ -101,6 +101,7 @@ import type * as serviceCheck from "../serviceCheck.js";
 import type * as setupHelp from "../setupHelp.js";
 import type * as setupHelpData from "../setupHelpData.js";
 import type * as shoutout from "../shoutout.js";
+import type * as sourceCache from "../sourceCache.js";
 import type * as stats from "../stats.js";
 import type * as stories from "../stories.js";
 import type * as subscriberSend from "../subscriberSend.js";
@@ -209,6 +210,7 @@ declare const fullApi: ApiFromModules<{
   setupHelp: typeof setupHelp;
   setupHelpData: typeof setupHelpData;
   shoutout: typeof shoutout;
+  sourceCache: typeof sourceCache;
   stats: typeof stats;
   stories: typeof stories;
   subscriberSend: typeof subscriberSend;

@@ -322,16 +322,33 @@ function openToIndianCity(name: string, where: string, remote: boolean, title: s
   return remote && /\b(worldwide|global|apac|apj|asia)\b/.test(text);
 }
 
+/**
+ * Runs one quota-limited board search, or hands back a saved copy. The agent passes one that keeps each day's
+ * results for everyone (sourceCache); without it, every call goes to the board.
+ */
+export type CachedSearch = (source: "adzuna", title: string, placeKey: string, search: () => Promise<Found[]>) => Promise<Found[]>;
+
+/**
+ * Titles worth a search on a board with a small quota: short forms like "SDR" or "BDR" are left out, since the
+ * full name ("Sales Development Representative") already finds those roles in the posting's text.
+ */
+export function quotaTitles(titles: string[]) {
+  const full = titles.filter((t) => !/^[A-Z]{2,4}$/.test(t.trim()));
+  return full.length ? full : titles;
+}
+
 /** Jobs from the other boards, and the names of any board that didn't answer. */
-export async function searchOtherSources(titles: string[], location: string, googleTitles = 2, adzunaTitles = 4): Promise<{ jobs: Found[]; failed: string[] }> {
+export async function searchOtherSources(titles: string[], location: string, googleTitles = 2, adzunaTitles = 4, cached?: CachedSearch): Promise<{ jobs: Found[]; failed: string[] }> {
   const place = readPlace(location);
+  const placeKey = place.kind === "place" ? `${place.country ?? ""}:${place.name.toLowerCase()}` : place.kind;
+  const quota = quotaTitles(titles);
   // JSearch's free plan is about 200 searches a month and Adzuna's about 2,500, so they take a few titles a day,
   // a different few each day, and every title gets its turn within the week.
   const day = Math.floor(Date.now() / 86_400_000);
-  const turn = (n: number) => (titles.length <= n ? titles : Array.from({ length: n }, (_, i) => titles[(day * n + i) % titles.length]));
+  const turn = (n: number, list = titles) => (list.length <= n ? list : Array.from({ length: n }, (_, i) => list[(day * n + i) % list.length]));
   const calls: [string, Promise<Found[]>][] = [
     ...turn(googleTitles).map((t): [string, Promise<Found[]>] => ["Google Jobs", jsearch(t, place)]),
-    ...turn(adzunaTitles).map((t): [string, Promise<Found[]>] => ["Adzuna", adzuna(t, place)]),
+    ...turn(adzunaTitles, quota).map((t): [string, Promise<Found[]>] => ["Adzuna", cached ? cached("adzuna", t, placeKey, () => adzuna(t, place)) : adzuna(t, place)]),
     // Dreamwork, Himalayas and Hacker News are free, so they search every title; Google and Adzuna have quotas.
     ...titles.slice(0, 16).map((t): [string, Promise<Found[]>] => ["Himalayas", himalayas(t, place)]),
     ...titles.slice(0, 16).map((t): [string, Promise<Found[]>] => ["Hacker News", hackerNews(t, place)]),

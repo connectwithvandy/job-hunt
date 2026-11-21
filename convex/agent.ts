@@ -25,7 +25,8 @@ import { inBengaluru, remoteForIndia } from "./lib/places";
 import { companyListings, dreamworkIdFromUrl, getListing, listingGone, searchListings, type Listing } from "./lib/dreamwork";
 import { cvMatch } from "./lib/cvMatch";
 import { withCompanyLinks } from "./lib/directLink";
-import { htmlToText, openTo, readPlace, searchOtherSources, searchPlace, titleMatches, type Found } from "./lib/sources";
+import { htmlToText, openTo, readPlace, searchOtherSources, searchPlace, titleMatches, type CachedSearch, type Found } from "./lib/sources";
+import { BLOCK_MS, FRESH_MS } from "./sourceCache";
 import type { jobV, liveCheckV, resumeV } from "./lib/validators";
 import { prospectV } from "./lib/validators";
 
@@ -337,6 +338,30 @@ async function saveJobs(ctx: ActionCtx, userId: Id<"users">, jobs: NewJob[]): Pr
 }
 
 /**
+ * Quota-limited boards searched once a day per title and place for everyone (sourceCache), not once per member.
+ * When the board says it's out of searches, nobody asks it again for a few hours.
+ */
+function sharedSearch(ctx: ActionCtx): CachedSearch {
+  return async (source, title, placeKey, search) => {
+    const key = `${source}|${title.toLowerCase()}|${placeKey}`;
+    const blockKey = `${source}|out-of-searches`;
+    const now = Date.now();
+    const block: { fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key: blockKey });
+    const saved: { jobs: string; fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key });
+    if (saved && now - saved.fetchedAt < FRESH_MS) return JSON.parse(saved.jobs) as Found[];
+    if (block && now - block.fetchedAt < BLOCK_MS) throw new Error(`${source} is out of searches for now`);
+    try {
+      const jobs = await search();
+      await ctx.runMutation(internal.sourceCache.put, { key, jobs: JSON.stringify(jobs) });
+      return jobs;
+    } catch (err) {
+      if (/\b429\b/.test(String(err))) await ctx.runMutation(internal.sourceCache.put, { key: blockKey, jobs: "[]", blocked: true });
+      throw err;
+    }
+  };
+}
+
+/**
  * Searches every board for one track and saves the new roles. Returns how many were new, and which boards didn't answer.
  * `linkedin` also reads LinkedIn's listings from that far back; only the owner's account pays for it.
  */
@@ -350,7 +375,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
-            searchOtherSources(track.titles, searchPlace(location), google, adzunaTitles),
+            searchOtherSources(track.titles, searchPlace(location), google, adzunaTitles, sharedSearch(ctx)),
             careerMatches(ctx, track.titles, location),
             linkedin && env.APIFY_TOKEN ? linkedInMatches(track.titles, searchPlace(location), linkedin) : Promise.resolve({ jobs: [], failed: false }),
           ]).then(([other, careers, li]): [Found[], string[]] => [[...other.jobs, ...careers, ...li.jobs], [...other.failed, ...(li.failed ? ["LinkedIn"] : [])]]),
