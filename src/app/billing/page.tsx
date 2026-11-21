@@ -150,7 +150,15 @@ export default function Billing() {
           }
           note={(key) => {
             const promo = promoOf(key);
-            return promo ? <p className={`mt-2 text-xs ${promo.ok ? "text-good" : "text-ink-3"}`}>{promo.ok ? `Code ${applied}: ${promo.message}` : promo.message}</p> : null;
+            if (promo) return <p className={`mt-2 text-xs ${promo.ok ? "text-good" : "text-ink-3"}`}>{promo.ok ? `Code ${applied}: ${promo.message}` : promo.message}</p>;
+            const invite = status.invite;
+            if (!invite) return null;
+            return (
+              <p className="mt-2 text-xs text-good">
+                {invite.percentOff}% off, ₹{invite[key].toLocaleString("en-IN")}:{" "}
+                {invite.why === "friend" ? "you joined through a friend's link." : "a friend you invited joined and paid. Thank you!"}
+              </p>
+            );
           }}
           action={(key) => {
             const promo = promoOf(key);
@@ -163,7 +171,7 @@ export default function Billing() {
                     ? "Use my code"
                     : covered
                       ? { week: "Add a week", month: "Add 1 month", pass: "Add 3 months" }[key]
-                      : `Pay ₹${(promo?.ok ? promo.rupees : status.prices[key].rupees).toLocaleString("en-IN")}`}
+                      : `Pay ₹${(promo?.ok ? promo.rupees : status.invite ? status.invite[key] : status.prices[key].rupees).toLocaleString("en-IN")}`}
               </button>
             );
           }}

@@ -122,3 +122,48 @@ test("promo codes: owner makes one, a member sees the price, a 100% code turns t
   const codes = await asOwner.query(api.payments.promoList, {});
   expect(codes.find((c) => c.code === "SAASPIRE")!.uses).toBe(1);
 });
+
+test("invite: the friend gets 20% off until they pay; their first payment earns the inviter one 20% credit", async () => {
+  const t = setup();
+  const inviter = await member(t, "inviter@example.com");
+  const friend = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { email: "friend@example.com" });
+    await ctx.db.insert("access", { userId, email: "friend@example.com", approved: true, invitedBy: inviter });
+    return userId;
+  });
+  const facts = await t.query(internal.payments.orderFacts, { userId: friend });
+  expect(facts.invite).toBe("friend");
+  expect((await t.query(internal.payments.orderFacts, { userId: inviter })).invite).toBe(null);
+
+  await t.mutation(internal.payments.recordOrder, { userId: friend, orderId: "o_f", plan: "pass", amount: 79_900, founding: true, invite: "friend" });
+  await t.mutation(internal.payments.markPaid, { orderId: "o_f", paymentId: "p_f" });
+  // Paid once: no more friend discount, and the inviter has one credit.
+  expect((await t.query(internal.payments.orderFacts, { userId: friend })).invite).toBe(null);
+  expect((await t.query(internal.payments.orderFacts, { userId: inviter })).invite).toBe("inviter");
+  // Paying again doesn't earn a second credit.
+  await t.mutation(internal.payments.recordOrder, { userId: friend, orderId: "o_f2", plan: "month", amount: 49_900, founding: true });
+  await t.mutation(internal.payments.markPaid, { orderId: "o_f2", paymentId: "p_f2" });
+  const credits = () => t.run(async (ctx) => (await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", inviter)).unique())?.inviteCredits ?? 0);
+  expect(await credits()).toBe(1);
+
+  // The inviter uses the credit on a purchase.
+  await t.mutation(internal.payments.recordOrder, { userId: inviter, orderId: "o_i", plan: "pass", amount: 79_900, founding: true, invite: "inviter" });
+  await t.mutation(internal.payments.markPaid, { orderId: "o_i", paymentId: "p_i" });
+  expect(await credits()).toBe(0);
+  expect((await t.query(internal.payments.orderFacts, { userId: inviter })).invite).toBe(null);
+});
+
+test("invite: a free 100%-off code earns the inviter nothing", async () => {
+  const t = setup();
+  const inviter = await member(t, "inv2@example.com");
+  const friend = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { email: "f2@example.com" });
+    await ctx.db.insert("access", { userId, email: "f2@example.com", approved: true, invitedBy: inviter });
+    return userId;
+  });
+  await t.mutation(internal.payments.recordOrder, { userId: friend, orderId: "o_free", plan: "month", amount: 0, founding: false });
+  await t.mutation(internal.payments.markPaid, { orderId: "o_free", paymentId: "promo:X" });
+  expect((await t.query(internal.payments.orderFacts, { userId: inviter })).invite).toBe(null);
+  // A ₹0 order isn't a real payment, so the friend keeps their discount.
+  expect((await t.query(internal.payments.orderFacts, { userId: friend })).invite).toBe("friend");
+});

@@ -419,6 +419,8 @@ export const mine = query({
       canEdit: !!row,
       alertsOff: !!row?.alertsOff,
       inviteCode: row?.inviteCode ?? null,
+      // 20%-off credits from invited friends who paid, not yet used.
+      inviteCredits: row?.inviteCredits ?? 0,
       // How many people signed up through their invite link.
       invited: row ? (await ctx.db.query("access").withIndex("by_invitedBy", (q) => q.eq("invitedBy", userId)).take(100)).length : 0,
     };

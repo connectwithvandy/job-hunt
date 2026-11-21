@@ -17,6 +17,8 @@ export const PLANS = {
   /** Group seats for sales communities, bootcamps and outplacement, per seat per month. */
   seat: 599,
   minSeats: 10,
+  /** "Invite a friend": the friend gets this much off their first purchase; the inviter gets it off one purchase per friend who pays. */
+  invitePercentOff: 20,
 };
 
 export type PlanKey = "week" | "month" | "pass";

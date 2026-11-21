@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { PLANS } from "../../convex/lib/plans";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Five places, each with the pages that belong together shown as tabs at the top. */
@@ -97,7 +98,7 @@ export function ProfileMenu() {
 /**
  * Share JobPipe with a friend who's looking. On a computer: our own small box with the link, Copy and the usual
  * apps (Safari's system share menu popped up on a laptop and looked broken, 19 Nov). On a phone: the share sheet.
- * No rewards promised.
+ * Both sides save: the friend gets 20% off their first plan, and the member 20% off one plan per friend who pays.
  */
 function InviteFriend() {
   const me = useQuery(api.access.mine);
@@ -105,7 +106,7 @@ function InviteFriend() {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [done, setDone] = useState("");
-  const text = "I'm using JobPipe for my sales job search: it finds sales roles in India, writes a CV for each one and shows who I know there. Try it:";
+  const text = `I'm using JobPipe for my sales job search: it finds sales roles in India, writes a CV for each one and shows who I know there. Sign up with my link and you get ${PLANS.invitePercentOff}% off a paid plan:`;
   const linkOf = async () => {
     // Each member's own link, so we can see who joined through whose invite.
     const code = me?.inviteCode ?? (await makeCode());
@@ -138,7 +139,11 @@ function InviteFriend() {
       </button>
       {open && url && (
         <div className="card absolute left-0 top-full z-30 mt-2 w-72 p-4 text-sm shadow-lg">
-          <p className="mb-2 font-medium">Send a friend your link</p>
+          <p className="font-medium">Send a friend your link</p>
+          <p className="mb-3 mt-1 text-xs text-ink-2">
+            They get {PLANS.invitePercentOff}% off a paid plan. When they pay, you get {PLANS.invitePercentOff}% off your next one.
+            {!!me?.inviteCredits && ` You have ${me.inviteCredits} to use on Plan & billing.`}
+          </p>
           <div className="mb-3 flex items-center gap-2">
             <input readOnly value={url} className="field min-w-0 flex-1 text-xs" onFocus={(e) => e.currentTarget.select()} aria-label="Your invite link" />
             <button

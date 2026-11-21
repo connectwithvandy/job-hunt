@@ -137,6 +137,8 @@ export default defineSchema({
     inviteCode: v.optional(v.string()),
     /** Who invited them: the member whose invite link they signed up through. */
     invitedBy: v.optional(v.id("users")),
+    /** 20%-off credits earned when friends they invited paid (one per paying friend), used one per purchase. */
+    inviteCredits: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_approved", ["approved"])
@@ -209,6 +211,8 @@ export default defineSchema({
     until: v.optional(v.number()),
     /** The promo code used, if any; its use is counted once the payment is paid. */
     promo: v.optional(v.string()),
+    /** An invite discount on this order: "friend" (joined through a member's link) or "inviter" (a friend they invited paid). */
+    invite: v.optional(v.union(v.literal("friend"), v.literal("inviter"))),
   })
     .index("by_orderId", ["orderId"])
     .index("by_userId", ["userId"])

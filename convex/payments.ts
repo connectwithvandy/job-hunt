@@ -45,6 +45,20 @@ async function promoFor(ctx: QueryCtx, userId: Id<"users">, rawCode: string, pla
 /** The price after a code: rounded to the rupee, never below zero. */
 const afterPromo = (rupees: number, percentOff: number) => Math.max(0, Math.round((rupees * (100 - percentOff)) / 100));
 
+/**
+ * The "Invite a friend" discount this person gets on their next purchase, if any: "friend" when they joined through a
+ * member's link and haven't paid yet, "inviter" when a friend they invited has paid and the credit is unused.
+ */
+async function inviteDiscountFor(ctx: QueryCtx, userId: Id<"users">): Promise<"friend" | "inviter" | null> {
+  const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+  if (!row) return null;
+  if (row.invitedBy) {
+    const mine = await ctx.db.query("payments").withIndex("by_userId", (q) => q.eq("userId", userId)).take(50);
+    if (!mine.some((m) => m.status === "paid" && m.amount > 0)) return "friend";
+  }
+  return (row.inviteCredits ?? 0) > 0 ? "inviter" : null;
+}
+
 /** What a code does to this person's price, for the Billing page to show before they pay. */
 export const checkPromo = query({
   args: { code: v.string(), plan: planV },
@@ -146,7 +160,17 @@ export const status = query({
     const people = await foundingPeople(ctx);
     const founding = people.has(userId) || people.size < PLANS.foundingSeats;
     const history = await ctx.db.query("payments").withIndex("by_userId", (q) => q.eq("userId", userId)).order("desc").take(20);
+    const invite = await inviteDiscountFor(ctx, userId);
     return {
+      // The invite discount checkout will take off (when no promo code is used), with the prices after it.
+      invite: invite
+        ? {
+            why: invite,
+            percentOff: PLANS.invitePercentOff,
+            month: afterPromo(priceOf("month", founding).rupees, PLANS.invitePercentOff),
+            pass: afterPromo(priceOf("pass", founding).rupees, PLANS.invitePercentOff),
+          }
+        : null,
       on: !!keys(),
       paidUntil: row?.paidUntil ?? null,
       partner: row?.partner ?? null,
@@ -164,12 +188,20 @@ export const orderFacts = internalQuery({
   handler: async (ctx, { userId }) => {
     const user = await ctx.db.get("users", userId);
     const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
-    return { founding: await foundingFor(ctx, userId), email: user?.email ?? "", name: row?.name ?? "" };
+    return { founding: await foundingFor(ctx, userId), email: user?.email ?? "", name: row?.name ?? "", invite: await inviteDiscountFor(ctx, userId) };
   },
 });
 
 export const recordOrder = internalMutation({
-  args: { userId: v.id("users"), orderId: v.string(), plan: planV, amount: v.number(), founding: v.boolean(), promo: v.optional(v.string()) },
+  args: {
+    userId: v.id("users"),
+    orderId: v.string(),
+    plan: planV,
+    amount: v.number(),
+    founding: v.boolean(),
+    promo: v.optional(v.string()),
+    invite: v.optional(v.union(v.literal("friend"), v.literal("inviter"))),
+  },
   handler: async (ctx, args) => {
     await ctx.db.insert("payments", { ...args, status: "created" });
     return null;
@@ -198,11 +230,14 @@ export const createOrder = action({
     }
     const k = keys();
     if (!k) throw new ConvexError("Payments aren't switched on yet.");
-    const facts: { founding: boolean; email: string; name: string } = await ctx.runQuery(internal.payments.orderFacts, { userId });
+    const facts: { founding: boolean; email: string; name: string; invite: "friend" | "inviter" | null } = await ctx.runQuery(internal.payments.orderFacts, { userId });
+    // A promo code replaces the invite discount; the two don't stack.
+    const invite = code ? undefined : (facts.invite ?? undefined);
     // The Week Pass has one price and doesn't take one of the founding seats; nor does a promo price.
     const founding = plan !== "week" && facts.founding && !code;
     const price = priceOf(plan, facts.founding && plan !== "week");
-    const amount = (code ? afterPromo(price.rupees, code.percentOff) : price.rupees) * 100;
+    const percentOff = code?.percentOff ?? (invite ? PLANS.invitePercentOff : 0);
+    const amount = afterPromo(price.rupees, percentOff) * 100;
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: { Authorization: `Basic ${btoa(`${k.id}:${k.secret}`)}`, "Content-Type": "application/json" },
@@ -213,7 +248,7 @@ export const createOrder = action({
       throw new ConvexError("The payment couldn't start. Try again in a minute.");
     }
     const order = (await res.json()) as { id: string };
-    await ctx.runMutation(internal.payments.recordOrder, { userId, orderId: order.id, plan, amount, founding, promo: code?.code });
+    await ctx.runMutation(internal.payments.recordOrder, { userId, orderId: order.id, plan, amount, founding, promo: code?.code, invite });
     return { free: false, keyId: k.id, orderId: order.id, amount, label: price.label, email: facts.email, name: facts.name };
   },
 });
@@ -248,7 +283,21 @@ async function settlePaid(ctx: MutationCtx, orderId: string, paymentId: string, 
     }
     await ctx.db.patch("payments", payment._id, { status: "paid", paymentId, paidAt: now, until });
     await countPromoUse(ctx, payment.promo);
+    await settleInvite(ctx, payment, row);
     return until;
+}
+
+/**
+ * Invite discounts once real money is paid: an inviter's credit is used up, and a friend's first payment earns the
+ * member who invited them one 20%-off credit. A free (100%-off code) order earns nothing.
+ */
+async function settleInvite(ctx: MutationCtx, payment: Doc<"payments">, row: Doc<"access"> | null) {
+  if (payment.invite === "inviter" && row) await ctx.db.patch("access", row._id, { inviteCredits: Math.max(0, (row.inviteCredits ?? 0) - 1) });
+  if (!row?.invitedBy || payment.amount <= 0) return;
+  const earlier = await ctx.db.query("payments").withIndex("by_userId", (q) => q.eq("userId", payment.userId)).take(50);
+  if (earlier.some((p) => p._id !== payment._id && p.status === "paid" && p.amount > 0)) return;
+  const inviter = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", row.invitedBy!)).unique();
+  if (inviter) await ctx.db.patch("access", inviter._id, { inviteCredits: (inviter.inviteCredits ?? 0) + 1 });
 }
 
 /** The checkout's success reply: checked against the key secret, then marked paid. */
