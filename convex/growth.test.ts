@@ -70,7 +70,9 @@ test("jobs sort into SDRs, AEs and sales managers", () => {
   // Seen 6 Nov: taken out by hand before posting.
   expect(postGroup("Solution Consultant - Veeva QualityOne - India")).toBe(null);
   expect(postGroup("Sales Operations Manager")).toBe(null);
-  expect(postGroup("Key Account Manager")).toBe(null);
+  expect(postGroup("Key Account Manager")).toBe("am");
+  expect(postGroup("Enterprise Account Manager, India")).toBe("am");
+  expect(postGroup("Customer Success Manager")).toBe(null);
 });
 
 test("the post is half SDRs, half AEs and sales managers", () => {
@@ -81,7 +83,8 @@ test("the post is half SDRs, half AEs and sales managers", () => {
   expect(picked.filter((g) => g === "manager").length).toBe(1);
   // Few SDRs: the other side fills the post.
   expect(mixJobs([...jobs("SDR", 1), ...jobs("Account Executive", 9)], 6).length).toBe(6);
-  expect(mixJobs(jobs("Account Manager", 5), 6).length).toBe(0);
+  // Account managers are in the post since 21 Nov 2026.
+  expect(mixJobs(jobs("Account Manager", 5), 6).length).toBe(5);
 });
 
 test("a job line shows the place once", () => {

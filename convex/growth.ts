@@ -55,10 +55,12 @@ export function postedInLastDay(postedAt: string | undefined, now: number) {
   return (/^\d{4}-\d{2}-\d{2}$/.test(postedAt!.trim()) ? t + DAY : t) >= now - DAY;
 }
 
-/** Which part of the post a job belongs to: SDRs, AEs or sales managers. Null keeps it out of the post. */
-export function postGroup(title: string): "sdr" | "ae" | "manager" | null {
+/** Which part of the post a job belongs to: SDRs, AEs, sales managers or account managers. Null keeps it out of the post. */
+export function postGroup(title: string): "sdr" | "ae" | "manager" | "am" | null {
   // "Lead Generation Virtual Assistant" shares words with an SDR role but is admin work.
   if (/operations|enablement|engineer|marketing|partner|channel|customer success|assistant|virtual|catering/i.test(title)) return null;
+  // Account managers (added 21 Nov 2026): checked before sales managers, since the title also says "manager".
+  if (/\b(account manager|kam)\b/i.test(title)) return "am";
   if (/\b(manager|head|director|vp|vice president|lead)\b/i.test(title)) return /\b(sales|sdr|bdr|business development|revenue)\b/i.test(title) ? "manager" : null;
   if (/\b(sdr|bdr|bde|sales development|business development|inside sales|lead development|market development|account development|outbound sales)\b/i.test(title)) return "sdr";
   if (/\b(account executive|ae|sales executive)\b/i.test(title)) return "ae";
@@ -67,12 +69,12 @@ export function postGroup(title: string): "sdr" | "ae" | "manager" | null {
 
 /** Up to n jobs, half SDRs and half the closing side (AEs and sales managers). A side with too few leaves room for the other. */
 export function mixJobs<T extends { title: string }>(jobs: T[], n: number) {
-  const groups: Record<"sdr" | "ae" | "manager", T[]> = { sdr: [], ae: [], manager: [] };
+  const groups: Record<"sdr" | "ae" | "manager" | "am", T[]> = { sdr: [], ae: [], manager: [], am: [] };
   for (const j of jobs) {
     const g = postGroup(j.title);
     if (g) groups[g].push(j);
   }
-  const turns = ["sdr", "ae", "sdr", "manager"] as const;
+  const turns = ["sdr", "ae", "sdr", "manager", "am"] as const;
   const out: T[] = [];
   for (let i = 0; out.length < n && i < jobs.length * turns.length; i++) {
     const next = groups[turns[i % turns.length]].shift();
@@ -146,9 +148,10 @@ const POST_SEARCHES = [
   `"Sales Development Representative" OR "SDR" OR "Business Development Representative" OR "BDR"`,
   `"Account Executive" OR "Enterprise Account Executive" OR "Senior Account Executive"`,
   `"Sales Manager" OR "Head of Sales" OR "Sales Development Manager" OR "Business Development Manager"`,
+  `"Account Manager" OR "Key Account Manager" OR "Strategic Account Manager" OR "Enterprise Account Manager"`,
 ];
 
-/** Today's sales jobs from LinkedIn at tech companies in India: about $0.09 a day, capped at $0.12. Empty when the search fails. */
+/** Today's sales jobs from LinkedIn at tech companies in India: about $0.12 a day, capped at $0.16 (4 searches). Empty when the search fails. */
 async function linkedInPostJobs(ctx: ActionCtx, now: number): Promise<PostJob[]> {
   if (!env.APIFY_TOKEN) return [];
   const settled = await Promise.allSettled(POST_SEARCHES.map((q) => searchJobs([q], "India", false, "24h", 30, 0.04)));
@@ -186,12 +189,13 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
   // Too few to be worth a post: skip today rather than post something thin.
   if (jobs.length < 3) return null;
   const sdrs = jobs.filter((j) => postGroup(j.title) === "sdr");
-  const closers = jobs.filter((j) => postGroup(j.title) !== "sdr");
+  const closers = jobs.filter((j) => postGroup(j.title) === "ae" || postGroup(j.title) === "manager");
+  const ams = jobs.filter((j) => postGroup(j.title) === "am");
   const list = (name: string, group: PostJob[]) => (group.length ? `${name}\n\n${group.map(jobLine).join("\n\n")}` : "");
   // Each job with its apply link right under it, so the post is ready to paste as is.
   const post = `${jobs.length} new sales jobs in India, posted in the last 24 hours 👇
 
-${[list("SDR / BDR", sdrs), list("AE and sales managers", closers)].filter(Boolean).join("\n\n")}
+${[list("SDR / BDR", sdrs), list("AE and sales managers", closers), list("Account managers", ams)].filter(Boolean).join("\n\n")}
 
 I find these every morning with JobPipe, the tool I built for my own sales job hunt. It also scores each role against your CV and tailors the CV for you: https://jobpipe.in
 
