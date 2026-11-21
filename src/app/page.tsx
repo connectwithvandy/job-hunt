@@ -367,7 +367,7 @@ export default function Today() {
           { label: "Offer", n: offerTotal, href: "/tracker" },
         ]}
       />
-      <DoFirst replies={replies} interviewed={interviewed} best={bestNew[0]} verbFor={verbFor} />
+      <DoFirst replies={replies} interviewed={interviewed} best={bestNew[0]} verbFor={verbFor} firstCv={!jobs.some((j) => j.hasPack || j.pack)} />
 
       {/* Each group is its own card with a real heading: one long card with tiny grey labels read as footnotes on a phone (19 Nov). */}
       <section className="rise mb-6 grid gap-4">
@@ -495,7 +495,7 @@ function Pipeline({ stages }: { stages: { label: string; n: number; sub?: string
  * The one thing to do first: a company waiting on your answer, then an interview that just happened,
  * then your best job to apply to. Only one, so it can't be missed (19 Nov: an invite sat below the fold).
  */
-function DoFirst({ replies, interviewed, best, verbFor }: { replies: Doc<"jobs">[]; interviewed: Doc<"jobs">[]; best?: Doc<"jobs">; verbFor: (j: Doc<"jobs">) => string }) {
+function DoFirst({ replies, interviewed, best, verbFor, firstCv }: { replies: Doc<"jobs">[]; interviewed: Doc<"jobs">[]; best?: Doc<"jobs">; verbFor: (j: Doc<"jobs">) => string; firstCv: boolean }) {
   const setStatus = useSetStatus();
   const setQuietly = useMutation(api.jobs.setStatus);
   const [busy, setBusy] = useState(false);
@@ -580,6 +580,27 @@ function DoFirst({ replies, interviewed, best, verbFor }: { replies: Doc<"jobs">
   }
   if (!best) return null;
   const verb = verbFor(best);
+  // Never tailored a CV: most members who set up stopped before this step (21 Nov: 24 of 92 tailored, none hit the
+  // paid wall), so the card says plainly what to do and that it's free, on their best-scored job whatever its score.
+  if (firstCv && verb !== "Check") {
+    return (
+      <section className={box}>
+        {eyebrow}
+        <div className="flex flex-wrap items-center gap-3">
+          <FitBadge job={best} size={44} />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold">Get your first tailored CV</h2>
+            <p className="text-sm text-ink-2">
+              For {best.title} at {best.company}, your best match. Takes about 2 minutes, and your first one is free.
+            </p>
+          </div>
+          <Link href={`/jobs/${best._id}`} className="btn btn-primary btn-sm">
+            Write my CV
+          </Link>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className={box}>
       {eyebrow}
