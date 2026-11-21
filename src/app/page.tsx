@@ -6,7 +6,7 @@ import { isArchived } from "@/lib/archive";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
-import { companyKey } from "../../convex/lib/company";
+import { companyKey, sameRoleKey } from "../../convex/lib/company";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../convex/lib/followups";
 import { rankFit, SKIP_BELOW, TAILOR_FROM } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
@@ -296,7 +296,8 @@ export default function Today() {
   const trialEndsAt = account && !account.isOwner && !account.paidUntil && !account.trialOver ? account.trialEndsAt : undefined;
   const trialDay = trialEndsAt && trialEndsAt > now ? Math.min(7, Math.max(1, 8 - Math.ceil((trialEndsAt - now) / DAY))) : null;
   // Pipeline numbers: the same rules the old summary line used, so nothing changes meaning.
-  const openJobs = jobs.filter((j) => (j.status === "new" || j.status === "applying") && live(j));
+  // One role listed on two boards counts once, as on the Jobs page, so both say the same number (21 Nov: 604 vs 600).
+  const openJobs = [...new Map(jobs.filter((j) => (j.status === "new" || j.status === "applying") && live(j)).map((j) => [sameRoleKey(j.company, j.title), j])).values()];
   const openToday = openJobs.filter((j) => j._creationTime >= dayBegan).length;
   const repliedTotal = jobs.filter((j) => ["screening", "interview", "offer"].includes(j.status)).length;
   const interviewTotal = jobs.filter((j) => j.status === "interview" || j.status === "offer").length;

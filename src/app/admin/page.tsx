@@ -376,7 +376,7 @@ function Overview({ list: all, usage, ownerEmail, count }: { list: { waiting: Do
     { label: "Let in", value: list.approved.length },
     { label: "Used it in the last 7 days", value: active },
     { label: "Quiet 3+ days or never opened", value: quiet },
-    { label: "Paying now", value: paid },
+    { label: "Paid in the app", value: paid },
     // Places partners paid for vs people who signed up: "4" alone read as a missing person (19 Nov, Aryama not signed up yet).
     ...(partnered || seats ? [{ label: seats ? `of ${seats} partner places signed up` : "Through a partner", value: partnered }] : []),
   ];

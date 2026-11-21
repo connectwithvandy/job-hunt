@@ -217,7 +217,8 @@ function Jobs() {
       <div className="mb-3 flex flex-wrap items-baseline gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
         <span className="text-sm text-ink-3">
-          {visible.length} of {inView.length}
+          {/* Says what the number is: Today counts every open job, this list may be narrowed by place or weak matches. */}
+          {visible.length === inView.length ? `${inView.length} open` : `Showing ${visible.length} of ${inView.length} open`}
         </span>
         <span className="flex-1" />
         <LeftToday kind="scoresLeft" label="scores" />
