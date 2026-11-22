@@ -2,10 +2,10 @@
 // One copy, used by the landing page, its structured data and /llms.txt, so they never disagree.
 import { LEGAL, PLANS } from "./legal";
 
-export const TITLE = "JobPipe: finds sales roles, tailors your CV, gets you the intro";
+export const TITLE = "JobPipe: your job search, run like your sales pipeline";
 
 export const DESCRIPTION =
-  "Job search for sales and GTM roles in India, the US, APAC and EMEA. Every job ranked against your CV, a tailored CV for each one, and who you know there.";
+  "The job search built for sales people: SDRs, AEs and sales leaders. New roles every morning, each scored against your CV, a tailored CV for each one, and who you know there.";
 
 export const DEFINITION = `JobPipe is a job search tool for sales and go-to-market (GTM) professionals in India, the US, APAC and EMEA. You upload your CV and pick several target roles. Every morning it searches job boards and company careers pages, ranks every job by fit, scores the ones you pick against each role with a reason, tailors your CV and cover letter without inventing facts, and shows who you know at each company. It is in beta, open to sales and GTM professionals: a ${PLANS.trialDays}-day free trial, then a free plan (daily jobs, tracker, a few AI scores and 1 tailored CV to try), or every AI tool with a ${PLANS.passMonths}-month Job Hunt Pass: ₹${PLANS.pass.toLocaleString("en-IN")}, or ₹${PLANS.foundingPass.toLocaleString("en-IN")} for the next ${PLANS.foundingSeats} founding members. It is open source.`;
 

@@ -76,6 +76,15 @@ const EXAMPLE_JOBS = [
 ];
 
 // In order of what a sales job-seeker cares about most.
+/** The sales pipeline stages, mapped to what JobPipe does at each. */
+const STAGES: [string, string][] = [
+  ["Prospect", "New sales roles land every morning, from job boards and company careers pages."],
+  ["Qualify", "Every role gets a fit score against your CV, with the reason, so you skip the bad fits."],
+  ["Outreach", "A tailored CV and cover letter, plus a referral ask and a note to the hiring manager."],
+  ["Follow up", "Nudges when an application goes quiet, and replies tracked from your inbox."],
+  ["Close", "Interview prep from your own stories, then the offer."],
+];
+
 const POINTS = [
   [
     "intro",
@@ -207,13 +216,13 @@ export function SignIn() {
         <section>
         <p className="rise inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs text-ink-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          For sales and GTM people · India, US, APAC, EMEA
+          For SDRs, AEs and sales leaders, wherever you are
         </p>
         <h1 style={{ animationDelay: "80ms" }} className="rise display mt-6 text-balance text-[38px] leading-[1.04] md:text-[52px]">
-          <span className="block">
-            You&apos;re not looking for <span className="text-accent">a</span> job.
+          <span className="block">Your job search,</span>
+          <span className="block text-ink-2">
+            run like your <span className="text-accent">pipeline</span>.
           </span>
-          <span className="block text-ink-2">You&apos;re running several searches at once.</span>
         </h1>
         <p style={{ animationDelay: "120ms" }} className="rise mt-5 text-lg text-ink-2">
           Searching for <Rotate words={["Account Executive", "SDR Manager", "Head of Sales", "GTM Lead", "Founder's Office", "BDR"]} />
@@ -440,6 +449,22 @@ export function SignIn() {
         <div className="mx-auto max-w-2xl">
           <JobsByEmail heading="Not ready to sign up? Get new sales jobs by email" />
         </div>
+      </section>
+
+      {/* The positioning (21 Nov 2026): sales people already run pipelines, so the app is shown as one. */}
+      <section className="border-t border-line py-20">
+        <p className="label text-accent">How it works</p>
+        <h2 className="display mt-3 max-w-2xl text-4xl leading-tight">You know how to work a pipeline. Now work one for your career.</h2>
+        <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {STAGES.map(([stage, text], i) => (
+            <Reveal as="li" delay={i * 110} key={stage} className="card p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                {i + 1}. {stage}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-2">{text}</p>
+            </Reveal>
+          ))}
+        </ol>
       </section>
 
       <section className="border-t border-line py-20">
