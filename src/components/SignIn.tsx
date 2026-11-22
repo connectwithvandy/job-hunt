@@ -221,7 +221,8 @@ export function SignIn() {
         <h1 style={{ animationDelay: "80ms" }} className="rise display mt-6 text-balance text-[38px] leading-[1.04] md:text-[52px]">
           <span className="block">Your job search,</span>
           <span className="block text-ink-2">
-            run like your <span className="text-accent">pipeline</span>.
+            {/* On a phone, "run like your" stays on one line and "pipeline." drops below it. */}
+            <span className="whitespace-nowrap">run like your</span> <span className="text-accent">pipeline</span>.
           </span>
         </h1>
         <p style={{ animationDelay: "120ms" }} className="rise mt-5 text-lg text-ink-2">
