@@ -31,7 +31,8 @@ export default function TailoredResume() {
   const pack = sent ? { ...data!.job.pack!, resume: sent.resume, unverified: [] } : data?.job.pack;
 
   // The page title becomes the PDF's file name when you choose "Save as PDF".
-  const [plain, setPlain] = useState(false);
+  // One column by default: hiring software mixes up two-column PDFs (members said so, 22 Nov). The design stays a pick.
+  const [plain, setPlain] = useState(true);
   const fileName = pack && data ? `${pack.resume.name} CV ${data.job.company}` : "";
   useEffect(() => {
     if (fileName) document.title = fileName;

@@ -166,3 +166,15 @@ test("quiet people get the new-roles email on Monday and Thursday only; people o
   expect((await emails(TUE)).sort()).toEqual(["active@example.com", "partner@example.com"]);
   expect((await emails(MON)).sort()).toEqual(["active@example.com", "partner@example.com", "quiet@example.com"]);
 });
+
+test("each job in the daily email has a one-click Apply link to the company's posting, when there is one", () => {
+  const mail = alertsEmail({
+    groups: [{ track: "SDR / BDR", jobs: [
+      { title: "SDR", company: "Acme", where: "Bengaluru", fit: 80, id: "j1", applyUrl: "https://jobs.acme.com/sdr" },
+      { title: "BDR", company: "Beta", where: "Remote", id: "j2" },
+    ] }],
+  });
+  expect(mail.html).toContain('href="https://jobs.acme.com/sdr"');
+  expect(mail.text).toContain("Apply: https://jobs.acme.com/sdr");
+  expect(mail.html.match(/>Apply</g)?.length).toBe(1);
+});

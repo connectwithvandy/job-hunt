@@ -22,7 +22,7 @@ const GUESS_FLOOR = 40;
 /** Jobs saved before the free guess existed have none; they aren't held back. */
 const j0 = (j: { quickFit?: number }) => j.quickFit === undefined;
 
-const jobV = v.object({ title: v.string(), company: v.string(), where: v.string(), fit: v.optional(v.number()), id: v.string() });
+const jobV = v.object({ title: v.string(), company: v.string(), where: v.string(), fit: v.optional(v.number()), id: v.string(), applyUrl: v.optional(v.string()) });
 const personV = v.object({
   accessId: v.id("access"),
   email: v.string(),
@@ -103,11 +103,13 @@ export const dueFor = internalQuery({
       .filter((j) => j.status === "new" && !j.hasPack && j.liveCheck?.state !== "closed" && (aiFit(j) ?? 0) >= TAILOR_FROM)
       .map((j) => ({ j, fit: aiFit(j), guess: 0 }))
       .sort(byShownFit)[0]?.j;
-    const byTrack = new Map<string, { title: string; company: string; where: string; fit?: number; id: string }[]>();
+    const byTrack = new Map<string, { title: string; company: string; where: string; fit?: number; id: string; applyUrl?: string }[]>();
     for (const { j, fit, key } of best) {
       const name = tracks.find((t) => t.key === key)!.name;
       const list = byTrack.get(name) ?? [];
-      list.push({ title: j.title, company: j.company, where: j.location || "Not listed", fit, id: j._id });
+      // The company's own posting, as the job page's link: members asked to apply in one click from the email (22 Nov).
+      const applyUrl = j.sourceUrl || j.url;
+      list.push({ title: j.title, company: j.company, where: j.location || "Not listed", fit, id: j._id, ...(/^https?:\/\//i.test(applyUrl ?? "") && { applyUrl }) });
       byTrack.set(name, list);
     }
     const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique();

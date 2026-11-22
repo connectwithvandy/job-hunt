@@ -403,7 +403,7 @@ Don't want these? Reply "stop" and I'll turn them off.
 
 export function alertsEmail(p: {
   name?: string;
-  groups: { track: string; jobs: { title: string; company: string; where: string; fit?: number; id: string }[] }[];
+  groups: { track: string; jobs: { title: string; company: string; where: string; fit?: number; id: string; applyUrl?: string }[] }[];
   searching?: string;
   free?: boolean;
   unsubscribeUrl?: string;
@@ -427,7 +427,7 @@ export function alertsEmail(p: {
 
 ${p.tailor ? `Your best fit so far: ${p.tailor.title} at ${p.tailor.company}${p.tailor.fit !== undefined ? ` (fit ${p.tailor.fit})` : ""}. Tailor your CV for it, about a minute: ${url}/jobs/${p.tailor.id}\n\n` : ""}New roles matching your titles since yesterday, best first:
 
-${p.groups.map((g) => `${g.track} (${g.jobs.length} new)\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}`).join("\n")}`).join("\n\n")}
+${p.groups.map((g) => `${g.track} (${g.jobs.length} new)\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}${j.applyUrl ? `\n  Apply: ${j.applyUrl}` : ""}`).join("\n")}`).join("\n\n")}
 
 Open one to see why it fits, tailor your CV and find who to ask for an intro.
 ${where ? `\n${where}\n` : ""}${upsell ? `\n${upsell} ${url}/billing\n` : ""}
@@ -445,7 +445,7 @@ ${p.tailor ? `<p style="background:#f4ffe0;border-radius:8px;padding:10px 14px">
 ${p.groups
   .map(
     (g) => `<p style="margin:20px 0 6px;font-weight:600">${esc(g.track)} <span style="color:#666;font-weight:400">(${g.jobs.length} new)</span></p>
-<ul style="margin:0;padding-left:18px">${g.jobs.map((j) => `<li style="margin:4px 0"><a href="${esc(`${url}/jobs/${j.id}`)}" style="color:#1a1a1a;font-weight:600">${esc(j.title)}</a>, ${esc(j.company)} <span style="color:#666">(${esc(j.where)})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}</span></li>`).join("")}</ul>`,
+<ul style="margin:0;padding-left:18px">${g.jobs.map((j) => `<li style="margin:4px 0"><a href="${esc(`${url}/jobs/${j.id}`)}" style="color:#1a1a1a;font-weight:600">${esc(j.title)}</a>, ${esc(j.company)} <span style="color:#666">(${esc(j.where)})${j.fit !== undefined ? ` · fit ${j.fit}` : ""}</span>${j.applyUrl ? ` · <a href="${esc(j.applyUrl)}" style="color:#3a6b00;font-weight:600">Apply</a>` : ""}</li>`).join("")}</ul>`,
   )
   .join("\n")}
 <p>Open one to see why it fits, tailor your CV and find who to ask for an intro.</p>

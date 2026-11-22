@@ -79,8 +79,8 @@ const linkLabel = (link: string) => {
 export function CvLayoutPick({ plain, onChange }: { plain: boolean; onChange: (plain: boolean) => void }) {
   return (
     <select className="field !w-auto !py-1.5 text-sm" value={plain ? "plain" : "design"} onChange={(e) => onChange(e.target.value === "plain")} aria-label="PDF layout">
-      <option value="design">Two-column design</option>
-      <option value="plain">One column (safest for application forms)</option>
+      <option value="plain">One column (best for hiring software)</option>
+      <option value="design">Two-column design (for emailing a person)</option>
     </select>
   );
 }

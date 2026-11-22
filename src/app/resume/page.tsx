@@ -21,7 +21,8 @@ export default function Cvs() {
   const remove = useMutation(api.users.deleteResume);
   const findLogos = useAction(api.agent.findLogos);
   const [state, setState] = useState<ActionState>(null);
-  const [plain, setPlain] = useState(false);
+  // One column by default: hiring software mixes up two-column PDFs (members said so, 22 Nov). The design stays a pick.
+  const [plain, setPlain] = useState(true);
   if (!me || !all) return <Loading />;
 
   const current = picked === "new" ? null : (all.find((r) => r._id === picked) ?? all.find((r) => r._id === me.defaultResumeId) ?? all[0]);
