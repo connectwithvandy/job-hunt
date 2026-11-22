@@ -52,22 +52,6 @@ const FOOTER: { title: string; links: { href: string; label: string }[] }[] = [
 const noSubscribe = () => () => {};
 
 // Small line icons for the feature cards.
-const ICONS: Record<string, React.ReactNode> = {
-  intro: <path d="M16 11a4 4 0 1 0-8 0M4 20a8 8 0 0 1 16 0M12 7V3m-4 2 1 1m7-1-1 1" />,
-  score: <path d="M4 19h16M7 16V9m5 7V5m5 11v-4" />,
-  fact: <path d="m5 12 4 4L19 6M5 20h14" />,
-  roles: <path d="M4 6h16M4 12h10M4 18h6m8-6 3 3-3 3" />,
-};
-function Icon({ name }: { name: string }) {
-  return (
-    <span className="grid h-10 w-10 place-items-center rounded-xl border border-accent/30 bg-accent/10 text-accent">
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        {ICONS[name]}
-      </svg>
-    </span>
-  );
-}
-
 // A made-up morning, to show what the Today page looks like. Labelled as an example on the page.
 const EXAMPLE_JOBS = [
   { co: "Northwind AI", title: "Enterprise Account Executive, India", where: "Bengaluru", score: 91, why: "Enterprise SaaS, quota size matches yours", warm: 2 },
@@ -75,38 +59,16 @@ const EXAMPLE_JOBS = [
   { co: "Lumen Cloud", title: "GTM Strategy Lead", where: "Bengaluru · hybrid", score: 58, why: "Strong on GTM, but they want a fintech background", warm: 0 },
 ];
 
-// In order of what a sales job-seeker cares about most.
 /** The sales pipeline stages, mapped to what JobPipe does at each. */
 const STAGES: [string, string][] = [
-  ["Prospect", "New sales roles land every morning, from job boards and company careers pages."],
+  ["Prospect", "New sales roles land every morning for each role you want, from job boards and company careers pages."],
   ["Qualify", "Every role gets a fit score against your CV, with the reason, so you skip the bad fits."],
-  ["Outreach", "A tailored CV and cover letter, plus a referral ask and a note to the hiring manager."],
+  ["Outreach", "A tailored CV from your real facts, never invented, plus a referral ask and a note to the hiring manager."],
   ["Follow up", "Nudges when an application goes quiet, and replies tracked from your inbox."],
   ["Close", "Interview prep from your own stories, then the offer."],
 ];
 
-const POINTS = [
-  [
-    "intro",
-    "Warm intros first",
-    "See who you know at each company and get a referral note drafted for the best person to ask.",
-  ],
-  [
-    "score",
-    "A score with a reason",
-    "Every job is scored against every role you want. A misleading title costs you ten seconds, not an evening.",
-  ],
-  [
-    "fact",
-    "Tailored, never invented",
-    "Your real facts, reordered and trimmed for each job. A fact check flags any number that isn't yours.",
-  ],
-  [
-    "roles",
-    "Several roles, several searches",
-    "SDR leader and GTM strategist? Each role gets its own search, CV and pipeline.",
-  ],
-];
+
 
 export function SignIn() {
   const { signIn } = useAuthActions();
@@ -468,19 +430,7 @@ export function SignIn() {
         </ol>
       </section>
 
-      <section className="border-t border-line py-20">
-        <p className="label text-accent">Why it works</p>
-        <h2 className="display mt-3 max-w-2xl text-4xl leading-tight">Built for how sales people actually job hunt</h2>
-        <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-          {POINTS.map(([icon, title, text], i) => (
-            <Reveal as="li" delay={i * 110} key={title} className="card p-6 transition duration-300 hover:-translate-y-1 hover:border-accent/40">
-              <Icon name={icon} />
-              <h3 className="mt-5 text-lg font-medium">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-2">{text}</p>
-            </Reveal>
-          ))}
-        </ul>
-      </section>
+
 
 
 
