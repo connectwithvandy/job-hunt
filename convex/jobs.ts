@@ -159,6 +159,8 @@ export const list = query({
     // Job boards' reposts saved before 13 Nov stay out of the list unless you've acted on one.
     return jobs.filter((j) => j.status !== "new" || (!AGGREGATORS.test(j.company) && !hiddenByPrefs(j, prefs))).map((j) => ({
       ...j,
+      // Jobs saved before a cleanup rule existed still show a tidy name (22 Nov: "Razorpaysoftwareprivatelimited").
+      company: cleanCompany(j.company) || "Company not named",
       description: undefined,
       pack: undefined,
       research: undefined,
@@ -184,7 +186,8 @@ export const get = query({
     const sighting = seen ? { firstSeen: seen.firstSeen, reposts: seen.reposts } : null;
     const emails = await ctx.db.query("jobEmails").withIndex("by_jobId_and_at", (q) => q.eq("jobId", jobId)).order("desc").take(50);
     const interviews = await ctx.db.query("interviews").withIndex("by_jobId_and_start", (q) => q.eq("jobId", jobId)).order("desc").take(10);
-    return { job: await withDetails(ctx, job), people, sighting, emails, interviews };
+    const detailed = await withDetails(ctx, job);
+    return { job: { ...detailed, company: cleanCompany(detailed.company) || "Company not named" }, people, sighting, emails, interviews };
   },
 });
 

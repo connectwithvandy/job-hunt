@@ -44,7 +44,12 @@ export function cleanCompany(name: string) {
     .trim()
     // Some boards repeat the name: "GoKwik GoKwik".
     .replace(/^(.+?) \1$/i, "$1");
-  return NO_NAME.test(fixed) ? "" : fixed;
+  // A careers-site id with the legal suffix glued on: "Razorpaysoftwareprivatelimited" becomes "Razorpay".
+  const glued = /^([a-z]{3,}?)(?:software|technologies|technology|solutions|services|india)?(?:privatelimited|pvtltd)$/i.exec(fixed);
+  const named = glued ? glued[1][0].toUpperCase() + glued[1].slice(1).toLowerCase() : fixed;
+  // A country code, or a tagline with several commas ("Rewards, Payouts, Perks, Loyalty & Engagement"), isn't a company.
+  if (/^(us|usa|uk|in|india|global|remote)$/i.test(named) || (named.match(/,/g) ?? []).length >= 2) return "";
+  return NO_NAME.test(named) ? "" : named;
 }
 
 // Short names for the same employer, so "HPE" and "Hewlett Packard Enterprise" count as one.

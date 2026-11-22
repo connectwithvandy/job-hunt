@@ -327,7 +327,7 @@ export default function Today() {
             {trialDay ? ` · Trial day ${trialDay} of 7` : ""}
           </span>
         </h1>
-        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={jobs.length} strongNow={strongAll.length} />
+        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={jobs.length} strongNow={strongAll.length} newToday={openToday} />
       </header>
 
       {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
@@ -848,8 +848,12 @@ function greeting() {
   return h < DAY_STARTS_AT ? "Good evening" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
+// Today counts every open job added today (morning search, weekly finder, email, by hand), the same number as the
+// "+N today" under Open jobs, so the two never disagree (22 Nov: "This morning: 2 new jobs" beside "+4 today").
+const newLine = (n: number, when: string) => `${when}: ${n} new ${n === 1 ? "job" : "jobs"}.`;
+
 /** The morning search-and-score switch, and what the last run found. */
-function Autopilot({ on, last, now, found, strongNow }: { now: number; on: boolean; found: number; strongNow: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
+function Autopilot({ on, last, now, found, strongNow, newToday }: { now: number; on: boolean; found: number; strongNow: number; newToday: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
   // Off: a clear card, since nothing arrives without it.
   if (!on) {
@@ -868,7 +872,7 @@ function Autopilot({ on, last, now, found, strongNow }: { now: number; on: boole
       <span>
         {last
           ? // Strong fits counted across every open job, not just this morning's (19 Nov: "0 strong fits" beside an 84% card).
-            `${dayStart(now) <= last.at ? "This morning" : `Last search ${timeAgo(new Date(last.at).toISOString())}`}: ${last.added} new ${last.added === 1 ? "job" : "jobs"}. ${strongNow ? `${strongNow} strong ${strongNow === 1 ? "fit" : "fits"} (75+) open to apply to.` : "No strong fits (75+) open right now."}`
+            `${newLine(dayStart(now) <= last.at ? newToday : last.added, dayStart(now) <= last.at ? "Today" : `Last search ${timeAgo(new Date(last.at).toISOString())}`)} ${strongNow ? `${strongNow} strong ${strongNow === 1 ? "fit" : "fits"} (75+) open to apply to.` : "No strong fits (75+) open right now."}`
           : // Signing up runs a first search, so a new person already has jobs (14 Nov: this said "runs tomorrow" beside 75 found).
             `${found ? `Your first search found ${found} ${found === 1 ? "job" : "jobs"}; the likeliest are below. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
       </span>
