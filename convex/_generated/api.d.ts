@@ -13,6 +13,7 @@ import type * as agent from "../agent.js";
 import type * as alerts from "../alerts.js";
 import type * as applyAnswers from "../applyAnswers.js";
 import type * as applyForm from "../applyForm.js";
+import type * as atsExport from "../atsExport.js";
 import type * as auth from "../auth.js";
 import type * as careers from "../careers.js";
 import type * as careersFinder from "../careersFinder.js";
@@ -124,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   alerts: typeof alerts;
   applyAnswers: typeof applyAnswers;
   applyForm: typeof applyForm;
+  atsExport: typeof atsExport;
   auth: typeof auth;
   careers: typeof careers;
   careersFinder: typeof careersFinder;
