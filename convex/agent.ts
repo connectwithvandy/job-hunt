@@ -548,7 +548,7 @@ async function liveState(ctx: ActionCtx, job: Doc<"jobs">): Promise<LiveCheck> {
   const at = Date.now();
   if (job.source === "careers") {
     const listed: boolean = await ctx.runQuery(internal.careers.isListed, { externalId: job.externalId.replace(/^careers:/, "") });
-    return listed ? { at, state: "open", note: "Still on the company's careers board as of this morning." } : { at, state: "closed", note: "The company took it off its careers board." };
+    return listed ? { at, state: "open", note: "Still on the company's careers board as of this morning." } : { at, state: "closed", note: "No longer on the company's careers board, or the board stopped answering for days. Check the original posting before applying." };
   }
   if (job.source === "email") return { at, state: "unknown", note: "This job came from an email, so there's no posting to check." };
   const link = job.sourceUrl || job.url;
