@@ -661,3 +661,18 @@ export const autopilotForAll = internalMutation({
     return changed;
   },
 });
+
+/**
+ * Switch one member's morning search on or off, for the owner (23 Nov: Daya of SaasPire had it off).
+ * npx convex run --prod users:setAutopilotFor '{"userId":"...","on":true}'
+ */
+export const setAutopilotFor = internalMutation({
+  args: { userId: v.id("users"), on: v.boolean() },
+  returns: v.boolean(),
+  handler: async (ctx, { userId, on }) => {
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!profile) return false;
+    await ctx.db.patch("profiles", profile._id, { autopilot: on });
+    return true;
+  },
+});
