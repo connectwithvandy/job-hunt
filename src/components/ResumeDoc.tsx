@@ -1,3 +1,4 @@
+import type React from "react";
 import type { Infer } from "convex/values";
 import type { resumeV } from "../../convex/lib/validators";
 
@@ -85,11 +86,30 @@ export function CvLayoutPick({ plain, onChange }: { plain: boolean; onChange: (p
   );
 }
 
-/** Contact details as one line of plain text, links written out in full, so hiring software can read every one. */
+/**
+ * Contact details on one line, links written out in full so hiring software can read every one,
+ * and each one a real link, so a recruiter can click through from the PDF.
+ */
 function ContactLine({ r }: { r: Resume }) {
   const bare = (l: string) => l.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
-  const parts = [r.contact.phone, r.contact.email, r.contact.location, r.contact.linkedin && bare(r.contact.linkedin), ...(r.contact.links ?? []).map(bare)].filter(Boolean);
-  return <p className="contact-line">{parts.join("  |  ")}</p>;
+  const href = (l: string) => (/^https?:\/\//.test(l) ? l : `https://${l}`);
+  const parts: React.ReactNode[] = [
+    r.contact.phone && <a href={`tel:${r.contact.phone.replace(/[^\d+]/g, "")}`}>{r.contact.phone}</a>,
+    r.contact.email && <a href={`mailto:${r.contact.email}`}>{r.contact.email}</a>,
+    r.contact.location,
+    r.contact.linkedin && <a href={href(r.contact.linkedin)}>{bare(r.contact.linkedin)}</a>,
+    ...(r.contact.links ?? []).map((l) => <a key={l} href={href(l)}>{bare(l)}</a>),
+  ].filter(Boolean);
+  return (
+    <p className="contact-line">
+      {parts.map((p, i) => (
+        <span key={i}>
+          {i > 0 && "  |  "}
+          {p}
+        </span>
+      ))}
+    </p>
+  );
 }
 
 /**

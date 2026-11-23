@@ -204,35 +204,42 @@ select.field option { background: var(--card); }
 .resume .side-item-title { color: var(--r-blue); font-size: 10.5pt; }
 .resume .muted { color: var(--r-muted); }
 
-/* One column for application forms, in the plain shape sales recruiters scan fastest: name and title on top,
-   small capital section headings with a rule, company bold with dates on the right, nothing in a sidebar. */
-.resume.plain { display: block; font-size: 10pt; line-height: 1.4; }
-.resume.plain .main { padding: 13mm 13mm 0; }
-.resume.plain .side { background: none; padding: 0 13mm 13mm; }
-.resume.plain h1 { font-size: 22pt; font-weight: 700; margin-left: 0; }
-.resume.plain .headline { color: var(--r-ink); font-size: 10.5pt; margin: 1.5mm 0 1mm; }
+/* One column for application forms, in the shape sales recruiters scan fastest: a brand strip, name large,
+   job title before company, dates on the right, small capital headings with a blue marker, nothing in a sidebar.
+   The DOM still runs company then title, so hiring software reads it as before; only the eye order flips. */
+.resume.plain { display: block; font-family: var(--font-inter), Inter, Arial, sans-serif; font-size: 9.6pt; line-height: 1.45; color: #16181d; }
+.resume.plain .main { padding: 0 15mm; border-top: 3.5mm solid var(--r-blue); }
+.resume.plain .side { background: none; padding: 0 15mm 14mm; }
+.resume.plain h1 { font-size: 26pt; font-weight: 700; letter-spacing: -0.025em; margin: 11mm 0 0; }
+.resume.plain .headline { color: var(--r-blue); font-weight: 600; font-size: 10pt; margin: 1.2mm 0 1.6mm; }
+.resume .contact-line { font-size: 8.6pt; color: #5b616e; margin: 0 0 3mm; padding-bottom: 3mm; border-bottom: 0.6pt solid #dfe2e7; overflow-wrap: anywhere; }
+.resume .contact-line a { color: inherit; text-decoration: none; }
 .resume.plain h2, .resume.plain .side h2 {
-  display: block;
-  color: var(--r-blue);
-  font-size: 10.5pt;
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+  color: #16181d;
+  font-size: 9.2pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-bottom: 1px solid #c8c8c8;
-  padding-bottom: 1mm;
-  margin: 5mm 0 2.5mm;
+  margin: 5.5mm 0 2.6mm;
   break-after: avoid;
 }
+.resume.plain h2::before { content: ""; width: 1.2mm; height: 3.6mm; background: var(--r-blue); border-radius: 0.4mm; }
 .resume.plain h2::after, .resume.plain .side h2::after { display: none; }
-.resume.plain .role { margin-bottom: 3.5mm; }
+.resume.plain .role { margin-bottom: 4mm; }
 .resume.plain .role-head { align-items: baseline; }
-.resume.plain .company { font-size: 10.5pt; font-weight: 700; }
-.resume.plain .title { font-size: 10pt; }
-.resume.plain .dates { font-size: 9pt; color: #555; }
-.resume.plain ul { padding-left: 4.5mm; }
-.resume.plain li, .resume.plain .side li { font-size: inherit; margin: 0.8mm 0; }
-.resume.plain .side-item-title { color: var(--r-ink); font-weight: 700; font-size: 10pt; }
-.resume.plain .line { margin: 0.8mm 0; }
-.resume .contact-line { font-size: 9pt; color: #444; margin: 0 0 2mm; overflow-wrap: anywhere; }
+.resume.plain .role-head > div:first-child > div { display: flex; flex-direction: column-reverse; }
+.resume.plain .title { color: #16181d; font-weight: 700; font-size: 10.4pt; }
+.resume.plain .company { color: var(--r-blue); font-weight: 500; font-size: 9.6pt; }
+.resume.plain .dates { color: #5b616e; font-size: 8.6pt; }
+.resume.plain ul { padding-left: 4.2mm; }
+.resume.plain li, .resume.plain .side li { font-size: inherit; margin: 0.9mm 0; }
+.resume.plain li::marker { color: var(--r-blue); }
+.resume.plain .side-item-title { color: #16181d; font-weight: 600; font-size: 9.8pt; }
+.resume.plain .muted { color: #5b616e; }
+.resume.plain .line { margin: 0.9mm 0; }
 
 /* A cover letter on an A4 sheet, in the CV's font. */
 .letter {
