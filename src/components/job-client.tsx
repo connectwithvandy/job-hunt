@@ -8,7 +8,7 @@ import { useSetStatus } from "./Celebrate";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { CLOSENESS_LABEL, type ContactWithChat } from "../../convex/lib/chats";
-import { applyBoard } from "../../convex/lib/company";
+import { applyBoard, formLink } from "../../convex/lib/company";
 import { STATUS_LABELS } from "../../convex/lib/defaults";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../convex/lib/followups";
 import { tidyMessage } from "../../convex/lib/messageText";
@@ -32,7 +32,7 @@ type OutreachStatus = Outreach["status"];
 export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Parameters<typeof downloadDocx>[0]; coverLetter: string } } }) {
   const setStatus = useMutation(api.jobs.setStatus);
   const [done, setDone] = useState("");
-  const link = job.sourceUrl || job.url;
+  const link = formLink(job.sourceUrl || job.url);
   // A job only listed on a board opens there; say which, so the sign-in page isn't a surprise.
   const board = applyBoard(link);
   if (!link) return null;

@@ -104,3 +104,22 @@ export function applyBoard(url?: string | null) {
     return null;
   }
 }
+
+/**
+ * The application form itself, not the job's overview page. Ashby and Lever show the description first and keep
+ * the form on its own page (/application, /apply), so Apply and the autofill bookmark used to land a click short
+ * (found 23 Nov on CodeRabbit's Ashby posting). Other links come back unchanged.
+ */
+export function formLink(url?: string | null) {
+  if (!url) return url ?? undefined;
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (u.hostname === "jobs.ashbyhq.com" && parts.length === 2) u.pathname = `/${parts[0]}/${parts[1]}/application`;
+    else if (/^jobs\.(eu\.)?lever\.co$/.test(u.hostname) && parts.length === 2) u.pathname = `/${parts[0]}/${parts[1]}/apply`;
+    else return url;
+    return u.toString();
+  } catch {
+    return url;
+  }
+}

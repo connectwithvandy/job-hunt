@@ -11,6 +11,7 @@ import { ALL_MODES, readWorkModes, WORK_MODES } from "./lib/defaults";
 import { trialOver } from "./lib/trial";
 import { rateLimiter } from "./limits";
 import { trackForTitle } from "./lib/salesRoles";
+import { formLink } from "./lib/company";
 import { isOwnerEmail } from "./lib/auth";
 
 const DAY = 86_400_000;
@@ -108,7 +109,7 @@ export const dueFor = internalQuery({
       const name = tracks.find((t) => t.key === key)!.name;
       const list = byTrack.get(name) ?? [];
       // The company's own posting, as the job page's link: members asked to apply in one click from the email (22 Nov).
-      const applyUrl = j.sourceUrl || j.url;
+      const applyUrl = formLink(j.sourceUrl || j.url);
       list.push({ title: j.title, company: j.company, where: j.location || "Not listed", fit, id: j._id, ...(/^https?:\/\//i.test(applyUrl ?? "") && { applyUrl }) });
       byTrack.set(name, list);
     }
