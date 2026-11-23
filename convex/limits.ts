@@ -111,7 +111,10 @@ export const consume = internalMutation({
         if (!ok) throw new ConvexError(`${FREE_USED[free]} ${passLine}`);
       }
     }
-    const units = (AI_UNITS[kind] ?? 0) * (count ?? 1);
+    // Reading a CV is how a new member gets started, so the app-wide limit never blocks it: on 23 Nov the
+    // 200 units were gone by 9:15am and a new member's CV upload failed at "First, your CV". About 1c a CV;
+    // the per-person daily limit below still applies.
+    const units = kind === "readCv" ? 0 : (AI_UNITS[kind] ?? 0) * (count ?? 1);
     if (units) {
       const appArgs = { count: units, config: aiLimit() };
       const { ok } = checkOnly ? await rateLimiter.check(ctx, "appAi", appArgs) : await rateLimiter.limit(ctx, "appAi", appArgs);
