@@ -4,6 +4,7 @@ import { internalMutation, internalQuery, query, type MutationCtx, type QueryCtx
 import { boardFromUrl } from "./lib/boardFromUrl";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { companyKey, roleKey } from "./lib/company";
+import { SEED_BOARDS } from "./lib/seedBoards";
 import { fullTitle } from "./lib/salesRoles";
 
 // Discovered boards are capped so the morning download stays a few minutes long.
@@ -16,14 +17,15 @@ export const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.liter
 async function saveBoard(ctx: MutationCtx, company: string, board: { ats: CareerBoard["ats"]; slug: string }) {
   // Roles are filed by company name, so one board per name.
   const key = companyKey(company);
-  if (!key || CAREER_BOARDS.some((b) => (b.ats === board.ats && b.slug === board.slug) || companyKey(b.name) === key)) return;
+  if (!key || CAREER_BOARDS.some((b) => (b.ats === board.ats && b.slug === board.slug) || companyKey(b.name) === key)) return false;
   const seen =
     (await ctx.db.query("discoveredBoards").withIndex("by_ats_and_slug", (q) => q.eq("ats", board.ats).eq("slug", board.slug)).first()) ??
     (await ctx.db.query("discoveredBoards").withIndex("by_key", (q) => q.eq("key", key)).first());
-  if (seen) return;
+  if (seen) return false;
   // No count of all boards here: it read every board for each saved job, and on 13 Nov (past 1,000 boards) that broke
   // the morning save for 22 people. The morning read takes the first MAX_DISCOVERED; the table only grows by real boards.
   await ctx.db.insert("discoveredBoards", { key, name: company.trim(), ...board });
+  return true;
 }
 
 /** Remembers the careers board behind a job's links, so tomorrow's download reads that company too. */
@@ -57,6 +59,21 @@ export const recordFinds = internalMutation({
     }
     for (const f of found) await saveBoard(ctx, f.name, f);
     return null;
+  },
+});
+
+/**
+ * Saves the checked list of boards with India or remote sales roles (lib/seedBoards.ts) to the boards read each
+ * morning. Boards already saved are skipped, so it's safe to run again. The weekly finder runs it too.
+ * npx convex run --prod careers:addSeedBoards
+ */
+export const addSeedBoards = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let added = 0;
+    for (const b of SEED_BOARDS) if (await saveBoard(ctx, b.name, b)) added++;
+    return added;
   },
 });
 

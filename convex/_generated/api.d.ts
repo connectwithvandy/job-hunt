@@ -87,6 +87,7 @@ import type * as lib_quickFit from "../lib/quickFit.js";
 import type * as lib_razorpay from "../lib/razorpay.js";
 import type * as lib_rewriteGuard from "../lib/rewriteGuard.js";
 import type * as lib_salesRoles from "../lib/salesRoles.js";
+import type * as lib_seedBoards from "../lib/seedBoards.js";
 import type * as lib_sentMail from "../lib/sentMail.js";
 import type * as lib_services from "../lib/services.js";
 import type * as lib_sources from "../lib/sources.js";
@@ -200,6 +201,7 @@ declare const fullApi: ApiFromModules<{
   "lib/razorpay": typeof lib_razorpay;
   "lib/rewriteGuard": typeof lib_rewriteGuard;
   "lib/salesRoles": typeof lib_salesRoles;
+  "lib/seedBoards": typeof lib_seedBoards;
   "lib/sentMail": typeof lib_sentMail;
   "lib/services": typeof lib_services;
   "lib/sources": typeof lib_sources;

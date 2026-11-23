@@ -66,3 +66,12 @@ test("found Workday boards aren't in the read list", async () => {
   const boards = await t.query(internal.careers.discovered, {});
   expect(boards.map((b) => b.name)).toEqual(["Zylu"]);
 });
+
+test("the checked seed boards are saved once, and running it again adds none", async () => {
+  const t = convexTest(schema, modules);
+  const first = await t.mutation(internal.careers.addSeedBoards, {});
+  expect(first).toBeGreaterThan(100);
+  expect(await t.mutation(internal.careers.addSeedBoards, {})).toBe(0);
+  const boards = await t.query(internal.careers.discovered, {});
+  expect(boards.length).toBe(first);
+});
