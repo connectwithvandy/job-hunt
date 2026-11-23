@@ -55,8 +55,8 @@ type Context = {
 
 type Allowance = "readCv" | "score" | "tailor" | "notes" | "addJob" | "research" | "prep" | "chat" | "search";
 
-async function spend(ctx: ActionCtx, userId: Id<"users">, kind: Allowance, count = 1) {
-  await ctx.runMutation(internal.limits.consume, { userId, kind, count });
+async function spend(ctx: ActionCtx, userId: Id<"users">, kind: Allowance, count = 1, background = false) {
+  await ctx.runMutation(internal.limits.consume, { userId, kind, count, ...(background && { background }) });
 }
 
 /** Makes sure today's allowance is there without spending it; spend after the AI work succeeds, so a failure costs nothing. */
@@ -778,9 +778,9 @@ export const autopilotFor = internalAction({
         for (let i = 0; i < unscored.length; i += 12) {
           const batch = unscored.slice(i, i + 12);
           try {
-            await spend(ctx, userId, "score", batch.length);
+            await spend(ctx, userId, "score", batch.length, true);
           } catch (err) {
-            // Out of today's allowance: the rest wait for tomorrow.
+            // Out of today's allowance (or the half kept for members): the rest wait for tomorrow.
             console.warn("Autopilot scoring stopped", String(err));
             break;
           }
@@ -790,8 +790,9 @@ export const autopilotFor = internalAction({
       // Companies that just raised money and new YC companies, once a week on Mondays: funding news moves slowly.
       let funded = 0;
       try {
-        if (new Date().getUTCDay() === 1) {
-          funded = await addFunded(ctx, me, "india_remote");
+        // Paying members only, like morning scores (23 Nov: 14 lookups at 5 units each on a Monday morning).
+        if (new Date().getUTCDay() === 1 && tier === "paid") {
+          funded = await addFunded(ctx, me, "india_remote", true);
           await addYc(ctx, me, "india_remote");
         }
       } catch (err) {
@@ -1481,8 +1482,8 @@ export const findFromVcs = action({
 });
 
 /** Searches recent funding news, saves the new companies and scores them for fit. */
-async function addFunded(ctx: ActionCtx, me: Context, scope: "india_remote" | "profile"): Promise<number> {
-  await spend(ctx, me.userId, "research");
+async function addFunded(ctx: ActionCtx, me: Context, scope: "india_remote" | "profile", background = false): Promise<number> {
+  await spend(ctx, me.userId, "research", 1, background);
   const skip: string[] = await ctx.runQuery(internal.prospects.keysForAction, { userId: me.userId });
   const where = scope === "india_remote" ? `${readPlace(me.location).kind === "place" ? me.location : "India"}, or hiring remotely in India` : me.location;
   const found = await findFundedCompanies(where, me.tracks.filter((t) => t.status === "active").map((t) => t.name), skip);

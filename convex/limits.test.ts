@@ -109,6 +109,18 @@ describe("D. The whole app's daily AI limit", () => {
     await t.mutation(internal.limits.consume, { userId: other, kind: "search" });
   });
 
+  test("background work stops at half the budget; members and CV reading carry on (23 Nov)", async () => {
+    const { t, tester } = await setup();
+    // 20 units a day: background may use 10.
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "score", count: 8, background: true });
+    await expect(t.mutation(internal.limits.consume, { userId: tester, kind: "score", count: 3, background: true })).rejects.toThrow("kept for members");
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "score", count: 3 });
+    // The whole day's budget used up: reading a CV still works.
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "score", count: 9 });
+    await expect(t.mutation(internal.limits.consume, { userId: tester, kind: "score" })).rejects.toThrow("reached today's limit");
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "readCv" });
+  });
+
   test("a check alone uses nothing, and the owner isn't stopped", async () => {
     const { t, tester, owner } = await setup();
     for (let i = 0; i < 3; i++) await t.mutation(internal.limits.consume, { userId: tester, kind: "tailor", checkOnly: true });

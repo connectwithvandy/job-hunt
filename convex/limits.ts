@@ -97,8 +97,10 @@ export const consume = internalMutation({
     kind: v.union(v.literal("readCv"), v.literal("score"), v.literal("tailor"), v.literal("notes"), v.literal("addJob"), v.literal("research"), v.literal("prep"), v.literal("chat"), v.literal("search"), v.literal("findEmail")),
     count: v.optional(v.number()),
     checkOnly: v.optional(v.boolean()),
+    /** Automatic work nobody is waiting for (the morning run). It may only use the first half of the day's AI budget. */
+    background: v.optional(v.boolean()),
   },
-  handler: async (ctx, { userId, kind, count, checkOnly }) => {
+  handler: async (ctx, { userId, kind, count, checkOnly, background }) => {
     const user = await ctx.db.get("users", userId);
     if (isOwnerEmail(user?.email)) return null;
     if (!OPEN_AFTER_TRIAL.includes(kind)) {
@@ -116,6 +118,13 @@ export const consume = internalMutation({
     // the per-person daily limit below still applies.
     const units = kind === "readCv" ? 0 : (AI_UNITS[kind] ?? 0) * (count ?? 1);
     if (units) {
+      // Half the day's AI is kept for people using the app: on 23 Nov the morning run's Monday company lookups
+      // and scores used much of it before anyone logged in, and members (and a new sign-up) hit the wall.
+      if (background) {
+        const reserve = Math.floor(aiLimit().rate / 2);
+        const { ok } = await rateLimiter.check(ctx, "appAi", { count: units + reserve, config: aiLimit() });
+        if (!ok) throw new ConvexError("Background AI paused: the rest of today's budget is kept for members.");
+      }
       const appArgs = { count: units, config: aiLimit() };
       const { ok } = checkOnly ? await rateLimiter.check(ctx, "appAi", appArgs) : await rateLimiter.limit(ctx, "appAi", appArgs);
       if (!ok) throw new ConvexError("JobPipe's AI tools have reached today's limit. They'll be back tomorrow, and job search still works.");
