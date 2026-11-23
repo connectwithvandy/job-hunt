@@ -58,6 +58,27 @@ export const SALES_ROLES = [
     pitch: "Knows the full cycle from first call to close, and how pipeline is really built.",
   },
   {
+    // Its own role since 23 Nov (a member had to type it under "Others"). Before Account Management, so a
+    // "Customer Success Manager" job is sorted here; Account Management keeps the title for tracks made earlier.
+    key: "customer-success",
+    name: "Customer Success",
+    color: "#2DD4BF",
+    titles: [
+      "Customer Success Manager",
+      "Senior Customer Success Manager",
+      "Enterprise Customer Success Manager",
+      "Strategic Customer Success Manager",
+      "Customer Success Lead",
+      "Customer Success Team Lead",
+      "Head of Customer Success",
+      "Director of Customer Success",
+      "Customer Success Associate",
+      "Customer Success Executive",
+      "Client Success Manager",
+    ],
+    pitch: "Keeps customers getting value: onboarding, adoption, renewals and expansion.",
+  },
+  {
     key: "account-management",
     name: "Account Management",
     color: "#34D399",

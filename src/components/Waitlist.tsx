@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 
-const ROLES = ["Account Executive", "SDR / BDR", "Sales leadership", "GTM strategy / AI GTM", "Founder's Office", "Other"];
+const ROLES = ["Account Executive", "SDR / BDR", "Sales leadership", "Customer Success", "GTM strategy / AI GTM", "Founder's Office", "Other"];
 
 /** Signed up but not let in yet. A few questions help the owner let the right people in first. */
 export function Waitlist({ email, onWaitlist, answered, rejected }: { email: string; onWaitlist: boolean; answered: boolean; rejected: boolean }) {

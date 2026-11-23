@@ -182,6 +182,10 @@ export function ImportConnections() {
             throw new Error(`Only ${i.toLocaleString()} of ${rows.length.toLocaleString()} connections loaded: ${errorMessage(err)} Load the file again to finish.`);
           }
         }
+        // LinkedIn's export stopped including current companies and titles (Dec 2026, seen by a member on 22 Nov),
+        // so "who you know at this company" can't be worked out from the file alone. Say so instead of a silent 0.
+        if (!rows.some((r) => r.company))
+          return `Loaded ${rows.length.toLocaleString()} connections, but LinkedIn's download no longer includes where they work, so JobPipe can't yet show who you know at each company. Your names are saved; we're working on another way to match them.`;
         return `Loaded ${rows.length.toLocaleString()} connections.`;
       }}
     />

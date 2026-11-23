@@ -189,7 +189,7 @@ export const sendPartnerReminder = internalAction({
 });
 
 /** Roles that are let straight in. Anyone picking "Other" waits for the owner to check their LinkedIn. */
-const SALES_ROLES = new Set(["Account Executive", "SDR / BDR", "Sales leadership", "GTM strategy / AI GTM", "Founder's Office"]);
+const SALES_ROLES = new Set(["Account Executive", "SDR / BDR", "Sales leadership", "Customer Success", "GTM strategy / AI GTM", "Founder's Office"]);
 
 /**
  * Name, LinkedIn and the role you're after. Picking a sales role lets you in straight away (trial starts now,
