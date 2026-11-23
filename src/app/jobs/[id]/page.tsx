@@ -13,7 +13,7 @@ import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../../../convex/lib/f
 import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { CvMatch } from "@/components/CvMatch";
 import { downloadDocx } from "@/lib/docx";
-import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton } from "@/components/job-client";
+import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton, GapAnswers } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton, DownloadMenu } from "@/components/ui";
 import { inInr, payText, useInrRates } from "@/lib/money";
@@ -273,7 +273,7 @@ export default function JobPage() {
                 </button>
               </div>
             )}
-            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} favorite={!!job.favorite} />
+            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} />
               </>
             )}
             {job.pack && (
@@ -312,12 +312,18 @@ export default function JobPage() {
                       {job.pack.fit.map((f) => (
                         <li key={f.ask} className="grid gap-1 p-3 sm:grid-cols-[1fr_2fr] sm:gap-4">
                           <span className="font-medium">{f.ask}</span>
-                          {f.proof ? <span className="text-ink-2">{f.proof}</span> : <span className="text-warn">Nothing in your CV shows this. Cover it in the cover letter or the interview, or add it to your CV if it&apos;s true.</span>}
+                          {f.proof ? <span className="text-ink-2">{f.proof}</span> : <span className="text-warn">Nothing in your CV shows this yet. If you&apos;ve done it, say so below and the CV can prove it.</span>}
                         </li>
                       ))}
                     </ul>
+                    {!job.pack.letterOnly && (
+                      <div className="mt-3">
+                        <GapAnswers key={job.pack.createdAt} jobId={job._id} gaps={job.pack.fit.filter((f) => !f.proof.trim()).map((f) => f.ask)} />
+                      </div>
+                    )}
                   </div>
                 )}
+                {job.pack.shortened?.length ? <p className="text-xs text-ink-3">Fitted on two pages for this job. Left out of this copy only: {job.pack.shortened.join("; ")}.</p> : null}
                 {job.pack.unverified.length > 0 ? (
                   <p className="rounded-lg bg-warn/10 p-3 text-sm text-warn">Check these numbers before sending, they aren&apos;t in your master CV: {job.pack.unverified.join(", ")}</p>
                 ) : (
@@ -330,7 +336,7 @@ export default function JobPage() {
               <details className="mt-6 border-t border-line pt-4">
                 <summary className="cursor-pointer text-sm font-medium text-ink-2 hover:text-ink">Change it or write it again</summary>
                 <div className="mt-3">
-                  <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo anyway={!!skip} favorite={!!job.favorite} />
+                  <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo anyway={!!skip} />
                 </div>
               </details>
             )}
