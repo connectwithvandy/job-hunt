@@ -9,6 +9,7 @@ import { requireUserId } from "./lib/auth";
 import { withChats } from "./lib/chats";
 import { AGGREGATORS, cleanCompany, companyKey, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
+import { fitTwoPages as fitLength } from "./lib/cvLength";
 import { noteBoard } from "./careers";
 import { outcomeOf } from "./lib/outcomes";
 import { SKIP_BELOW } from "./lib/posting";
@@ -272,6 +273,25 @@ export const saveTailoredResume = mutation({
   },
 });
 
+/**
+ * Your choice, from the tailored CV page: fits this job's copy on two pages by leaving out the side items least
+ * related to the job (lib/cvLength.ts). Nothing is reworded and the master CV is untouched; "Undo my edits" brings it all back.
+ */
+export const fitTwoPages = mutation({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const userId = await requireUserId(ctx);
+    const job = await withDetails(ctx, await ownJob(ctx, userId, jobId));
+    const p = job.pack;
+    if (!p || p.letterOnly) throw new ConvexError("Write the tailored CV first.");
+    const out = fitLength(p.resume, `${job.title}\n${job.description ?? ""}`);
+    if (!out.left.length) return { left: [], pages: out.pages };
+    await saveDetails(ctx, job, { pack: { ...p, resume: out.resume, written: p.written ?? p.resume, shortened: [...(p.shortened ?? []), ...out.left] } });
+    await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
+    return { left: out.left, pages: out.pages };
+  },
+});
+
 /** Puts back the tailored CV as JobPipe wrote it, dropping your edits. */
 export const restoreTailoredResume = mutation({
   args: { jobId: v.id("jobs") },
@@ -281,8 +301,9 @@ export const restoreTailoredResume = mutation({
     const p = job.pack;
     if (!p?.written) throw new ConvexError("There are no edits to undo.");
     const unverified = await checkNumbers(ctx, userId, p, p.written);
+    // What "Fit it on two pages" left out comes back too.
     const { written, ...rest } = p;
-    await saveDetails(ctx, job, { pack: { ...rest, resume: written, unverified } });
+    await saveDetails(ctx, job, { pack: { ...rest, shortened: undefined, resume: written, unverified } });
     await ctx.db.patch("jobs", jobId, { updatedAt: Date.now() });
     return null;
   },
