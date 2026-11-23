@@ -211,23 +211,40 @@ export function ResumeDoc({ r, photoUrl, logos = {}, plain = false }: { r: Resum
             <div>{c.detail}</div>
           </div>
         ))}
-        <h2>Technical Skills</h2>
-        <ul>
-          {r.skills.technical.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ul>
-        <h2>Soft Skills</h2>
-        <ul>
-          {r.skills.soft.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ul>
+        {plain ? (
+          // One column: skills read as one line each, not a long one-word-per-line list.
+          <>
+            <h2>Skills</h2>
+            {r.skills.technical.length > 0 && <p className="line">{r.skills.technical.join(" · ")}</p>}
+            {r.skills.soft.length > 0 && <p className="line">{r.skills.soft.join(" · ")}</p>}
+          </>
+        ) : (
+          <>
+            <h2>Technical Skills</h2>
+            <ul>
+              {r.skills.technical.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+            <h2>Soft Skills</h2>
+            <ul>
+              {r.skills.soft.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+          </>
+        )}
         {r.extras.map((x) => (
           <div key={x.title}>
             <h2>{x.title}</h2>
             {x.items.map((it, i) =>
-              it.heading ? (
+              plain ? (
+                // One column: "Heading: text" on one line, so short entries don't take two lines each.
+                <p key={i} className="line">
+                  {it.heading && it.heading.trim().toLowerCase() !== x.title.trim().toLowerCase() && <strong>{it.heading}: </strong>}
+                  {it.text}
+                </p>
+              ) : it.heading ? (
                 <div key={i} className="mb-3" style={{ fontSize: "8.8pt" }}>
                   {/* "Languages" under a "Languages" section said it twice (19 Nov). */}
                   {it.heading.trim().toLowerCase() !== x.title.trim().toLowerCase() && <strong>{it.heading}</strong>}
