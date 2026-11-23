@@ -271,7 +271,10 @@ const PackSchema = z.strictObject({
 });
 
 /** How the cover letter is built, shared by the full pack and the letter on its own. */
-const LETTER_RULES = `The cover letter: open with this company's specific need, read from the posting. Prove the top 2 or 3 must-haves with real numbers. Address the biggest gap honestly only if the facts give a real angle on it; otherwise leave it out. Close with a concrete ask.`;
+const LETTER_RULES = `The cover letter: open with this company's specific need, read from the posting. Prove the top 2 or 3 must-haves with real numbers. Close with a concrete ask.
+- Every sentence about the candidate carries a specific: a number, a team size, a region, a named market or a named result. Cut any sentence that could be true of anyone, like "I've worked on the front end of the sales motion".
+- If the CV or facts say what a past employer sells (a "What the company sells" line) and it matches this company's market, say so plainly in the first proof paragraph: it is often the strongest link.
+- A gap is never confessed and never gets its own paragraph. If the facts give a real bridge, write one sentence, after the proof, on what carries over, in positive terms ("My teams build the qualified pipeline closing teams forecast on; I'd bring that discipline to coaching closers"). Never write "to be straight", "to be honest", "while I haven't", "not X but", or name what the candidate lacks. No real bridge: leave the gap out.`;
 
 export type Fact = { question: string; answer: string };
 
