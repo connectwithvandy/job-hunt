@@ -183,10 +183,10 @@ export function ResumeDoc({ r, photoUrl, logos = {}, plain = false }: { r: Resum
           {r.contact.email && (
             <span>
               <Icon name="email" />
-              <span>
-                {r.contact.email.replace(/@.*/, "")}
-                <wbr />
-                {r.contact.email.replace(/^[^@]*/, "")}
+              {/* One piece of text: a break point inside it made hiring software read the address as two words
+                  ("name" and "@gmail.com", found 23 Nov). It stays on one line; a long one is set a little smaller to fit. */}
+              <span className="email" style={{ fontSize: `${Math.min(9, (9 * 25) / r.contact.email.length).toFixed(2)}pt` }}>
+                {r.contact.email}
               </span>
             </span>
           )}
