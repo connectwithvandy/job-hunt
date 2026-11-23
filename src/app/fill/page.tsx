@@ -3,7 +3,7 @@
 // The small window the JobPipe autofill bookmark opens on an application form. It sends that form
 // page this job's drafted answers, the tailored CV and the cover letter, then the bookmark fills them
 // in. Nothing is submitted: the candidate checks the form and presses Submit themselves.
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { useSearchParams } from "next/navigation";
 import { BOOKMARK_VERSION } from "@/lib/autofill";
 import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -11,6 +11,7 @@ import { api } from "../../../convex/_generated/api";
 import { Spinner } from "@/components/ui";
 import { applyingJob } from "@/lib/applying";
 import { letterDocx, resumeDocx } from "@/lib/docx";
+import { errorMessage } from "@/lib/errors";
 
 const noSubscribe = () => () => {};
 
@@ -21,6 +22,8 @@ function family(host: string) {
   return host.toLowerCase().replace(/^www\./, "").split(".").slice(-2).join(".");
 }
 
+type Result = { filled: number; attached: string[]; left: string[]; optionalLeft: number };
+
 function Fill() {
   const params = useSearchParams();
   const origin = params.get("o") ?? "";
@@ -30,8 +33,13 @@ function Fill() {
   const jobId = useSyncExternalStore(noSubscribe, applyingJob, () => undefined);
   const hasOpener = useSyncExternalStore(noSubscribe, () => !!window.opener, () => true);
   const data = useQuery(api.applyAnswers.forFill, jobId ? { jobId } : "skip");
+  const readForm = useAction(api.applyForm.readForm);
   const [state, setState] = useState<"ready" | "sending" | "sent" | "done" | "error">("ready");
-  const [result, setResult] = useState<{ filled: number; attached: string[] } | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
+  // The form's own questions are read and drafted once per job, here, before filling (one small AI call).
+  const [readDone, setReadDone] = useState(false);
+  const [readNote, setReadNote] = useState("");
+  const readOnce = useRef(false);
   const sentOnce = useRef(false);
 
   const linkHost = (() => {
@@ -43,6 +51,17 @@ function Fill() {
   })();
   // The form is on the job's own site: send straight away. Anywhere else, ask first, so no other site can pull your CV.
   const trusted = !!formHost && !!linkHost && family(formHost) === family(linkHost);
+  const reading = !!data?.readAhead && !readDone;
+  const readyToSend = !!data && !reading;
+
+  useEffect(() => {
+    if (!jobId || !data?.readAhead || readOnce.current || !origin) return;
+    readOnce.current = true;
+    readForm({ jobId })
+      .then((r) => setReadNote(r.questions ? `Drafted answers to ${r.questions} of this form's questions.` : ""))
+      .catch((err: unknown) => setReadNote(`Couldn't draft this form's own questions (${errorMessage(err)}). Your saved answers still go in.`))
+      .finally(() => setReadDone(true));
+  }, [jobId, data?.readAhead, origin, readForm]);
 
   async function send() {
     if (!data || !window.opener || !origin) return;
@@ -68,7 +87,13 @@ function Fill() {
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       if (e.origin !== origin || e.data?.type !== "jobpipe-filled") return;
-      setResult({ filled: Number(e.data.filled) || 0, attached: Array.isArray(e.data.attached) ? e.data.attached : [] });
+      const left: unknown = e.data.left;
+      setResult({
+        filled: Number(e.data.filled) || 0,
+        attached: Array.isArray(e.data.attached) ? e.data.attached : [],
+        left: Array.isArray(left) ? left.filter((l): l is string => typeof l === "string").slice(0, 20) : [],
+        optionalLeft: Number(e.data.optionalLeft) || 0,
+      });
       setState("done");
     }
     window.addEventListener("message", onMessage);
@@ -76,12 +101,12 @@ function Fill() {
   }, [origin]);
 
   useEffect(() => {
-    if (trusted && data && !sentOnce.current) {
+    if (trusted && readyToSend && !sentOnce.current) {
       sentOnce.current = true;
       void send();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trusted, data]);
+  }, [trusted, readyToSend]);
 
   if (jobId === undefined) return <Spinner />;
   if (!origin || !hasOpener) {
@@ -119,19 +144,25 @@ function Fill() {
         <li>{data.resume ? (data.tailored ? "Your tailored CV" : "Your CV (not tailored for this job yet)") : "No CV yet: upload one on the CVs page"}</li>
         {data.coverLetter && <li>Your cover letter</li>}
       </ul>
+      {reading && (
+        <p className="flex items-center gap-2 text-sm text-ink-2">
+          <Spinner /> Reading this form&apos;s own questions and drafting answers from your CV (about 20 seconds)…
+        </p>
+      )}
+      {readNote && <p className="text-sm text-ink-2">{readNote}</p>}
       {state === "ready" && !trusted && (
         <div className="space-y-2">
           <p className="text-sm text-warn">
             This form is on <b>{formHost || "another site"}</b>, not where JobPipe found the job ({linkHost || "unknown"}). Only send if you opened it from the job&apos;s Apply link.
           </p>
-          <button className="btn btn-primary" onClick={() => void send()}>
+          <button className="btn btn-primary" disabled={!readyToSend} onClick={() => void send()}>
             Fill the form on {formHost}
           </button>
         </div>
       )}
       {(state === "sending" || state === "sent") && (
         <p className="flex items-center gap-2 text-sm text-ink-2">
-          <Spinner /> Filling the form…
+          <Spinner /> Filling the form (dropdowns take a few seconds each)…
         </p>
       )}
       {state === "done" && result && (
@@ -140,9 +171,22 @@ function Fill() {
             Filled {result.filled} {result.filled === 1 ? "field" : "fields"}
             {result.attached.length ? ` and attached your ${result.attached.join(" and ")}` : ""}.
           </p>
+          {result.left.length > 0 && (
+            <div className="text-sm">
+              <p className="text-warn">
+                {result.left.length} required {result.left.length === 1 ? "question is" : "questions are"} still blank, for you to answer:
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-ink-2">
+                {result.left.map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <p className="text-sm text-ink-2">
-            Go back to the form. Check every green-outlined field, answer anything left blank, pick any dropdowns JobPipe couldn&apos;t, then press <b>Submit</b> yourself.
-            {data.needsYou > 0 && ` ${data.needsYou} ${data.needsYou === 1 ? "question needs" : "questions need"} your own answer.`}
+            Go back to the form. Check every green-outlined field
+            {result.left.length ? ", answer the questions above" : ""}
+            {result.optionalLeft ? ` and any of the ${result.optionalLeft} optional ones you want to` : ""}, then press <b>Submit</b> yourself.
           </p>
           <button className="btn btn-ghost btn-sm" onClick={() => window.close()}>
             Close this window
