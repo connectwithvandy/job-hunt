@@ -124,8 +124,11 @@ function TwoPages({ jobId, resume, shortened, edited }: { jobId: Id<"jobs">; res
     <div className="no-print w-full max-w-[210mm] rounded-lg bg-soft p-4 text-sm">
       {shortened?.length ? (
         <>
-          <p className="font-medium">Fitted on two pages for this job</p>
-          <p className="mt-1 text-ink-2">Left out of this copy only (your master CV keeps everything):</p>
+          <p className="font-medium">{pages <= TWO_PAGES ? "Fitted on two pages for this job" : `Shortened to about ${pages.toFixed(1)} pages for this job`}</p>
+          <p className="mt-1 text-ink-2">
+            Left out of this copy only (your master CV keeps everything). Tools, skills, languages, awards, certifications and leadership lines are always kept
+            {pages > TWO_PAGES ? ", so to reach two pages, use Edit to shorten the longest bullets" : ""}:
+          </p>
           <ul className="mt-1 list-disc pl-5 text-ink-2">
             {shortened.map((s) => (
               <li key={s}>{s}</li>
@@ -151,7 +154,7 @@ function TwoPages({ jobId, resume, shortened, edited }: { jobId: Id<"jobs">; res
               setState(
                 await attempt(async () => {
                   const out = await fit({ jobId });
-                  if (!out.left.length) return `Even with every side item left out, this CV would still run past two pages: the experience is the long part. Write the CV again (each role now keeps only its most relevant bullets), or use Edit to shorten the longest bullets.`;
+                  if (!out.left.length) return `Nothing here can be left out without losing something important (tools, skills, languages, awards, certifications and leadership lines are always kept). To reach two pages, write the CV again (each role now keeps only its most relevant bullets), or use Edit to shorten the longest bullets.`;
                 }),
               );
               setBusy(false);

@@ -53,10 +53,30 @@ test("leaves out the side items least related to the job first, and never touche
   expect(out.left.join(" ")).toMatch(/kept \d+ of/);
 });
 
-test("cuts nothing when the experience alone runs past two pages, since cutting side items can't fix that", () => {
+test("when the experience alone runs past two pages, leaves out only what may go and says how long it still is", () => {
   const long = cv(2, 9);
   const out = fitTwoPages(long, JOB);
   expect(out.pages).toBeGreaterThan(2);
-  expect(out.resume).toBe(long);
-  expect(out.left).toEqual([]);
+  expect(out.resume.experience).toEqual(long.experience);
+  expect(out.left.join(" ")).toMatch(/Cooking blog/);
+});
+
+test("never leaves out tools, awards, languages or leadership lines (owner's ServiceNow CV, 23 Nov)", () => {
+  const long = cv(0, 5);
+  long.extras = [
+    { title: "Tools", items: [{ heading: "Sales", text: "Salesforce, Outreach, Gong" }] },
+    { title: "Recognition", items: [{ heading: "100 Powerful Women in Sales", text: "Demandbase, 2025" }] },
+    { title: "Languages", items: [{ heading: "Languages", text: "English, Hindi" }] },
+    { title: "Side Projects", items: [
+      { heading: "Co-founder & Host, SDR Leaders of APAC (250+ members)", text: "Invite-only network for SDR managers." },
+      { heading: "Builder, Debrief", text: "Scores event conversations and drafts the follow up." },
+    ] },
+    { title: "Communities", items: [{ heading: "Member", text: "GrowthX" }, { heading: "Member", text: "Tenbound" }] },
+  ];
+  const out = fitTwoPages(long, JOB);
+  const kept = out.resume.extras.flatMap((x) => x.items.map((i) => i.heading));
+  for (const h of ["Sales", "100 Powerful Women in Sales", "Languages", "Co-founder & Host, SDR Leaders of APAC (250+ members)"]) expect(kept).toContain(h);
+  expect(out.resume.education[0].notes).toEqual(expect.arrayContaining(["President, Entrepreneurship Cell", "Head, Cultural Committee"]));
+  // "Member" lines go first, and say which community.
+  expect(out.left.join(" ")).toMatch(/Member, GrowthX/);
 });
