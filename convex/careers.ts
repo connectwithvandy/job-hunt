@@ -4,10 +4,12 @@ import { internalMutation, internalQuery, query, type MutationCtx, type QueryCtx
 import { boardFromUrl } from "./lib/boardFromUrl";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
 import { companyKey, roleKey } from "./lib/company";
+import { SEED_BOARDS } from "./lib/seedBoards";
 import { fullTitle } from "./lib/salesRoles";
 
 // Discovered boards are capped so the morning download stays a few minutes long.
-// Each one is read every morning; 2,500 keeps the morning read inside its time.
+// Each one is read every morning; 2,500 keeps the morning read inside its time. Found Workday boards aren't read
+// and don't count (careers.discovered).
 const MAX_DISCOVERED = 2500;
 
 export const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"), v.literal("workable"), v.literal("recruitee"), v.literal("teamtailor"), v.literal("bamboohr"), v.literal("eightfold"), v.literal("recruiterbox"));
@@ -15,14 +17,15 @@ export const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.liter
 async function saveBoard(ctx: MutationCtx, company: string, board: { ats: CareerBoard["ats"]; slug: string }) {
   // Roles are filed by company name, so one board per name.
   const key = companyKey(company);
-  if (!key || CAREER_BOARDS.some((b) => (b.ats === board.ats && b.slug === board.slug) || companyKey(b.name) === key)) return;
+  if (!key || CAREER_BOARDS.some((b) => (b.ats === board.ats && b.slug === board.slug) || companyKey(b.name) === key)) return false;
   const seen =
     (await ctx.db.query("discoveredBoards").withIndex("by_ats_and_slug", (q) => q.eq("ats", board.ats).eq("slug", board.slug)).first()) ??
     (await ctx.db.query("discoveredBoards").withIndex("by_key", (q) => q.eq("key", key)).first());
-  if (seen) return;
+  if (seen) return false;
   // No count of all boards here: it read every board for each saved job, and on 13 Nov (past 1,000 boards) that broke
   // the morning save for 22 people. The morning read takes the first MAX_DISCOVERED; the table only grows by real boards.
   await ctx.db.insert("discoveredBoards", { key, name: company.trim(), ...board });
+  return true;
 }
 
 /** Remembers the careers board behind a job's links, so tomorrow's download reads that company too. */
@@ -56,6 +59,21 @@ export const recordFinds = internalMutation({
     }
     for (const f of found) await saveBoard(ctx, f.name, f);
     return null;
+  },
+});
+
+/**
+ * Saves the checked list of boards with India or remote sales roles (lib/seedBoards.ts) to the boards read each
+ * morning. Boards already saved are skipped, so it's safe to run again. The weekly finder runs it too.
+ * npx convex run --prod careers:addSeedBoards
+ */
+export const addSeedBoards = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let added = 0;
+    for (const b of SEED_BOARDS) if (await saveBoard(ctx, b.name, b)) added++;
+    return added;
   },
 });
 
@@ -149,9 +167,16 @@ export const discovered = internalQuery({
   handler: async (ctx) => {
     // A company found from job links and later hand-picked is read once, as the hand-picked board.
     const picked = new Set(CAREER_BOARDS.flatMap((b) => [`${b.ats}:${b.slug}`, companyKey(b.name)]));
-    return (await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED))
-      .filter((b) => !picked.has(`${b.ats}:${b.slug}`) && !picked.has(b.key))
-      .map(({ name, ats, slug }) => ({ name, website: "", ats, slug }));
+    const out: CareerBoard[] = [];
+    // Found Workday boards are left out and don't count toward the cap: since 17 Nov only the hand-picked
+    // Workday companies are read (owner: SaaS only). Until 23 Nov their 563 rows took up room in the first 2,500,
+    // so the read list was really ~1,760 boards and would have stopped growing within weeks.
+    for await (const b of ctx.db.query("discoveredBoards")) {
+      if (b.ats === "workday" || picked.has(`${b.ats}:${b.slug}`) || picked.has(b.key)) continue;
+      out.push({ name: b.name, website: "", ats: b.ats, slug: b.slug });
+      if (out.length >= MAX_DISCOVERED) break;
+    }
+    return out;
   },
 });
 
@@ -195,23 +220,67 @@ const LINKEDIN_ROLE = "linkedin:";
 /** Roles from the shared daily searches (LinkedIn, Google Jobs): not on any careers board, so a board refresh leaves them alone. */
 const POOLED = [LINKEDIN_ROLE, "gjobs:"];
 
-/** Roles from the shared LinkedIn search saved before this time, oldest first. */
-/** Google Jobs pool roles saved before `before`: taken out after a month, like LinkedIn's. */
-export const oldGoogle = internalQuery({
-  args: { before: v.number() },
-  returns: v.array(v.string()),
-  handler: async (ctx, { before }) => {
-    const rows = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.gte("externalId", "gjobs:").lt("externalId", "gjobs;")).take(1000);
-    return rows.filter((r) => r._creationTime < before).map((r) => r.externalId);
+/**
+ * One page of the shared LinkedIn or Google Jobs roles saved before `before`, to take out after a month.
+ * Paged, not the first 1,000: ids sort by LinkedIn's number, not by age, and with 2,300+ LinkedIn roles (23 Nov)
+ * the old ones past the first 1,000 would never have been taken out.
+ */
+export const oldPooledPage = internalQuery({
+  args: { prefix: v.union(v.literal("linkedin:"), v.literal("gjobs:")), before: v.number(), cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ ids: v.array(v.string()), cursor: v.union(v.string(), v.null()) }),
+  handler: async (ctx, { prefix, before, cursor }) => {
+    // ";" sorts right after ":", so this reads exactly the ids starting with the prefix.
+    const end = `${prefix.slice(0, -1)};`;
+    const page = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.gte("externalId", prefix).lt("externalId", end)).paginate({ numItems: 2000, cursor });
+    return { ids: page.page.filter((r) => r._creationTime < before).map((r) => r.externalId), cursor: page.isDone ? null : page.continueCursor };
   },
 });
 
-export const oldLinkedIn = internalQuery({
-  args: { before: v.number() },
+/** One page of the careers-board roles (not LinkedIn or Google Jobs), slim, for the daily sweep. */
+export const boardRowsPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ rows: v.array(v.object({ externalId: v.string(), company: v.string() })), cursor: v.union(v.string(), v.null()) }),
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("careerJobs").paginate({ numItems: 4000, cursor });
+    return {
+      rows: page.page.filter((r) => !POOLED.some((p) => r.externalId.startsWith(p))).map((r) => ({ externalId: r.externalId, company: r.company })),
+      cursor: page.isDone ? null : page.continueCursor,
+    };
+  },
+});
+
+/** Notes that these companies' boards were just read without an error. At most one write per company every 20 hours (the sweep counts days). */
+export const markRead = internalMutation({
+  args: { names: v.array(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { names }) => {
+    const now = Date.now();
+    for (const name of names) {
+      const have = await ctx.db.query("boardReads").withIndex("by_name", (q) => q.eq("name", name)).unique();
+      if (!have) await ctx.db.insert("boardReads", { name, readAt: now });
+      else if (now - have.readAt > 20 * 3_600_000) await ctx.db.patch("boardReads", have._id, { readAt: now });
+    }
+    return null;
+  },
+});
+
+/**
+ * Of these companies with roles in the shared list, the ones whose board is read every day (`listed`) but hasn't
+ * answered for `staleDays`. A company seen here for the first time starts its count now, so nothing is taken
+ * out on the day this check starts. Companies not listed are handled by the caller.
+ */
+export const staleReads = internalMutation({
+  args: { names: v.array(v.string()), staleDays: v.number() },
   returns: v.array(v.string()),
-  handler: async (ctx, { before }) => {
-    const rows = await ctx.db.query("careerJobs").withIndex("by_externalId", (q) => q.gte("externalId", LINKEDIN_ROLE).lt("externalId", "linkedin;")).take(1000);
-    return rows.filter((r) => r._creationTime < before).map((r) => r.externalId);
+  handler: async (ctx, { names, staleDays }) => {
+    const now = Date.now();
+    const out: string[] = [];
+    for (const name of names) {
+      const have = await ctx.db.query("boardReads").withIndex("by_name", (q) => q.eq("name", name)).unique();
+      if (!have) await ctx.db.insert("boardReads", { name, readAt: now });
+      else if (now - have.readAt > staleDays * 86_400_000) out.push(name);
+    }
+    return out;
   },
 });
 
@@ -452,7 +521,8 @@ export const jobsPage = internalQuery({
 export const discoveredCounts = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const rows = await ctx.db.query("discoveredBoards").take(MAX_DISCOVERED);
+    // Every found board, Workday ones too, though only MAX_DISCOVERED of the others are read.
+    const rows = await ctx.db.query("discoveredBoards").take(8000);
     const by: Record<string, number> = {};
     for (const r of rows) by[r.ats] = (by[r.ats] ?? 0) + 1;
     return { total: rows.length, byAts: Object.entries(by).sort((a, b) => b[1] - a[1]).map(([ats, n]) => `${ats} ${n}`).join(", ") };

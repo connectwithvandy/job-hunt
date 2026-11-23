@@ -47,6 +47,8 @@ export const find = internalAction({
   args: { start: v.optional(v.number()), again: v.optional(v.boolean()), list: v.optional(v.array(candidateV)), tally: v.optional(v.string()) },
   handler: async (ctx, { start = 0, again, list, tally = "" }) => {
     if (env.SCHEDULED_OFF === "1") return null;
+    // The checked boards in lib/seedBoards.ts, in case nobody added them by hand after the deploy.
+    if (start === 0) await ctx.runMutation(internal.careers.addSeedBoards, {});
     const everyone = list ?? (await buildList(ctx, !!again));
     const slice = everyone.slice(start, start + CHUNK);
     const due = new Set<string>(await ctx.runQuery(internal.careers.unchecked, { keys: slice.map((c) => companyKey(c.name)) }));

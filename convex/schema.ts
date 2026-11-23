@@ -344,6 +344,13 @@ export default defineSchema({
   /** A short fingerprint of each fast board's job list, so a quick check can skip boards that haven't changed. */
   boardStates: defineTable({ key: v.string(), hash: v.string() }).index("by_key", ["key"]),
 
+  /**
+   * When each company's careers board (by the company name its roles are filed under) was last read without an
+   * error, or when the daily sweep first saw its roles. Roles from a board not read for days are taken out
+   * (careersRefresh.sweep), so nobody is shown a role that may have closed long ago.
+   */
+  boardReads: defineTable({ name: v.string(), readAt: v.number() }).index("by_name", ["name"]),
+
   /** Careers boards found in job links (lib/boardFromUrl.ts), read each morning beside the hand-picked ones. */
   discoveredBoards: defineTable({
     key: v.string(),
