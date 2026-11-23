@@ -27,9 +27,9 @@ const FILL_SOURCE = String.raw`function (answers, files) {
     [/linkedin/, () => get("LinkedIn profile")],
     [/\b(current|present) (company|employer|organi[sz]ation)\b|\bemployer\b/, () => get("Current company")],
     [/\b(current|present) (job )?(title|role|designation|position)\b/, () => get("Current job title")],
-    [/\b(city|location)\b|\baddress\b/, () => get("Current location")],
+    [/\b(city|location)\b|\baddress\b|\bworking from\b|\bbased (in|out of)\b/, () => get("Current location")],
     [/\bnotice\b/, () => get("Notice period")],
-    [/\bexpected\b.*\b(ctc|salary|compensation|pay)\b|\bsalary expectation/, () => get("Expected CTC")],
+    [/\bexpected\b.*\b(ctc|salary|compensation|pay)\b|\b(salary|compensation|pay) expectation/, () => get("Expected CTC")],
     [/\bcurrent\b.*\b(ctc|salary|compensation|pay)\b/, () => get("Current CTC (fixed + variable)")],
     [/\byears\b.*\bexperience\b|\bexperience\b.*\byears\b/, () => get("Total years of experience")],
     [/\bsponsor/, () => get("Need visa sponsorship?")],
@@ -70,12 +70,37 @@ const FILL_SOURCE = String.raw`function (answers, files) {
   // One left blank on purpose (like "who referred you? their email") stays blank instead of falling to the rules below.
   // Matched on the question's first 40 characters: forms often show only its first sentence as the label.
   const exact = answers.filter((a) => a.exact).map((a) => ({ q: norm(a.question).slice(0, 40), answer: a.answer })).filter((a) => a.q.length > 3);
+  // Tested on live Greenhouse, Lever and Ashby forms (23 Nov): a wrong answer is worse than a blank one, so
+  // a real question ("How are you using AI today in your current role?") never gets a profile field like a job
+  // title; a yes/no question ("Do you have 1 to 3 years of closing experience?") never gets a number; and a
+  // question about one country's work rights never gets an answer about another country.
+  const QUESTION = /^(do|does|did|are|is|have|has|will|would|can|could|how|what|why|which|when|where|describe|tell|please|share|explain|give)\b/;
+  const YES_NO = /^(do|does|did|are|is|have|has|will|would|can|could)\b/;
+  const SAFE_IN_QUESTIONS = new Set(["How did you hear about us?", "Need visa sponsorship?", "Work authorization", "Willing to relocate?", "Notice period", "Earliest start date", "Expected CTC", "Current CTC (fixed + variable)", "Why are you looking to move?", "Willing to travel?", "Total years of experience", "Current location"]);
+  const COUNTRIES = [["united states", "u s", "usa", "us", "america"], ["united kingdom", "uk", "britain", "england"], ["canada"], ["australia"], ["germany"], ["ireland"], ["singapore"], ["india"], ["uae", "united arab emirates", "dubai"], ["european union", "eu", "europe"], ["netherlands"], ["france"], ["japan"], ["new zealand"]];
+  const countriesIn = (text) => COUNTRIES.filter((names) => names.some((n) => (" " + text + " ").includes(" " + n + " "))).map((names) => names[0]);
+  const ruleKey = (re) => (String(re).match(/get\("([^"]+)"\)/) || [])[1];
   const answerFor = (label) => {
     for (const a of exact) if (label.includes(a.q)) return a.answer;
+    const question = QUESTION.test(label) && label.split(" ").length > 4;
     // An empty saved answer doesn't stop the search: "current role" in a "why leave" question should fall through.
-    for (const [re, value] of rules) if (re.test(label) && value()) return value();
-    return fuzzy(label);
+    for (const [re, value] of rules) {
+      if (!re.test(label) || !value()) continue;
+      const key = ruleKey(value);
+      if (question && !SAFE_IN_QUESTIONS.has(key)) continue;
+      if (key === "Total years of experience" && YES_NO.test(label)) continue;
+      if (key === "Need visa sponsorship?" || key === "Work authorization" || key === "Willing to relocate?") {
+        const asked = countriesIn(label);
+        const said = countriesIn(norm(value()));
+        if (asked.length && !asked.some((c) => said.includes(c))) continue;
+      }
+      return value();
+    }
+    return question ? "" : fuzzy(label);
   };
+  // Search-as-you-type dropdowns (Greenhouse's city and yes/no boxes) only count a picked option: typed text looks
+  // filled but isn't, so they're left for the person.
+  const isCombo = (el) => el.getAttribute("role") === "combobox" || !!el.getAttribute("aria-autocomplete");
   const setValue = (el, value) => {
     // React and similar frameworks only notice values set through the native setter.
     const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -92,7 +117,7 @@ const FILL_SOURCE = String.raw`function (answers, files) {
   let filled = 0;
   document.querySelectorAll("input, textarea").forEach((el) => {
     const type = (el.getAttribute("type") ?? "text").toLowerCase();
-    if (["hidden", "submit", "button", "file", "checkbox", "radio", "password"].includes(type) || el.disabled || el.readOnly || el.value) return;
+    if (["hidden", "submit", "button", "file", "checkbox", "radio", "password"].includes(type) || el.disabled || el.readOnly || el.value || isCombo(el)) return;
     const value = answerFor(labelOf(el));
     if (!value) return;
     setValue(el, value);
