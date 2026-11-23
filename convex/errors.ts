@@ -59,10 +59,14 @@ export const mailOwner = internalAction({
     const rows = await ctx.runQuery(internal.errors.unsent, {});
     const owners = (env.OWNER_EMAILS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     if (!rows.length || !owners.length || !emailOn()) return null;
+    // Messages members were shown (not crashes) wait for one daily email around 7:30am IST, so they don't use up
+    // the 100-a-day email plan; a crash still goes out within the hour and takes any waiting ones with it.
+    const crashes = rows.filter((r) => !r.message.startsWith("Shown to member:"));
+    if (!crashes.length && new Date().getUTCHours() !== 2) return null;
     const lines = rows.map((r) => `- ${new Date(r._creationTime).toISOString().slice(0, 16).replace("T", " ")} UTC · ${r.email || "signed out"} · ${r.page}\n  ${r.message}`);
     await sendEmail({
       to: owners[0],
-      subject: `JobPipe: ${rows.length} new error${rows.length === 1 ? "" : "s"}`,
+      subject: crashes.length ? `JobPipe: ${crashes.length} new error${crashes.length === 1 ? "" : "s"}` : `JobPipe: ${rows.length} message${rows.length === 1 ? "" : "s"} members were stopped by yesterday`,
       text: `People hit these in the last hour:\n\n${lines.join("\n\n")}\n\nAll recent errors: ${appUrl()}/admin`,
     });
     await ctx.runMutation(internal.errors.markSent, { ids: rows.map((r) => r._id) });

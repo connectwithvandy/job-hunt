@@ -2,7 +2,10 @@ import { ConvexError } from "convex/values";
 
 /** The message to show a person when something fails. */
 export function errorMessage(err: unknown) {
-  if (err instanceof ConvexError) return String(err.data);
+  if (err instanceof ConvexError) {
+    reportShown(String(err.data));
+    return String(err.data);
+  }
   // The browser lost its link to the server mid-request (sleep, Wi-Fi, a deploy). The work usually still finishes.
   if (err instanceof Error && CONNECTION_LOST.test(err.message)) return "The connection dropped. It may still finish: check again in a minute.";
   if (err instanceof Error && !/Server Error|Uncaught/.test(err.message)) return err.message;
@@ -18,6 +21,19 @@ const NOISE = /Connection lost while action was in flight|ResizeObserver loop|ch
 
 export function setErrorSender(fn: ((message: string) => void) | null) {
   send = fn;
+}
+
+/**
+ * A message shown to a member because something stopped them ("JobPipe's AI tools have reached today's limit").
+ * Not a crash, but it's how problems hide: on 23 Nov a new member couldn't upload a CV and the error log stayed
+ * empty, because these were left out. Recorded once per message per visit, marked so they read apart from crashes.
+ */
+function reportShown(message: string) {
+  if (!send || !message) return;
+  const tagged = `Shown to member: ${message}`;
+  if (seen.has(tagged) || seen.size > 20) return;
+  seen.add(tagged);
+  send(tagged);
 }
 
 export function reportError(err: unknown) {
