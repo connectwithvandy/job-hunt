@@ -249,7 +249,7 @@ export const boardRowsPage = internalQuery({
   },
 });
 
-/** Notes that these companies' boards were just read without an error. At most one write per company every 6 hours. */
+/** Notes that these companies' boards were just read without an error. At most one write per company every 20 hours (the sweep counts days). */
 export const markRead = internalMutation({
   args: { names: v.array(v.string()) },
   returns: v.null(),
@@ -258,7 +258,7 @@ export const markRead = internalMutation({
     for (const name of names) {
       const have = await ctx.db.query("boardReads").withIndex("by_name", (q) => q.eq("name", name)).unique();
       if (!have) await ctx.db.insert("boardReads", { name, readAt: now });
-      else if (now - have.readAt > 6 * 3_600_000) await ctx.db.patch("boardReads", have._id, { readAt: now });
+      else if (now - have.readAt > 20 * 3_600_000) await ctx.db.patch("boardReads", have._id, { readAt: now });
     }
     return null;
   },
