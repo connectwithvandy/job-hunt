@@ -2,6 +2,7 @@
 
 // Reads one company's careers board. Most systems publish open roles as free public JSON, no key.
 
+import { request as httpsRequest } from "node:https";
 import type { CareerBoard } from "./careerBoards";
 import { htmlToText, titleMatches } from "./sources";
 import { coreTitles } from "./salesRoles";
@@ -52,20 +53,44 @@ type WorkdayJob = {
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * One plain HTTPS request through Node's own client, not fetch(). 23 Nov: Workday's Cloudflare shield answers
+ * every fetch() with a 429 "challenge" page (header cf-mitigated: challenge), whatever the headers or speed,
+ * while the same request from Node's https module or curl gets 200. That, not reading too fast, was why every
+ * Workday board "answered 429" from 17 Nov on.
+ */
+function nodeRequest(url: string, body?: unknown): Promise<{ status: number; text: string; retryAfter: string | null }> {
+  const data = body === undefined ? undefined : JSON.stringify(body);
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      url,
+      {
+        method: data ? "POST" : "GET",
+        headers: { Accept: "application/json", ...(data ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } : {}) },
+        timeout: 30_000,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8"), retryAfter: (res.headers["retry-after"] as string | undefined) ?? null }));
+        res.on("error", reject);
+      },
+    );
+    req.on("timeout", () => req.destroy(new Error(`${new URL(url).host} timed out`)));
+    req.on("error", reject);
+    req.end(data);
+  });
+}
+
 /** One Workday request, retried after a pause when it answers 429 (too many requests). */
 async function workdayCall<T>(url: string, body?: unknown): Promise<T> {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, {
-      method: body ? "POST" : "GET",
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (res.ok) return (await res.json()) as T;
+    const res = await nodeRequest(url, body);
+    if (res.status >= 200 && res.status < 300) return JSON.parse(res.text) as T;
     // One retry only. 18 Nov: every Workday board still answered 429 after 3 waited retries, so the waits
     // (about 30s a board, 16 boards, 3 reads a day) were paid server time that brought nothing.
     if (res.status !== 429 || attempt >= 1) throw new Error(`${new URL(url).host} answered ${res.status}`);
-    const wait = Number(res.headers.get("retry-after"));
+    const wait = Number(res.retryAfter);
     await pause(Number.isFinite(wait) && wait > 0 ? Math.min(wait, 30) * 1000 : 5_000 * (attempt + 1));
   }
 }
@@ -73,23 +98,24 @@ async function workdayCall<T>(url: string, body?: unknown): Promise<T> {
 type WorkdayFacet = { facetParameter?: string; descriptor?: string; id?: string; count?: number; values?: WorkdayFacet[] };
 
 /** The location filter values meaning India, under whichever filter name this company's site uses. */
-function indiaFacet(facets: WorkdayFacet[]): { param: string; ids: string[] } | null {
-  let best: { param: string; ids: string[]; count: number } | null = null;
-  for (const f of facets) {
-    const ids: string[] = [];
-    let count = 0;
-    const walk = (vals: WorkdayFacet[] = []) => {
-      for (const x of vals) {
-        if (x.id && /\bindia\b/i.test(x.descriptor ?? "")) {
-          ids.push(x.id);
-          count += x.count ?? 0;
-        }
-        walk(x.values);
+export function indiaFacet(facets: WorkdayFacet[]): { param: string; ids: string[] } | null {
+  // Ids are grouped under the filter name closest to them. Some sites nest filters: Adobe's "locationMainGroup"
+  // holds "locationCountry" and "locations", and sending an India id under the outer name answers 400 (21 Nov).
+  const byParam = new Map<string, { ids: string[]; count: number }>();
+  const walk = (vals: WorkdayFacet[] = [], param: string | undefined) => {
+    for (const x of vals) {
+      if (param && x.id && /\bindia\b/i.test(x.descriptor ?? "")) {
+        const g = byParam.get(param) ?? { ids: [], count: 0 };
+        g.ids.push(x.id);
+        g.count += x.count ?? 0;
+        byParam.set(param, g);
       }
-    };
-    walk(f.values);
-    if (f.facetParameter && ids.length && (!best || count > best.count)) best = { param: f.facetParameter, ids, count };
-  }
+      walk(x.values, x.facetParameter ?? param);
+    }
+  };
+  for (const f of facets) walk(f.values, f.facetParameter);
+  let best: { param: string; ids: string[]; count: number } | null = null;
+  for (const [param, g] of byParam) if (!best || g.count > best.count) best = { param, ...g };
   return best && { param: best.param, ids: best.ids };
 }
 
@@ -112,7 +138,8 @@ async function readWorkday(board: CareerBoard, titles: string[], known: Set<stri
   for (let offset = 0; offset < 200; offset += 20) {
     if (offset) await pause(400);
     const page = await workdayCall<Page>(`${base}/jobs`, { ...query, limit: 20, offset });
-    for (const h of page.jobPostings ?? []) if (titles.some((t) => titleMatches(t, h.title))) hits.set(h.externalPath, h);
+    // Some sites (HPE) list a row with no title, which would stop the whole board.
+    for (const h of page.jobPostings ?? []) if (h.title && h.externalPath && titles.some((t) => titleMatches(t, h.title))) hits.set(h.externalPath, h);
     if ((page.jobPostings ?? []).length < 20) break;
   }
   const open = async (h: WorkdayHit): Promise<CareerJob | { externalId: string; known: true }> => {
