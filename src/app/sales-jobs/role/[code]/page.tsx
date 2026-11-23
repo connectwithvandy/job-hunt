@@ -104,7 +104,7 @@ export default async function RolePage({ params }: PageProps<"/sales-jobs/role/[
           Apply on {job.company}&apos;s site
         </a>
       </div>
-      <p className="mt-3 text-sm text-ink-3">JobPipe scores this role against your CV with a reason, tailors your CV for it and shows who you know at {job.company}. 7 days free.</p>
+      <p className="mt-3 text-sm text-ink-3">JobPipe scores this role against your CV with a reason, tailors your CV for it and helps you find who you know at {job.company}. 7 days free.</p>
       <section className="mt-12">
         <h2 className="display text-2xl">About the role</h2>
         {description ? (

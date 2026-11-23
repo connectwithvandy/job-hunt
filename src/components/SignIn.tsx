@@ -134,9 +134,9 @@ export function SignIn() {
     "Happens to everyone. We'll email you a code, you pick a new password, and you're back in your search in a minute.";
   const pitch = {
     signUp:
-      "Built by a sales leader in the middle of a real job hunt. Upload your CV, pick your target roles. Every morning JobPipe finds the jobs, scores the fit and shows who you know there.",
+      "Built by a sales leader in the middle of a real job hunt. Upload your CV, pick your target roles. Every morning JobPipe finds the jobs, scores the fit and helps you find who you know there.",
     signIn:
-      "Your search kept going without you: this morning's jobs, scored against your CV, plus follow-ups due and who you know at each company.",
+      "Your search kept going without you: this morning's jobs, scored against your CV, plus follow-ups due and people to ask for a referral.",
     reset: locked,
     "reset-verification": locked,
   }[flow];

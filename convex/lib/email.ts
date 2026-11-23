@@ -53,13 +53,13 @@ export function welcomeEmail(p: { name?: string; role?: string; email: string })
     `Sign in with ${p.email} and the password you picked: ${link}`,
     "Upload your CV. Any PDF works, Canva ones too.",
     role ? `Add "${role}" as your first role. Add more if you're open to others.` : "Pick the roles you're after. You can add more than one.",
-    "Open Today each morning: new jobs scored against your CV, follow-ups due, and who you know at each company.",
+    "Open Today each morning: new jobs scored against your CV, follow-ups due, and people to ask for a referral.",
   ];
   const subject = first ? `${first}, you're in on JobPipe` : "You're in on JobPipe";
   const hello = first ? `Hi ${first},` : "Hi,";
   const story = [
     "I'm Vandy, and I built JobPipe.",
-    "I built it during my own job hunt. As a sales leader I was going after several kinds of roles at once (SDR leadership, AE, GTM), and keeping track of every job, CV version and referral took more time than the applying. So I built the tool I wanted: it finds the jobs, scores each one against my CV with a reason, tailors the CV without making anything up, and shows who I know at each company.",
+    "I built it during my own job hunt. As a sales leader I was going after several kinds of roles at once (SDR leadership, AE, GTM), and keeping track of every job, CV version and referral took more time than the applying. So I built the tool I wanted: it finds the jobs, scores each one against my CV with a reason, tailors the CV without making anything up, and helps me find who I know at each company.",
     role ? `You're off the waitlist, and it's ready to start finding ${role} roles for you.` : "You're off the waitlist, and it's ready to start your search.",
   ];
   const outro =
@@ -481,7 +481,7 @@ export function partnerWelcomeEmail(p: PartnerPerson) {
   const does = [
     "Finds new SDR and BDR roles every day and scores each one against your CV, with the reason",
     "Tailors your CV to a job without making anything up",
-    "Shows who you know at each company, so you can go in through a person and not the apply button",
+    "Helps you find who you know at each company, so you can go in through a person and not the apply button",
   ];
   const steps = [
     p.signedUp ? `Sign in with ${p.email}: ${link}` : `Create your account with ${p.email}: ${link}`,

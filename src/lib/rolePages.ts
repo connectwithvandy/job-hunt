@@ -356,7 +356,7 @@ export const ROLE_PAGES: RolePage[] = [
       ["What does an SDR do?", "An SDR researches target companies, reaches buyers by email, phone and LinkedIn, qualifies interest and books meetings for Account Executives. Day to day that means prospecting lists, outreach sequences, follow-ups and logging everything in the CRM, measured on meetings booked and pipeline created."],
       ["Are there remote SDR and BDR jobs in India?", "Yes. Many companies hire SDRs and BDRs remotely from India, usually to sell into the US, EMEA or APAC. The list on this page includes remote roles open to people in India, not just office roles."],
       ["Do SDR jobs in India sell to the US?", "Many do. A large share of SDR and BDR roles in Bengaluru and remote India sell into North America or EMEA, often on shifted hours. The job description usually says which region and time zone."],
-      ["How does JobPipe help with SDR jobs?", "JobPipe searches job boards and company careers pages every morning, scores each SDR or BDR opening against your CV with a reason, tailors your CV without inventing anything, and shows who you know at the company."],
+      ["How does JobPipe help with SDR jobs?", "JobPipe searches job boards and company careers pages every morning, scores each SDR or BDR opening against your CV with a reason, tailors your CV without inventing anything, and helps you find who you know at the company."],
       ["How do I get an SDR job with no sales experience?", "Show proof you can do the work: customer-facing jobs, targets you hit, cold outreach you have done and clear writing. Many companies hire freshers and career switchers as SDRs, and a short note on why sales, plus a sample outreach email, helps you stand out."],
       ["How long does it take an SDR to become an Account Executive?", "Often 12 to 24 months, depending on the company and whether you hit target consistently. Ask in the interview how many SDRs moved to AE in the last year; it tells you how real the path is."],
       ["What happens in an SDR interview?", "Usually a recruiter call, a hiring manager round and a mock cold call or written outreach exercise. Prepare a 30-second pitch, your numbers against target and questions about the market you would sell into."],
@@ -425,7 +425,7 @@ export const ROLE_PAGES: RolePage[] = [
       "Forecasting, pipeline reviews and cross-team work with marketing and customer success.",
     ],
     faq: [
-      ["How are sales leadership jobs usually filled?", "Often through referrals and recruiters before or alongside a public posting. JobPipe shows who you know at each company from your LinkedIn connections and drafts a referral note for the best person to ask."],
+      ["How are sales leadership jobs usually filled?", "Often through referrals and recruiters before or alongside a public posting. JobPipe helps you find who you know at each company on LinkedIn and drafts a referral note for the person you pick."],
       ["Should my CV be different for a sales manager role?", "Yes. Lead with team results: team size, attainment, growth and people you developed, instead of your own deals. JobPipe tailors the order and wording for each job without inventing facts."],
       ["Does JobPipe cover jobs outside Bengaluru?", "Yes. It shows jobs in your city, anywhere in India and remote roles open to India or APAC, and scores each one against the roles you want."],
       ["How do I move from team lead to sales manager?", "Show that the team did better because of you: attainment before and after, people you hired or coached, and a process you put in place. Taking on hiring, forecasting or a pod of reps before the title helps make the case."],
@@ -461,7 +461,7 @@ export const ROLE_PAGES: RolePage[] = [
   {
     slug: "sales-jobs-usa",
     title: "SDR, Account Executive and sales leadership jobs in the US",
-    description: "SDR, BDR, Account Executive and sales manager jobs in the US, scored against your CV with a reason. JobPipe tailors your CV and shows who can refer you.",
+    description: "SDR, BDR, Account Executive and sales manager jobs in the US, scored against your CV with a reason. JobPipe tailors your CV and helps you find who can refer you.",
     intro:
       "The US has the largest market for B2B sales jobs, from SDR and BDR roles to Account Executives and sales leadership. Many are in-office or hybrid in hubs like New York, San Francisco, Austin and Boston; remote roles are often limited to US residents.",
     looksFor: [

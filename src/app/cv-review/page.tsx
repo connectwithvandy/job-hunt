@@ -213,7 +213,7 @@ function Result({ review, role }: { review: Review; role: string }) {
       <div className="card mt-14 p-8">
         <h2 className="display text-2xl">Fixed it? Want it re-checked, and tailored for every job?</h2>
         <p className="mt-2 text-ink-2">
-          Re-checks after each change, a CV tailored to every job description, and who you know at each company come with JobPipe.
+          Re-checks after each change, a CV tailored to every job description, and a quick way to find who you know at each company come with JobPipe.
         </p>
         <Link href="/" className="btn btn-primary mt-6">
           Start your free trial

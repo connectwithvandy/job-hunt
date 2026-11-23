@@ -23,7 +23,7 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
       <section className="card mt-6 p-8">
         <h2 className="display text-2xl">Let JobPipe run the search for you</h2>
         <p className="mt-2 text-ink-2">
-          Upload your CV and pick your roles. Every morning JobPipe finds new jobs, scores each one against your CV with a reason, tailors your CV and shows who you know there.
+          Upload your CV and pick your roles. Every morning JobPipe finds new jobs, scores each one against your CV with a reason, tailors your CV and helps you find who you know there.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/" className="btn btn-primary">

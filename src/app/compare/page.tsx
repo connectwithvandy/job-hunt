@@ -24,7 +24,7 @@ const TOOLS: { name: string; bestFor: string; vsJobPipe: string }[] = [
   {
     name: "LinkedIn Premium",
     bestFor: "Messaging people you aren't connected to, seeing who viewed your profile and how you compare with other applicants.",
-    vsJobPipe: "JobPipe uses your LinkedIn connections to show who you know at each company and drafts the referral note. Many people use both.",
+    vsJobPipe: "JobPipe helps you find who you know at each company on LinkedIn and drafts the referral note. Many people use both.",
   },
   {
     name: "Teal",
@@ -48,7 +48,7 @@ const ROWS: [string, string][] = [
   ["Scores each job against your CV, with a reason", "Yes, against each role you're going for"],
   ["Several target roles at once", "Yes, each with its own CV and pipeline"],
   ["Tailored CV and cover letter", "Yes, using only facts from your CV; numbers are fact-checked"],
-  ["Who you know at the company", "Yes, from your LinkedIn connections, with a referral note"],
+  ["Who you know at the company", "Yes, a one-click LinkedIn search, with a referral note"],
   ["Applies for you", "No. You apply yourself, so applications stay credible"],
   ["Built for", "Sales and GTM roles in India, the US, APAC and EMEA"],
 ];
@@ -56,7 +56,7 @@ const ROWS: [string, string][] = [
 const FAQ: [string, string][] = [
   [
     "What is the best job search tool for sales jobs in India?",
-    "For sales and GTM roles, use a job board such as Naukri or LinkedIn Jobs to see listings, and a tool like JobPipe to sort through them. JobPipe scores each job against your CV, tailors your CV and shows who you know at the company, so you spend time only on roles worth applying to.",
+    "For sales and GTM roles, use a job board such as Naukri or LinkedIn Jobs to see listings, and a tool like JobPipe to sort through them. JobPipe scores each job against your CV, tailors your CV and helps you find who you know at the company, so you spend time only on roles worth applying to.",
   ],
   [
     "Is JobPipe an alternative to Teal or Jobscan?",
@@ -102,7 +102,7 @@ export default function Compare() {
         · Updated {new Date(UPDATED).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
       </p>
       <p className="mt-5 text-lg text-ink-2">
-        JobPipe is a job search tool for sales and GTM people. It finds jobs every morning, scores each one against your CV, tailors your CV and shows who you know there. It works
+        JobPipe is a job search tool for sales and GTM people. It finds jobs every morning, scores each one against your CV, tailors your CV and helps you find who you know there. It works
         alongside job boards and LinkedIn, not instead of them. Here is how it differs from the tools sales people use most.
       </p>
 

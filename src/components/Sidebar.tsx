@@ -106,7 +106,7 @@ function InviteFriend() {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [done, setDone] = useState("");
-  const text = `I'm using JobPipe for my sales job search: it finds sales roles in India, writes a CV for each one and shows who I know there. Sign up with my link and you get ${PLANS.invitePercentOff}% off a paid plan:`;
+  const text = `I'm using JobPipe for my sales job search: it finds sales roles in India, writes a CV for each one and helps me find who I know there. Sign up with my link and you get ${PLANS.invitePercentOff}% off a paid plan:`;
   const linkOf = async () => {
     // Each member's own link, so we can see who joined through whose invite.
     const code = me?.inviteCode ?? (await makeCode());

@@ -70,7 +70,7 @@ export default function Connect() {
           text={me.contactsCount ? `${me.contactsCount.toLocaleString()} connections loaded` : "Not loaded yet"}
         />
         <h2 className="display mb-1 text-2xl">{me.contactsCount ? "Your LinkedIn connections" : "Load your LinkedIn connections"}</h2>
-        <p className="text-sm text-ink-2">So JobPipe can show who you know at every company you look at, and who to ask for a referral.</p>
+        <p className="text-sm text-ink-2">LinkedIn's download no longer says where people work, so this now helps less. The LinkedIn search buttons on each job are the surer way to find who you know.</p>
         <LinkedInSteps tick="Connections" />
         <div className="mb-4">
           <RequestedNote storageKey="guide-connections-requested" what="connections" />
