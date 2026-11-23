@@ -254,24 +254,33 @@ export function ResumeDoc({ r, photoUrl, logos = {}, plain = false }: { r: Resum
         {plain ? (
           // One column: skills read as one line each, not a long one-word-per-line list.
           <>
-            <h2>Skills</h2>
+            {(r.skills.technical.length > 0 || r.skills.soft.length > 0) && <h2>Skills</h2>}
             {r.skills.technical.length > 0 && <p className="line">{r.skills.technical.join(" · ")}</p>}
             {r.skills.soft.length > 0 && <p className="line">{r.skills.soft.join(" · ")}</p>}
           </>
         ) : (
           <>
-            <h2>Technical Skills</h2>
-            <ul>
-              {r.skills.technical.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ul>
-            <h2>Soft Skills</h2>
-            <ul>
-              {r.skills.soft.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ul>
+            {/* An empty section printed a bare heading (Smriti, 22 Nov: "both are left blank"). */}
+            {r.skills.technical.length > 0 && (
+              <>
+                <h2>Technical Skills</h2>
+                <ul>
+                  {r.skills.technical.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {r.skills.soft.length > 0 && (
+              <>
+                <h2>Soft Skills</h2>
+                <ul>
+                  {r.skills.soft.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </>
+            )}
           </>
         )}
         {r.extras.map((x) => (
