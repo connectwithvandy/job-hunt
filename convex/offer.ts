@@ -11,9 +11,10 @@ import type { Id } from "./_generated/dataModel";
 import { offerEmail, sendEmail } from "./lib/email";
 
 export const send = internalAction({
-  args: { limit: v.optional(v.number()), dryRun: v.optional(v.boolean()), to: v.optional(v.string()) },
+  // `skip`: addresses never to send to in this run, e.g. a partner who isn't a job seeker (Vijeth of SaasPire, 23 Nov).
+  args: { limit: v.optional(v.number()), dryRun: v.optional(v.boolean()), to: v.optional(v.string()), skip: v.optional(v.array(v.string())) },
   returns: v.string(),
-  handler: async (ctx, { limit = 30, dryRun, to }): Promise<string> => {
+  handler: async (ctx, { limit = 30, dryRun, to, skip = [] }): Promise<string> => {
     // A test goes to any address as it would to a member (numbers from the first member), and isn't recorded.
     if (to) {
       const anyone: { userId: Id<"users">; email: string; name?: string }[] = await ctx.runQuery(internal.offerData.recipients, {});
@@ -22,13 +23,15 @@ export const send = internalAction({
       await sendEmail({ to, ...mail, subject: `[Test] ${mail.subject}` });
       return `Test sent to ${to}. The answer buttons open the page but won't save (test link).`;
     }
-    const people: { userId: Id<"users">; email: string; name?: string }[] = await ctx.runQuery(internal.offerData.recipients, {});
+    const skipped = new Set(skip.map((e) => e.toLowerCase()));
+    const all: { userId: Id<"users">; email: string; name?: string }[] = await ctx.runQuery(internal.offerData.recipients, {});
+    const people = all.filter((p) => !skipped.has(p.email.toLowerCase()));
     if (!people.length) return "Everyone not paying has had it.";
     if (dryRun) {
       const p = people[0];
       const facts: { jobs: number; scored: number; strong: number } = await ctx.runQuery(internal.offerData.factsFor, { userId: p.userId });
       const mail = offerEmail({ name: p.name, ...facts, token: "PREVIEW" });
-      return `${people.length} people would get it (${Math.min(limit, people.length)} in this batch). First one:\n\nSubject: ${mail.subject}\n\n${mail.text}`;
+      return `${people.length} people would get it (${Math.min(limit, people.length)} in this batch): ${people.map((x) => x.email).join(", ")}. First one:\n\nSubject: ${mail.subject}\n\n${mail.text}`;
     }
     let sent = 0;
     const failed: string[] = [];
