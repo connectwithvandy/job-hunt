@@ -58,8 +58,9 @@ export function welcomeEmail(p: { name?: string; role?: string; email: string })
   const subject = first ? `${first}, you're in on JobPipe` : "You're in on JobPipe";
   const hello = first ? `Hi ${first},` : "Hi,";
   const story = [
-    "I'm Vandy, and I built JobPipe.",
-    "I built it during my own job hunt. As a sales leader I was going after several kinds of roles at once (SDR leadership, AE, GTM), and keeping track of every job, CV version and referral took more time than the applying. So I built the tool I wanted: it finds the jobs, scores each one against my CV with a reason, tailors the CV without making anything up, and helps me find who I know at each company.",
+    // No personal job-hunt story (owner, 23 Nov): say what JobPipe does instead.
+    "I'm Vandy, and I built JobPipe for sales people: SDRs, AEs and sales leaders.",
+    "Every morning it finds new sales roles, scores each one against your CV, tailors your CV for the ones worth applying to without making anything up, and helps you find who you know at each company.",
     role ? `You're off the waitlist, and it's ready to start finding ${role} roles for you.` : "You're off the waitlist, and it's ready to start your search.",
   ];
   const outro =

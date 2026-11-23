@@ -4,7 +4,7 @@ import { EMAIL_RETRY_WAITS, resetEmail, sendEmail, welcomeEmail } from "./lib/em
 test("welcome email uses their first name and the role they asked for", () => {
   const m = welcomeEmail({ name: "Priya Sharma", role: "Account Executive", email: "priya@example.com" });
   expect(m.subject).toBe("Priya, you're in on JobPipe");
-  expect(m.text).toContain("I'm Vandy, and I built JobPipe.");
+  expect(m.text).toContain("I'm Vandy, and I built JobPipe for sales people");
   expect(m.text).toContain("Hi Priya,");
   expect(m.text).toContain('Add "Account Executive" as your first role');
   expect(m.text).toContain("/?signin=1&email=priya%40example.com");
