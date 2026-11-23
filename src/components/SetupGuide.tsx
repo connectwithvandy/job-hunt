@@ -42,11 +42,17 @@ function ConnectionsHelp({ requested, onRequested }: { requested: boolean; onReq
         <li>Choose that file below, then press Load connections.</li>
       </ol>
       {requested ? (
-        <p className="text-ink-3">Waiting for LinkedIn&apos;s email. Check spam if it takes over an hour.</p>
+        <p className="text-ink-3">Requested it? LinkedIn&apos;s email can take up to an hour; check spam after that. Skipped it? Come back to this any time.</p>
       ) : (
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onRequested}>
-          I&apos;ve requested it
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onRequested}>
+            I&apos;ve requested it
+          </button>
+          {/* Same as requested: the guide moves on to scoring and tailoring, and this step stays open to come back to. */}
+          <button type="button" className="text-sm text-ink-3 underline hover:text-ink" onClick={onRequested}>
+            Skip for now
+          </button>
+        </div>
       )}
       <ImportConnections />
       <p className="text-xs text-ink-3">Only names, companies, titles and profile links are kept, visible to you alone. Nothing is ever sent on LinkedIn for you.</p>

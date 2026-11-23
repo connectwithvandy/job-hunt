@@ -327,7 +327,8 @@ export default function Today() {
             {trialDay ? ` · Trial day ${trialDay} of 7` : ""}
           </span>
         </h1>
-        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={jobs.length} strongNow={strongAll.length} newToday={openToday} />
+        {/* Open jobs, the same number as "Open jobs for you" below (23 Nov walk: "found 27" beside "18 open"). */}
+        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={openJobs.length} strongNow={strongAll.length} newToday={openToday} />
       </header>
 
       {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
@@ -446,7 +447,7 @@ export default function Today() {
         )}
         {!applyJobs.length && !gettingReady.length && !answer.length && !followUpItems.length && !referralItems.length && !interviews?.length && (
           <p className="card px-4 py-4 text-sm text-ink-2">
-            {me.contactsCount ? "Nothing waiting on you. Open Jobs, or find people to ask in Messages." : "Nothing waiting on you. Load your LinkedIn connections (Profile → LinkedIn & Gmail) to see who you know at each company."}
+            {me.contactsCount ? "Nothing waiting on you. Open Jobs, or find people to ask in Messages." : "Nothing waiting on you. Open Jobs to pick your next application."}
           </p>
         )}
       </section>

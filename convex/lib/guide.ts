@@ -9,7 +9,9 @@ export function guideSteps(p: GuideProgress): GuideStep[] {
   return [
     { key: "cv", title: "Add your CV", why: "Everything JobPipe does starts from it.", done: p.hasCv },
     { key: "roles", title: "Pick your roles", why: "So it knows which jobs to look for.", done: p.roles > 0 },
-    { key: "connections", title: "Add your LinkedIn connections", why: "Every job then shows who you know there. A referral is the fastest way in.", done: p.contacts > 0 },
+    { key: "connections", title: "Add your LinkedIn connections", // LinkedIn's download stopped saying where connections work (Dec 2026), so this no longer promises "who you know
+    // there" on every job. Each job's Referral tab searches LinkedIn for them instead (23 Nov walk).
+    why: "A referral is the fastest way in. Every job also has a button that searches LinkedIn for your connections there, so you can skip this and come back to it.", done: p.contacts > 0 },
     { key: "score", title: "Get your jobs scored", why: "JobPipe reads each job against your CV and tells you how well it fits, and why.", done: p.scored > 0 },
     { key: "tailor", title: "Tailor your CV for your best job", why: "It rewrites your CV and cover letter for that one role, using only what's true.", done: p.tailored > 0 },
     { key: "apply", title: "Apply, then mark it applied", why: "JobPipe then reminds you when to follow up.", done: p.applied > 0 },

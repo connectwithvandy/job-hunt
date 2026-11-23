@@ -16,6 +16,15 @@ const youTubeId = (url: string) => url.match(/(?:youtu\.be\/|v=|embed\/)([\w-]{1
 /** Short answers, one question each, then a box to tell the owner anything else. */
 const QUESTIONS: { q: string; a: React.ReactNode }[] = [
   {
+    q: "I'm new. What do I do first?",
+    a: (
+      <>
+        Open <Link href="/" className="underline">Today</Link> and press the button in the &quot;Do this first&quot; box. It opens your best-fit job. Press Write my CV (about 2 minutes),
+        read it, then press Apply. Apply on the company&apos;s site, come back, and say yes when JobPipe asks &quot;Did you apply?&quot;. It then reminds you when to follow up.
+      </>
+    ),
+  },
+  {
     q: "Where do my jobs come from?",
     a: "Every morning JobPipe searches for your roles and adds new ones to Jobs. You can also search any time, or paste a job link, under Jobs → + Find or add jobs.",
   },
@@ -35,7 +44,10 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
     q: "How do referrals work?",
     a: (
       <>
-        Load your LinkedIn connections once (Profile → <Link href="/connect" className="underline">LinkedIn &amp; Gmail</Link>). Then Messages → Find people to ask shows who you know at each company, with a short note ready to send, and tracks every ask and follow-up.
+        Every job has a Referral, HR &amp; calls tab with buttons that search LinkedIn for your connections at that company. When JobPipe knows who you know there, it
+        writes a short note to send and tracks every ask and follow-up. You can load your LinkedIn connections once (Profile →{" "}
+        <Link href="/connect" className="underline">LinkedIn &amp; Gmail</Link>), but LinkedIn&apos;s download has stopped saying where people work, so for now the search
+        buttons are the surer way to see who you know at a company.
       </>
     ),
   },
@@ -47,7 +59,8 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
     q: "What does it cost?",
     a: (
       <>
-        Jobs, your tracker and some fit scores are free. More is in the Job Hunt Pass: see <Link href="/pricing" className="underline">pricing</Link> or Profile → Plan &amp; billing.
+        Your first 7 days have every feature. After that, jobs, your tracker, 3 fit scores a day and 1 tailored CV stay free. The 1-month and 3-month plans add the rest: see{" "}
+        <Link href="/pricing" className="underline">pricing</Link> or Profile → <Link href="/billing" className="underline">Plan &amp; billing</Link>.
       </>
     ),
   },
