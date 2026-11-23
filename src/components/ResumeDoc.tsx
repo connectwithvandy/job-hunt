@@ -86,6 +86,24 @@ export function CvLayoutPick({ plain, onChange }: { plain: boolean; onChange: (p
   );
 }
 
+/** Short forms that stay in capitals when an all-caps headline is set in normal case. */
+const KEEP_UPPER = new Set("SDR BDR SDRS BDRS AE AES AM CSM GTM IT AI B2B B2C SAAS APAC EMEA NA US UK MEA ANZ SEA ICP KPI KPIS ABM PLG ARR MRR CRM SMB MM ENT VP CRO CEO COO MBA PGDM HR".split(" "));
+const SMALL_WORDS = new Set(["and", "of", "for", "in", "to", "the", "a", "on", "with"]);
+
+/**
+ * An all-capitals headline ("SALES DEVELOPMENT LEADER | GTM & PIPELINE") set in normal case, short forms kept
+ * ("Sales Development Leader | GTM & Pipeline"). Owner, 23 Nov: "no caps". A headline already in mixed case is left as written.
+ */
+export function calmCaps(text: string) {
+  if (!text || text !== text.toUpperCase() || !/[A-Z]{3}/.test(text)) return text;
+  return text.replace(/[A-Za-z][A-Za-z'’.-]*/g, (w) => {
+    const bare = w.replace(/[^A-Za-z]/g, "").toUpperCase();
+    if (KEEP_UPPER.has(bare)) return bare === "SAAS" ? "SaaS" : w.toUpperCase();
+    const lower = w.toLowerCase();
+    return SMALL_WORDS.has(lower) ? lower : lower[0].toUpperCase() + lower.slice(1);
+  });
+}
+
 /**
  * Contact details on one line, links written out in full so hiring software can read every one,
  * and each one a real link, so a recruiter can click through from the PDF.
@@ -127,7 +145,7 @@ export function ResumeDoc({ r, photoUrl, logos = {}, plain = false }: { r: Resum
     <article className={plain ? "resume plain" : "resume"}>
       <div className="main">
         <h1>{r.name}</h1>
-        <p className="headline">{r.headline}</p>
+        <p className="headline">{calmCaps(r.headline)}</p>
         {plain && <ContactLine r={r} />}
         <h2>Executive Summary</h2>
         <p>{r.summary}</p>

@@ -1,3 +1,4 @@
+import { calmCaps } from "@/components/ResumeDoc";
 import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 import type { Resume } from "@/components/ResumeDoc";
 
@@ -12,7 +13,7 @@ export async function resumeDocx(r: Resume): Promise<Blob> {
   const contact = [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin, ...(r.contact.links ?? [])].filter(Boolean).join("  |  ");
   const children: Paragraph[] = [
     new Paragraph({ alignment: AlignmentType.LEFT, children: [new TextRun({ text: r.name, bold: true, size: 36 })] }),
-    line(r.headline, { bold: true, size: 22 }),
+    line(calmCaps(r.headline), { bold: true, size: 22 }),
     line(contact, { size: 18 }),
     heading("Summary"),
     line(r.summary),
