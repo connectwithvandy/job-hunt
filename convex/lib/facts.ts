@@ -12,6 +12,9 @@ export function unverifiedNumbers(master: Resume | Resume[], texts: string[], ex
     for (const m of text.matchAll(/[$₹]?\d[\d,.]*\s?(?:%|x|X|M|K|Cr|\+)?(?:\s?(?:years?|months?|weeks?|days?)\b)?/g)) {
       const token = m[0].replace(/[\s,]/g, "").replace(/\.$/, "").toLowerCase();
       if (token.length < 2 && !/%/.test(token)) continue;
+      // The length of the call a cover letter or email asks for ("a 15-minute call") isn't a claim about you
+      // (23 Nov walk: "15 isn't in your master CV" showed on a CV that has no 15 in it).
+      if (/^[-\s]?min(?:ute)?s?\s+(?:call|chat|conversation|meeting)\b/i.test(text.slice(m.index + m[0].length))) continue;
       if (!haystack.includes(token)) found.add(m[0].trim());
     }
   }
