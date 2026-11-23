@@ -5,6 +5,7 @@
 // in. Nothing is submitted: the candidate checks the form and presses Submit themselves.
 import { useQuery } from "convex/react";
 import { useSearchParams } from "next/navigation";
+import { BOOKMARK_VERSION } from "@/lib/autofill";
 import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Spinner } from "@/components/ui";
@@ -24,6 +25,7 @@ function Fill() {
   const params = useSearchParams();
   const origin = params.get("o") ?? "";
   const formHost = params.get("h") ?? "";
+  const outdated = Number(params.get("v") ?? 1) < BOOKMARK_VERSION;
   // Storage and the opener only exist in the browser; on the server both read as "not yet known".
   const jobId = useSyncExternalStore(noSubscribe, applyingJob, () => undefined);
   const hasOpener = useSyncExternalStore(noSubscribe, () => !!window.opener, () => true);
@@ -97,6 +99,15 @@ function Fill() {
 
   return (
     <div className="space-y-4">
+      {outdated && (
+        <p className="rounded-lg border border-warn/40 p-3 text-sm text-warn">
+          Your JobPipe bookmark is an older version and may fill some questions wrongly. Delete it, then drag the new one from the{" "}
+          <a className="underline" href="/resume#autofill" target="_blank" rel="noreferrer">
+            CVs page
+          </a>
+          . Check every answer on this form before you submit.
+        </p>
+      )}
       <div>
         <div className="label">Filling the form for</div>
         <div className="font-medium">

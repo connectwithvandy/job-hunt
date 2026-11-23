@@ -196,8 +196,15 @@ const FILL_SOURCE = String.raw`function (answers, files) {
  * The current bookmark: opens jobpipe.in/fill, which posts back this job's answers and files.
  * Only a message from `origin` is accepted, and nothing is baked in, so it never goes out of date.
  */
+/**
+ * Bumped whenever the fill code changes. The code is copied into the bookmark when it's dragged, so an older
+ * bookmark keeps old rules: the fill window sees the missing or older number and asks for a fresh drag.
+ * 2: 23 Nov, stopped wrong answers to questions (country work rights, yes/no, "current role" in a question).
+ */
+export const BOOKMARK_VERSION = 2;
+
 export function liveBookmarklet(origin: string) {
   const o = JSON.stringify(origin);
-  const src = `(function(){var o=${o};var fill=${FILL_SOURCE};var w=window.open(o+"/fill?o="+encodeURIComponent(location.origin)+"&h="+encodeURIComponent(location.hostname),"jobpipe_fill","width=440,height=620");function h(e){if(e.origin!==o||!e.data||e.data.type!=="jobpipe-fill")return;window.removeEventListener("message",h);var r=fill(e.data.answers||[],e.data.files||[]);try{e.source.postMessage({type:"jobpipe-filled",filled:r.filled,attached:r.attached},o)}catch(x){}}window.addEventListener("message",h);if(!w){var n=document.createElement("div");n.textContent="Allow pop-ups for this site, then click the JobPipe bookmark again.";n.setAttribute("style","position:fixed;z-index:2147483647;right:16px;bottom:16px;padding:12px 14px;border-radius:12px;background:#0b0b0f;color:#f4f4f5;font:14px system-ui");document.body.appendChild(n);setTimeout(function(){n.remove()},9000)}})();void 0`;
+  const src = `(function(){var o=${o};var fill=${FILL_SOURCE};var w=window.open(o+"/fill?v=${BOOKMARK_VERSION}&o="+encodeURIComponent(location.origin)+"&h="+encodeURIComponent(location.hostname),"jobpipe_fill","width=440,height=620");function h(e){if(e.origin!==o||!e.data||e.data.type!=="jobpipe-fill")return;window.removeEventListener("message",h);var r=fill(e.data.answers||[],e.data.files||[]);try{e.source.postMessage({type:"jobpipe-filled",filled:r.filled,attached:r.attached},o)}catch(x){}}window.addEventListener("message",h);if(!w){var n=document.createElement("div");n.textContent="Allow pop-ups for this site, then click the JobPipe bookmark again.";n.setAttribute("style","position:fixed;z-index:2147483647;right:16px;bottom:16px;padding:12px 14px;border-radius:12px;background:#0b0b0f;color:#f4f4f5;font:14px system-ui");document.body.appendChild(n);setTimeout(function(){n.remove()},9000)}})();void 0`;
   return `javascript:${encodeURIComponent(src)}`;
 }
