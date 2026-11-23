@@ -135,6 +135,7 @@ export default function JobPage() {
             {notAsked.length > 0 && <PeoplePicker jobId={job._id} people={notAsked} best={Math.min(2, notAsked.length)} />}
           </>
         )}
+        <LinkedInSearchLinks company={job.company} />
         {job.outreach.length > 0 && (
           <div className="mt-5 space-y-3">
             {job.outreach.map((o) => (
@@ -523,6 +524,26 @@ function JobTabs({ tabs, initial }: { tabs: { key: string; label: string; done: 
 }
 
 type Stage = "score" | "tailor" | "apply" | "reach" | "interview" | "done";
+
+/**
+ * LinkedIn's own people search, filtered to your connections at this company. LinkedIn's data download stopped
+ * including where connections work (Dec 2026, seen by a member on 22 Nov), so the count above can come up empty;
+ * this always works, costs nothing, and LinkedIn shows the people itself.
+ */
+function LinkedInSearchLinks({ company }: { company: string }) {
+  const search = (network: "F" | "S") =>
+    `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(company)}&network=${encodeURIComponent(JSON.stringify([network]))}&origin=FACETED_SEARCH`;
+  return (
+    <p className="mt-3 flex flex-wrap gap-2 text-sm">
+      <a className="btn btn-ghost btn-sm" href={search("F")} target="_blank" rel="noreferrer">
+        See your connections at {company} on LinkedIn ↗
+      </a>
+      <a className="btn btn-ghost btn-sm" href={search("S")} target="_blank" rel="noreferrer">
+        People one intro away ↗
+      </a>
+    </p>
+  );
+}
 
 /** Open a step below (Referral, HR & calls; Apply) even when the address already points at it. */
 function openStep(key: string) {
