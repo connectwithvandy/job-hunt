@@ -278,6 +278,9 @@ const LETTER_RULES = `The cover letter: open with this company's specific need, 
 
 export type Fact = { question: string; answer: string };
 
+/** How many bullets a tailored CV keeps per role, by position (newest first), so it fits two pages. */
+export const bulletCap = (index: number) => (index === 0 ? 6 : index <= 2 ? 4 : 2);
+
 export type Research = { summary: string; news: string[]; hiringSignals?: string; india?: string };
 
 /** What web research found about the company, for letters and messages to quote from. */
@@ -400,7 +403,10 @@ ${notes.map((n, i) => `${i + 1}. ${n}`).join("\n")}`
     ...resume,
     headline: out.headline,
     summary: out.summary,
-    experience: resume.experience.map((e) => ({ ...e, bullets: byId.get(e.id) ?? e.bullets })),
+    // The bullet limits the prompt asks for, enforced: on 23 Nov the ServiceNow CV came back with 8, 6, 6, 7, 4 and 4
+    // bullets (3.1 pages). The writer puts the bullets this job cares about first, so the first ones are kept.
+    // Only this job's copy; the master CV keeps every bullet.
+    experience: resume.experience.map((e, i) => ({ ...e, bullets: (byId.get(e.id) ?? e.bullets).slice(0, bulletCap(i)) })),
     skills: { ...resume.skills, technical: out.technicalSkills },
   };
 

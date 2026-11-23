@@ -151,7 +151,7 @@ function TwoPages({ jobId, resume, shortened, edited }: { jobId: Id<"jobs">; res
               setState(
                 await attempt(async () => {
                   const out = await fit({ jobId });
-                  if (!out.left.length) return `Your experience alone runs to about ${out.pages.toFixed(1)} pages, so leaving out side items won't get it to two. Use Edit and "Shorter" on the longest bullets instead.`;
+                  if (!out.left.length) return `Even with every side item left out, this CV would still run past two pages: the experience is the long part. Write the CV again (each role now keeps only its most relevant bullets), or use Edit to shorten the longest bullets.`;
                 }),
               );
               setBusy(false);
