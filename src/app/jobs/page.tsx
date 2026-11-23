@@ -173,6 +173,8 @@ function Jobs() {
   const selected = params.get("job") as Id<"jobs"> | null;
   // Open by default, like Dreamwork's filter column; the Filters button folds it away.
   const showFilters = params.get("filters") !== "0";
+  // On a phone the column sits above the jobs and filled the first screen (23 Nov walk), so there it opens only when asked.
+  const phoneFilters = params.get("filters") === "1";
   const view = params.get("view") === "list" ? "list" : "grid";
   const regionLabel = (key: string) => REGIONS.find((r) => r.key === key)?.label ?? key;
   /** The region value after clicking one chip, keeping the others; the home default stays out of the URL. */
@@ -247,7 +249,10 @@ function Jobs() {
               </option>
             ))}
           </select>
-          <Link href={hrefWith({ filters: showFilters ? "0" : null })} scroll={false} className={`btn btn-sm ${showFilters ? "btn-primary" : "btn-ghost"}`}>
+          <Link href={hrefWith({ filters: showFilters ? "0" : null })} scroll={false} className={`btn btn-sm !hidden lg:!inline-flex ${showFilters ? "btn-primary" : "btn-ghost"}`}>
+            Filters{filterCount ? ` · ${filterCount}` : ""}
+          </Link>
+          <Link href={hrefWith({ filters: phoneFilters ? null : "1" })} scroll={false} className={`btn btn-sm lg:!hidden ${phoneFilters ? "btn-primary" : "btn-ghost"}`}>
             Filters{filterCount ? ` · ${filterCount}` : ""}
           </Link>
           <div className="flex rounded-full border border-line p-0.5" role="group" aria-label="View">
@@ -322,7 +327,7 @@ function Jobs() {
         }`}
       >
         {showFilters && (
-          <aside className="card h-fit space-y-5 p-4 text-sm">
+          <aside className={`card h-fit space-y-5 p-4 text-sm ${phoneFilters ? "" : "hidden lg:block"}`}>
             <div className="flex items-center justify-between">
               <span className="font-medium">Filters</span>
               <Link href={hrefWith({ filters: "0" })} scroll={false} className="text-ink-3 hover:text-ink">

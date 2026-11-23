@@ -21,6 +21,7 @@ const WAITLIST_ROLE: Record<string, string> = {
   "Account Executive": "account-executive",
   "SDR / BDR": "sdr",
   "Sales leadership": "sales-leadership",
+  "Customer Success": "customer-success",
   "GTM strategy / AI GTM": "gtm-strategy",
 };
 
@@ -111,7 +112,10 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
         <label className="block">
           <span className="label">Your CVs</span>
           <input type="file" name="cv" multiple accept=".pdf,.docx,.txt,.md" className={fileClass} />
-          <span className="mt-2 block text-xs text-ink-3">Have more than one angle? Pick them all. The first becomes your main CV.</span>
+          <span className="mt-2 block text-xs text-ink-3">Have more than one version? Pick them all. The first becomes your main CV.</span>
+          <span className="mt-2 block text-xs text-ink-3">
+            No CV file to hand? On LinkedIn, open your profile, press More (or Resources), then Save to PDF, and choose that file here.
+          </span>
         </label>
         <label className="block">
           <span className="label">Photo (optional)</span>

@@ -36,6 +36,7 @@ const date = (at: number) => new Date(at).toLocaleDateString("en-IN", { day: "nu
 export default function Billing() {
   const status = useQuery(api.payments.status);
   const isOwner = useQuery(api.users.me)?.isOwner ?? false;
+  const account = useQuery(api.access.mine);
   const createOrder = useAction(api.payments.createOrder);
   const confirm = useAction(api.payments.confirm);
   const [busy, setBusy] = useState<PlanKey | null>(null);
@@ -94,6 +95,10 @@ export default function Billing() {
   };
 
   const covered = status.paidUntil && status.paidUntil > now;
+  // In the free week the menu says "Free trial · N days left", so this page says the same (23 Nov walk: it said
+  // "You haven't paid yet" and marked the free plan as theirs, with no word about the trial).
+  const trialUntil =
+    !isOwner && !covered && !(status.partner && status.partner.until > now) && account?.trialEndsAt && account.trialEndsAt > now ? account.trialEndsAt : null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -108,13 +113,15 @@ export default function Billing() {
             ? `3-month plan, ${date(status.partner.from)} to ${date(status.partner.until)}. Every feature is included.`
             : covered
               ? `Paid until ${date(status.paidUntil!)}.`
+              : trialUntil
+                ? `Free trial: every feature until ${date(trialUntil)}. Nothing to pay, no card needed.`
               : status.paidUntil
                 ? `Your paid time ended on ${date(status.paidUntil)}.`
                 : "You haven't paid yet."}
         </p>
         {!isOwner && !covered && !(status.partner && status.partner.until > now) && (
           <p className="mt-2 text-sm text-ink-2">
-            Free plan, yours to keep: daily jobs, your tracker, a quick match % on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsTotal} tailored CV to try. A paid plan adds
+            {trialUntil ? "After that, the free plan is yours to keep" : "Free plan, yours to keep"}: daily jobs, your tracker, a quick match % on every job, {FREE.scoresPerDay} AI fit scores a day and {FREE.tailorsTotal} tailored CV to try. A paid plan adds
             more scores and CVs, company research, interview prep, referral and hiring-manager messages, and the chat.
           </p>
         )}
@@ -145,7 +152,7 @@ export default function Billing() {
           }
           freeAction={
             <div className="btn btn-ghost w-full cursor-default justify-center text-ink-3">
-              {!isOwner && !covered && !(status.partner && status.partner.until > now) ? "Your plan now" : "Always included"}
+              {trialUntil ? "Yours after the trial" : !isOwner && !covered && !(status.partner && status.partner.until > now) ? "Your plan now" : "Always included"}
             </div>
           }
           note={(key) => {
