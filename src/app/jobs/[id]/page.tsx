@@ -273,7 +273,7 @@ export default function JobPage() {
                 </button>
               </div>
             )}
-            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} />
+            <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo={!!job.pack} anyway={!!skip} favorite={!!job.favorite} />
               </>
             )}
             {job.pack && (
@@ -336,7 +336,7 @@ export default function JobPage() {
               <details className="mt-6 border-t border-line pt-4">
                 <summary className="cursor-pointer text-sm font-medium text-ink-2 hover:text-ink">Change it or write it again</summary>
                 <div className="mt-3">
-                  <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo anyway={!!skip} />
+                  <TailorButton jobId={job._id} resumes={me.resumes} defaultResumeId={currentTrack?.resumeId ?? me.defaultResumeId} redo anyway={!!skip} favorite={!!job.favorite} />
                 </div>
               </details>
             )}

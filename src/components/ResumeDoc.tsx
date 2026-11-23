@@ -148,6 +148,8 @@ export function ResumeDoc({ r, photoUrl, logos = {}, plain = false }: { r: Resum
                 {e.location && <span className="loc">{e.location}</span>}
               </div>
             </div>
+            {/* What the company sells, only when the member saved a line for it on the CVs page. */}
+            {e.about && <p className="about">{e.about}</p>}
             {e.blurb && <p className="blurb">{e.blurb}</p>}
             {e.bullets.length > 0 && (
               <ul>

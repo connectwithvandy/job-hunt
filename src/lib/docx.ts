@@ -4,7 +4,7 @@ import type { Resume } from "@/components/ResumeDoc";
 // A plain, single-column Word CV: application tracking systems read these best.
 
 const heading = (text: string) => new Paragraph({ text, heading: HeadingLevel.HEADING_2, spacing: { before: 240, after: 80 } });
-const line = (text: string, opts: { bold?: boolean; italics?: boolean; size?: number } = {}) =>
+const line = (text: string, opts: { bold?: boolean; italics?: boolean; size?: number; color?: string } = {}) =>
   new Paragraph({ children: [new TextRun({ text, ...opts })], spacing: { after: 60 } });
 const bullet = (text: string) => new Paragraph({ text, bullet: { level: 0 }, spacing: { after: 40 } });
 
@@ -25,6 +25,8 @@ export async function resumeDocx(r: Resume): Promise<Blob> {
         children: [new TextRun({ text: `${e.role}, ${e.company}`, bold: true }), new TextRun({ text: `   ${e.start} – ${e.end}${e.location ? `  ·  ${e.location}` : ""}`, size: 18 })],
       }),
     );
+    // What the company sells, when the member saved a line for it (CVs page).
+    if (e.about) children.push(line(e.about, { size: 18, color: "5B616E" }));
     if (e.blurb) children.push(line(e.blurb, { italics: true, size: 18 }));
     children.push(...e.bullets.map(bullet));
   }
