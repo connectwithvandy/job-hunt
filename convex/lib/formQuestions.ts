@@ -7,7 +7,7 @@ export type ReadForm = { source: "greenhouse" | "lever" | "ashby"; questions: Fo
 
 /** Fields the bookmark fills from the profile or the tailored CV, so there's nothing to draft for them. */
 const STANDARD =
-  /^(first name|last name|full name|name|preferred (first )?name|email( address)?|phone( number)?|resume|resume ?\/ ?cv|cv|cover letter|linkedin( profile| url)?|website|github( url)?|twitter( url)?|portfolio( url)?|other website|current location|location|current company)$/;
+  /^(first name|last name|full name|name|legal name|legal first and last name|full legal name|preferred (first )?name|email( address)?|phone( number)?|resume|resume ?\/ ?cv|cv|cover letter|linkedin( profile| url)?|website|github( url)?|twitter( url)?|portfolio( url)?|other website|current location|location|current company)$/;
 
 function clean(s: string) {
   return s
@@ -47,6 +47,8 @@ type GreenhouseQuestion = { label: string; required: boolean; fields: { type: st
 
 export function parseGreenhouse(data: { questions?: GreenhouseQuestion[] }): FormQuestion[] {
   return (data.questions ?? [])
+    // An upload-only question ("Optional: Upload your AI example") has nothing to draft.
+    .filter((q) => q.fields.some((f) => f.type !== "input_file"))
     .map((q) => {
       const field = q.fields.find((f) => f.type !== "input_file") ?? q.fields[0];
       const options = field?.values?.map((v) => v.label).filter(Boolean);
@@ -135,6 +137,62 @@ export async function readFormQuestions(board: { ats: string; slug: string } | n
     return { source: "ashby", questions: parseAshby(body.data?.jobPosting ?? null) };
   }
   return null;
+}
+
+/**
+ * Where a job's form can be read ahead: its board (Greenhouse, Lever or Ashby) and the form's address, or null.
+ * A careers-board job keeps its board and id in externalId ("careers:ashby:cursor:<id>"), which still works when
+ * the link points at the company's own site instead.
+ */
+export function readableForm(link: string, externalId: string, fromUrl: { ats: string; slug: string } | null) {
+  const ext = externalId.match(/^careers:(ashby|greenhouse|lever):([^:]+):(.+)$/);
+  const board = fromUrl ?? (ext ? { ats: ext[1], slug: ext[2] } : null);
+  if (!board || !["ashby", "greenhouse", "lever"].includes(board.ats)) return null;
+  const formLink = fromUrl || !ext ? link : formLinkFor(ext[1], ext[2], ext[3]);
+  return { board, formLink };
+}
+
+/** The board's own address for a job, so its id can be read the usual way. */
+function formLinkFor(ats: string, slug: string, id: string) {
+  if (ats === "greenhouse") return `https://job-boards.greenhouse.io/${slug}/jobs/${id}`;
+  if (ats === "lever") return `https://jobs.lever.co/${slug}/${id}`;
+  return `https://jobs.ashbyhq.com/${slug}/${id}`;
+}
+
+const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * The options worth showing the AI. A long list (Lever's 3,300 universities, a list of countries) costs a lot to send
+ * and only a few can be right: keep those named in the candidate's CV or answers, plus "Other". The answer is still
+ * checked against the full list.
+ */
+export function promptOptions(options: string[], known: string): string[] {
+  if (options.length <= 40) return options;
+  const text = ` ${plain(known)} `;
+  return options.filter((o) => {
+    const p = plain(o);
+    return /^other\b/.test(p) || (p.length >= 4 && text.includes(` ${p} `));
+  });
+}
+
+/** Questions where every number must come from the candidate, never be worked out or guessed. */
+const NUMBER_FACTS = /quota|attainment|stack rank|\brank(ed|ing)?\b|\bacv\b|\barr\b|revenue|deal size|pipeline|bookings|salary|\bctc\b|compensation|percent|%/i;
+
+/**
+ * True when a drafted answer has a number the candidate never gave: a percentage, money, a decimal or a number of
+ * 100 or more anywhere, and any number at all on a quota, rank, deal-size or pay question. A plain small number
+ * elsewhere (years of experience worked out from CV dates) is allowed.
+ */
+export function inventsNumbers(question: string, answer: string, known: string): boolean {
+  const have = ` ${known.replace(/,/g, "").toLowerCase()} ${question.replace(/,/g, "").toLowerCase()} `;
+  const strict = NUMBER_FACTS.test(question);
+  for (const m of answer.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)\s*(%|k\b|m\b|l\b|lakhs?\b|cr\b|crores?\b|million\b)?/gi)) {
+    const n = m[1];
+    const big = !!m[2] || Number(n) >= 100 || n.includes(".");
+    if (!strict && !big) continue;
+    if (!new RegExp(`(^|[^0-9.])${n.replace(".", "\\.")}(?![0-9])`).test(have)) return true;
+  }
+  return false;
 }
 
 /** Questions a person must answer themselves: legal agreements, consent, and declarations. */

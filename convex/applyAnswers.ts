@@ -5,6 +5,8 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
+import { boardFromUrl } from "./lib/boardFromUrl";
+import { readableForm } from "./lib/formQuestions";
 import { internalMutation, mutation } from "./lib/functions";
 import { applyFormV } from "./lib/validators";
 
@@ -126,10 +128,14 @@ export const forFill = query({
           .filter(([q, a]) => a.trim() && !have.has(q.toLowerCase()))
           .map(([question, answer]) => ({ question, answer: answer.trim(), exact: false }))
       : [];
+    const link = job.sourceUrl || job.url || "";
     return {
       company: job.company,
       title: job.title,
-      link: job.sourceUrl || job.url || "",
+      link,
+      // A Greenhouse, Lever or Ashby form whose questions haven't been read yet: the fill window reads them first,
+      // once per job, so long questions get drafted answers too.
+      readAhead: !!readableForm(link, job.externalId, boardFromUrl(link)) && (!d?.applyForm || d.applyForm.source === "pasted"),
       resume: resume ?? null,
       tailored,
       coverLetter: pack?.coverLetter ?? "",
