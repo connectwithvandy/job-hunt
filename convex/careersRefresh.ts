@@ -26,6 +26,19 @@ const LINKEDIN_SEARCHES: [string, number][] = [
 ];
 const KEEP_LINKEDIN_DAYS = 30;
 
+/** Every shared LinkedIn or Google Jobs role saved over a month ago, read a page at a time. */
+async function oldPooled(ctx: ActionCtx, prefix: "linkedin:" | "gjobs:") {
+  const before = Date.now() - KEEP_LINKEDIN_DAYS * 86_400_000;
+  const ids: string[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: { ids: string[]; cursor: string | null } = await ctx.runQuery(internal.careers.oldPooledPage, { prefix, before, cursor });
+    ids.push(...page.ids);
+    cursor = page.cursor;
+  } while (cursor);
+  return ids;
+}
+
 /**
  * Before the morning run: today's LinkedIn sales roles in India, saved beside the careers-board roles so everyone's
  * search finds them. About $0.45 a day, capped at $0.49. Roles open the company's own apply link when LinkedIn gives one,
@@ -58,7 +71,7 @@ export const linkedInPool = internalAction({
       }))
       .filter((j) => j.india);
     for (let i = 0; i < jobs.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: jobs.slice(i, i + 50) });
-    const old: string[] = await ctx.runQuery(internal.careers.oldLinkedIn, { before: Date.now() - KEEP_LINKEDIN_DAYS * 86_400_000 });
+    const old = await oldPooled(ctx, "linkedin:");
     for (let i = 0; i < old.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: old.slice(i, i + 200) });
     console.log(`LinkedIn pool: ${found.length} found, ${jobs.length} saved, ${old.length} old ones removed.`);
     return null;
@@ -109,7 +122,7 @@ export const googlePool = internalAction({
       }))
       .filter((j) => j.india);
     for (let i = 0; i < jobs.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: jobs.slice(i, i + 50) });
-    const old: string[] = await ctx.runQuery(internal.careers.oldGoogle, { before: Date.now() - KEEP_LINKEDIN_DAYS * 86_400_000 });
+    const old = await oldPooled(ctx, "gjobs:");
     for (let i = 0; i < old.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: old.slice(i, i + 200) });
     const boardOnly = found.filter((j) => !j.links.some((u) => isCompanyLink(u)) && j.links.some((u) => applyBoard(u))).length;
     const otherTitles = found.filter((j) => !titles.some((t) => titleMatches(t, j.title))).length;
@@ -172,8 +185,11 @@ export const refresh = internalAction({
     const empty: string[] = [];
     const failed: string[] = [];
     const broken: string[] = [];
+    // Boards read without an error, for the daily sweep (careersRefresh.sweep).
+    const read: string[] = [];
     const one = async (board: CareerBoard) => {
       const done = await syncBoard(ctx, board, titles);
+      read.push(board.name);
       added += done.added;
       removed += done.removed;
       // Workday is searched by title, so it can rightly find nothing; the other boards list every opening.
@@ -181,7 +197,8 @@ export const refresh = internalAction({
     };
     // Workday boards: only the hand-picked SaaS companies. The 436 found from job links (Pfizer, FedEx, CVS…) were
     // mostly not SaaS, and every Workday board answered 429 on 17 Nov, so reading them cost money for no roles.
-    const found = ((await ctx.runQuery(internal.careers.discovered, {})) as CareerBoard[]).filter((b) => b.ats !== "workday");
+    // careers.discovered leaves them out; the roles they had are taken out by the sweep.
+    const found: CareerBoard[] = await ctx.runQuery(internal.careers.discovered, {});
     // The 13:00 and 18:00 reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
     // Google's site is searched at 7:00 only: each read downloads tens of MB.
     // Workday is tried at 7:00 only: it refused every daytime read too (18 Nov), and its old roles stay until it answers.
@@ -197,6 +214,7 @@ export const refresh = internalAction({
       // its 429s are about speed, and a new address wouldn't help.
       settled.forEach((r, k) => r.status === "rejected" && PICKED_NAMES.has(batch[k].name) && batch[k].ats !== "workday" && !/429/.test(String(r.reason)) && broken.push(batch[k].name));
     }
+    if (read.length) await ctx.runMutation(internal.careers.markRead, { names: read });
     // Once a day (the 7:00 full read), so a page that broke is fixed before its roles are missed for long.
     if (!fresh && (failed.length || empty.length)) {
       const parts = [failed.length ? `failed: ${failed.join("; ")}` : "", empty.length ? `listed no jobs: ${empty.join(", ")}` : ""].filter(Boolean);
@@ -209,8 +227,73 @@ export const refresh = internalAction({
     if (start + CHUNK < boards.length) await ctx.scheduler.runAfter(0, internal.careersRefresh.refresh, { start: start + CHUNK, fresh, since });
     // After the last chunk, what's new goes straight to the people it fits (agent.freshRun). Until 17 Nov only
     // the daytime reads did this, so roles from the 7:00 read reached people only through the capped search.
-    else await ctx.scheduler.runAfter(0, internal.agent.freshRun, { since });
+    else {
+      await ctx.scheduler.runAfter(0, internal.agent.freshRun, { since });
+      // After the 7:00 read has been through every board: take out roles no board vouches for any more.
+      if (!fresh) await ctx.scheduler.runAfter(0, internal.careersRefresh.sweep, {});
+    }
     return null;
+  },
+});
+
+/** Days a board read every morning may fail before its roles are taken out. */
+const STALE_READ_DAYS = 4;
+
+/**
+ * Daily, after the 7:00 read: takes out careers-board roles no board vouches for any more, so members aren't shown
+ * roles that may have closed weeks ago. A role goes when its company's board is no longer read at all (23 Nov: 2,249
+ * roles from 266 found Workday boards, unread since 17 Nov) or has failed every read for 4 days. LinkedIn and
+ * Google Jobs roles keep their own 30-day limit. Members' saved jobs are never deleted: the morning check
+ * (agent.recheckFor) just marks them closed. `dryRun` counts without taking anything out.
+ * npx convex run --prod careersRefresh:sweep '{"dryRun":true}'
+ */
+export const sweep = internalAction({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, { dryRun }) => {
+    if (env.SCHEDULED_OFF === "1" && !dryRun) return null;
+    const found: CareerBoard[] = await ctx.runQuery(internal.careers.discovered, {});
+    const listed = new Set([...(await pickedBoards(ctx)), ...found].map((b) => b.name));
+    // A short board list means reading it went wrong, not that the boards are gone.
+    if (listed.size < 500) {
+      console.warn(`Sweep skipped: only ${listed.size} boards listed.`);
+      return null;
+    }
+    const byCompany = new Map<string, string[]>();
+    let rows = 0;
+    let cursor: string | null = null;
+    do {
+      const page: { rows: { externalId: string; company: string }[]; cursor: string | null } = await ctx.runQuery(internal.careers.boardRowsPage, { cursor });
+      for (const r of page.rows) {
+        const ids = byCompany.get(r.company) ?? [];
+        ids.push(r.externalId);
+        byCompany.set(r.company, ids);
+      }
+      rows += page.rows.length;
+      cursor = page.cursor;
+    } while (cursor);
+    const names = [...byCompany.keys()];
+    const unlisted = names.filter((n) => !listed.has(n));
+    const watched = names.filter((n) => listed.has(n));
+    let stale: string[] = [];
+    for (let i = 0; i < watched.length; i += 400) stale.push(...((await ctx.runMutation(internal.careers.staleReads, { names: watched.slice(i, i + 400), staleDays: STALE_READ_DAYS })) as string[]));
+    const count = (ns: string[]) => ns.reduce((n, name) => n + byCompany.get(name)!.length, 0);
+    const problems: string[] = [];
+    // Many boards failing together means the reading broke (a bad deploy, a blocked network), not the boards.
+    if (stale.length > Math.max(50, watched.length / 4)) {
+      problems.push(`${stale.length} of ${watched.length} boards not read for ${STALE_READ_DAYS}+ days, so none were taken out`);
+      stale = [];
+    }
+    let gone = unlisted;
+    if (count(unlisted) > rows * 0.35) {
+      problems.push(`${count(unlisted)} of ${rows} roles are from boards no longer read, too many to take out at once`);
+      gone = [];
+    }
+    if (problems.length) await ctx.runMutation(internal.errors.logServer, { message: `Job list sweep: ${problems.join("; ")}. Check the careers board read.`, page: "careers boards" });
+    const ids = [...gone, ...stale].flatMap((n) => byCompany.get(n)!);
+    if (!dryRun) for (let i = 0; i < ids.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: ids.slice(i, i + 200) });
+    const summary = `Sweep${dryRun ? " (dry run)" : ""}: ${rows} board roles from ${names.length} companies. Taken out: ${count(gone)} from ${gone.length} boards no longer read, ${count(stale)} from ${stale.length} boards failing ${STALE_READ_DAYS}+ days.`;
+    console.log(summary, stale.length ? `Failing: ${stale.slice(0, 30).join(", ")}` : "");
+    return summary;
   },
 });
 
