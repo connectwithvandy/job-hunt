@@ -24,6 +24,11 @@ export const resumeV = v.object({
       bullets: v.array(v.string()),
       /** The company's website, like "jumpcloud.com", for its logo. */
       domain: v.optional(v.string()),
+      /**
+       * What the company sells and to whom, in one line, like "Identity and device management platform for IT teams".
+       * Only ever set by the member (typed, or a suggestion they accepted on the CVs page), so tailoring may use it as a fact.
+       */
+      about: v.optional(v.string()),
     }),
   ),
   education: v.array(
@@ -102,6 +107,8 @@ export const packV = v.object({
   unverified: v.array(v.string()),
   /** Only the cover letter was written: the CV is your master CV, not tailored to this job. */
   letterOnly: v.optional(v.boolean()),
+  /** What "Fit it on two pages" left out of this job's copy, in plain words, when you chose it. Your master CV keeps everything. */
+  shortened: v.optional(v.array(v.string())),
 });
 
 /** The CV and cover letter as they were when you applied. Later rewrites leave this copy alone, so you know what they read. */

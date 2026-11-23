@@ -824,7 +824,7 @@ export function FactsForm({ facts }: { facts: { question: string; answer: string
       <p className="mb-4 text-sm text-ink-2">
         Your answers to the questions asked before writing a CV, like how many managers you&apos;ve led. Every tailored CV and cover letter can use them as facts, numbers included, so keep them true.
       </p>
-      {rows.length === 0 && <p className="mb-3 text-sm text-ink-3">Nothing yet. Star a job and write its CV to be asked a few questions, or add one here.</p>}
+      {rows.length === 0 && <p className="mb-3 text-sm text-ink-3">Nothing yet. Write a CV for a job to be asked a few questions about what it needs, or add one here.</p>}
       <div className="space-y-3">
         {rows.map((r, i) => (
           <div key={i} className="grid gap-2 sm:grid-cols-[14rem_1fr_auto]">
@@ -1191,6 +1191,97 @@ export function GmailSync() {
         <p className="mt-2">Keep it private: it lets the script update your jobs.</p>
         <textarea readOnly className="field mt-2 h-40 font-mono text-xs" value={script} />
       </details>
+    </div>
+  );
+}
+
+/**
+ * One line per role on what the company sells, like "Identity and device management platform for IT teams".
+ * Recruiters often don't know a past employer, and tailoring can only say "security" or "fintech" when the CV does.
+ * JobPipe can suggest lines, but nothing reaches the CV until you save it here: your CV, your call.
+ */
+export function CompanyLinesForm({ resumeId, resume }: { resumeId: Id<"resumes">; resume: Resume }) {
+  const suggest = useAction(api.agent.suggestCompanyLines);
+  const save = useMutation(api.users.setCompanyLines);
+  const roles = resume.experience.filter((e) => e.company.trim());
+  const [lines, setLines] = useState<Record<string, string>>(() => Object.fromEntries(roles.map((e) => [e.id, e.about ?? ""])));
+  // Which lines are JobPipe's suggestions you haven't saved yet, so they're marked "check this".
+  const [suggested, setSuggested] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<"" | "suggest" | "save">("");
+  const [state, setState] = useState<ActionState>(null);
+  if (!roles.length) return null;
+  const missing = roles.filter((e) => !lines[e.id]?.trim());
+  const changed = roles.some((e) => (lines[e.id] ?? "").trim() !== (e.about ?? ""));
+
+  return (
+    <div className="card p-6">
+      <h2 className="display mb-1 text-2xl">What your companies sell</h2>
+      <p className="mb-4 text-sm text-ink-2">
+        One short line per company, like &quot;Identity and device management platform for IT teams&quot;. Recruiters may not know your past employers, and a tailored CV can only say you&apos;ve worked in, say, security when your CV says so. Only lines you save here are used.
+      </p>
+      <div className="space-y-3">
+        {roles.map((e) => (
+          <label key={e.id} className="block">
+            <span className="label">
+              {e.company}
+              {suggested.has(e.id) && <span className="ml-2 font-normal text-warn">Suggested: check it&apos;s right</span>}
+            </span>
+            <input
+              className="field mt-1 text-sm"
+              maxLength={140}
+              value={lines[e.id] ?? ""}
+              placeholder="What it sells, and to whom"
+              onChange={(ev) => {
+                setLines({ ...lines, [e.id]: ev.target.value });
+                setSuggested(new Set([...suggested].filter((id) => id !== e.id)));
+              }}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {missing.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={!!busy}
+            onClick={async () => {
+              setBusy("suggest");
+              setState(
+                await attempt(async () => {
+                  const out = await suggest({ resumeId });
+                  const fill = out.filter((l) => l.line && !lines[l.id]?.trim());
+                  setLines({ ...lines, ...Object.fromEntries(fill.map((l) => [l.id, l.line])) });
+                  setSuggested(new Set([...suggested, ...fill.map((l) => l.id)]));
+                  return fill.length ? "Suggested. Check each line, change anything that's off, then save." : "No suggestions we're sure of. Type them in.";
+                }),
+              );
+              setBusy("");
+            }}
+          >
+            {busy === "suggest" ? "Suggesting…" : "Suggest lines for me"}
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={!!busy || !changed}
+          onClick={async () => {
+            setBusy("save");
+            setState(
+              await attempt(async () => {
+                await save({ resumeId, lines: roles.map((e) => ({ id: e.id, about: (lines[e.id] ?? "").trim() })) });
+                setSuggested(new Set());
+                return "Saved. New tailored CVs can use these lines.";
+              }),
+            );
+            setBusy("");
+          }}
+        >
+          {busy === "save" ? "Saving…" : "Save these lines"}
+        </button>
+        <Feedback state={busy ? null : state} />
+      </div>
     </div>
   );
 }
