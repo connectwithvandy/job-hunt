@@ -4,7 +4,7 @@ import rateLimiter from "@convex-dev/rate-limiter/test";
 import { describe, expect, test, vi } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
-import { fingerprintOf } from "./lib/careers";
+import { fingerprintOf, indiaFacet } from "./lib/careers";
 import { alertsEmail, freshEmail, weeklyEmail } from "./lib/email";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -177,4 +177,16 @@ test("each job in the daily email has a one-click Apply link to the company's po
   expect(mail.html).toContain('href="https://jobs.acme.com/sdr"');
   expect(mail.text).toContain("Apply: https://jobs.acme.com/sdr");
   expect(mail.html.match(/>Apply</g)?.length).toBe(1);
+});
+
+test("Workday India filter uses the filter name the India value sits under", () => {
+  // Adobe nests "locationCountry" inside "locationMainGroup"; the outer name answered 400 (21 Nov).
+  const nested = [{ facetParameter: "locationMainGroup", values: [
+    { facetParameter: "locationCountry", values: [{ descriptor: "India", id: "c1", count: 46 }, { descriptor: "Germany", id: "c2", count: 9 }] },
+    { facetParameter: "locations", values: [{ descriptor: "Remote India", id: "l1", count: 1 }] },
+  ] }];
+  expect(indiaFacet(nested)).toEqual({ param: "locationCountry", ids: ["c1"] });
+  // Flat sites keep working.
+  expect(indiaFacet([{ facetParameter: "locationCountry", values: [{ descriptor: "India", id: "x", count: 3 }] }])).toEqual({ param: "locationCountry", ids: ["x"] });
+  expect(indiaFacet([{ facetParameter: "timeType", values: [{ descriptor: "Full time", id: "t", count: 3 }] }])).toBeNull();
 });

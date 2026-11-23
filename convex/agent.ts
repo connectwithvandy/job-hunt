@@ -261,6 +261,20 @@ async function indiaRows(ctx: ActionCtx): Promise<CareerRow[]> {
 }
 
 /**
+ * The world list searched by title, one title per read. All 16 titles in one read was up to 48 search words of 500
+ * rows each, past the 4,096-read limit, and the morning email filed it as "Saving jobs" (21 and 23 Nov).
+ */
+async function worldRows(ctx: ActionCtx, titles: string[]): Promise<CareerRow[]> {
+  const seen = new Map<string, CareerRow>();
+  const one = titles.slice(0, 16);
+  for (let i = 0; i < one.length; i += 4) {
+    const pages: CareerRow[][] = await Promise.all(one.slice(i, i + 4).map((t) => ctx.runQuery(internal.careers.search, { titles: [t], india: false, perTerm: 500 })));
+    for (const r of pages.flat()) seen.set(r.externalId, r);
+  }
+  return [...seen.values()];
+}
+
+/**
  * Roles from the companies' own careers boards (read each morning) that match a title and the place. For
  * places in India and Remote it checks every India role; elsewhere it uses the title search (at most 64 per title).
  */
@@ -268,7 +282,7 @@ async function careerMatches(ctx: ActionCtx, titles: string[], location: string)
   const place = readPlace(location);
   // "Remote" means remote roles open to someone in India, which are filed as India roles too.
   const inIndia = (place.kind === "place" && place.country === "in") || place.kind === "remote";
-  const rows: CareerRow[] = inIndia ? await indiaRows(ctx) : await ctx.runQuery(internal.careers.search, { titles, india: false, perTerm: 500 });
+  const rows: CareerRow[] = inIndia ? await indiaRows(ctx) : await worldRows(ctx, titles);
   return await withCareerTexts(ctx, rows.filter((r) => titles.some((t) => titleMatches(t, r.title)) && openTo(place, r.location, r.workSetting, r.title)).slice(0, 300));
 }
 
@@ -342,24 +356,34 @@ async function saveJobs(ctx: ActionCtx, userId: Id<"users">, jobs: NewJob[]): Pr
  * When the board says it's out of searches, nobody asks it again for a few hours.
  */
 function sharedSearch(ctx: ActionCtx): CachedSearch {
-  return async (source, title, placeKey, search) => {
+  return async <T,>(source: "adzuna" | "dreamwork", title: string, placeKey: string, search: () => Promise<T[]>): Promise<T[]> => {
     const key = `${source}|${title.toLowerCase()}|${placeKey}`;
     const blockKey = `${source}|out-of-searches`;
     const now = Date.now();
     const block: { fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key: blockKey });
     const saved: { jobs: string; fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key });
-    if (saved && now - saved.fetchedAt < FRESH_MS) return JSON.parse(saved.jobs) as Found[];
-    if (block && now - block.fetchedAt < BLOCK_MS) throw new Error(`${source} is out of searches for now`);
+    if (saved && now - saved.fetchedAt < (source === "dreamwork" ? DREAMWORK_FRESH_MS : FRESH_MS)) return JSON.parse(saved.jobs) as T[];
+    if (block && now - block.fetchedAt < BLOCK_MS) throw new ConvexError(`${source === "dreamwork" ? "Dreamwork" : "Adzuna"} is out of searches for today`);
     try {
       const jobs = await search();
       await ctx.runMutation(internal.sourceCache.put, { key, jobs: JSON.stringify(jobs) });
       return jobs;
     } catch (err) {
-      if (/\b429\b/.test(String(err))) await ctx.runMutation(internal.sourceCache.put, { key: blockKey, jobs: "[]", blocked: true });
+      const text = err instanceof ConvexError ? String(err.data) : String(err);
+      // Adzuna answers 429; Dreamwork says "Daily limit of 500 requests reached" (from 23 Nov).
+      if (/\b429\b|daily limit|limit of \d+ requests/i.test(text)) await ctx.runMutation(internal.sourceCache.put, { key: blockKey, jobs: "[]", blocked: true });
       throw err;
     }
   };
 }
+
+/**
+ * Dreamwork answers 500 requests a day in all (from 23 Nov), and the morning search asked up to 64 per person
+ * (16 titles, 4 pages), so 64 of 98 people got nothing. Most people search the same titles in the same places,
+ * so one search is shared by everyone for a few hours: the morning run fetches each title and place once, and
+ * the afternoon top-up (8 hours later) fetches again.
+ */
+const DREAMWORK_FRESH_MS = 6 * 3_600_000;
 
 /**
  * Searches every board for one track and saves the new roles. Returns how many were new, and which boards didn't answer.
@@ -371,7 +395,9 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     const [settled, [others, otherFailed]] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : settleLimited(track.titles.slice(0, 16), 3, (title) => searchListings(title, searchPlace(location), 25, 4)),
+        : settleLimited(track.titles.slice(0, 16), 3, (title) =>
+            sharedSearch(ctx)("dreamwork", title, searchPlace(location).trim().toLowerCase(), () => searchListings(title, searchPlace(location), 25, 4)),
+          ),
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([

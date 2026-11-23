@@ -326,7 +326,7 @@ function openToIndianCity(name: string, where: string, remote: boolean, title: s
  * Runs one quota-limited board search, or hands back a saved copy. The agent passes one that keeps each day's
  * results for everyone (sourceCache); without it, every call goes to the board.
  */
-export type CachedSearch = (source: "adzuna", title: string, placeKey: string, search: () => Promise<Found[]>) => Promise<Found[]>;
+export type CachedSearch = <T>(source: "adzuna" | "dreamwork", title: string, placeKey: string, search: () => Promise<T[]>) => Promise<T[]>;
 
 /**
  * Titles worth a search on a board with a small quota: short forms like "SDR" or "BDR" are left out, since the
