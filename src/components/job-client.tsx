@@ -43,6 +43,9 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
         onClick={async () => {
           // Open first, inside the click, or the browser blocks the new tab.
           window.open(link, "_blank", "noreferrer");
+          // Coming back to this tab asks "Did you apply?" (the strip at the top of the job page shows it): people applied
+          // on the company's site and never came back to press "I've applied" (23 Nov walk: 13 of 98 ever marked one).
+          noteOpened(`apply:${job._id}`);
           // So the autofill bookmark on that form knows which job's answers and CV to use.
           setApplying(job._id);
           const ready: string[] = [];
@@ -57,7 +60,7 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
           setDone(
             ready.length
               ? `${ready.join(", ")}. On the form: click your JobPipe autofill bookmark. It fills your answers and attaches the CV; check it all, then press Submit.`
-              : "Form opened. Write your tailored CV on the CV & letter tab first to have it downloaded here too.",
+              : "The form is open in a new tab. Want a CV written for this job first? Press Write my CV on the CV tab below (about 2 minutes), then press Apply again and it downloads too.",
           );
         }}
       >

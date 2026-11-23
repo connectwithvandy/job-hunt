@@ -15,7 +15,7 @@ import { CvMatch } from "@/components/CvMatch";
 import { downloadDocx } from "@/lib/docx";
 import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton, GapAnswers } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
-import { ActionButton, CopyButton, DownloadMenu } from "@/components/ui";
+import { ActionButton, CopyButton, DownloadMenu, SentCheck } from "@/components/ui";
 import { inInr, payText, useInrRates } from "@/lib/money";
 import { afterApplyNudge, hrTrack, referralTrack, type Track } from "@/lib/outreachPlan";
 
@@ -91,13 +91,13 @@ export default function JobPage() {
               {job.pack.email ? (
                 <EmailDraft key={job.pack.createdAt} jobId={job._id} subject={job.pack.emailSubject ?? ""} body={job.pack.email} />
               ) : (
-                <p className="text-sm text-ink-2">Press &quot;Write them again&quot; on the CV &amp; letter tab to get an email version too.</p>
+                <p className="text-sm text-ink-2">Press &quot;Write them again&quot; on the CV tab to get an email version too.</p>
               )}
             </div>
             <p className="text-xs text-ink-3">&quot;Hi &lt;first name&gt;&quot; is filled in with the person&apos;s name when you message them from their card above.</p>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-ink-2">Write your CV on the CV &amp; letter tab to get a LinkedIn note and an email for them.</p>
+          <p className="mt-4 text-sm text-ink-2">Write your CV on the CV tab to get a LinkedIn note and an email for them.</p>
         )}
     </section>
   );
@@ -123,7 +123,8 @@ export default function JobPage() {
       {referralTrack && <p className="mb-3 text-sm text-ink-2">{referralTrack}</p>}
         {me.contactsCount === 0 ? (
           <p className="text-sm text-ink-2">
-            Load your LinkedIn connections under Profile → <Link className="underline" href="/connect">LinkedIn &amp; Gmail</Link> to see who you know at {job.company}.
+            See who you know at {job.company} with the LinkedIn buttons below. You can also load your connections under Profile →{" "}
+            <Link className="underline" href="/connect">LinkedIn &amp; Gmail</Link> to keep them here.
           </p>
         ) : people.length === 0 ? (
           <p className="text-sm text-ink-2">No first-degree connections at {job.company}. Try the hiring manager below, or a second-degree intro.</p>
@@ -169,7 +170,7 @@ export default function JobPage() {
 
       {cvError && (
         <p className="card mt-4 border-warn p-4 text-sm" role="status">
-          The job is saved, but your CV wasn&apos;t written: {cvError} You can try again on the CV &amp; letter tab.
+          The job is saved, but your CV wasn&apos;t written: {cvError} You can try again on the CV tab.
         </p>
       )}
       <header className="mt-4 mb-8 flex flex-wrap items-start gap-4">
@@ -195,7 +196,10 @@ export default function JobPage() {
             )}
           </div>
         </div>
-        <StatusSelect jobId={job._id} status={job.status} />
+        {/* Its own row on a phone: beside the title it squeezed it to one word a line and covered the star (23 Nov walk). */}
+        <div className="basis-full sm:basis-auto">
+          <StatusSelect jobId={job._id} status={job.status} />
+        </div>
       </header>
 
       <PostingCheck live={job.liveCheck} checking={stale} ghost={ghost} check={async () => void (await checkPosting({ jobId: job._id }))} />
@@ -203,7 +207,7 @@ export default function JobPage() {
       {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={me.resume?.name ?? ""} />}
 
 
-      <OutreachStrip job={job} peopleCount={people.length} now={now} applied={!(job.status === "new" || job.status === "applying")} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} />
+      <OutreachStrip job={job} peopleCount={people.length} now={now} applied={!(job.status === "new" || job.status === "applying")} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} noContacts={me.contactsCount === 0} />
 
       <JobTabs
         initial={nextTab}
@@ -564,15 +568,19 @@ function OutreachStrip({
   now,
   applied,
   markApplied,
+  noContacts,
 }: {
   job: Parameters<typeof ApplyButton>[0]["job"] & { outreach: Parameters<typeof referralTrack>[0]; hiringContacts?: Parameters<typeof hrTrack>[0] };
   peopleCount: number;
   now: number;
   applied: boolean;
   markApplied: () => Promise<void>;
+  /** No LinkedIn connections loaded: "No connections here" would be a guess, so point to LinkedIn's own search. */
+  noContacts: boolean;
 }) {
   if (job.status === "rejected" || job.status === "dismissed") return null;
-  const referral = referralTrack(job.outreach, peopleCount, job.company, now);
+  const tracked = referralTrack(job.outreach, peopleCount, job.company, now);
+  const referral: Track = noContacts && tracked.tone === "off" ? { tone: "todo", line: `Search LinkedIn for people you know at ${job.company}.`, action: "Search" } : tracked;
   const hr = hrTrack(job.hiringContacts ?? [], now);
   const nudge = afterApplyNudge(job, peopleCount > 0, now);
   const best = job.outreach.find((o) => o.status === "draft")?.name;
@@ -606,6 +614,8 @@ function OutreachStrip({
               <ActionButton run={markApplied} variant="ghost" size="sm">
                 I&apos;ve applied
               </ActionButton>
+              {/* Asked once on coming back from the company's form (ApplyButton notes the open). */}
+              <SentCheck id={`apply:${job._id}`} onSent={markApplied} question="Did you apply?" yes="Yes, applied" />
             </div>
           )}
         </div>

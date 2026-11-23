@@ -122,8 +122,11 @@ function forgetOpened(id: string) {
   writeOpened(all);
 }
 
-/** "Did you send it? Yes / Not yet", shown once you're back on this tab after opening the message elsewhere. */
-export function SentCheck({ id, onSent, who }: { id: string; onSent: () => Promise<unknown>; who?: string }) {
+/**
+ * "Did you send it? Yes / Not yet", shown once you're back on this tab after opening the message elsewhere.
+ * `question` and `yes` change the words, e.g. "Did you apply?" after the application form was opened.
+ */
+export function SentCheck({ id, onSent, who, question, yes = "Yes, sent" }: { id: string; onSent: () => Promise<unknown>; who?: string; question?: string; yes?: string }) {
   const [ask, setAsk] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -147,7 +150,7 @@ export function SentCheck({ id, onSent, who }: { id: string; onSent: () => Promi
   if (!ask) return null;
   return (
     <span className="flex basis-full flex-wrap items-center gap-2 rounded-lg bg-soft px-3 py-2 text-sm" role="status">
-      <span className="font-medium">Did you send it{who ? ` to ${who}` : ""}?</span>
+      <span className="font-medium">{question ?? `Did you send it${who ? ` to ${who}` : ""}?`}</span>
       <button
         type="button"
         className="btn btn-primary btn-sm"
@@ -162,7 +165,7 @@ export function SentCheck({ id, onSent, who }: { id: string; onSent: () => Promi
           }
         }}
       >
-        Yes, sent
+        {yes}
       </button>
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => forgetOpened(id)}>
         Not yet
