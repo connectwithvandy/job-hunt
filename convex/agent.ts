@@ -12,7 +12,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { isOwnerEmail, requireUserId } from "./lib/auth";
 import { recentPosts, searchJobs, searchPosts } from "./lib/apify";
 import { unverifiedNumbers } from "./lib/facts";
-import { buildLetter, buildPack, callScript, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
+import { buildLetter, buildPack, callScript, chatSystemPrompt, lessonsFromNoes, storiesFromCv, draftReferralNotes, extractJob, findAndWriteTo, findDomains, findFundedCompanies, findVcPortfolio, interviewPrep, parseResume, personaliseOutreach, researchCompany, scoreJob, scoreProspects, suggestDreamCompanies, suggestTitles, draftFormAnswers, estimatePay, readHiringPosts, suggestCompanyLines as askCompanyLines, tailorQuestions as askTailorQuestions, writeEmailReply, writeFollowUp, type No, type PastOutcome, type Voice } from "./lib/brain";
 import type { ContactWithChat } from "./lib/chats";
 import { AGGREGATORS, companyKey } from "./lib/company";
 import { tidyMessage } from "./lib/messageText";
@@ -912,7 +912,10 @@ export const tailor = action({
   handler: async (ctx, args): Promise<null> => await tailorFor(ctx, await setup(ctx), args),
 });
 
-/** Up to four questions to answer before tailoring, where an honest answer could change the CV or letter. */
+/**
+ * Up to three questions to answer before tailoring: the posting's must-haves your CV doesn't back yet.
+ * Never blocks writing: with today's allowance used up, or on the free plan, there are simply no questions.
+ */
 export const tailorQuestions = action({
   args: { jobId: v.id("jobs"), resumeId: v.optional(v.id("resumes")) },
   handler: async (ctx, { jobId, resumeId }): Promise<{ question: string; why: string }[]> => {
@@ -926,8 +929,31 @@ export const tailorQuestions = action({
     const chosen = resumeId ? resumes.find((r) => r._id === resumeId)?.resume : undefined;
     if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
     const cv = requireResume(chosen ?? (track ? resumeFor[track.key] : resume));
-    await spend(ctx, userId, "notes");
+    try {
+      await spend(ctx, userId, "notes");
+    } catch {
+      return [];
+    }
     return await askTailorQuestions(job, cv, facts);
+  },
+});
+
+/**
+ * A suggested "what the company sells" line for each role on one of your CVs that has none yet. Nothing is
+ * saved: you check each line, change it if needed, and only the lines you save reach your CV and tailoring.
+ */
+export const suggestCompanyLines = action({
+  args: { resumeId: v.id("resumes") },
+  handler: async (ctx, { resumeId }): Promise<{ id: string; line: string }[]> => {
+    const { userId, resumes } = await setup(ctx);
+    const cv = resumes.find((r) => r._id === resumeId)?.resume;
+    if (!cv) throw new ConvexError("That CV is gone. Pick another.");
+    const roles = cv.experience.filter((e) => !e.about?.trim() && e.company.trim());
+    if (!roles.length) return [];
+    await afford(ctx, userId, "readCv");
+    const lines = await askCompanyLines(roles);
+    await spend(ctx, userId, "readCv");
+    return lines;
   },
 });
 

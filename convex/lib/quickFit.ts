@@ -29,7 +29,7 @@ export function textSenior(text: string, year = new Date().getFullYear()) {
 /** The CV's own vocabulary: skills, roles, headline and achievements. */
 export function cvWords(cv: Resume) {
   return words(
-    [cv.headline, cv.summary, ...cv.skills.technical, ...cv.skills.soft, ...cv.experience.flatMap((e) => [e.role, e.blurb, ...e.bullets])].join(" "),
+    [cv.headline, cv.summary, ...cv.skills.technical, ...cv.skills.soft, ...cv.experience.flatMap((e) => [e.role, e.about ?? "", e.blurb, ...e.bullets])].join(" "),
   );
 }
 

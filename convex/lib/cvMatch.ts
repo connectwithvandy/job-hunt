@@ -6,7 +6,8 @@
 export type CvLike = {
   headline: string;
   summary: string;
-  experience: { company: string; role: string; blurb: string; bullets: string[] }[];
+  /** `about` is the member's own line on what the company sells, when they added one. */
+  experience: { company: string; about?: string; role: string; blurb: string; bullets: string[] }[];
   education: { school: string; degree: string; detail: string; notes: string[] }[];
   certifications: { name: string; detail: string }[];
   skills: { technical: string[]; soft: string[] };
@@ -202,7 +203,7 @@ export function cvText(cv: CvLike) {
   return [
     cv.headline,
     cv.summary,
-    ...cv.experience.flatMap((e) => [e.company, e.role, e.blurb, ...e.bullets]),
+    ...cv.experience.flatMap((e) => [e.company, e.about ?? "", e.role, e.blurb, ...e.bullets]),
     ...cv.education.flatMap((e) => [e.school, e.degree, e.detail, ...e.notes]),
     ...cv.certifications.flatMap((c) => [c.name, c.detail]),
     ...cv.skills.technical,

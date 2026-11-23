@@ -208,14 +208,12 @@ export function TailorButton({
   defaultResumeId,
   redo,
   anyway,
-  favorite,
 }: {
   jobId: Id<"jobs">;
   resumes: { _id: Id<"resumes">; label: string }[];
   defaultResumeId: Id<"resumes"> | null;
   redo: boolean;
   anyway?: boolean;
-  favorite?: boolean;
 }) {
   const tailor = useAction(api.agent.tailor);
   const getQuestions = useAction(api.agent.tailorQuestions);
@@ -268,7 +266,7 @@ export function TailorButton({
     return (
       <div className="w-full space-y-3">
         {picker}
-        <p className="text-sm text-ink-2">A few questions first. Answer the ones that apply; the AI keeps your answers for every job, and you can edit them on the CVs page.</p>
+        <p className="text-sm text-ink-2">A few questions first, about what this job asks for that your CV doesn&apos;t show yet. Answer only what&apos;s true, with a number if you have one; leave the rest blank. Your answers are kept for every job, and you can edit them on the CVs page.</p>
         {questions.map((q, i) => (
           <label key={i} className="block">
             <span className="text-sm font-medium">{q.question}</span>
@@ -321,8 +319,9 @@ export function TailorButton({
         disabled={busy || asking || !resumeId}
         onClick={() =>
           run(async () => {
-            // A favourite's first CV starts with a few questions, unless there's nothing worth asking.
-            if (favorite && !redo && questions === null && (await ask())) return;
+            // Every first CV starts with up to three questions on what the job needs and your CV doesn't show yet
+            // (since 23 Nov; before, only starred jobs). None worth asking, or asking fails: straight to writing.
+            if (!redo && questions === null && (await ask().catch(() => 0))) return;
             await write();
           })
         }
@@ -1818,5 +1817,58 @@ function AnswerRow({ jobId, index, q }: { jobId: Id<"jobs">; index: number; q: A
       {q.needsYou && <p className="mt-1 text-xs text-warn">{value.trim() ? "Check this one carefully." : "JobPipe won't guess this one. Answer it yourself."}</p>}
       <Feedback state={state} />
     </li>
+  );
+}
+
+/**
+ * What the job asks for that the tailored CV couldn't prove, as questions you can answer in a line. Answers are
+ * saved as your facts (CVs page) and the CV is written again with them. Uses no AI until you choose to rewrite.
+ */
+export function GapAnswers({ jobId, gaps }: { jobId: Id<"jobs">; gaps: string[] }) {
+  const tailor = useAction(api.agent.tailor);
+  const addFacts = useMutation(api.users.addFacts);
+  const [answers, setAnswers] = useState<string[]>(() => gaps.map(() => ""));
+  const [busy, start] = useTransition();
+  const [state, setState] = useState<ActionState>(null);
+  if (!gaps.length) return null;
+  const answered = gaps.map((g, i) => ({ question: `Have you done this: ${g}?`, answer: (answers[i] ?? "").trim() })).filter((a) => a.answer);
+  return (
+    <div className="card p-4">
+      <div className="label mb-1">Done any of these? Tell us and we&apos;ll add it</div>
+      <p className="mb-3 text-xs text-ink-3">Only what&apos;s true, in a line or two, with a number if you have one (how many people, which region, how often). Leave the rest blank.</p>
+      <div className="space-y-3">
+        {gaps.map((g, i) => (
+          <label key={g} className="block">
+            <span className="text-sm font-medium">{g}</span>
+            <textarea className="field mt-1 h-14 text-sm" value={answers[i] ?? ""} onChange={(e) => setAnswers(answers.map((a, j) => (j === i ? e.target.value : a)))} placeholder="e.g. Yes: ran the weekly forecast call for 8 AEs in APAC for 2 years" />
+          </label>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={busy || !answered.length}
+          onClick={() =>
+            start(async () =>
+              setState(
+                await attempt(async () => {
+                  await addFacts({ facts: answered });
+                  await tailor({ jobId });
+                  setAnswers(gaps.map(() => ""));
+                  return "Rewritten with your answers.";
+                }),
+              ),
+            )
+          }
+        >
+          {busy && <Spinner />}
+          {busy ? "Writing…" : "Add my answers and rewrite the CV"}
+        </button>
+        <LeftToday kind="cvsLeft" label="tailored CVs" />
+        <Feedback state={busy ? null : state} />
+      </div>
+      {busy && <WritingProgress />}
+    </div>
   );
 }

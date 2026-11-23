@@ -17,3 +17,19 @@ export function unverifiedNumbers(master: Resume | Resume[], texts: string[], ex
   }
   return [...found];
 }
+
+/** Puts the checker's fixed bullets in place; a fix pointing at a role or bullet that isn't there is ignored. */
+export function applyBulletFixes<E extends { id: string; bullets: string[] }>(experience: E[], fixes: { id: string; index: number; text: string }[]) {
+  const renamed = new Map<string, string>();
+  const next = experience.map((e) => {
+    const mine = fixes.filter((f) => f.id === e.id && Number.isInteger(f.index) && f.index >= 0 && f.index < e.bullets.length && f.text.trim());
+    if (!mine.length) return e;
+    const bullets = [...e.bullets];
+    for (const f of mine) {
+      renamed.set(bullets[f.index], f.text.trim());
+      bullets[f.index] = f.text.trim();
+    }
+    return { ...e, bullets };
+  });
+  return { experience: next, renamed };
+}

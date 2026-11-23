@@ -53,6 +53,7 @@ import type * as lib_careers from "../lib/careers.js";
 import type * as lib_chats from "../lib/chats.js";
 import type * as lib_company from "../lib/company.js";
 import type * as lib_costs from "../lib/costs.js";
+import type * as lib_cvLength from "../lib/cvLength.js";
 import type * as lib_cvMatch from "../lib/cvMatch.js";
 import type * as lib_cvReview from "../lib/cvReview.js";
 import type * as lib_defaults from "../lib/defaults.js";
@@ -165,6 +166,7 @@ declare const fullApi: ApiFromModules<{
   "lib/chats": typeof lib_chats;
   "lib/company": typeof lib_company;
   "lib/costs": typeof lib_costs;
+  "lib/cvLength": typeof lib_cvLength;
   "lib/cvMatch": typeof lib_cvMatch;
   "lib/cvReview": typeof lib_cvReview;
   "lib/defaults": typeof lib_defaults;

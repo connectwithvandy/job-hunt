@@ -5,7 +5,7 @@ import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PageHead } from "@/components/bits";
-import { AnswersForm, AutofillLink, FactsForm, ResumeEditor, UploadResume, WritingSampleForm } from "@/components/forms";
+import { AnswersForm, AutofillLink, CompanyLinesForm, FactsForm, ResumeEditor, UploadResume, WritingSampleForm } from "@/components/forms";
 import { MasterEditor } from "@/components/ResumeFields";
 import { Loading } from "@/components/Loading";
 import { CvLayoutPick, ResumeDoc } from "@/components/ResumeDoc";
@@ -101,6 +101,7 @@ export default function Cvs() {
           </div>
           <div className="no-print mt-8 grid max-w-4xl gap-6">
             <UploadResume replace={current} />
+            <CompanyLinesForm key={current._id + current.resume.experience.map((e) => e.about ?? "").join("|")} resumeId={current._id} resume={current.resume} />
             <FactsForm key={me.facts.map((f) => f.at).join()} facts={me.facts} />
             <AnswersForm answers={me.answers} location={me.location} />
             <AutofillLink answers={me.answers} />

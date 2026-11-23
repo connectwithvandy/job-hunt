@@ -1,18 +1,19 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
-import { CvLayoutPick, ResumeDoc } from "@/components/ResumeDoc";
+import { CvLayoutPick, ResumeDoc, type Resume } from "@/components/ResumeDoc";
 import { TailoredEditor } from "@/components/ResumeFields";
-import { DownloadMenu } from "@/components/ui";
+import { type ActionState, attempt, DownloadMenu, Feedback } from "@/components/ui";
 import { CvChanges } from "@/components/CvChanges";
 import { downloadDocx } from "@/lib/docx";
 import { logoMap } from "@/lib/logos";
+import { estimatePages, TWO_PAGES } from "../../../../../convex/lib/cvLength";
 
 export default function TailoredResume() {
   const { id } = useParams<{ id: string }>();
@@ -78,6 +79,7 @@ export default function TailoredResume() {
           Check before sending: {pack.unverified.join(", ")} {pack.unverified.length === 1 ? "isn't" : "aren't"} in your master CV.
         </p>
       )}
+      {!sent && !pack.letterOnly && <TwoPages jobId={job._id} resume={pack.resume} shortened={pack.shortened} edited={!!pack.written} />}
       {changes && all && (
         <section className="no-print card w-full max-w-[210mm] p-5">
           <h2 className="mb-3 text-base font-semibold">What changed from your master CV</h2>
@@ -103,6 +105,78 @@ export default function TailoredResume() {
         <TailoredEditor key={`${pack.createdAt}:${pack.written ? "edited" : "written"}`} jobId={job._id} resume={pack.resume} edited={!!pack.written} />
       </details>
       )}
+    </div>
+  );
+}
+
+/**
+ * When a tailored CV runs past two pages, offers to fit it: your choice, never automatic. Leaves out the side items
+ * least related to this job, in this job's copy only, and says what went. "Undo my edits" brings them back.
+ */
+function TwoPages({ jobId, resume, shortened, edited }: { jobId: Id<"jobs">; resume: Resume; shortened?: string[]; edited: boolean }) {
+  const fit = useMutation(api.jobs.fitTwoPages);
+  const restore = useMutation(api.jobs.restoreTailoredResume);
+  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<ActionState>(null);
+  const pages = estimatePages(resume);
+  if (!shortened?.length && pages <= TWO_PAGES) return null;
+  return (
+    <div className="no-print w-full max-w-[210mm] rounded-lg bg-soft p-4 text-sm">
+      {shortened?.length ? (
+        <>
+          <p className="font-medium">Fitted on two pages for this job</p>
+          <p className="mt-1 text-ink-2">Left out of this copy only (your master CV keeps everything):</p>
+          <ul className="mt-1 list-disc pl-5 text-ink-2">
+            {shortened.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <>
+          <p className="font-medium">This CV runs to about {pages.toFixed(1)} pages. Most recruiters prefer two.</p>
+          <p className="mt-1 text-ink-2">
+            We can leave out the side items least related to this job (like side projects, communities and school notes) until it fits. Your experience stays as it is, nothing is reworded, and your master CV isn&apos;t touched. You&apos;ll see exactly what was left out.
+          </p>
+        </>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {!shortened?.length && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setState(
+                await attempt(async () => {
+                  const out = await fit({ jobId });
+                  if (!out.left.length) return `Your experience alone runs to about ${out.pages.toFixed(1)} pages, so leaving out side items won't get it to two. Use Edit and "Shorter" on the longest bullets instead.`;
+                }),
+              );
+              setBusy(false);
+            }}
+          >
+            {busy ? "Fitting…" : "Fit it on two pages"}
+          </button>
+        )}
+        {edited && !!shortened?.length && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={busy}
+            onClick={async () => {
+              if (!window.confirm("Put back everything that was left out? This also undoes any edits you made to this CV.")) return;
+              setBusy(true);
+              setState(await attempt(async () => (await restore({ jobId }), "Back to the CV JobPipe wrote.")));
+              setBusy(false);
+            }}
+          >
+            Put it all back
+          </button>
+        )}
+        <Feedback state={busy ? null : state} />
+      </div>
     </div>
   );
 }

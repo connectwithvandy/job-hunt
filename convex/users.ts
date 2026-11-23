@@ -144,6 +144,26 @@ export const saveResume = mutation({
   },
 });
 
+/**
+ * Saves the "what the company sells" line for some roles on one CV, as you checked or typed them. An empty line
+ * removes it. Only lines saved here reach the CV, so tailoring never uses a suggestion you didn't accept.
+ */
+export const setCompanyLines = mutation({
+  args: { resumeId: v.id("resumes"), lines: v.array(v.object({ id: v.string(), about: v.string() })) },
+  handler: async (ctx, { resumeId, lines }) => {
+    const userId = await requireUserId(ctx);
+    const r = await ownResume(ctx, userId, resumeId);
+    if (lines.length > 40) throw new ConvexError("Too many lines.");
+    const byId = new Map(lines.map((l) => [l.id, l.about.replace(/\s+/g, " ").trim().slice(0, 140)]));
+    const experience = r.resume.experience.map((e) => {
+      if (!byId.has(e.id)) return e;
+      return { ...e, about: byId.get(e.id) || undefined };
+    });
+    await ctx.db.patch("resumes", resumeId, { resume: { ...r.resume, experience } });
+    return null;
+  },
+});
+
 export const renameResume = mutation({
   args: { resumeId: v.id("resumes"), label: v.string() },
   handler: async (ctx, { resumeId, label }) => {
@@ -353,8 +373,11 @@ export const storeParsedResume = internalMutation({
   args: { userId: v.id("users"), resume: resumeV, replaceId: v.optional(v.id("resumes")), label: v.optional(v.string()) },
   handler: async (ctx, { userId, resume, replaceId, label }) => {
     if (replaceId) {
-      await ownResume(ctx, userId, replaceId);
-      await ctx.db.patch("resumes", replaceId, { resume });
+      const old = await ownResume(ctx, userId, replaceId);
+      // Lines you already accepted on what each company sells stay with the same company in the new upload.
+      const about = new Map(old.resume.experience.filter((e) => e.about).map((e) => [e.company.trim().toLowerCase(), e.about]));
+      const experience = resume.experience.map((e) => (!e.about && about.get(e.company.trim().toLowerCase()) ? { ...e, about: about.get(e.company.trim().toLowerCase()) } : e));
+      await ctx.db.patch("resumes", replaceId, { resume: { ...resume, experience } });
       return replaceId;
     }
     const existing = await listResumes(ctx, userId);
