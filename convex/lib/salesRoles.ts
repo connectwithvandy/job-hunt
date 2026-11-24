@@ -217,9 +217,16 @@ const OTHER_FUNCTION =
 /** Whether a title belongs to another function than the one searched for; "Sales Engineer" still matches a "Sales Engineer" search. */
 export function otherFunction(searched: string, title: string) {
   const s = searched.toLowerCase();
-  const found = title.toLowerCase().match(new RegExp(OTHER_FUNCTION.source, "g")) ?? [];
-  return found.some((f) => !s.includes(f));
+  const t = title.toLowerCase();
+  const found = t.match(new RegExp(OTHER_FUNCTION.source, "g")) ?? [];
+  if (found.some((f) => !s.includes(f))) return true;
+  // A "Solutions Engineer" search took factory, chip-plant and in-house IT engineers (24 Nov: "Engineer - Manufacturing
+  // Solutions" at Kone, "Senior Systems and Solutions Engineer" at GlobalFoundries). An engineer or consultant title
+  // naming one of these fields isn't a pre-sales job, unless the title also says sales.
+  return /\b(engineer|consultant)\b/.test(t) && !/\bsales\b/.test(t) && INTERNAL_FIELD.test(t) && !INTERNAL_FIELD.test(s);
 }
+
+const INTERNAL_FIELD = /\b(manufacturing|systems|productivity|clinical|bpm|plant|mechanical|electrical|civil|firmware|hardware|embedded|salesforce)\b/;
 
 const FILLER = new Set(["of", "the", "and", "for", "&"]);
 const LEADER = new Set(["manager", "managers", "head", "director", "lead", "leader", "leadership", "vice", "president", "chief", "supervisor"]);

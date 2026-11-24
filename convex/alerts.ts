@@ -292,8 +292,11 @@ export const report = internalQuery({
       const run = profile?.lastAutopilot;
       const gotDaily = !!r.alertsAt && now - r.alertsAt < DAY;
       const gotFresh = r.freshDay === new Date(now + 19_800_000).toISOString().slice(0, 10) && (r.freshCount ?? 0) > 0;
+      // Quiet members get the email only on Monday and Thursday (see candidates), unless a partner or payment covers them.
+      const covered = (r.partner?.until ?? 0) > now || (r.paidUntil ?? 0) > now;
+      const quiet = !covered && (!profile?.lastSeenAt || now - profile.lastSeenAt > 3 * DAY);
       // Only the daily email counts here: same-day alerts for strong matches are extra.
-    const why = gotDaily ? "" : r.alertsOff ? "asked to stop emails" : !profile?.onboarded ? "hasn't finished setup" : !tracks.length ? "no roles picked" : !profile.autopilot ? "morning search is off" : !run || now - run.at > DAY ? "morning search hasn't run for them yet (joined after it, or it missed them)" : newJobs === 0 ? "search found no new jobs" : "new jobs found, but none fit their roles";
+    const why = gotDaily ? "" : r.alertsOff ? "asked to stop emails" : !profile?.onboarded ? "hasn't finished setup" : !tracks.length ? "no roles picked" : !profile.autopilot ? "morning search is off" : !run || now - run.at > DAY ? "morning search hasn't run for them yet (joined after it, or it missed them)" : newJobs === 0 ? "search found no new jobs" : quiet ? "not on JobPipe in 3 days: gets it Monday and Thursday" : "new jobs found, but none fit their roles";
       out.push({
         email: r.email,
         partner: r.partner?.name ?? "",
