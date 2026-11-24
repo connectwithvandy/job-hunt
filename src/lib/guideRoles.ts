@@ -8,6 +8,13 @@ import { ROLE_PAGES, type RolePage } from "./rolePages";
 /** Guide pages, job pages and the sitemap rebuild at most every 6 hours, so closed roles drop off the same day. */
 export const GUIDE_REVALIDATE = 21600;
 
+/**
+ * How old an answer may be when a role page double-checks before saying "not found". The 6-hour copy can miss a role
+ * that was briefly gone (24 Nov: the cleanup removed roles from unread boards, the next read put them back), and a
+ * page that says "not found" is itself saved, so open roles in the sitemap answered 404 for hours.
+ */
+export const RECHECK_SECONDS = 600;
+
 const DAY = 86_400_000;
 const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
 
@@ -15,13 +22,14 @@ const AGGREGATORS = /\b(jobgether|bebee|talent\.com|jooble|careerjet)\b/i;
  * A public Convex query, cached for a day. Convex's own fetch helper opts out of caching,
  * which would make every visit read the database.
  */
-export async function cachedQuery<T>(path: string, args: Record<string, unknown>): Promise<T> {
+export async function cachedQuery<T>(path: string, args: Record<string, unknown>, recheck = false): Promise<T> {
   const res = await fetch(`${process.env.NEXT_PUBLIC_CONVEX_URL}/api/query`, {
     method: "POST",
     // Part of the cache key: bump it when a query's result changes shape, so day-old saved copies aren't reused.
-    headers: { "Content-Type": "application/json", "X-Cache-Shape": "2" },
+    // A recheck is saved apart from the 6-hour copy, and for 10 minutes only (see RECHECK_SECONDS).
+    headers: { "Content-Type": "application/json", "X-Cache-Shape": "2", ...(recheck && { "X-Recheck": "1" }) },
     body: JSON.stringify({ path, args, format: "json" }),
-    next: { revalidate: GUIDE_REVALIDATE },
+    next: { revalidate: recheck ? RECHECK_SECONDS : GUIDE_REVALIDATE },
   });
   const body = (await res.json()) as { status: string; value: T };
   if (body.status !== "success") throw new Error(`Convex said ${body.status}`);
@@ -36,9 +44,9 @@ export type GuideRole = FunctionReturnType<typeof api.careers.forGuide>[number];
  * the 25 by newer ones keeps its page. Before 24 Nov its page turned "not found" and stayed that way for 6 hours
  * (pages are saved that long), even after the role came back into the 25 and the sitemap listed it again.
  */
-export async function openRoles(page: RolePage, max = 25): Promise<GuideRole[]> {
+export async function openRoles(page: RolePage, max = 25, recheck = false): Promise<GuideRole[]> {
   try {
-    const rows = await cachedQuery<GuideRole[]>("careers:forGuide", { titles: page.jobs.titles, india: page.jobs.india });
+    const rows = await cachedQuery<GuideRole[]>("careers:forGuide", { titles: page.jobs.titles, india: page.jobs.india }, recheck);
     const now = Date.now();
     const seen = new Set<string>();
     return rows
@@ -59,8 +67,8 @@ export async function openRoles(page: RolePage, max = 25): Promise<GuideRole[]> 
 }
 
 /** Every role listed on any guide, once each. These are the roles that get their own page. */
-export async function allGuideRoles(max = 25): Promise<GuideRole[]> {
-  const lists = await Promise.all(ROLE_PAGES.map((p) => openRoles(p, max)));
+export async function allGuideRoles(max = 25, recheck = false): Promise<GuideRole[]> {
+  const lists = await Promise.all(ROLE_PAGES.map((p) => openRoles(p, max, recheck)));
   const byId = new Map<string, GuideRole>();
   for (const j of lists.flat()) if (j.externalId) byId.set(j.externalId, j);
   return [...byId.values()];

@@ -12,12 +12,17 @@ import { RoleLayout } from "../../RoleLayout";
 export const revalidate = 21600;
 
 async function find(code: string) {
+  // The saved 6-hour answers first; before saying "not found", once more with answers at most 10 minutes old.
+  return (await lookUp(code, false)) ?? (await lookUp(code, true));
+}
+
+async function lookUp(code: string, recheck: boolean) {
   const id = code.slice(code.lastIndexOf("-") + 1);
   // Every open role a guide could show, not just its newest 25 (see openRoles).
-  const job = (await allGuideRoles(Infinity)).find((j) => roleCode(j.externalId) === id);
+  const job = (await allGuideRoles(Infinity, recheck)).find((j) => roleCode(j.externalId) === id);
   if (!job) return null;
   // Only the code at the end counts, so a link with an old title still finds the role; the canonical tag names one address.
-  const text = await cachedQuery<{ description: string | null } | null>("careers:forJobPage", { externalId: job.externalId }).catch(() => null);
+  const text = await cachedQuery<{ description: string | null } | null>("careers:forJobPage", { externalId: job.externalId }, recheck).catch(() => null);
   if (!text) return null;
   return { job, description: text.description ? cleanDescription(text.description) : null };
 }
