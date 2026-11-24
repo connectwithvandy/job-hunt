@@ -155,4 +155,9 @@ export const SEED_BOARDS: { name: string; ats: CareerBoard["ats"]; slug: string 
   { name: "TTEC Digital", ats: "lever", slug: "ttecdigital" },
   { name: "Wingtra AG", ats: "lever", slug: "wingtra-2" },
   { name: "Zeeco", ats: "lever", slug: "zeeco" },
+  // 24 Nov: Indian companies found by the board finder with sales roles in India that day.
+  { name: "Paytm", ats: "lever", slug: "paytm" },
+  { name: "Meesho", ats: "lever", slug: "meesho" },
+  { name: "Unacademy", ats: "smartrecruiters", slug: "unacademy" },
+  { name: "Agoda", ats: "greenhouse", slug: "agoda" },
 ];
