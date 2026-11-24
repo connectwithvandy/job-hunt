@@ -103,6 +103,7 @@ import type * as payments from "../payments.js";
 import type * as postStats from "../postStats.js";
 import type * as prospects from "../prospects.js";
 import type * as scoreSpread from "../scoreSpread.js";
+import type * as seo from "../seo.js";
 import type * as serviceCheck from "../serviceCheck.js";
 import type * as setupHelp from "../setupHelp.js";
 import type * as setupHelpData from "../setupHelpData.js";
@@ -218,6 +219,7 @@ declare const fullApi: ApiFromModules<{
   postStats: typeof postStats;
   prospects: typeof prospects;
   scoreSpread: typeof scoreSpread;
+  seo: typeof seo;
   serviceCheck: typeof serviceCheck;
   setupHelp: typeof setupHelp;
   setupHelpData: typeof setupHelpData;

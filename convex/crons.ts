@@ -79,5 +79,7 @@ crons.cron("feedback asks", "45 5 * * *", internal.growth.sendFeedbackAsks, {});
 crons.cron("recount usage", "30 21 * * *", internal.stats.recountAll, {});
 
 crons.interval("gmail sync", { hours: 1 }, internal.google.syncAll, {});
+// Hourly: the public sitemap rebuilds only when asked for, so ask (seo.ts).
+crons.interval("sitemap warm", { hours: 1 }, internal.seo.warmSitemap, {});
 
 export default crons;

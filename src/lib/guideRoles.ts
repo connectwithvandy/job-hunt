@@ -30,8 +30,13 @@ export async function cachedQuery<T>(path: string, args: Record<string, unknown>
 
 export type GuideRole = FunctionReturnType<typeof api.careers.forGuide>[number];
 
-/** A guide's open roles from company careers boards: right title, right place, posted in the last 30 days, newest first. */
-export async function openRoles(page: RolePage): Promise<GuideRole[]> {
+/**
+ * A guide's open roles from company careers boards: right title, right place, posted in the last 30 days, newest first.
+ * Guides and the sitemap show the newest 25; role pages look a role up in all of them (`max`), so a role pushed out of
+ * the 25 by newer ones keeps its page. Before 24 Nov its page turned "not found" and stayed that way for 6 hours
+ * (pages are saved that long), even after the role came back into the 25 and the sitemap listed it again.
+ */
+export async function openRoles(page: RolePage, max = 25): Promise<GuideRole[]> {
   try {
     const rows = await cachedQuery<GuideRole[]>("careers:forGuide", { titles: page.jobs.titles, india: page.jobs.india });
     const now = Date.now();
@@ -45,7 +50,7 @@ export async function openRoles(page: RolePage): Promise<GuideRole[]> {
       // The same role posted in several cities shows once.
       .filter((j) => !seen.has(`${j.company}|${j.title}`) && !!seen.add(`${j.company}|${j.title}`))
       .sort((a, b) => (Date.parse(b.postedAt ?? "") || 0) - (Date.parse(a.postedAt ?? "") || 0))
-      .slice(0, 25);
+      .slice(0, max);
   } catch (err) {
     // A failed read leaves the guide as it is; the list comes back on the next rebuild.
     console.warn("Guide roles failed", err);
@@ -54,8 +59,8 @@ export async function openRoles(page: RolePage): Promise<GuideRole[]> {
 }
 
 /** Every role listed on any guide, once each. These are the roles that get their own page. */
-export async function allGuideRoles(): Promise<GuideRole[]> {
-  const lists = await Promise.all(ROLE_PAGES.map(openRoles));
+export async function allGuideRoles(max = 25): Promise<GuideRole[]> {
+  const lists = await Promise.all(ROLE_PAGES.map((p) => openRoles(p, max)));
   const byId = new Map<string, GuideRole>();
   for (const j of lists.flat()) if (j.externalId) byId.set(j.externalId, j);
   return [...byId.values()];
