@@ -18,7 +18,9 @@ const INDIA = readPlace("India");
 // [search, how many to read]. SDR/BDR and AE are most members' roles and filled their 50 every day
 // (13 Nov: 235 of 250), so they read 120. About $1.20 per 1,000 jobs read.
 const LINKEDIN_SEARCHES: [string, number][] = [
-  [`"Sales Development Representative" OR "SDR" OR "Business Development Representative" OR "BDR" OR "Inside Sales"`, 120],
+  // 240 since 24 Nov (owner's call, ~$0.15 a day more): SDR/BDR members in India got the fewest new jobs (5-22 a day),
+  // and most Indian software companies post on boards we can't read (Darwinbox, Keka, own pages), only here.
+  [`"Sales Development Representative" OR "SDR" OR "Business Development Representative" OR "BDR" OR "Inside Sales"`, 240],
   [`"Account Executive" OR "Sales Executive" OR "Business Development Executive"`, 120],
   [`"Sales Manager" OR "Sales Development Manager" OR "Business Development Manager" OR "Head of Sales"`, 50],
   [`"Account Manager" OR "Customer Success Manager" OR "Partnerships Manager"`, 50],
@@ -41,7 +43,7 @@ async function oldPooled(ctx: ActionCtx, prefix: "linkedin:" | "gjobs:") {
 
 /**
  * Before the morning run: today's LinkedIn sales roles in India, saved beside the careers-board roles so everyone's
- * search finds them. About $0.45 a day, capped at $0.49. Roles open the company's own apply link when LinkedIn gives one,
+ * search finds them. About $0.60 a day, capped at $0.64. Roles open the company's own apply link when LinkedIn gives one,
  * else LinkedIn's own page (lib/directLink.ts).
  */
 export const linkedInPool = internalAction({
