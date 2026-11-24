@@ -27,6 +27,7 @@ import { cvMatch } from "./lib/cvMatch";
 import { withCompanyLinks } from "./lib/directLink";
 import { htmlToText, openTo, readPlace, searchOtherSources, searchPlace, titleMatches, type CachedSearch, type Found } from "./lib/sources";
 import { BLOCK_MS, FRESH_MS } from "./sourceCache";
+import { TOP_UP_OVERLAP_MS, TOP_UP_WITHIN_MS, dreamworkTitles, mergeListings } from "./lib/dreamworkPlan";
 import type { jobV, liveCheckV, resumeV } from "./lib/validators";
 import { prospectV } from "./lib/validators";
 
@@ -362,7 +363,7 @@ function sharedSearch(ctx: ActionCtx): CachedSearch {
     const now = Date.now();
     const block: { fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key: blockKey });
     const saved: { jobs: string; fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key });
-    if (saved && now - saved.fetchedAt < (source === "dreamwork" ? DREAMWORK_FRESH_MS : FRESH_MS)) return JSON.parse(saved.jobs) as T[];
+    if (saved && now - saved.fetchedAt < FRESH_MS) return JSON.parse(saved.jobs) as T[];
     if (block && now - block.fetchedAt < BLOCK_MS) throw new ConvexError(`${source === "dreamwork" ? "Dreamwork" : "Adzuna"} is out of searches for today`);
     try {
       const jobs = await search();
@@ -378,12 +379,40 @@ function sharedSearch(ctx: ActionCtx): CachedSearch {
 }
 
 /**
- * Dreamwork answers 500 requests a day in all (from 23 Nov), and the morning search asked up to 64 per person
- * (16 titles, 4 pages), so 64 of 98 people got nothing. Most people search the same titles in the same places,
- * so one search is shared by everyone for a few hours: the morning run fetches each title and place once, and
- * the afternoon top-up (8 hours later) fetches again.
+ * Dreamwork answers 500 requests a day in all (from 23 Nov). One search per title and place is shared by everyone
+ * for the day (the afternoon top-up reuses the morning's), and after the first full search only listings added since
+ * the last one are asked for and added to the saved list (lib/dreamworkPlan.ts). When Dreamwork is out of requests,
+ * or a top-up fails, the saved list is used rather than nothing.
  */
-const DREAMWORK_FRESH_MS = 6 * 3_600_000;
+async function sharedDreamwork(ctx: ActionCtx, title: string, location: string): Promise<Listing[]> {
+  const place = searchPlace(location);
+  const key = `dreamwork|${title.toLowerCase()}|${place.trim().toLowerCase()}`;
+  const blockKey = "dreamwork|out-of-searches";
+  const now = Date.now();
+  const saved: { jobs: string; fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key });
+  const old = saved ? (JSON.parse(saved.jobs) as Listing[]) : [];
+  if (saved && now - saved.fetchedAt < FRESH_MS) return old;
+  const block: { fetchedAt: number } | null = await ctx.runQuery(internal.sourceCache.get, { key: blockKey });
+  if (block && now - block.fetchedAt < BLOCK_MS) {
+    if (saved) return old;
+    throw new ConvexError("Dreamwork is out of searches for today");
+  }
+  const topUp = saved && now - saved.fetchedAt < TOP_UP_WITHIN_MS ? new Date(saved.fetchedAt - TOP_UP_OVERLAP_MS).toISOString() : undefined;
+  try {
+    const found = await searchListings(title, place, 25, 4, topUp);
+    const jobs = topUp ? mergeListings(found, old, now) : mergeListings(found, [], now);
+    await ctx.runMutation(internal.sourceCache.put, { key, jobs: JSON.stringify(jobs) });
+    return jobs;
+  } catch (err) {
+    const text = err instanceof ConvexError ? String(err.data) : String(err);
+    if (/\b429\b|daily limit|limit of \d+ requests/i.test(text)) await ctx.runMutation(internal.sourceCache.put, { key: blockKey, jobs: "[]", blocked: true });
+    if (saved) {
+      console.warn("Dreamwork top-up failed, using the saved list", title, place, text);
+      return old;
+    }
+    throw err;
+  }
+}
 
 /**
  * Searches every board for one track and saves the new roles. Returns how many were new, and which boards didn't answer.
@@ -392,12 +421,12 @@ const DREAMWORK_FRESH_MS = 6 * 3_600_000;
 async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"tracks">, location: string, googleTitles = 2, linkedin?: "24h" | "week", adzunaTitles = 4): Promise<{ added: number; failed: string[] }> {
     // Google Jobs has one small free monthly quota for everyone, so take this person's share of it first.
     const google: number = track.company || !env.JSEARCH_API_KEY ? 0 : await ctx.runMutation(internal.limits.reserveGoogle, { userId, want: Math.min(googleTitles, track.titles.length) });
+    // A city search drops titles a broader one already finds (lib/dreamworkPlan.ts), so results line up with this list.
+    const dwTitles = track.company ? [] : dreamworkTitles(track.titles, searchPlace(location));
     const [settled, [others, otherFailed]] = await Promise.all([
       track.company
         ? Promise.allSettled([companyListings(track.company)])
-        : settleLimited(track.titles.slice(0, 16), 3, (title) =>
-            sharedSearch(ctx)("dreamwork", title, searchPlace(location).trim().toLowerCase(), () => searchListings(title, searchPlace(location), 25, 4)),
-          ),
+        : settleLimited(dwTitles, 3, (title) => sharedDreamwork(ctx, title, location)),
       track.company
         ? Promise.resolve([[], []] as [Found[], string[]])
         : Promise.all([
@@ -409,7 +438,7 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     // Keep the reason in the logs: a search that half worked still gives the person jobs, so nothing else records it.
     for (const r of settled) if (r.status === "rejected") console.warn("Dreamwork search failed", String(r.reason));
     // Dreamwork also matches company names, so keep only titles holding the searched words.
-    const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(track.titles[i], l.title))));
+    const listings = settled.flatMap((r, i) => (r.status !== "fulfilled" ? [] : track.company ? r.value : r.value.filter((l) => titleMatches(dwTitles[i], l.title))));
     if (!listings.length && !others.length && settled.every((r) => r.status === "rejected")) {
       const reason = (settled[0] as PromiseRejectedResult).reason;
       throw reason instanceof ConvexError ? reason : new ConvexError("The job search didn't answer. Try again in a minute.");

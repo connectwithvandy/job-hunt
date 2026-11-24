@@ -76,12 +76,14 @@ async function withRetry<T>(run: () => Promise<T>, waits = RETRY_WAITS): Promise
 const RETRY_WAITS = [2000, 5000];
 
 /** Without a key Dreamwork sends 25 at a time, so a busy title like "Account Executive" needs a few pages. */
-export async function searchListings(search: string, location: string, limit = 10, pages = 1) {
+/** With `addedAfter` (an ISO time), only listings Dreamwork first saw after it: a top-up of an earlier search. */
+export async function searchListings(search: string, location: string, limit = 10, pages = 1, addedAfter?: string) {
   const where = location.trim().toLowerCase();
   const filters = {
     search,
     ...(where === "remote" ? { remote: true } : where === "anywhere" || !where ? {} : { location: location.trim() }),
     postedWithinDays: 30,
+    ...(addedAfter ? { addedAfter } : {}),
     limit,
   };
   const all: Listing[] = [];

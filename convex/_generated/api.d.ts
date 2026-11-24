@@ -60,6 +60,7 @@ import type * as lib_defaults from "../lib/defaults.js";
 import type * as lib_digest from "../lib/digest.js";
 import type * as lib_directLink from "../lib/directLink.js";
 import type * as lib_dreamwork from "../lib/dreamwork.js";
+import type * as lib_dreamworkPlan from "../lib/dreamworkPlan.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_facts from "../lib/facts.js";
 import type * as lib_finderCandidates from "../lib/finderCandidates.js";
@@ -174,6 +175,7 @@ declare const fullApi: ApiFromModules<{
   "lib/digest": typeof lib_digest;
   "lib/directLink": typeof lib_directLink;
   "lib/dreamwork": typeof lib_dreamwork;
+  "lib/dreamworkPlan": typeof lib_dreamworkPlan;
   "lib/email": typeof lib_email;
   "lib/facts": typeof lib_facts;
   "lib/finderCandidates": typeof lib_finderCandidates;
