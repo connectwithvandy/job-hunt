@@ -1,46 +1,60 @@
 # JobPipe
 
-*Run your job hunt like a pipeline.*
+**Your job search, run like your sales pipeline.**
 
-A job search app for people playing more than one game at once.
+The job search built for sales people: SDRs, BDRs, Account Executives and sales leaders.
 
-**Try it: [myjobpipe.vercel.app](https://myjobpipe.vercel.app)**
+**Use it free at [jobpipe.in](https://jobpipe.in)**
 
-Most job tools assume one person, one CV, one target. Real searches aren't like that: you might go after Sales Development leadership, GTM Strategy and Account Executive roles in the same month, each pitched differently. JobPipe gives every one of those a **track** with its own CV angle and outreach voice, scores every job against all of them, and tells you which game is actually getting replies.
+![JobPipe: finds the roles, tailors your CV, gets you the intro](https://jobpipe.in/opengraph-image)
 
-It runs on your laptop. Your CV, jobs and LinkedIn connections stay in a `data/` folder on your machine.
+Generic job boards treat an SDR, an Enterprise AE and a VP of Sales the same. JobPipe doesn't. It runs your search the way you'd run a sales pipeline:
 
-## What it does
+| Stage | What JobPipe does |
+| --- | --- |
+| **Prospecting** | Finds new sales roles every morning, straight from company careers pages |
+| **Qualifying** | Scores each role against your CV, with the reason it fits and the gaps |
+| **Outreach** | Tailors your CV and cover letter for the roles worth applying to, and drafts referral and hiring-manager notes |
+| **Follow-up** | Tracks every application on a board and reminds you when to follow up |
+| **Closing** | Spots interview invites in your inbox and helps you prepare |
 
-- **Finds jobs** from [Dreamwork](https://www.dreamworkhq.com)'s public index, per track, or from any link or pasted description.
-- **Scores fit per track**, with a reason and the gaps, so a misleading title doesn't waste your evening.
-- **Reads your CV** from a PDF or Word upload, links included, into a master CV.
-- **Tailors your CV and cover letter** for each job in your own CV design, reordering and trimming your master CV. A fact check flags any number that isn't in your master CV.
-- **Finds who you know there** from your LinkedIn connections, picks the one or two best people to ask, and drafts a personal referral note for each. You press Send yourself: nothing is automated on LinkedIn, so your account stays safe.
-- **Tracks everything**: applications on a board, referral asks with nudges after five days, and reply rates per track on the home screen.
-- **Moves jobs along from Gmail** with a small script in your own Google account, and emails you a morning summary: replies from companies, strong fits, who to follow up with.
-- **Learns from your results**: shows which roles and fit scores actually get replies, and feeds those results back into scoring.
-- **Writes like you**: paste a few things you wrote yourself, and cover letters and messages copy your style.
+## What's in this repo
 
-## Run it
+The full JobPipe app, open source:
 
-You need [Node.js](https://nodejs.org) 22 or newer, and either a Claude subscription with [Claude Code](https://claude.com/claude-code) installed, or an Anthropic API key.
+- **Careers page readers** for 16 hiring systems, so roles come from the employer, not a reseller.
+- **Fit scoring** with a reason and the gaps, per role you're going after.
+- **CV tailoring** that only uses what's in your CV: a fact check flags any number or claim that isn't there.
+- **A pipeline tracker** with follow-up nudges, and inbox reading that moves applications along by themselves.
+- **Public job pages**: every open sales role in India and remote gets a page, plus city and company pages ([example](https://jobpipe.in/sales-jobs/in/bengaluru)).
+- **Free tools**, like the [sales OTE calculator](https://jobpipe.in/tools/ote-calculator).
+
+## Run your own copy
+
+You need [Node.js](https://nodejs.org) 22 or newer and an [Anthropic API key](https://console.anthropic.com).
 
 ```bash
 git clone https://github.com/connectwithvandy/job-hunt
 cd job-hunt
 npm install
-npm run dev
+npx convex dev      # creates your own backend and keeps it in sync
+npm run dev        # in a second terminal
 ```
 
-Open http://127.0.0.1:3000 and follow the three setup steps on the home screen.
+Then set your API key on your backend and open http://localhost:3000:
 
-**AI.** With Claude Code installed and signed in, the app uses your subscription. To use an API key instead, create `.env.local` with `ANTHROPIC_API_KEY=...`. The model defaults to Claude Opus 5.5; set `JOBHUNT_MODEL` to change it.
+```bash
+npx convex env set ANTHROPIC_API_KEY sk-ant-...
+```
 
-**Your data.** Everything lives in `data/` (ignored by git in this repo). Back it up by making `data/` its own private git repo, then run `npm run backup` whenever you like. To keep it somewhere else, set `JOBHUNT_DATA_DIR`.
+Everything else is optional and switches on when its setting is present (see `convex/convex.config.ts`): emails, payments, inbox reading, extra job searches. `SCHEDULED_OFF=1` turns off the costly scheduled jobs on a test copy.
 
-**Your CV design.** `src/components/ResumeDoc.tsx` and the `.resume` styles in `src/app/globals.css` draw the CV. Change them to match your own design.
+## Contributing
+
+Issues and pull requests are welcome, especially new careers page readers (`convex/lib/careers.ts`) and better fit scoring. Please open an issue first for anything big.
 
 ## Credits
 
 Ideas borrowed from [career-ops](https://github.com/career-ops-hq/career-ops) (the fact check), [job-ops](https://github.com/DaKheera47/job-ops) (a score with a reason) and [ai-job-search](https://github.com/ai-job-search-dev/ai-job-search). No code was copied.
+
+If JobPipe helps you, a ⭐ helps other sales people find it.
