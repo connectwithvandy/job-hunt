@@ -93,6 +93,8 @@ export default defineSchema({
     userId: v.id("users"),
     email: v.string(),
     approved: v.boolean(),
+    /** Where they first came from, e.g. "linkedin-post" (a job in the owner's daily post) or a link's utm_source. Since 25 Nov 2026. */
+    source: v.optional(v.string()),
     decidedAt: v.optional(v.number()),
     // What they told us while waiting, so the owner can decide quickly.
     name: v.optional(v.string()),
@@ -473,5 +475,8 @@ export default defineSchema({
    * title in the same place that day: "SDR in Bengaluru" is one search, not one per member (21 Nov: ~90 people's own
    * searches used up Adzuna's free plan). `jobs` is JSON. A row with `blocked` marks the board as out of searches.
    */
+  // Jobs from the owner's daily LinkedIn post. Each gets a short page (jobpipe.in/p/CODE), so clicks land on JobPipe
+  // instead of going straight to the company, and every /p visit counts as one from LinkedIn (25 Nov 2026).
+  postedJobs: defineTable({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string() }).index("by_code", ["code"]),
   sourceCache: defineTable({ key: v.string(), jobs: v.string(), fetchedAt: v.number(), blocked: v.optional(v.boolean()) }).index("by_key", ["key"]),
 });

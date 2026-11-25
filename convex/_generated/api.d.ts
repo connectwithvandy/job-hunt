@@ -101,6 +101,7 @@ import type * as offer from "../offer.js";
 import type * as offerData from "../offerData.js";
 import type * as payments from "../payments.js";
 import type * as postStats from "../postStats.js";
+import type * as postedJobs from "../postedJobs.js";
 import type * as prospects from "../prospects.js";
 import type * as scoreSpread from "../scoreSpread.js";
 import type * as seo from "../seo.js";
@@ -217,6 +218,7 @@ declare const fullApi: ApiFromModules<{
   offerData: typeof offerData;
   payments: typeof payments;
   postStats: typeof postStats;
+  postedJobs: typeof postedJobs;
   prospects: typeof prospects;
   scoreSpread: typeof scoreSpread;
   seo: typeof seo;

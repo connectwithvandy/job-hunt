@@ -16,6 +16,11 @@ const app = defineApp({
     APIFY_TOKEN: v.optional(v.string()),
     /** Posts the morning jobs post to the owner's LinkedIn through Buffer (growth.scheduleOnBuffer). Off when missing. */
     BUFFER_API_KEY: v.optional(v.string()),
+    /** Saves the morning jobs post as a LinkedIn DRAFT on the owner's profile through Composio, so she can add
+     * JobPipe as a collaborator in LinkedIn's own composer before posting (growth.saveLinkedInDraft). Buffer is the
+     * fallback when missing or failing. Her own Composio user key; the LinkedIn author URN can be overridden. */
+    COMPOSIO_USER_API_KEY: v.optional(v.string()),
+    LINKEDIN_AUTHOR_URN: v.optional(v.string()),
     /** Google Jobs through RapidAPI (lib/sources.ts). Off when missing. */
     JSEARCH_API_KEY: v.optional(v.string()),
     SUBSCRIBER_DAILY: v.optional(v.string()),

@@ -14,6 +14,7 @@ import { AGGREGATORS, companyKey, roleKey } from "./lib/company";
 import { searchJobs, searchPosts } from "./lib/apify";
 import { appUrl, emailOn, feedbackEmail, noteEmail, sendEmail, setupNudgeEmail, setupReminderEmail } from "./lib/email";
 import { isLender } from "./lib/quickFit";
+import { postCode } from "./postedJobs";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
@@ -185,9 +186,13 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
     perCompany.set(company, n + 1);
     return true;
   });
-  const jobs = mixJobs(pool, JOBS_PER_POST);
+  const picked = mixJobs(pool, JOBS_PER_POST);
   // Too few to be worth a post: skip today rather than post something thin.
-  if (jobs.length < 3) return null;
+  if (picked.length < 3) return null;
+  // Each link opens the job's short JobPipe page, not the company's site: clicks used to leave without seeing JobPipe (25 Nov 2026).
+  const saved = picked.map((j) => ({ ...j, code: postCode(j.url) }));
+  await ctx.runMutation(internal.postedJobs.save, { jobs: saved });
+  const jobs = saved.map((j) => ({ ...j, url: `${appUrl()}/p/${j.code}` }));
   const sdrs = jobs.filter((j) => postGroup(j.title) === "sdr");
   const closers = jobs.filter((j) => postGroup(j.title) === "ae" || postGroup(j.title) === "manager");
   const ams = jobs.filter((j) => postGroup(j.title) === "am");
@@ -197,7 +202,7 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
 
 ${[list("SDR / BDR", sdrs), list("AE and sales managers", closers), list("Account managers", ams)].filter(Boolean).join("\n\n")}
 
-I find these every morning with JobPipe, the tool I built for my own sales job hunt. It also scores each role against your CV and tailors the CV for you: https://jobpipe.in
+Each link shows the role and how to apply. JobPipe finds new sales roles like these every morning, scores each one against your CV and tailors the CV for the ones worth applying to: https://jobpipe.in
 
 ${TAGS}`;
   const section = `LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
@@ -211,6 +216,36 @@ const JOBS_PER_POST = 6;
 // Buffer posts to the owner's LinkedIn (meet-vandana). Set BUFFER_API_KEY in Convex to turn auto posting on.
 const BUFFER_LINKEDIN_CHANNEL = "6afde15bece6dfde5f0e978d";
 const POST_DELAY_MS = 15 * 60_000;
+
+// The owner's LinkedIn profile, as LinkedIn's API names it (checked 25 Nov 2026 through Composio).
+const OWNER_LINKEDIN_URN = "urn:li:person:ObhsK6qG0W";
+
+/**
+ * Saves today's jobs post as a LinkedIn draft on the owner's profile, through Composio. LinkedIn only lets you add a
+ * collaborator (the JobPipe page) in its own composer, and adding one by editing a live post cut reach (24-25 Nov),
+ * so she opens the draft, adds JobPipe and posts. Returns the email line, or null when it can't, so Buffer posts instead.
+ */
+async function saveLinkedInDraft(text: string): Promise<string | null> {
+  const key = env.COMPOSIO_USER_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch("https://backend.composio.dev/api/v3.1/tools/execute/LINKEDIN_CREATE_LINKED_IN_POST", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-api-key": key },
+      body: JSON.stringify({
+        arguments: { author: env.LINKEDIN_AUTHOR_URN || OWNER_LINKEDIN_URN, commentary: text.slice(0, 3000), visibility: "PUBLIC", lifecycleState: "DRAFT" },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const body = (await res.json().catch(() => null)) as { successful?: boolean; error?: string | null } | null;
+    if (body?.successful) return "Saved as a LinkedIn DRAFT on your profile. Open LinkedIn, start a post to find the draft, add JobPipe as a collaborator, then post.";
+    console.warn("LinkedIn draft failed", res.status, body?.error);
+    return null;
+  } catch (err) {
+    console.warn("LinkedIn draft failed", String(err));
+    return null;
+  }
+}
 
 /** Schedules today's jobs post on LinkedIn through Buffer, 15 minutes from now. Returns a line for the email. */
 async function scheduleOnBuffer(text: string, now: number): Promise<string> {
@@ -546,7 +581,12 @@ ${waitingList.map((w) => `- ${w.name || "(no name yet)"}, ${w.role || "role not 
     }
     if (post) {
       // Dry runs never post. A Buffer failure only changes the note: the email still carries the post to paste.
-      const note = dryRun ? "(Dry run: not sent to Buffer.)" : await scheduleOnBuffer(post.post, now).catch((err) => `Not posted automatically: ${cut(String(err), 200)}. Paste it yourself.`);
+      // A LinkedIn draft first (she adds JobPipe as collaborator, then posts); Buffer only when the draft can't be saved.
+      const draft = dryRun ? null : await saveLinkedInDraft(post.post);
+      const fallback = env.COMPOSIO_USER_API_KEY ? "The LinkedIn draft couldn't be saved, so Buffer posts it instead. " : "";
+      const note = dryRun
+        ? "(Dry run: not saved or posted.)"
+        : (draft ?? fallback + (await scheduleOnBuffer(post.post, now).catch((err) => `Not posted automatically: ${cut(String(err), 200)}. Paste it yourself.`)));
       parts.push(`${post.section}\n${note}`);
     }
     if (picked.length) {

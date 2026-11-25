@@ -82,10 +82,15 @@ export function SignIn() {
   const query = new URLSearchParams(search);
   // A friend's invite link (jobpipe.in/?ref=CODE): remember the code until they sign up, so the friend gets the credit.
   useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get("ref");
-    if (!ref) return;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
     try {
-      localStorage.setItem("jobpipeRef", ref.slice(0, 12));
+      if (ref) localStorage.setItem("jobpipeRef", ref.slice(0, 12));
+      // Where they came from, kept from the first visit (a job page from the LinkedIn post sets it too).
+      if (!localStorage.getItem("jobpipeSource")) {
+        const from = params.get("utm_source") ?? (ref ? "invite" : /linkedin|lnkd\.in/i.test(document.referrer) ? "linkedin" : /google\./i.test(document.referrer) ? "google" : /chatgpt|openai|perplexity|claude\.ai|gemini/i.test(document.referrer) ? "ai-search" : null);
+        if (from) localStorage.setItem("jobpipeSource", from.slice(0, 40));
+      }
     } catch {}
   }, []);
   const [picked, setFlow] = useState<

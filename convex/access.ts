@@ -34,8 +34,8 @@ export const status = query({
 /** Put yourself on the waitlist. Safe to call more than once. */
 export const join = mutation({
   // `ref`: the invite code from the link they arrived by, if a friend sent it.
-  args: { ref: v.optional(v.string()) },
-  handler: async (ctx, { ref }) => {
+  args: { ref: v.optional(v.string()), source: v.optional(v.string()) },
+  handler: async (ctx, { ref, source }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("Please sign in again.");
     const existing = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
@@ -48,6 +48,7 @@ export const join = mutation({
       email: user?.email ?? "",
       approved: false,
       ...(inviter && inviter.userId !== userId ? { invitedBy: inviter.userId } : {}),
+      ...(source ? { source: source.trim().toLowerCase().slice(0, 40) } : {}),
     });
     await applyPartnerGrant(ctx, accessId);
     // The owner hears about new joiners in the one morning email (growth.sendMorning), not one email each.
