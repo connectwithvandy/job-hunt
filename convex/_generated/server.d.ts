@@ -38,6 +38,7 @@ type Env = {
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
   readonly BUFFER_API_KEY: string | undefined;
+  readonly COMPOSIO_USER_API_KEY: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly FRESH_SCORING: string | undefined;
   readonly GOOGLE_CLIENT_ID: string | undefined;
@@ -48,6 +49,7 @@ type Env = {
   readonly JOBHUNT_MODEL: string | undefined;
   readonly JSEARCH_API_KEY: string | undefined;
   readonly JSEARCH_MONTHLY: string | undefined;
+  readonly LINKEDIN_AUTHOR_URN: string | undefined;
   readonly OWNER_EMAILS: string | undefined;
   readonly RAZORPAY_KEY_ID: string | undefined;
   readonly RAZORPAY_KEY_SECRET: string | undefined;
