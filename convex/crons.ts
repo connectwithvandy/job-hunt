@@ -26,6 +26,9 @@ crons.cron("closed jobs check", "0 2 * * *", internal.agent.recheckAll, {});
 // 7:40 in India: today's LinkedIn sales roles into the same shared list, before the morning run reads it.
 crons.cron("linkedin pool", "10 2 * * *", internal.careersRefresh.linkedInPool, {});
 
+// 7:50 and 13:50 IST: the public role pages' list, after the boards are read and closed roles marked (publicRoles.ts).
+crons.cron("public roles", "20 2,8 * * *", internal.publicRoles.rebuild, {});
+
 // 8:00 in India (02:30 UTC): find and score new jobs before the day starts.
 crons.cron("morning autopilot", "30 2 * * *", internal.agent.dailyRun, {});
 

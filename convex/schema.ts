@@ -477,6 +477,26 @@ export default defineSchema({
    */
   // Jobs from the owner's daily LinkedIn post. Each gets a short page (jobpipe.in/p/CODE), so clicks land on JobPipe
   // instead of going straight to the company, and every /p visit counts as one from LinkedIn (25 Nov 2026).
+  // Every open sales role in India and remote from company careers boards, one public page each (/sales-jobs/role/…).
+  // Rebuilt from careerJobs twice a day (publicRoles.rebuild), so pages, the sitemap and city/company pages read
+  // one small list instead of searching (25 Nov 2026).
+  publicRoles: defineTable({
+    code: v.string(),
+    externalId: v.string(),
+    company: v.string(),
+    companySlug: v.string(),
+    title: v.string(),
+    location: v.string(),
+    workSetting: v.optional(v.string()),
+    postedAt: v.optional(v.string()),
+    url: v.string(),
+    city: v.string(),
+    family: v.string(),
+    href: v.string(),
+  })
+    .index("by_code", ["code"])
+    .index("by_city", ["city"])
+    .index("by_companySlug", ["companySlug"]),
   postedJobs: defineTable({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string() }).index("by_code", ["code"]),
   sourceCache: defineTable({ key: v.string(), jobs: v.string(), fetchedAt: v.number(), blocked: v.optional(v.boolean()) }).index("by_key", ["key"]),
 });

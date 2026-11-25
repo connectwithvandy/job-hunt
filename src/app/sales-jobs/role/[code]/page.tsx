@@ -16,8 +16,13 @@ async function find(code: string) {
   return (await lookUp(code, false)) ?? (await lookUp(code, true));
 }
 
+type PublicRole = { role: GuideRole & { href: string }; description: string | null } | null;
+
 async function lookUp(code: string, recheck: boolean) {
   const id = code.slice(code.lastIndexOf("-") + 1);
+  // Every open sales role in India and remote has a row since 25 Nov 2026 (convex/publicRoles.ts): one small read.
+  const listed = await cachedQuery<PublicRole>("publicRoles:byCode", { code: id }, recheck).catch(() => null);
+  if (listed) return { job: listed.role, description: listed.description ? cleanDescription(listed.description) : null };
   // Every open role a guide could show, not just its newest 25 (see openRoles).
   const job = (await allGuideRoles(Infinity, recheck)).find((j) => roleCode(j.externalId) === id);
   if (!job) return null;

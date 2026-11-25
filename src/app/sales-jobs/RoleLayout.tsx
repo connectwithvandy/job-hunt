@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LEGAL } from "@/lib/legal";
 import { ROLE_PAGES } from "@/lib/rolePages";
 import { JobsByEmail } from "@/components/JobsByEmail";
+import { CITIES } from "../../../convex/lib/publicRole";
 
 /** The frame around the sales-jobs guides: logo, sign-up and free review buttons, links to the other guides. */
 export function RoleLayout({ children, current }: { children: React.ReactNode; current?: string }) {
@@ -35,6 +36,18 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
         </div>
       </section>
       <nav className="mt-14 border-t border-line pt-6">
+        <h2 className="text-sm font-medium text-ink-2">Sales jobs by city</h2>
+        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          {CITIES.map((c) => (
+            <li key={c.slug}>
+              <Link href={`/sales-jobs/in/${c.slug}`} className="text-ink-2 hover:text-accent">
+                {c.slug === "remote" ? "Remote sales jobs for India" : `Sales jobs in ${c.name}`}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <nav className="mt-8">
         <h2 className="text-sm font-medium text-ink-2">More sales job guides</h2>
         <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           {current !== "india-sales-hiring-index" && (
