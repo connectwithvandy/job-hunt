@@ -10,8 +10,8 @@ crons.weekly("careers finder", { dayOfWeek: "sunday", hourUTC: 0, minuteUTC: 0 }
 crons.cron("careers boards", "30 1 * * *", internal.careersRefresh.refresh, {});
 
 // Early applicants get read first, so new roles are checked all day and strong ones emailed straight away.
-// Every 15 minutes: boards with a light job list. A board that hasn't changed costs almost nothing (careersRefresh.quickCheck).
-crons.interval("quick job check", { minutes: 15 }, internal.careersRefresh.quickCheck, {});
+// Every 30 minutes (15 until 25 Nov 2026: compute cost): boards with a light job list. A board that hasn't changed costs almost nothing (careersRefresh.quickCheck).
+crons.interval("quick job check", { minutes: 30 }, internal.careersQuick.quickCheck, {});
 
 // 13:00 and 18:00 IST: the boards too heavy for the 15-minute check (mostly Workday). Was hourly until 17 Nov:
 // that made careersRefresh.refresh ~63% of Convex compute and ~81% of egress (~$2.60/day all in).

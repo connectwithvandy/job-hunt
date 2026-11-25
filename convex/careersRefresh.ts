@@ -5,12 +5,13 @@ import { v } from "convex/values";
 import { type ActionCtx, env, internalAction } from "./_generated/server";
 import { searchGoogleJobs, searchJobs } from "./lib/apify";
 import { CAREER_BOARDS, type CareerBoard } from "./lib/careerBoards";
-import { boardFingerprint, boardKey, FAST_ATS, readBoard, type CareerJob } from "./lib/careers";
+import { FAST_ATS, readBoard, type CareerJob } from "./lib/careers";
 import { AGGREGATORS, applyBoard } from "./lib/company";
 import { isCompanyLink } from "./lib/directLink";
 import { findBoard } from "./lib/boardFinder";
 import { atsV } from "./careers";
 import { openTo, readPlace, titleMatches } from "./lib/sources";
+import { pickedBoards } from "./lib/pickedBoards";
 
 const INDIA = readPlace("India");
 
@@ -158,17 +159,6 @@ async function syncBoard(ctx: ActionCtx, board: CareerBoard, titles: string[]) {
 
 const PICKED_NAMES = new Set(CAREER_BOARDS.map((b) => b.name));
 
-/** The hand-picked boards, with any page that moved (careersRefresh.heal) read at its new address. */
-async function pickedBoards(ctx: ActionCtx): Promise<CareerBoard[]> {
-  const moves: { name: string; ats: CareerBoard["ats"]; slug: string }[] = await ctx.runQuery(internal.careers.moves, {});
-  const moved = new Map(moves.map((m) => [m.name, m]));
-  return CAREER_BOARDS.map((b) => {
-    const m = moved.get(b.name);
-    // careersUrl belonged to the old page.
-    return m ? { name: b.name, website: b.website, ats: m.ats, slug: m.slug } : b;
-  });
-}
-
 // Boards per run. The rest go to a follow-up run, so a long list never hits the 10-minute action limit.
 const CHUNK = 40;
 
@@ -204,11 +194,15 @@ export const refresh = internalAction({
     // The 13:00 and 18:00 reads leave the fast boards to quickCheck; the 7:00 read still covers everything.
     // Google's site is searched at 7:00 only: each read downloads tens of MB.
     // Workday is tried at 7:00 only: it refused every daytime read too (18 Nov), and its old roles stay until it answers.
-    const boards = [...(await pickedBoards(ctx)), ...found].filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google" && b.ats !== "workday"));
+    // Job resellers' boards (Jobgether: 50 MB) are skipped since 25 Nov 2026: syncBoard drops their roles anyway.
+    const boards = [...(await pickedBoards(ctx)), ...found]
+      .filter((b) => !AGGREGATORS.test(b.name))
+      .filter((b) => !fresh || (!FAST_ATS.has(b.ats) && b.ats !== "google" && b.ats !== "workday"));
     const mine = boards.slice(start, start + CHUNK);
     // A few boards at a time: some send over 10 MB. A board that fails keeps yesterday's roles.
-    for (let i = 0; i < mine.length; i += 4) {
-      const batch = mine.slice(i, i + 4);
+    // 8 at a time since 25 Nov 2026 (was 4): Node time is billed while waiting on boards, and 8 x 10 MB fits in 512 MB.
+    for (let i = 0; i < mine.length; i += 8) {
+      const batch = mine.slice(i, i + 8);
       const settled = await Promise.allSettled(batch.map(one));
       settled.forEach((r, k) => r.status === "rejected" && console.warn("Careers board failed:", batch[k].name, String(r.reason)));
       settled.forEach((r, k) => r.status === "rejected" && PICKED_NAMES.has(batch[k].name) && failed.push(`${batch[k].name} (${String(r.reason).slice(0, 80)})`));
@@ -299,59 +293,27 @@ export const sweep = internalAction({
   },
 });
 
+const boardV = v.object({ name: v.string(), website: v.string(), ats: atsV, slug: v.string(), careersUrl: v.optional(v.string()) });
+
 /**
- * Every 15 minutes: fetches each fast board's light job list and compares it with last time. Only a board that
- * changed is read in full, so most runs touch almost nothing in the database. New roles go straight to agent.freshRun.
+ * Reads in full the boards the half-hourly check (careersQuick.quickCheck) found changed. That check runs in the
+ * cheaper default runtime; only this part, when something changed, runs here in Node (25 Nov 2026).
  */
-export const quickCheck = internalAction({
-  args: {},
-  handler: async (ctx) => {
-    if (env.SCHEDULED_OFF === "1") return null;
-    const since = Date.now();
-    const saved: { key: string; hash: string }[] = await ctx.runQuery(internal.careers.boardHashes, {});
-    const last = new Map(saved.map((s) => [s.key, s.hash]));
-    const found: CareerBoard[] = await ctx.runQuery(internal.careers.discovered, {});
-    const boards = [...(await pickedBoards(ctx)), ...found].filter((b) => FAST_ATS.has(b.ats));
-    const changed: { board: CareerBoard; key: string; hash: string; isNew: boolean }[] = [];
-    let failed = 0;
-    for (let i = 0; i < boards.length; i += 10) {
-      await Promise.all(
-        boards.slice(i, i + 10).map(async (board) => {
-          try {
-            const key = boardKey(board);
-            const hash = await boardFingerprint(board);
-            if (last.get(key) !== hash) changed.push({ board, key, hash, isNew: !last.has(key) });
-          } catch {
-            failed++;
-          }
-        }),
-      );
-    }
+export const syncChanged = internalAction({
+  args: { boards: v.array(boardV), titles: v.array(v.string()) },
+  returns: v.object({ added: v.number(), failed: v.array(v.string()) }),
+  handler: async (ctx, { boards, titles }) => {
     let added = 0;
-    // A board seen for the first time is read now too, a few a run: until 17 Nov it was only noted, so 47
-    // boards added at 14:54 waited for the next morning's full read (SpotDraft's Bengaluru AE among them).
-    // Boards past the cap keep no fingerprint, so the next run picks them up.
-    const NEW_PER_RUN = 15;
-    const fresh = changed.filter((x) => x.isNew);
-    for (const c of fresh.slice(NEW_PER_RUN)) c.hash = "";
-    const toRead = [...changed.filter((x) => !x.isNew), ...fresh.slice(0, NEW_PER_RUN)];
-    if (toRead.length) {
-      const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
-      for (const c of toRead) {
-        try {
-          added += (await syncBoard(ctx, c.board, titles)).added;
-        } catch (err) {
-          console.warn("Careers board failed:", c.board.name, String(err));
-          // Keeps the old fingerprint, so the next check tries this board again.
-          c.hash = "";
-        }
+    const failed: string[] = [];
+    for (const board of boards) {
+      try {
+        added += (await syncBoard(ctx, board, titles)).added;
+      } catch (err) {
+        console.warn("Careers board failed:", board.name, String(err));
+        failed.push(`${board.ats}:${board.slug}`);
       }
     }
-    const rows = changed.filter((c) => c.hash).map(({ key, hash }) => ({ key, hash }));
-    if (rows.length) await ctx.runMutation(internal.careers.saveBoardHashes, { rows });
-    if (added) await ctx.scheduler.runAfter(0, internal.agent.freshRun, { since });
-    console.log(`Quick check: ${boards.length} boards, ${changed.length} changed, ${added} new roles, ${failed} failed.`);
-    return null;
+    return { added, failed };
   },
 });
 

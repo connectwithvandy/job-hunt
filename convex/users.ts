@@ -91,6 +91,10 @@ export const markSeen = mutation({
     const now = Date.now();
     if (profile.lastSeenAt && now - profile.lastSeenAt < 30 * 60_000) return null;
     await ctx.db.patch("profiles", profile._id, { prevSeenAt: profile.lastSeenAt ?? now, lastSeenAt: now });
+    // Back after 14+ days: the morning search skipped them (autopilotUsers), so search for them now.
+    if (profile.onboarded && profile.autopilot && profile.lastSeenAt && now - profile.lastSeenAt > QUIET_AFTER) {
+      await ctx.scheduler.runAfter(0, internal.agent.autopilotFor, { userId });
+    }
     // Back after a while: score their best few new jobs now, since the morning run skips people who are away.
     if (profile.onboarded && (!profile.lastSeenAt || now - profile.lastSeenAt > 12 * 3_600_000)) {
       await ctx.scheduler.runAfter(0, internal.agent.scoreOnVisit, { userId });
@@ -401,11 +405,28 @@ export const setAutopilot = mutation({
   },
 });
 
+/**
+ * Morning search skips people away this long (25 Nov 2026: ~65 of 102 searched daily hadn't opened JobPipe in a week,
+ * a big share of compute). It runs again the moment they come back (markSeen). Paid and partner people always get it.
+ */
+export const QUIET_AFTER = 14 * 86_400_000;
+
 export const autopilotUsers = internalQuery({
   args: {},
   handler: async (ctx) => {
+    const now = Date.now();
     const profiles = await ctx.db.query("profiles").withIndex("by_autopilot", (q) => q.eq("autopilot", true)).take(300);
-    return profiles.map((p) => p.userId);
+    const out: Id<"users">[] = [];
+    for (const p of profiles) {
+      const recent = now - (p.lastSeenAt ?? p._creationTime) < QUIET_AFTER;
+      if (recent) {
+        out.push(p.userId);
+        continue;
+      }
+      const access = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", p.userId)).unique();
+      if ((access?.paidUntil ?? 0) > now) out.push(p.userId);
+    }
+    return out;
   },
 });
 
