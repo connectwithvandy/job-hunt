@@ -2,9 +2,9 @@
 // Job searches are where people find JobPipe on Google; the guides listed only ~230 roles while thousands are open.
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalAction, internalMutation, internalQuery, query } from "./_generated/server";
+import { env, internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { AGGREGATORS } from "./lib/company";
-import { cityOf, publicRoleCode, publicRoleHref, slugify } from "./lib/publicRole";
+import { CITIES, cityOf, publicRoleCode, publicRoleHref, slugify } from "./lib/publicRole";
 import { isSalesTitle, postGroup } from "./growth";
 
 const DAY = 86_400_000;
@@ -122,11 +122,32 @@ export const rebuild = internalAction({
     for (let i = 0; i < Math.max(add.length, remove.length); i += 200) {
       await ctx.runMutation(internal.publicRoles.apply, { add: add.slice(i, i + 200), remove: remove.slice(i, i + 200) as never });
     }
-    const summary = `Public roles: ${wanted.size} open, ${add.length} added, ${remove.length} removed.${note}`;
+    const pinged = add.length ? await pingIndexNow([...CITIES.map((c) => `/sales-jobs/in/${c.slug}`), ...add.map((r) => r.href)]) : "";
+    const summary = `Public roles: ${wanted.size} open, ${add.length} added, ${remove.length} removed.${note}${pinged}`;
     console.log(summary);
     return summary;
   },
 });
+
+// Bing and the other IndexNow engines (ChatGPT search reads Bing) hear about new role pages the same day.
+// The key is public by design: jobpipe.in/<key>.txt proves the site is ours (scripts/indexnow.mjs uses it too).
+const INDEXNOW_KEY = "e46e3fffed3b3f1509df1472480ed4fb";
+
+/** Sends new public page paths to IndexNow. Live site only: INDEXNOW_ON=1 is set on prod, so dev roles never get pinged. */
+async function pingIndexNow(paths: string[]): Promise<string> {
+  if (env.INDEXNOW_ON !== "1") return "";
+  try {
+    const res = await fetch("https://api.indexnow.org/indexnow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ host: "jobpipe.in", key: INDEXNOW_KEY, keyLocation: `https://jobpipe.in/${INDEXNOW_KEY}.txt`, urlList: paths.slice(0, 10000).map((p) => `https://jobpipe.in${p}`) }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    return ` IndexNow ${res.status} for ${Math.min(paths.length, 10000)} pages.`;
+  } catch (err) {
+    return ` IndexNow failed: ${String(err).slice(0, 100)}.`;
+  }
+}
 
 const publicV = v.object({
   code: v.string(),
