@@ -4,7 +4,6 @@ import { byShownFit, TAILOR_FROM } from "./lib/posting";
 import { type Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { contactsLoadedAt } from "./contacts";
 import { FRESH_PER_DAY } from "./lib/defaults";
 import { alertsEmail, emailOn, sendEmail, unsubscribeLink, weeklyEmail } from "./lib/email";
 import { ALL_MODES, readWorkModes, WORK_MODES } from "./lib/defaults";
@@ -155,7 +154,7 @@ export const due = internalAction({
   },
 });
 
-const weekV = v.object({ email: v.string(), name: v.optional(v.string()), found: v.number(), strong: v.number(), tailored: v.number(), applied: v.number(), refreshConnections: v.boolean() });
+const weekV = v.object({ email: v.string(), name: v.optional(v.string()), found: v.number(), strong: v.number(), tailored: v.number(), applied: v.number() });
 
 /** One person's week, for the Monday email. Null for anyone who isn't set up or had no new jobs. */
 export const weekFor = internalQuery({
@@ -175,8 +174,7 @@ export const weekFor = internalQuery({
     }
     if (!found) return null;
     const totals = await ctx.db.query("usageTotals").withIndex("by_userId", (q) => q.eq("userId", row.userId)).first();
-    const loaded = await contactsLoadedAt(ctx, row.userId, profile);
-    return { email: row.email, name: row.name, found, strong, tailored: totals?.tailored ?? 0, applied: totals?.applied ?? 0, refreshConnections: !loaded || now - loaded > 30 * DAY };
+    return { email: row.email, name: row.name, found, strong, tailored: totals?.tailored ?? 0, applied: totals?.applied ?? 0 };
   },
 });
 

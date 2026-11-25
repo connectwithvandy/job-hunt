@@ -74,7 +74,7 @@ test("no email when nothing new is relevant", async () => {
   expect(await t.action(internal.alerts.due, { now: Date.now() + 60_000 })).toEqual([]);
 });
 
-test("weekly email: only people set up with new jobs, and it asks for fresh connections when old", async () => {
+test("weekly email: only people set up with new jobs, and it never asks to refresh LinkedIn connections", async () => {
   const NOW = Date.now();
   const t = convexTest(schema, modules);
   rateLimiter.register(t);
@@ -89,12 +89,12 @@ test("weekly email: only people set up with new jobs, and it asks for fresh conn
     return { active: await add("a@example.com", true, 2), notSetUp: await add("b@example.com", false, 2), quiet: await add("c@example.com", true, 0) };
   });
   const week = await t.query(internal.alerts.weekFor, { accessId: ids.active, now: NOW + 1000 });
-  expect(week).toMatchObject({ found: 2, refreshConnections: true });
+  expect(week).toMatchObject({ found: 2 });
   expect(await t.query(internal.alerts.weekFor, { accessId: ids.notSetUp, now: NOW + 1000 })).toBe(null);
   expect(await t.query(internal.alerts.weekFor, { accessId: ids.quiet, now: NOW + 1000 })).toBe(null);
   const mail = weeklyEmail(week!);
   expect(mail.subject).toBe("Asha, your week on JobPipe");
-  expect(mail.text).toContain("refresh your LinkedIn connections");
+  expect(mail.text).not.toContain("LinkedIn connections");
 });
 
 describe("fresh job alerts", () => {

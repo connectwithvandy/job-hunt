@@ -305,13 +305,12 @@ export function trialEndedEmail(p: { name?: string; month: number; pass: number 
 }
 
 /** Mondays: the week in numbers, and the one thing most worth doing next. */
-export function weeklyEmail(p: { name?: string; found: number; strong: number; tailored: number; applied: number; refreshConnections: boolean }) {
+export function weeklyEmail(p: { name?: string; found: number; strong: number; tailored: number; applied: number }) {
   const word = p.name?.trim().split(/\s+/)[0];
   const first = word && word[0].toUpperCase() + word.slice(1);
   const n = (k: number, one: string, many: string) => `${k.toLocaleString("en-IN")} ${k === 1 ? one : many}`;
-  const next = p.refreshConnections
-    ? ["Your next step: refresh your LinkedIn connections. Anyone you've connected with lately won't show up on your jobs until you load a fresh file.", "Refresh connections", `${appUrl()}/connect`]
-    : !p.tailored
+  // No "refresh your LinkedIn connections" step since 25 Nov 2026: LinkedIn's download stopped saying where people work.
+  const next = !p.tailored
       ? ["Your next step: open your best-fit job and tailor your CV for it. That's where JobPipe saves the most time.", "See your jobs", `${appUrl()}/jobs`]
       : !p.applied
         ? ["Your next step: apply to your best job, then mark it applied so JobPipe can remind you to follow up.", "See your jobs", `${appUrl()}/jobs`]

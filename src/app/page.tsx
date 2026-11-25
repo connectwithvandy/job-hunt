@@ -23,7 +23,6 @@ import { ReferralFollowUp } from "@/components/job-client";
 
 const DAY = 86_400_000;
 /** After this long, Today asks for a fresh connections file: people keep connecting. */
-const CONNECTIONS_STALE = 30 * DAY;
 
 /** A steady day's outreach: new companies asked for a referral, and applications sent. */
 const COMPANIES_A_DAY = 10;
@@ -349,17 +348,6 @@ export default function Today() {
         bestJob={bestToOpen?._id}
         foundNote={jobs.length ? firstFound(jobs, searching) : searchError ? `The first search didn't work: ${searchError} Try again on the Jobs page.` : searching ? "Finding your first jobs now. They'll appear here in a minute or two." : "Search on the Jobs page, or paste a job description."}
       />
-      {me.contactsCount > 0 && me.contactsLoadedAt && now - me.contactsLoadedAt > CONNECTIONS_STALE && (
-        <section className="card mb-8 flex flex-wrap items-center justify-between gap-3 p-5">
-          <div>
-            <p className="font-medium">Refresh your LinkedIn connections</p>
-            <p className="mt-1 text-sm text-ink-2">You loaded them {timeAgo(new Date(me.contactsLoadedAt).toISOString())}. Anyone you&apos;ve connected with since won&apos;t show up on your jobs yet.</p>
-          </div>
-          <Link href="/connect" className="btn btn-primary btn-sm">
-            Refresh
-          </Link>
-        </section>
-      )}
 
       <CelebrateWins jobs={jobs} now={now} />
       {/* Where the search stands, in the stages a sales pipeline uses (19 Nov: own layout, not a copy of another site's). */}

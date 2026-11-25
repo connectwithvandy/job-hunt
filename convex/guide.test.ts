@@ -3,12 +3,9 @@ import { guideSteps, nextGuideStep } from "./lib/guide";
 
 const start = { hasCv: true, roles: 2, contacts: 0, jobs: 40, scored: 0, tailored: 0, applied: 0 };
 
-test("after setup, LinkedIn connections come first", () => {
-  expect(nextGuideStep(guideSteps(start), false)?.key).toBe("connections");
-});
-
-test("once connections are requested, the next step comes up while LinkedIn prepares the file", () => {
-  expect(nextGuideStep(guideSteps(start), true)?.key).toBe("score");
+test("after setup, jobs come first: scoring is the next step, not LinkedIn", () => {
+  expect(nextGuideStep(guideSteps(start), false)?.key).toBe("score");
+  expect(guideSteps(start).at(-1)?.key).toBe("connections");
 });
 
 test("connections come back as the only step left", () => {
