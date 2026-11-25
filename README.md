@@ -59,6 +59,6 @@ Ideas borrowed from [career-ops](https://github.com/career-ops-hq/career-ops) (t
 
 ## License
 
-[AGPL-3.0](LICENSE). You can use, change and share JobPipe freely. If you run a changed version as a website, you must share your changes under the same license.
+Copyright (c) 2026 Vandana Agarwal. [AGPL-3.0](LICENSE) from 25 Nov 2026 (versions before that were MIT). You can use, change and share JobPipe freely. If you run a changed version as a website, you must share your changes under the same license.
 
 If JobPipe helps you, a ⭐ helps other sales people find it.
