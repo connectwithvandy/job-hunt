@@ -57,4 +57,8 @@ Issues and pull requests are welcome, especially new careers page readers (`conv
 
 Ideas borrowed from [career-ops](https://github.com/career-ops-hq/career-ops) (the fact check), [job-ops](https://github.com/DaKheera47/job-ops) (a score with a reason) and [ai-job-search](https://github.com/ai-job-search-dev/ai-job-search). No code was copied.
 
+## License
+
+[AGPL-3.0](LICENSE). You can use, change and share JobPipe freely. If you run a changed version as a website, you must share your changes under the same license.
+
 If JobPipe helps you, a ⭐ helps other sales people find it.
