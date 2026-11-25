@@ -5,6 +5,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { htmlToText } from "./lib/sources";
 import {
   action,
   env,
@@ -474,7 +475,7 @@ async function searchIds(access: string, q: string, max: number) {
 type Part = { mimeType?: string; body?: { data?: string }; parts?: Part[] };
 
 /** The plain text of an email, from its first text/plain part, else its HTML with the tags taken out. */
-function bodyText(part: Part | undefined): string {
+export function bodyText(part: Part | undefined): string {
   if (!part) return "";
   const decode = (d: string) =>
     new TextDecoder().decode(
@@ -489,9 +490,8 @@ function bodyText(part: Part | undefined): string {
     if (text) return text;
   }
   if (part.mimeType === "text/html" && part.body?.data)
-    return decode(part.body.data)
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ");
+    // Style blocks go too: designed emails (Workday) otherwise showed a page of CSS in Messages (25 Nov 2026).
+    return htmlToText(decode(part.body.data)).replace(/\s+/g, " ");
   return "";
 }
 

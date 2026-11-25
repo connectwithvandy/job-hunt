@@ -314,7 +314,10 @@ export default function Today() {
   const referralItems = [...askAfterApply, ...chase.filter((t) => t.verb === "Send"), ...reach];
 
   // The job the guide points to: the best fit still open, else any open one.
-  const bestToOpen = [...jobs].filter((j) => j.status === "new" || j.status === "applying").sort((a, b) => fit(b) - fit(a))[0];
+  // Real scores first: a 68% first guess beat every real score and sent a new member to tailor for a 22% job (25 Nov walk).
+  const bestToOpen = [...jobs]
+    .filter((j) => j.status === "new" || j.status === "applying")
+    .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || fit(b) - fit(a))[0];
 
   return (
     <div className="mx-auto max-w-6xl">
