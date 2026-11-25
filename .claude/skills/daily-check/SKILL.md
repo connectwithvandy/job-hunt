@@ -31,6 +31,22 @@ Fetch every URL in https://jobpipe.in/sitemap.xml plus `/ /pricing /about /conta
 - Partner people: `! npx convex run --prod access:partnerStatus '{"name":"SaasPire"}'` (any partner name).
 Also ask her to glance at Admin → Errors and Admin → Overview (funnel: Let in → Set up → Searched → Scored → Tailored → Applied → Paid). Compare with the last numbers in progress.md. The biggest drop between two steps is the thing to improve.
 
+## 3b. Search (every day: all growth is organic)
+
+Google Search Console is connected in her Composio workspace (read-only). Pull the last 7 days and the 7 before, for `https://jobpipe.in/`:
+
+```
+composio execute GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS_QUERY -d '{"site_url":"https://jobpipe.in/","start_date":"<7 days ago>","end_date":"<yesterday>","dimensions":["page","query"],"row_limit":200}'
+```
+(Search Console data lags ~2 days.) Report: clicks and impressions vs last week, non-brand clicks (not "jobpipe"/"job pipe").
+Then fix ONE or TWO pages a day, the biggest chance first:
+- Shown 50+ times at spot 1–10 but few clicks: rewrite `seoTitle` / `description` in src/lib/rolePages.ts (numbers and the words people searched, ~60 / ~155 characters).
+- Spot 8–20 with impressions: add the searched question to that page's `faq` and a sentence to its intro.
+- A query with impressions and no page for it: propose a new guide page (ask first).
+Rules: no made-up numbers or job counts (only ranges already on the page or pay listed in postings); never name job sources/backend on public pages; bump GUIDES_UPDATED when guide text changes.
+Also check sign-up sources (access.source: google, ai-search, linkedin-post) and /p page views in Vercel Analytics when she can share them.
+Log in progress.md what changed on which page, so the next check can see whether clicks moved.
+
 ## 4. Walk the live app (her Chrome, signed in as owner)
 
 Load the claude-in-chrome skill first. Open a new tab. Visit every page: Today, Jobs (search one role), a job page, Tracker, Companies, People/Network, Messages, Roles, Proof of work, CVs, Billing, Account, Admin (all tabs). For each: loads? console errors? anything internal, confusing, or broken? Don't trigger AI actions that cost money more than once a day (one score is fine; tailoring only if it changed).
