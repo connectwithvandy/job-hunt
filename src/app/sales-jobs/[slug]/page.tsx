@@ -19,7 +19,8 @@ export async function generateMetadata({ params }: PageProps<"/sales-jobs/[slug]
   const { slug } = await params;
   const page = ROLE_PAGES.find((r) => r.slug === slug);
   if (!page) return {};
-  return { title: page.title, description: page.description, alternates: { canonical: `/sales-jobs/${page.slug}` } };
+  // absolute: the search title already says what it is; the " · JobPipe" suffix would push it past what Google shows.
+  return { title: page.seoTitle ? { absolute: page.seoTitle } : page.title, description: page.description, alternates: { canonical: `/sales-jobs/${page.slug}` } };
 }
 
 export default async function RoleGuide({ params }: PageProps<"/sales-jobs/[slug]">) {
