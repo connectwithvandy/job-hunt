@@ -20,6 +20,8 @@ const app = defineApp({
      * JobPipe as a collaborator in LinkedIn's own composer before posting (growth.saveLinkedInDraft). Buffer is the
      * fallback when missing or failing. Her own Composio user key; the LinkedIn author URN can be overridden. */
     COMPOSIO_USER_API_KEY: v.optional(v.string()),
+    /** Her Composio user id (the one that owns the LinkedIn connection); Composio needs it with the key. */
+    COMPOSIO_USER_ID: v.optional(v.string()),
     LINKEDIN_AUTHOR_URN: v.optional(v.string()),
     /** Google Jobs through RapidAPI (lib/sources.ts). Off when missing. */
     JSEARCH_API_KEY: v.optional(v.string()),

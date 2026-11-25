@@ -227,8 +227,8 @@ const OWNER_LINKEDIN_URN = "urn:li:person:ObhsK6qG0W";
  */
 async function saveLinkedInDraft(text: string, why?: (reason: string) => void): Promise<string | null> {
   const key = env.COMPOSIO_USER_API_KEY;
-  if (!key) {
-    why?.("COMPOSIO_USER_API_KEY is not set");
+  if (!key || !env.COMPOSIO_USER_ID) {
+    why?.(!key ? "COMPOSIO_USER_API_KEY is not set" : "COMPOSIO_USER_ID is not set");
     return null;
   }
   try {
@@ -236,14 +236,16 @@ async function saveLinkedInDraft(text: string, why?: (reason: string) => void): 
       method: "POST",
       headers: { "Content-Type": "application/json", "x-user-api-key": key },
       body: JSON.stringify({
+        // Composio needs the user who owns the LinkedIn connection along with the key (25 Nov 2026 test).
+        user_id: env.COMPOSIO_USER_ID,
         arguments: { author: env.LINKEDIN_AUTHOR_URN || OWNER_LINKEDIN_URN, commentary: text.slice(0, 3000), visibility: "PUBLIC", lifecycleState: "DRAFT" },
       }),
       signal: AbortSignal.timeout(30_000),
     });
-    const body = (await res.json().catch(() => null)) as { successful?: boolean; error?: string | null } | null;
+    const body = (await res.json().catch(() => null)) as { successful?: boolean; error?: unknown } | null;
     if (body?.successful) return "Saved as a LinkedIn DRAFT on your profile. Open LinkedIn, start a post to find the draft, add JobPipe as a collaborator, then post.";
     console.warn("LinkedIn draft failed", res.status, body?.error);
-    why?.(`HTTP ${res.status}: ${cut(String(body?.error ?? JSON.stringify(body)), 300)}`);
+    why?.(`HTTP ${res.status}: ${cut(typeof body?.error === "string" ? body.error : JSON.stringify(body?.error ?? body), 300)}`);
     return null;
   } catch (err) {
     console.warn("LinkedIn draft failed", String(err));

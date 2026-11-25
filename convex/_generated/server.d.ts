@@ -39,6 +39,7 @@ type Env = {
   readonly APP_URL: string | undefined;
   readonly BUFFER_API_KEY: string | undefined;
   readonly COMPOSIO_USER_API_KEY: string | undefined;
+  readonly COMPOSIO_USER_ID: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly FRESH_SCORING: string | undefined;
   readonly GOOGLE_CLIENT_ID: string | undefined;
