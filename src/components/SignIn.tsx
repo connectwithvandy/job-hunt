@@ -45,6 +45,9 @@ const FOOTER: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/sales-jobs/sdr-bdr-jobs-india", label: "SDR and BDR jobs in India" },
       { href: "/sales-jobs/account-executive-jobs-bengaluru", label: "AE jobs in Bengaluru" },
       { href: "/sales-jobs/remote-sales-jobs-apac", label: "Remote sales jobs in APAC" },
+      { href: "/sales-jobs/in/bengaluru", label: "Sales jobs in Bengaluru" },
+      { href: "/tools/ote-calculator", label: "Sales OTE calculator" },
+      { href: "https://github.com/connectwithvandy/job-hunt", label: "⭐ Star JobPipe on GitHub" },
     ],
   },
 ];

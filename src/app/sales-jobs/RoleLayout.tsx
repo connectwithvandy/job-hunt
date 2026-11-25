@@ -51,6 +51,10 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
         <Link href="/tools/ote-calculator" className="font-medium text-accent hover:underline">
           Free tool: what will a sales offer really pay? (OTE calculator)
         </Link>
+        <span className="text-ink-3"> · </span>
+        <a href="https://github.com/connectwithvandy/job-hunt" target="_blank" rel="noreferrer" className="text-ink-2 hover:text-accent">
+          JobPipe is open source: ⭐ star it on GitHub
+        </a>
       </p>
       <nav className="mt-8">
         <h2 className="text-sm font-medium text-ink-2">More sales job guides</h2>
