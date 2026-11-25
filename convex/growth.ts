@@ -234,7 +234,8 @@ async function saveLinkedInDraft(text: string, why?: (reason: string) => void): 
   try {
     const res = await fetch("https://backend.composio.dev/api/v3.1/tools/execute/LINKEDIN_CREATE_LINKED_IN_POST", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-api-key": key },
+      // A user key needs the project that holds the LinkedIn connection; without it Composio answered "not found" (25 Nov 2026).
+      headers: { "Content-Type": "application/json", "x-user-api-key": key, ...(env.COMPOSIO_PROJECT_ID && { "x-project-id": env.COMPOSIO_PROJECT_ID }) },
       body: JSON.stringify({
         // Composio needs the user who owns the LinkedIn connection along with the key (25 Nov 2026 test).
         user_id: env.COMPOSIO_USER_ID,
