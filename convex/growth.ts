@@ -238,6 +238,8 @@ async function saveLinkedInDraft(text: string, why?: (reason: string) => void): 
       body: JSON.stringify({
         // Composio needs the user who owns the LinkedIn connection along with the key (25 Nov 2026 test).
         user_id: env.COMPOSIO_USER_ID,
+        // The LinkedIn connection itself (ca_…); the user id alone didn't find it (25 Nov 2026 test).
+        ...(env.COMPOSIO_LINKEDIN_ACCOUNT && { connected_account_id: env.COMPOSIO_LINKEDIN_ACCOUNT }),
         arguments: { author: env.LINKEDIN_AUTHOR_URN || OWNER_LINKEDIN_URN, commentary: text.slice(0, 3000), visibility: "PUBLIC", lifecycleState: "DRAFT" },
       }),
       signal: AbortSignal.timeout(30_000),

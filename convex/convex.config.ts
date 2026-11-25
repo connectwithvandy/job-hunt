@@ -22,6 +22,8 @@ const app = defineApp({
     COMPOSIO_USER_API_KEY: v.optional(v.string()),
     /** Her Composio user id (the one that owns the LinkedIn connection); Composio needs it with the key. */
     COMPOSIO_USER_ID: v.optional(v.string()),
+    /** Her LinkedIn connection in Composio (ca_…). */
+    COMPOSIO_LINKEDIN_ACCOUNT: v.optional(v.string()),
     LINKEDIN_AUTHOR_URN: v.optional(v.string()),
     /** Google Jobs through RapidAPI (lib/sources.ts). Off when missing. */
     JSEARCH_API_KEY: v.optional(v.string()),
