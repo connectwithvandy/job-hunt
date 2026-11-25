@@ -47,6 +47,11 @@ export function RoleLayout({ children, current }: { children: React.ReactNode; c
           ))}
         </ul>
       </nav>
+      <p className="mt-6 text-sm">
+        <Link href="/tools/ote-calculator" className="font-medium text-accent hover:underline">
+          Free tool: what will a sales offer really pay? (OTE calculator)
+        </Link>
+      </p>
       <nav className="mt-8">
         <h2 className="text-sm font-medium text-ink-2">More sales job guides</h2>
         <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">

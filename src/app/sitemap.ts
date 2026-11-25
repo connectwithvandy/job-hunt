@@ -70,5 +70,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily" as const,
     priority: 0.5,
   }));
-  return [...pages, index, ...cities, ...companies, ...roles];
+  const tools = [{ url: "https://jobpipe.in/tools/ote-calculator", changeFrequency: "monthly" as const, priority: 0.6 }];
+  return [...pages, index, ...tools, ...cities, ...companies, ...roles];
 }
