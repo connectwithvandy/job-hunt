@@ -225,9 +225,12 @@ const OWNER_LINKEDIN_URN = "urn:li:person:ObhsK6qG0W";
  * collaborator (the JobPipe page) in its own composer, and adding one by editing a live post cut reach (24-25 Nov),
  * so she opens the draft, adds JobPipe and posts. Returns the email line, or null when it can't, so Buffer posts instead.
  */
-async function saveLinkedInDraft(text: string): Promise<string | null> {
+async function saveLinkedInDraft(text: string, why?: (reason: string) => void): Promise<string | null> {
   const key = env.COMPOSIO_USER_API_KEY;
-  if (!key) return null;
+  if (!key) {
+    why?.("COMPOSIO_USER_API_KEY is not set");
+    return null;
+  }
   try {
     const res = await fetch("https://backend.composio.dev/api/v3.1/tools/execute/LINKEDIN_CREATE_LINKED_IN_POST", {
       method: "POST",
@@ -240,12 +243,26 @@ async function saveLinkedInDraft(text: string): Promise<string | null> {
     const body = (await res.json().catch(() => null)) as { successful?: boolean; error?: string | null } | null;
     if (body?.successful) return "Saved as a LinkedIn DRAFT on your profile. Open LinkedIn, start a post to find the draft, add JobPipe as a collaborator, then post.";
     console.warn("LinkedIn draft failed", res.status, body?.error);
+    why?.(`HTTP ${res.status}: ${cut(String(body?.error ?? JSON.stringify(body)), 300)}`);
     return null;
   } catch (err) {
     console.warn("LinkedIn draft failed", String(err));
+    why?.(String(err));
     return null;
   }
 }
+
+/** One test: saves a short DRAFT (never published) on the owner's LinkedIn and says whether it worked.
+ * npx convex run --prod growth:testLinkedInDraft */
+export const testLinkedInDraft = internalAction({
+  args: {},
+  returns: v.string(),
+  handler: async () => {
+    let reason = "";
+    const note = await saveLinkedInDraft("TEST draft from JobPipe, please discard. Checking the morning post can be saved as a draft.", (r) => (reason = r));
+    return note ? `Worked. ${note}` : `Failed: ${reason}`;
+  },
+});
 
 /** Schedules today's jobs post on LinkedIn through Buffer, 15 minutes from now. Returns a line for the email. */
 async function scheduleOnBuffer(text: string, now: number): Promise<string> {
