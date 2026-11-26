@@ -18,7 +18,7 @@ export function dayCode(now: number) {
   return new Date(now + 5.5 * 3600_000).toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-/** Saves the day's post jobs (ones already saved are left as they are) and the day's list, replacing an earlier run's. */
+/** Saves the day's post jobs (ones already saved keep their page, filling in a missing line or careers id) and the day's list, replacing an earlier run's. */
 export const save = internalMutation({
   args: { jobs: v.array(jobV), day: v.optional(v.string()) },
   returns: v.null(),
@@ -26,6 +26,9 @@ export const save = internalMutation({
     for (const j of jobs) {
       const existing = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", j.code)).first();
       if (!existing) await ctx.db.insert("postedJobs", j);
+      // A job posted again keeps its page, but picks up the line and careers id it didn't have then (26 Nov 2026).
+      else if ((j.line && !existing.line) || (j.externalId && !existing.externalId))
+        await ctx.db.patch(existing._id, { ...(j.line && !existing.line ? { line: j.line } : {}), ...(j.externalId && !existing.externalId ? { externalId: j.externalId } : {}) });
     }
     if (day) {
       const codes = jobs.map((j) => j.code);
