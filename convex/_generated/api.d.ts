@@ -86,6 +86,7 @@ import type * as lib_pickedBoards from "../lib/pickedBoards.js";
 import type * as lib_places from "../lib/places.js";
 import type * as lib_plans from "../lib/plans.js";
 import type * as lib_pool from "../lib/pool.js";
+import type * as lib_postLine from "../lib/postLine.js";
 import type * as lib_posting from "../lib/posting.js";
 import type * as lib_publicRole from "../lib/publicRole.js";
 import type * as lib_quickFit from "../lib/quickFit.js";
@@ -208,6 +209,7 @@ declare const fullApi: ApiFromModules<{
   "lib/places": typeof lib_places;
   "lib/plans": typeof lib_plans;
   "lib/pool": typeof lib_pool;
+  "lib/postLine": typeof lib_postLine;
   "lib/posting": typeof lib_posting;
   "lib/publicRole": typeof lib_publicRole;
   "lib/quickFit": typeof lib_quickFit;
