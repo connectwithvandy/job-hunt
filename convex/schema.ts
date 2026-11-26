@@ -497,7 +497,7 @@ export default defineSchema({
     .index("by_code", ["code"])
     .index("by_city", ["city"])
     .index("by_companySlug", ["companySlug"]),
-  postedJobs: defineTable({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string(), externalId: v.optional(v.string()), line: v.optional(v.string()), visits: v.optional(v.number()), applyClicks: v.optional(v.number()) }).index("by_code", ["code"]),
+  postedJobs: defineTable({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string(), externalId: v.optional(v.string()), line: v.optional(v.string()), description: v.optional(v.string()), visits: v.optional(v.number()), applyClicks: v.optional(v.number()) }).index("by_code", ["code"]),
   // One day's post as a whole (26 Nov 2026): the post carries a single link, jobpipe.in/p/YYYYMMDD, listing these jobs.
   postLists: defineTable({ day: v.string(), codes: v.array(v.string()), visits: v.optional(v.number()) }).index("by_day", ["day"]),
   sourceCache: defineTable({ key: v.string(), jobs: v.string(), fetchedAt: v.number(), blocked: v.optional(v.boolean()) }).index("by_key", ["key"]),

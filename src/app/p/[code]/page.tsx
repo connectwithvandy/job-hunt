@@ -12,7 +12,7 @@ import { RoleLayout } from "../../sales-jobs/RoleLayout";
 // Apply goes through /apply/CODE, which asks people to sign up before it opens the job (owner, 26 Nov 2026).
 export const revalidate = 86400;
 
-type PostedJob = { code: string; company: string; title: string; where: string; url: string; line?: string };
+type PostedJob = { code: string; company: string; title: string; where: string; url: string; line?: string; description?: string };
 
 const isDay = (code: string) => /^\d{8}$/.test(code);
 const find = (code: string) => cachedQuery<PostedJob | null>("postedJobs:get", { code }).catch(() => null);
@@ -102,6 +102,18 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
           Check my fit and apply
         </ApplyLink>
       </div>
+      {/* The posting's own text, so the click is worth it and search engines have the role to read (26 Nov 2026). */}
+      {job.description && (
+        <section className="mt-10">
+          <h2 className="display text-2xl">About the role</h2>
+          <div className="mt-3 whitespace-pre-line text-ink-2">
+            {job.description.length > 6000 ? `${job.description.slice(0, 6000).trimEnd()}…` : job.description}
+          </div>
+          <ApplyLink code={job.code} className="btn btn-primary mt-6">
+            Check my fit and apply
+          </ApplyLink>
+        </section>
+      )}
       <Pitch company={job.company} />
     </RoleLayout>
   );

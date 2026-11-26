@@ -190,21 +190,30 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
     perCompany.set(company, n + 1);
     return true;
   });
-  const picked = mixJobs(pool, JOBS_PER_POST);
-  // Too few to be worth a post: skip today rather than post something thin.
-  if (picked.length < 3) return null;
+  // A few spare, so field-sales jobs the AI spots can be dropped and the post still has five.
+  const candidates = mixJobs(pool, JOBS_PER_POST + 4);
+  if (candidates.length < 3) return null;
   // Each job: one line on what the work is and its own link to its JobPipe page, where Apply asks people to sign
   // up and then opens the role in JobPipe. The post itself never names JobPipe: readers click jobs, not products
   // (owner, 26 Nov 2026). The day's list (jobpipe.in/p/YYYYMMDD) is saved too, for anyone who wants all of them.
   const texts: { externalId: string; description: string }[] = await ctx.runQuery(internal.careers.texts, {
-    externalIds: picked.flatMap((j) => (j.externalId ? [j.externalId] : [])),
+    externalIds: candidates.flatMap((j) => (j.externalId ? [j.externalId] : [])),
   });
   const text = new Map(texts.map((t) => [t.externalId, t.description]));
-  const lines: (string | null)[] = await ctx.runAction(internal.growthNotes.jobLines, {
-    jobs: picked.map((j) => ({ title: j.title, company: j.company, description: j.description ?? (j.externalId ? text.get(j.externalId) : undefined) })),
+  const described = candidates.map((j) => ({ ...j, description: j.description ?? (j.externalId ? text.get(j.externalId) : undefined) }));
+  const lines: { line: string | null; field: boolean }[] = await ctx.runAction(internal.growthNotes.jobLines, {
+    jobs: described.map((j) => ({ title: j.title, company: j.company, description: j.description })),
   });
-  const jobs = picked.map((j, i) => ({ company: j.company, title: j.title, where: j.where, url: j.url, externalId: j.externalId, line: lines[i] ?? undefined, code: postCode(j.url) }));
-  await ctx.runMutation(internal.postedJobs.save, { jobs: jobs.map(({ externalId, line, ...j }) => ({ ...j, ...(externalId ? { externalId } : {}), ...(line ? { line } : {}) })), day: dayCode(now) });
+  // Field sales (shop and merchant visits) isn't what our readers are after (26 Nov 2026: a Paytm card-machine role).
+  const kept = described.map((j, i) => ({ ...j, line: lines[i]?.line ?? undefined })).filter((_, i) => !lines[i]?.field);
+  const picked = mixJobs(kept, JOBS_PER_POST);
+  // Too few to be worth a post: skip today rather than post something thin.
+  if (picked.length < 3) return null;
+  const jobs = picked.map((j) => ({ company: j.company, title: j.title, where: j.where, url: j.url, externalId: j.externalId, line: j.line, description: j.description?.slice(0, 12_000), code: postCode(j.url) }));
+  await ctx.runMutation(internal.postedJobs.save, {
+    jobs: jobs.map(({ externalId, line, description, ...j }) => ({ ...j, ...(externalId ? { externalId } : {}), ...(line ? { line } : {}), ...(description ? { description } : {}) })),
+    day: dayCode(now),
+  });
   const shown = jobs.map((j) => ({ ...j, url: `${appUrl()}/p/${j.code}` }));
   const post = `${postHook(shown.map((j) => j.company), shown.length)}
 
@@ -218,9 +227,21 @@ ${TAGS}`;
   // Yesterday's post, counted: visits to its job pages, Apply clicks and sign-ups from it.
   const y: { jobs: number; visits: number; applyClicks: number; signUps: number } | null = await ctx.runQuery(internal.postedJobs.results, { day: dayCode(now - DAY), since: now - DAY });
   const yesterday = y ? `Yesterday's post: ${y.visits} job page visits, ${y.applyClicks} Apply clicks, ${y.signUps} sign-ups from it.\n` : "";
+  // The same jobs for WhatsApp sales groups, posted by hand: WhatsApp's *bold*, no hashtags, and links tagged
+  // utm_source=whatsapp so sign-ups from the groups show apart from LinkedIn (26 Nov 2026).
+  const whatsapp = `*New sales jobs in India, posted in the last 24 hours* 👇
+
+${jobs.map((j) => [`*${j.title}* · ${j.company} (${j.where})`, j.line, `${appUrl()}/p/${j.code}?utm_source=whatsapp`].filter(Boolean).join("\n")).join("\n\n")}
+
+Check how well your CV fits each role before you apply.`;
   const section = `${yesterday}LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
 ------------
 ${post}
+------------
+
+WHATSAPP GROUPS VERSION (same jobs; paste into the sales groups you're in, by hand)
+------------
+${whatsapp}
 ------------`;
   return { post, section };
 }

@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 
 // externalId: the careers-board role it came from (26 Nov 2026), so Apply can save it to a member's list with its description.
-const jobV = v.object({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string(), externalId: v.optional(v.string()), line: v.optional(v.string()) });
+const jobV = v.object({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string(), externalId: v.optional(v.string()), line: v.optional(v.string()), description: v.optional(v.string()) });
 
 /** Short, stable code for a job link: the same job posted twice keeps one page. */
 export function postCode(url: string) {
@@ -27,8 +27,12 @@ export const save = internalMutation({
       const existing = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", j.code)).first();
       if (!existing) await ctx.db.insert("postedJobs", j);
       // A job posted again keeps its page, but picks up the line and careers id it didn't have then (26 Nov 2026).
-      else if ((j.line && !existing.line) || (j.externalId && !existing.externalId))
-        await ctx.db.patch(existing._id, { ...(j.line && !existing.line ? { line: j.line } : {}), ...(j.externalId && !existing.externalId ? { externalId: j.externalId } : {}) });
+      else if ((j.line && !existing.line) || (j.externalId && !existing.externalId) || (j.description && !existing.description))
+        await ctx.db.patch(existing._id, {
+          ...(j.line && !existing.line ? { line: j.line } : {}),
+          ...(j.externalId && !existing.externalId ? { externalId: j.externalId } : {}),
+          ...(j.description && !existing.description ? { description: j.description } : {}),
+        });
     }
     if (day) {
       const codes = jobs.map((j) => j.code);
@@ -50,6 +54,7 @@ export const day = query({
     const out = [];
     for (const code of list.codes.slice(0, 20)) {
       const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code)).first();
+      // The list shows title, company and line only, so the long descriptions stay out of it.
       if (j) out.push({ code: j.code, company: j.company, title: j.title, where: j.where, url: j.url, ...(j.externalId ? { externalId: j.externalId } : {}), ...(j.line ? { line: j.line } : {}) });
     }
     return out;
@@ -62,7 +67,11 @@ export const get = query({
   returns: v.union(jobV, v.null()),
   handler: async (ctx, { code }) => {
     const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code.slice(0, 16))).first();
-    return j ? { code: j.code, company: j.company, title: j.title, where: j.where, url: j.url, ...(j.externalId ? { externalId: j.externalId } : {}), ...(j.line ? { line: j.line } : {}) } : null;
+    if (!j) return null;
+    // Jobs saved before descriptions were kept read theirs from the careers board, while the company still lists it.
+    const board = !j.description && j.externalId ? await ctx.db.query("careerJobTexts").withIndex("by_externalId", (q) => q.eq("externalId", j.externalId!)).first() : null;
+    const description = j.description ?? board?.description.slice(0, 12_000);
+    return { code: j.code, company: j.company, title: j.title, where: j.where, url: j.url, ...(j.externalId ? { externalId: j.externalId } : {}), ...(j.line ? { line: j.line } : {}), ...(description ? { description } : {}) };
   },
 });
 
