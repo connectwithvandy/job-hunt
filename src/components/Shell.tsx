@@ -54,7 +54,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const returning = useSyncExternalStore(noSubscribe, hasSession, () => false);
 
   // Pricing and the policy pages are for everyone, signed in or not.
-  if (PUBLIC.includes(path) || path.startsWith("/sales-jobs")) return <>{children}</>;
+  // /p/ pages are the daily LinkedIn post's job links, /tools/ the free OTE calculator: both showed the sign-up page
+  // instead of themselves until 26 Nov 2026.
+  if (PUBLIC.includes(path) || ["/sales-jobs", "/p/", "/tools/"].some((p) => path.startsWith(p))) return <>{children}</>;
   // Only the home page needs that: on a job link or any other app page the landing page would flash
   // for a moment before the app appears (the first paint can't see the saved sign-in yet).
   if (isLoading && !returning && path === "/") return <SignIn />;

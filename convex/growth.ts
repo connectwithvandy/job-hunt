@@ -14,7 +14,7 @@ import { AGGREGATORS, companyKey, roleKey } from "./lib/company";
 import { searchJobs, searchPosts } from "./lib/apify";
 import { appUrl, emailOn, feedbackEmail, noteEmail, sendEmail, setupNudgeEmail, setupReminderEmail } from "./lib/email";
 import { isLender } from "./lib/quickFit";
-import { postCode } from "./postedJobs";
+import { dayCode, postCode } from "./postedJobs";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
@@ -84,10 +84,11 @@ export function mixJobs<T extends { title: string }>(jobs: T[], n: number) {
   return out;
 }
 
-/** "KAM - Manager (Mumbai)" in Mumbai reads "KAM - Manager": the place is shown once, after the title. */
-export function jobLine(j: { company: string; title: string; where: string; url: string }) {
+/** "KAM - Manager (Mumbai)" in Mumbai reads "KAM - Manager": the place is shown once, after the title.
+ * No link per job: the post carries one link to the day's list (26 Nov 2026). */
+export function jobLine(j: { company: string; title: string; where: string }) {
   const title = j.title.replace(/\s*\(([^)]*)\)\s*$/, (all, inside: string) => (inside.trim().toLowerCase() === j.where.toLowerCase() ? "" : all));
-  return `• ${j.company}, ${title} (${j.where})\n${j.url}`;
+  return `• ${j.company}, ${title} (${j.where})`;
 }
 
 /** Sales roles at tech companies in India posted in the last 24 hours and new on careers boards, one or two per company. */
@@ -169,7 +170,7 @@ async function linkedInPostJobs(ctx: ActionCtx, now: number): Promise<PostJob[]>
     .map((j) => ({ company: j.company, title: j.title, where: place(j.location, j.workSetting), url: j.applyUrl ?? j.url }));
 }
 
-/** Today's LinkedIn post: new SDR, AE and sales manager jobs with their links. `post` is the public text alone,
+/** Today's LinkedIn post: new SDR, AE and sales manager jobs, with one link to the day's list. `post` is the public text alone,
  * `section` wraps it for the owner's email. Null when too few to post. */
 async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section: string } | null> {
   const now = Date.now();
@@ -189,20 +190,22 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
   const picked = mixJobs(pool, JOBS_PER_POST);
   // Too few to be worth a post: skip today rather than post something thin.
   if (picked.length < 3) return null;
-  // Each link opens the job's short JobPipe page, not the company's site: clicks used to leave without seeing JobPipe (25 Nov 2026).
-  const saved = picked.map((j) => ({ ...j, code: postCode(j.url) }));
-  await ctx.runMutation(internal.postedJobs.save, { jobs: saved });
-  const jobs = saved.map((j) => ({ ...j, url: `${appUrl()}/p/${j.code}` }));
+  // One link for the whole post, to a JobPipe page listing these jobs with their apply links. A link under every
+  // job read as an ad for JobPipe (owner, 26 Nov 2026). Each job keeps its own page too, linked from the list.
+  const jobs = picked.map((j) => ({ ...j, code: postCode(j.url) }));
+  const day = dayCode(now);
+  await ctx.runMutation(internal.postedJobs.save, { jobs, day });
   const sdrs = jobs.filter((j) => postGroup(j.title) === "sdr");
   const closers = jobs.filter((j) => postGroup(j.title) === "ae" || postGroup(j.title) === "manager");
   const ams = jobs.filter((j) => postGroup(j.title) === "am");
-  const list = (name: string, group: PostJob[]) => (group.length ? `${name}\n\n${group.map(jobLine).join("\n\n")}` : "");
-  // Each job with its apply link right under it, so the post is ready to paste as is.
+  const list = (name: string, group: PostJob[]) => (group.length ? `${name}\n${group.map(jobLine).join("\n")}` : "");
   const post = `${jobs.length} new sales jobs in India, posted in the last 24 hours 👇
 
 ${[list("SDR / BDR", sdrs), list("AE and sales managers", closers), list("Account managers", ams)].filter(Boolean).join("\n\n")}
 
-Each link shows the role and how to apply. JobPipe finds new sales roles like these every morning, scores each one against your CV and tailors the CV for the ones worth applying to: https://jobpipe.in
+Apply to all of these through one link: ${appUrl()}/p/${day}
+
+JobPipe finds new sales roles like these every morning, scores each one against your CV and tailors the CV for the ones worth applying to.
 
 ${TAGS}`;
   const section = `LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
