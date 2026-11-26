@@ -68,7 +68,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     );
   }
   // A job's apply link from the LinkedIn post (/apply/CODE): sign up first, then they go on to the job (26 Nov 2026).
-  if (!isAuthenticated || !access) return <SignIn note={path.startsWith("/apply/") ? "Sign up free to apply to this job. Once you're in, the job opens straight away." : undefined} />;
+  if (!isAuthenticated || !access) return <SignIn note={path.startsWith("/apply/") ? "Sign up free to apply to this job. Once you're in, it opens in JobPipe with how well your CV fits." : undefined} />;
   if (!access.approved) return <Waitlist email={access.email} onWaitlist={access.onWaitlist} answered={access.answered} rejected={access.rejected} />;
   if (!me) return <SignIn />;
   if (!me.onboarded) return <Onboarding me={me} />;

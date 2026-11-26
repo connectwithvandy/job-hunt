@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { ConvexError, v, type Infer } from "convex/values";
 import mammoth from "mammoth";
 import { getDocumentProxy } from "unpdf";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, env, internalAction, type ActionCtx } from "./_generated/server";
 import { streamChat } from "./lib/ai";
@@ -470,6 +470,36 @@ async function searchTrack(ctx: ActionCtx, userId: Id<"users">, track: Doc<"trac
     if (!track.company && env.JSEARCH_API_KEY && google < Math.min(googleTitles, track.titles.length)) failed.push("Google Jobs (this month's free searches are used up)");
     return { added, failed };
 }
+
+/**
+ * Apply on a job from the LinkedIn post (jobpipe.in/apply/CODE, 26 Nov 2026): saves that role to the member's list
+ * and returns it, so JobPipe opens on it. Board roles come with their description for free; other links are read
+ * like a pasted link (one "addJob" use), and saved bare when that fails. Null when the code is unknown.
+ */
+export const addPostedJob = action({
+  args: { code: v.string() },
+  handler: async (ctx, { code }): Promise<Id<"jobs"> | null> => {
+    const { userId } = await setup(ctx);
+    const posted: { company: string; title: string; where: string; url: string; externalId?: string } | null = await ctx.runQuery(api.postedJobs.get, { code });
+    if (!posted) return null;
+    const careersId = posted.externalId ? `careers:${posted.externalId}` : null;
+    const saved: Id<"jobs"> | null = await ctx.runQuery(internal.jobs.savedId, { userId, externalIds: [careersId, posted.url].filter((x): x is string => !!x), company: posted.company, title: posted.title });
+    if (saved) return saved;
+    const bare = { url: posted.url, sourceUrl: posted.url, title: posted.title, company: posted.company, location: posted.where, status: "new" as const, outreach: [], updatedAt: Date.now() };
+    if (posted.externalId) {
+      const texts: { description: string }[] = await ctx.runQuery(internal.careers.texts, { externalIds: [posted.externalId] });
+      const { lastId }: { lastId: Id<"jobs"> | null } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [{ ...bare, externalId: careersId!, source: "careers", description: texts[0]?.description }] });
+      return lastId;
+    }
+    try {
+      return await addJobFor(ctx, userId, { link: posted.url });
+    } catch (err) {
+      console.warn("Posted job couldn't be read, saved bare:", String(err));
+      const { lastId }: { lastId: Id<"jobs"> | null } = await ctx.runMutation(internal.jobs.insertMany, { userId, jobs: [{ ...bare, externalId: posted.url, source: "link" }] });
+      return lastId;
+    }
+  },
+});
 
 export const addJob = action({
   args: { link: v.optional(v.string()), text: v.optional(v.string()) },

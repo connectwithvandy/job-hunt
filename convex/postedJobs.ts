@@ -3,7 +3,8 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
 
-const jobV = v.object({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string() });
+// externalId: the careers-board role it came from (26 Nov 2026), so Apply can save it to a member's list with its description.
+const jobV = v.object({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string(), externalId: v.optional(v.string()) });
 
 /** Short, stable code for a job link: the same job posted twice keeps one page. */
 export function postCode(url: string) {
@@ -46,7 +47,7 @@ export const day = query({
     const out = [];
     for (const code of list.codes.slice(0, 20)) {
       const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code)).first();
-      if (j) out.push({ code: j.code, company: j.company, title: j.title, where: j.where, url: j.url });
+      if (j) out.push({ code: j.code, company: j.company, title: j.title, where: j.where, url: j.url, ...(j.externalId ? { externalId: j.externalId } : {}) });
     }
     return out;
   },
@@ -58,6 +59,6 @@ export const get = query({
   returns: v.union(jobV, v.null()),
   handler: async (ctx, { code }) => {
     const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code.slice(0, 16))).first();
-    return j ? { code: j.code, company: j.company, title: j.title, where: j.where, url: j.url } : null;
+    return j ? { code: j.code, company: j.company, title: j.title, where: j.where, url: j.url, ...(j.externalId ? { externalId: j.externalId } : {}) } : null;
   },
 });

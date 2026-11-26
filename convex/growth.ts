@@ -47,7 +47,7 @@ export function place(location: string, workSetting?: string) {
   return /remote/i.test(workSetting ?? "") ? `${city} or remote` : city;
 }
 
-const jobV = v.object({ company: v.string(), title: v.string(), where: v.string(), url: v.string() });
+const jobV = v.object({ company: v.string(), title: v.string(), where: v.string(), url: v.string(), externalId: v.optional(v.string()) });
 
 /** True when a job was posted in the last 24 hours. A date with no time counts as the end of that day. */
 export function postedInLastDay(postedAt: string | undefined, now: number) {
@@ -91,12 +91,14 @@ export function jobLine(j: { company: string; title: string; where: string }) {
   return `• ${j.company}, ${title} (${j.where})`;
 }
 
+type PostJob = { company: string; title: string; where: string; url: string; externalId?: string };
+
 /** Sales roles at tech companies in India posted in the last 24 hours and new on careers boards, one or two per company. */
 export const newSalesJobs = internalQuery({
   args: { now: v.number() },
   returns: v.array(jobV),
   handler: async (ctx, { now }) => {
-    const out: { company: string; title: string; where: string; url: string }[] = [];
+    const out: PostJob[] = [];
     const perCompany = new Map<string, number>();
     const titles = new Set<string>();
     // Newest first; stop at the first one older than a day, so only today's arrivals are read.
@@ -113,7 +115,7 @@ export const newSalesJobs = internalQuery({
       if (n >= 2 || titles.has(key)) continue;
       titles.add(key);
       perCompany.set(j.company, n + 1);
-      out.push({ company: j.company, title: j.title, where: place(j.location, j.workSetting), url: j.url });
+      out.push({ company: j.company, title: j.title, where: place(j.location, j.workSetting), url: j.url, externalId: j.externalId });
     }
     return out;
   },
@@ -143,7 +145,7 @@ export const repostedSalesJobs = internalQuery({
 
 const TAGS = "#salesjobs #hiring #SDR #AccountExecutive #salesindia";
 
-type PostJob = { company: string; title: string; where: string; url: string };
+
 
 // One search per side of the post, so sales managers don't crowd out the rest.
 const POST_SEARCHES = [

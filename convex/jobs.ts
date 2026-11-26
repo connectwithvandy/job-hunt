@@ -458,6 +458,19 @@ export const fitAudit = internalQuery({
 // Matches the Jobs page, which moves new jobs older than this to "Older than 45 days".
 const STALE_AFTER = 45 * 86_400_000;
 
+/** This member's saved copy of a role, by link or by company + title, so adding it again costs nothing. */
+export const savedId = internalQuery({
+  args: { userId: v.id("users"), externalIds: v.array(v.string()), company: v.string(), title: v.string() },
+  handler: async (ctx, { userId, externalIds, company, title }): Promise<Id<"jobs"> | null> => {
+    for (const externalId of externalIds) {
+      const j = await ctx.db.query("jobs").withIndex("by_userId_and_externalId", (q) => q.eq("userId", userId).eq("externalId", externalId)).unique();
+      if (j) return j._id;
+    }
+    const j = await ctx.db.query("jobs").withIndex("by_userId_and_roleKey", (q) => q.eq("userId", userId).eq("roleKey", roleKey(cleanCompany(company) || company, title))).first();
+    return j?._id ?? null;
+  },
+});
+
 export const insertMany = internalMutation({
   args: { userId: v.id("users"), jobs: v.array(v.object(jobFields)) },
   handler: async (ctx, { userId, jobs }) => {
