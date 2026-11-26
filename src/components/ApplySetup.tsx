@@ -25,12 +25,19 @@ function JobHeader({ code }: { code: string }) {
   if (!job) return null;
   return (
     <p className="card px-5 py-4 text-ink-2">
-      Applying to <span className="font-medium text-ink">{job.title}</span> at <span className="font-medium text-ink">{job.company}</span> · {job.where}
+      Applying to <span className="font-medium text-ink">{job.title}</span> at{" "}
+      <span className="font-medium text-ink">{job.company}</span> · {job.where}
     </p>
   );
 }
 
-function Frame({ code, children }: { code: string; children: React.ReactNode }) {
+function Frame({
+  code,
+  children,
+}: {
+  code: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mx-auto max-w-xl px-5 py-10 md:py-14">
       <p className="display text-sm uppercase tracking-wide">
@@ -47,6 +54,7 @@ function Frame({ code, children }: { code: string; children: React.ReactNode }) 
 /** Signed out: one tap with Google, or email and password. */
 export function ApplySignUp({ code }: { code: string }) {
   const { signIn } = useAuthActions();
+  const googleOn = useQuery(api.access.googleOn);
   const [flow, setFlow] = useState<"signUp" | "signIn">("signUp");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,26 +62,34 @@ export function ApplySignUp({ code }: { code: string }) {
   const [error, setError] = useState("");
   return (
     <Frame code={code}>
-      <h1 className="display mt-8 text-4xl leading-tight">See how well you fit this role</h1>
-      <p className="mt-3 text-ink-2">Free. Your CV is scored against the job before you apply.</p>
-      <button
-        type="button"
-        className="btn btn-primary mt-8 w-full justify-center"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          setError("");
-          try {
-            await signIn("google", { redirectTo: `/apply/${code}` });
-          } catch (err) {
-            setError(errorMessage(err));
-            setBusy(false);
-          }
-        }}
-      >
-        Continue with Google
-      </button>
-      <p className="my-6 text-center text-sm text-ink-3">or with email</p>
+      <h1 className="display mt-8 text-4xl leading-tight">
+        See how well you fit this role
+      </h1>
+      <p className="mt-3 text-ink-2">
+        Free. Your CV is scored against the job before you apply.
+      </p>
+      {googleOn && (
+        <>
+          <button
+            type="button"
+            className="btn btn-primary mt-8 w-full justify-center"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await signIn("google", { redirectTo: `/apply/${code}` });
+              } catch (err) {
+                setError(errorMessage(err));
+                setBusy(false);
+              }
+            }}
+          >
+            Continue with Google
+          </button>
+          <p className="my-6 text-center text-sm text-ink-3">or with email</p>
+        </>
+      )}
       <form
         className="space-y-4"
         onSubmit={async (e) => {
@@ -83,23 +99,38 @@ export function ApplySignUp({ code }: { code: string }) {
           try {
             await signIn("password", { email: email.trim(), password, flow });
           } catch (err) {
-            setError(flow === "signUp" ? `${errorMessage(err)} Already have an account? Sign in instead.` : errorMessage(err));
+            setError(
+              flow === "signUp"
+                ? `${errorMessage(err)} Already have an account? Sign in instead.`
+                : errorMessage(err),
+            );
           }
           setBusy(false);
         }}
       >
         <label className="block">
           <span className="label">Email</span>
-          <input className="field mt-1" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            className="field mt-1"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </label>
         <label className="block">
-          <span className="label">{flow === "signUp" ? "Pick a password" : "Password"}</span>
+          <span className="label">
+            {flow === "signUp" ? "Pick a password" : "Password"}
+          </span>
           <input
             className="field mt-1"
             type="password"
             required
             minLength={8}
-            autoComplete={flow === "signUp" ? "new-password" : "current-password"}
+            autoComplete={
+              flow === "signUp" ? "new-password" : "current-password"
+            }
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -112,7 +143,11 @@ export function ApplySignUp({ code }: { code: string }) {
       </form>
       <p className="mt-6 text-center text-sm text-ink-3">
         {flow === "signUp" ? "Already a member? " : "New here? "}
-        <button type="button" className="text-accent underline" onClick={() => setFlow(flow === "signUp" ? "signIn" : "signUp")}>
+        <button
+          type="button"
+          className="text-accent underline"
+          onClick={() => setFlow(flow === "signUp" ? "signIn" : "signUp")}
+        >
           {flow === "signUp" ? "Sign in" : "Create an account"}
         </button>
       </p>
@@ -121,14 +156,22 @@ export function ApplySignUp({ code }: { code: string }) {
 }
 
 /** Signed in, not set up yet: everything on one screen. */
-export function ApplySetup({ code, me }: { code: string; me: Me | null | undefined }) {
+export function ApplySetup({
+  code,
+  me,
+}: {
+  code: string;
+  me: Me | null | undefined;
+}) {
   const quickJoin = useMutation(api.access.quickJoin);
   const setName = useMutation(api.access.setName);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const readCv = useAction(api.agent.readCv);
   const complete = useMutation(api.users.completeOnboarding);
   const [chosen, setChosen] = useState<string[]>([]);
-  const [cvState, setCvState] = useState<"" | "reading" | "done">(me?.resume ? "done" : "");
+  const [cvState, setCvState] = useState<"" | "reading" | "done">(
+    me?.resume ? "done" : "",
+  );
   const [typedName, setTypedName] = useState<string | null>(null);
   const [location, setLocation] = useState("");
   const [modes, setModes] = useState<WorkMode[]>(ALL);
@@ -136,10 +179,20 @@ export function ApplySetup({ code, me }: { code: string; me: Me | null | undefin
   const [error, setError] = useState("");
   // The name comes from the CV once it's read, and stays editable.
   const name = typedName ?? me?.resume?.name ?? "";
-  const toggle = (key: string) => setChosen(chosen.includes(key) ? chosen.filter((k) => k !== key) : chosen.length < 8 ? [...chosen, key] : chosen);
+  const toggle = (key: string) =>
+    setChosen(
+      chosen.includes(key)
+        ? chosen.filter((k) => k !== key)
+        : chosen.length < 8
+          ? [...chosen, key]
+          : chosen,
+    );
   const source = () => {
     try {
-      return { ref: localStorage.getItem("jobpipeRef") ?? undefined, source: localStorage.getItem("jobpipeSource") ?? undefined };
+      return {
+        ref: localStorage.getItem("jobpipeRef") ?? undefined,
+        source: localStorage.getItem("jobpipeSource") ?? undefined,
+      };
     } catch {
       return {};
     }
@@ -147,15 +200,26 @@ export function ApplySetup({ code, me }: { code: string; me: Me | null | undefin
   const roleName = PRESET_TRACKS.find((t) => t.key === chosen[0])?.name ?? "";
 
   const readFile = async (file: File) => {
-    if (!chosen.length) return setError("Pick the role you want first, then add your CV.");
+    if (!chosen.length)
+      return setError("Pick the role you want first, then add your CV.");
     setError("");
     setCvState("reading");
     try {
       const s = source();
-      const ok = await quickJoin({ role: roleName, ...(s.ref && { ref: s.ref }), ...(s.source && { source: s.source }) });
-      if (!ok) throw new Error("We couldn't let you in with this role. Write to vandana@jobpipe.in and we'll sort it.");
+      const ok = await quickJoin({
+        role: roleName,
+        ...(s.ref && { ref: s.ref }),
+        ...(s.source && { source: s.source }),
+      });
+      if (!ok)
+        throw new Error(
+          "We couldn't let you in with this role. Write to vandana@jobpipe.in and we'll sort it.",
+        );
       await readCv({
-        storageId: (await uploadFile(await generateUploadUrl(), file)) as Id<"_storage">,
+        storageId: (await uploadFile(
+          await generateUploadUrl(),
+          file,
+        )) as Id<"_storage">,
         fileName: file.name,
         replaceId: me?.defaultResumeId ?? undefined,
         label: file.name.replace(/\.[^.]+$/, ""),
@@ -167,11 +231,16 @@ export function ApplySetup({ code, me }: { code: string; me: Me | null | undefin
     }
   };
 
-  const ready = chosen.length > 0 && cvState === "done" && name.trim() && location.trim();
+  const ready =
+    chosen.length > 0 && cvState === "done" && name.trim() && location.trim();
   return (
     <Frame code={code}>
-      <h1 className="display mt-8 text-4xl leading-tight">See how well you fit</h1>
-      <p className="mt-3 text-ink-2">One screen. We fill in what your CV tells us; you choose the rest.</p>
+      <h1 className="display mt-8 text-4xl leading-tight">
+        See how well you fit
+      </h1>
+      <p className="mt-3 text-ink-2">
+        One screen. We fill in what your CV tells us; you choose the rest.
+      </p>
 
       <section className="mt-8">
         <span className="label">Roles you want</span>
@@ -205,7 +274,8 @@ export function ApplySetup({ code, me }: { code: string; me: Me | null | undefin
         <p className="mt-2 text-xs text-ink-3">
           {cvState === "reading" ? (
             <>
-              <Spinner /> Reading your CV… about a minute. Fill in the rest meanwhile.
+              <Spinner /> Reading your CV… about a minute. Fill in the rest
+              meanwhile.
             </>
           ) : cvState === "done" ? (
             "CV read. Check your name below."
@@ -217,13 +287,24 @@ export function ApplySetup({ code, me }: { code: string; me: Me | null | undefin
 
       <label className="mt-8 block">
         <span className="label">Your name</span>
-        <input className="field mt-1" value={name} onChange={(e) => setTypedName(e.target.value)} placeholder={cvState === "reading" ? "Filling in from your CV…" : ""} autoComplete="name" />
+        <input
+          className="field mt-1"
+          value={name}
+          onChange={(e) => setTypedName(e.target.value)}
+          placeholder={cvState === "reading" ? "Filling in from your CV…" : ""}
+          autoComplete="name"
+        />
       </label>
 
       <section className="mt-8">
         <span className="label">Where you&apos;d work</span>
         <div className="mt-2">
-          <LocationPicker value={location} modes={modes} noDefault onChange={(p, m) => (setLocation(p), setModes(m))} />
+          <LocationPicker
+            value={location}
+            modes={modes}
+            noDefault
+            onChange={(p, m) => (setLocation(p), setModes(m))}
+          />
         </div>
       </section>
 
@@ -237,7 +318,9 @@ export function ApplySetup({ code, me }: { code: string; me: Me | null | undefin
           try {
             await setName({ name: name.trim() });
             await complete({
-              tracks: PRESET_TRACKS.filter((t) => chosen.includes(t.key)).map((t) => ({ ...t, status: "active" as const })),
+              tracks: PRESET_TRACKS.filter((t) => chosen.includes(t.key)).map(
+                (t) => ({ ...t, status: "active" as const }),
+              ),
               location,
               workModes: modes,
             });
@@ -253,7 +336,14 @@ export function ApplySetup({ code, me }: { code: string; me: Me | null | undefin
       </button>
       {!ready && !busy && (
         <p className="mt-3 text-center text-xs text-ink-3">
-          {!chosen.length ? "Pick a role" : cvState !== "done" ? "Add your CV" : !name.trim() ? "Add your name" : "Pick where you'd work"} to continue.
+          {!chosen.length
+            ? "Pick a role"
+            : cvState !== "done"
+              ? "Add your CV"
+              : !name.trim()
+                ? "Add your name"
+                : "Pick where you'd work"}{" "}
+          to continue.
         </p>
       )}
     </Frame>

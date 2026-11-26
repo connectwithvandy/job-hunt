@@ -256,6 +256,13 @@ export const quickJoin = mutation({
   },
 });
 
+/** Whether "Continue with Google" is set up (AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET), so the button only shows when it works. */
+export const googleOn = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async () => !!process.env.AUTH_GOOGLE_ID && !!process.env.AUTH_GOOGLE_SECRET,
+});
+
 /** The name they confirmed on the one-screen setup, for the owner's lists and emails. */
 export const setName = mutation({
   args: { name: v.string() },
