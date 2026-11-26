@@ -15,6 +15,7 @@ import { searchJobs, searchPosts } from "./lib/apify";
 import { appUrl, emailOn, feedbackEmail, noteEmail, sendEmail, setupNudgeEmail, setupReminderEmail } from "./lib/email";
 import { isLender } from "./lib/quickFit";
 import { dayCode, postCode } from "./postedJobs";
+import { postHook } from "./lib/postLine";
 import { backOffice, SALES_ROLES, titleMatches } from "./lib/salesRoles";
 
 const DAY = 86_400_000;
@@ -205,20 +206,33 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
   const jobs = picked.map((j, i) => ({ company: j.company, title: j.title, where: j.where, url: j.url, externalId: j.externalId, line: lines[i] ?? undefined, code: postCode(j.url) }));
   await ctx.runMutation(internal.postedJobs.save, { jobs: jobs.map(({ externalId, line, ...j }) => ({ ...j, ...(externalId ? { externalId } : {}), ...(line ? { line } : {}) })), day: dayCode(now) });
   const shown = jobs.map((j) => ({ ...j, url: `${appUrl()}/p/${j.code}` }));
-  const post = `${shown.length} new sales jobs in India, posted in the last 24 hours 👇
+  const post = `${postHook(shown.map((j) => j.company), shown.length)}
 
 ${shown.map(jobLine).join("\n\n")}
 
-Don't apply blind. Each link shows how well your CV fits the role first.
+Don't apply blind. Check how well your CV fits each role before you apply.
+
+Fresh roles every morning, so you can apply before the crowd.
 
 ${TAGS}`;
-  const section = `LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
+  // Yesterday's post, counted: visits to its job pages, Apply clicks and sign-ups from it.
+  const y: { jobs: number; visits: number; applyClicks: number; signUps: number } | null = await ctx.runQuery(internal.postedJobs.results, { day: dayCode(now - DAY), since: now - DAY });
+  const yesterday = y ? `Yesterday's post: ${y.visits} job page visits, ${y.applyClicks} Apply clicks, ${y.signUps} sign-ups from it.\n` : "";
+  const section = `${yesterday}LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
 ------------
 ${post}
 ------------`;
   return { post, section };
 }
 const JOBS_PER_POST = 5;
+
+/** Builds today's post and returns it, without saving a draft or emailing (it does save the job pages it links to).
+ * npx convex run --prod growth:previewPost */
+export const previewPost = internalAction({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => (await jobsPostSection(ctx))?.section ?? "Too few new jobs for a post today.",
+});
 
 // Buffer posts to the owner's LinkedIn (meet-vandana). Set BUFFER_API_KEY in Convex to turn auto posting on.
 const BUFFER_LINKEDIN_CHANNEL = "6afde15bece6dfde5f0e978d";

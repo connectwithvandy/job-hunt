@@ -1,7 +1,7 @@
 // Short JobPipe pages for the jobs in the owner's daily LinkedIn post: one per job (jobpipe.in/p/CODE) and one per
 // day listing the whole post (jobpipe.in/p/YYYYMMDD). Job codes are at most 7 characters, so 8 digits is always a day.
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 
 // externalId: the careers-board role it came from (26 Nov 2026), so Apply can save it to a member's list with its description.
 const jobV = v.object({ code: v.string(), company: v.string(), title: v.string(), where: v.string(), url: v.string(), externalId: v.optional(v.string()), line: v.optional(v.string()) });
@@ -60,5 +60,47 @@ export const get = query({
   handler: async (ctx, { code }) => {
     const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code.slice(0, 16))).first();
     return j ? { code: j.code, company: j.company, title: j.title, where: j.where, url: j.url, ...(j.externalId ? { externalId: j.externalId } : {}), ...(j.line ? { line: j.line } : {}) } : null;
+  },
+});
+
+/** Counts a visit to a job's page (or a day's list) and Apply clicks, so we know which posts bring people (26 Nov 2026). */
+export const count = mutation({
+  args: { code: v.string(), kind: v.union(v.literal("visit"), v.literal("apply")) },
+  returns: v.null(),
+  handler: async (ctx, { code, kind }) => {
+    if (/^\d{8}$/.test(code)) {
+      const list = await ctx.db.query("postLists").withIndex("by_day", (q) => q.eq("day", code)).first();
+      if (list && kind === "visit") await ctx.db.patch(list._id, { visits: (list.visits ?? 0) + 1 });
+      return null;
+    }
+    const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code.slice(0, 16))).first();
+    if (!j) return null;
+    if (kind === "visit") await ctx.db.patch(j._id, { visits: (j.visits ?? 0) + 1 });
+    else await ctx.db.patch(j._id, { applyClicks: (j.applyClicks ?? 0) + 1 });
+    return null;
+  },
+});
+
+/** A day's post results for the morning email: visits and Apply clicks across its jobs, and sign-ups from the post
+ * in the day after it. Null when there was no post that day. */
+export const results = internalQuery({
+  args: { day: v.string(), since: v.number() },
+  returns: v.union(v.object({ jobs: v.number(), visits: v.number(), applyClicks: v.number(), signUps: v.number() }), v.null()),
+  handler: async (ctx, { day, since }) => {
+    const list = await ctx.db.query("postLists").withIndex("by_day", (q) => q.eq("day", day)).first();
+    if (!list) return null;
+    let visits = list.visits ?? 0;
+    let applyClicks = 0;
+    for (const code of list.codes) {
+      const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code)).first();
+      visits += j?.visits ?? 0;
+      applyClicks += j?.applyClicks ?? 0;
+    }
+    let signUps = 0;
+    for await (const a of ctx.db.query("access").order("desc")) {
+      if (a._creationTime < since) break;
+      if (a.source === "linkedin-post") signUps++;
+    }
+    return { jobs: list.codes.length, visits, applyClicks, signUps };
   },
 });

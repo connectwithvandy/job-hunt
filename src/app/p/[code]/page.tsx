@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cachedQuery } from "@/lib/guideRoles";
 import { RememberSource } from "@/components/RememberSource";
+import { ApplyLink, CountVisit } from "@/components/PostCount";
 import { RoleLayout } from "../../sales-jobs/RoleLayout";
 
 // The owner's daily LinkedIn post links here instead of the company's site, so people who click see JobPipe, and every
@@ -59,6 +60,7 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
     return (
       <RoleLayout>
         <RememberSource source="linkedin-post" />
+        <CountVisit code={code} />
         <p className="label text-accent">Found via JobPipe · {dayName(code)}</p>
         <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{jobs.length} new sales jobs in India</h1>
         <p className="mt-3 text-lg text-ink-2">Don&apos;t apply blind. Check how well your CV fits each role first.</p>
@@ -72,9 +74,9 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
                 </p>
                 {j.line && <p className="mt-1 text-sm text-ink-2">{j.line}</p>}
               </div>
-              <Link href={`/apply/${j.code}`} prefetch={false} className="btn btn-primary">
+              <ApplyLink code={j.code} className="btn btn-primary">
                 Check fit and apply
-              </Link>
+              </ApplyLink>
             </li>
           ))}
         </ul>
@@ -87,6 +89,7 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
   return (
     <RoleLayout>
       <RememberSource source="linkedin-post" />
+      <CountVisit code={job.code} />
       <p className="label text-accent">Found via JobPipe · new in the last 24 hours</p>
       <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{job.title}</h1>
       <p className="mt-3 text-lg text-ink-2">
@@ -95,9 +98,9 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
       {job.line && <p className="mt-4 text-lg">{job.line}</p>}
       <div className="card mt-6 p-5">
         <p className="font-medium">Don&apos;t apply blind. See how well your CV fits this role first.</p>
-        <Link href={`/apply/${job.code}`} prefetch={false} className="btn btn-primary mt-4">
+        <ApplyLink code={job.code} className="btn btn-primary mt-4">
           Check my fit and apply
-        </Link>
+        </ApplyLink>
       </div>
       <Pitch company={job.company} />
     </RoleLayout>
