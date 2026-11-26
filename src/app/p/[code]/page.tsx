@@ -11,7 +11,7 @@ import { RoleLayout } from "../../sales-jobs/RoleLayout";
 // Apply goes through /apply/CODE, which asks people to sign up before it opens the job (owner, 26 Nov 2026).
 export const revalidate = 86400;
 
-type PostedJob = { code: string; company: string; title: string; where: string; url: string };
+type PostedJob = { code: string; company: string; title: string; where: string; url: string; line?: string };
 
 const isDay = (code: string) => /^\d{8}$/.test(code);
 const find = (code: string) => cachedQuery<PostedJob | null>("postedJobs:get", { code }).catch(() => null);
@@ -59,9 +59,9 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
     return (
       <RoleLayout>
         <RememberSource source="linkedin-post" />
-        <p className="label text-accent">New sales roles · {dayName(code)}</p>
+        <p className="label text-accent">Found via JobPipe · {dayName(code)}</p>
         <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{jobs.length} new sales jobs in India</h1>
-        <p className="mt-3 text-lg text-ink-2">Posted in the 24 hours before {dayName(code)}. Sign up free to apply. It takes a minute.</p>
+        <p className="mt-3 text-lg text-ink-2">Don&apos;t apply blind. Check how well your CV fits each role first.</p>
         <ul className="mt-8 space-y-4">
           {jobs.map((j) => (
             <li key={j.code} className="card flex flex-wrap items-center justify-between gap-4 p-5">
@@ -70,16 +70,14 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
                 <p className="text-ink-2">
                   {j.company} · {j.where}
                 </p>
+                {j.line && <p className="mt-1 text-sm text-ink-2">{j.line}</p>}
               </div>
               <Link href={`/apply/${j.code}`} prefetch={false} className="btn btn-primary">
-                Apply
+                Check fit and apply
               </Link>
             </li>
           ))}
         </ul>
-        <Link href="/" className="btn btn-ghost mt-6">
-          See how well your CV fits these
-        </Link>
         <Pitch />
       </RoleLayout>
     );
@@ -89,17 +87,16 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
   return (
     <RoleLayout>
       <RememberSource source="linkedin-post" />
-      <p className="label text-accent">New sales role</p>
+      <p className="label text-accent">Found via JobPipe · new in the last 24 hours</p>
       <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{job.title}</h1>
       <p className="mt-3 text-lg text-ink-2">
         {job.company} · {job.where}
       </p>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Link href={`/apply/${job.code}`} prefetch={false} className="btn btn-primary">
-          Apply
-        </Link>
-        <Link href="/" className="btn btn-ghost">
-          See how well your CV fits
+      {job.line && <p className="mt-4 text-lg">{job.line}</p>}
+      <div className="card mt-6 p-5">
+        <p className="font-medium">Don&apos;t apply blind. See how well your CV fits this role first.</p>
+        <Link href={`/apply/${job.code}`} prefetch={false} className="btn btn-primary mt-4">
+          Check my fit and apply
         </Link>
       </div>
       <Pitch company={job.company} />

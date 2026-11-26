@@ -88,8 +88,8 @@ test("the post is half SDRs, half AEs and sales managers", () => {
 });
 
 test("a job line shows the place once", () => {
-  expect(jobLine({ company: "Paytm", title: "KAM - Manager - Paytm Ads (Mumbai)", where: "Mumbai" })).toBe("• Paytm, KAM - Manager - Paytm Ads (Mumbai)");
-  expect(jobLine({ company: "Acme", title: "SDR (EMEA)", where: "Remote" })).toBe("• Acme, SDR (EMEA) (Remote)");
+  expect(jobLine({ company: "Paytm", title: "KAM - Manager - Paytm Ads (Mumbai)", where: "Mumbai", url: "u" })).toBe("🔹 KAM - Manager - Paytm Ads · Paytm (Mumbai)\nu");
+  expect(jobLine({ company: "Acme", title: "SDR (EMEA)", where: "Remote", url: "u", line: "Cold call US founders." })).toBe("🔹 SDR (EMEA) · Acme (Remote)\nCold call US founders.\nu");
 });
 
 test("cutting text never splits an emoji", () => {

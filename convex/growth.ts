@@ -84,14 +84,14 @@ export function mixJobs<T extends { title: string }>(jobs: T[], n: number) {
   return out;
 }
 
-/** "KAM - Manager (Mumbai)" in Mumbai reads "KAM - Manager": the place is shown once, after the title.
- * No link per job: the post carries one link to the day's list (26 Nov 2026). */
-export function jobLine(j: { company: string; title: string; where: string }) {
+/** One job in the post: title, company and place, then what the job is about and its link (26 Nov 2026).
+ * "KAM - Manager (Mumbai)" in Mumbai reads "KAM - Manager": the place is shown once, after the company. */
+export function jobLine(j: { company: string; title: string; where: string; url: string; line?: string }) {
   const title = j.title.replace(/\s*\(([^)]*)\)\s*$/, (all, inside: string) => (inside.trim().toLowerCase() === j.where.toLowerCase() ? "" : all));
-  return `• ${j.company}, ${title} (${j.where})`;
+  return [`🔹 ${title} · ${j.company} (${j.where})`, j.line, j.url].filter(Boolean).join("\n");
 }
 
-type PostJob = { company: string; title: string; where: string; url: string; externalId?: string };
+type PostJob = { company: string; title: string; where: string; url: string; externalId?: string; description?: string };
 
 /** Sales roles at tech companies in India posted in the last 24 hours and new on careers boards, one or two per company. */
 export const newSalesJobs = internalQuery({
@@ -169,10 +169,10 @@ async function linkedInPostJobs(ctx: ActionCtx, now: number): Promise<PostJob[]>
   const tech = new Set<string>((await ctx.runAction(internal.growthNotes.techCompanies, { names })).map(companyKey));
   return rows
     .filter((j) => tech.has(companyKey(j.company)) || isTechCompany(j.company, j.title, j.applyUrl ?? j.url))
-    .map((j) => ({ company: j.company, title: j.title, where: place(j.location, j.workSetting), url: j.applyUrl ?? j.url }));
+    .map((j) => ({ company: j.company, title: j.title, where: place(j.location, j.workSetting), url: j.applyUrl ?? j.url, description: j.description }));
 }
 
-/** Today's LinkedIn post: new SDR, AE and sales manager jobs, with one link to the day's list. `post` is the public text alone,
+/** Today's LinkedIn post: new SDR, AE and sales manager jobs, each with a line on the work and its own link. `post` is the public text alone,
  * `section` wraps it for the owner's email. Null when too few to post. */
 async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section: string } | null> {
   const now = Date.now();
@@ -192,22 +192,24 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
   const picked = mixJobs(pool, JOBS_PER_POST);
   // Too few to be worth a post: skip today rather than post something thin.
   if (picked.length < 3) return null;
-  // One link for the whole post, to a JobPipe page listing these jobs with their apply links. A link under every
-  // job read as an ad for JobPipe (owner, 26 Nov 2026). Each job keeps its own page too, linked from the list.
-  const jobs = picked.map((j) => ({ ...j, code: postCode(j.url) }));
-  const day = dayCode(now);
-  await ctx.runMutation(internal.postedJobs.save, { jobs, day });
-  const sdrs = jobs.filter((j) => postGroup(j.title) === "sdr");
-  const closers = jobs.filter((j) => postGroup(j.title) === "ae" || postGroup(j.title) === "manager");
-  const ams = jobs.filter((j) => postGroup(j.title) === "am");
-  const list = (name: string, group: PostJob[]) => (group.length ? `${name}\n${group.map(jobLine).join("\n")}` : "");
-  const post = `${jobs.length} new sales jobs in India, posted in the last 24 hours 👇
+  // Each job: one line on what the work is and its own link to its JobPipe page, where Apply asks people to sign
+  // up and then opens the role in JobPipe. The post itself never names JobPipe: readers click jobs, not products
+  // (owner, 26 Nov 2026). The day's list (jobpipe.in/p/YYYYMMDD) is saved too, for anyone who wants all of them.
+  const texts: { externalId: string; description: string }[] = await ctx.runQuery(internal.careers.texts, {
+    externalIds: picked.flatMap((j) => (j.externalId ? [j.externalId] : [])),
+  });
+  const text = new Map(texts.map((t) => [t.externalId, t.description]));
+  const lines: (string | null)[] = await ctx.runAction(internal.growthNotes.jobLines, {
+    jobs: picked.map((j) => ({ title: j.title, company: j.company, description: j.description ?? (j.externalId ? text.get(j.externalId) : undefined) })),
+  });
+  const jobs = picked.map((j, i) => ({ company: j.company, title: j.title, where: j.where, url: j.url, externalId: j.externalId, line: lines[i] ?? undefined, code: postCode(j.url) }));
+  await ctx.runMutation(internal.postedJobs.save, { jobs: jobs.map(({ externalId, line, ...j }) => ({ ...j, ...(externalId ? { externalId } : {}), ...(line ? { line } : {}) })), day: dayCode(now) });
+  const shown = jobs.map((j) => ({ ...j, url: `${appUrl()}/p/${j.code}` }));
+  const post = `${shown.length} new sales jobs in India, posted in the last 24 hours 👇
 
-${[list("SDR / BDR", sdrs), list("AE and sales managers", closers), list("Account managers", ams)].filter(Boolean).join("\n\n")}
+${shown.map(jobLine).join("\n\n")}
 
-Apply to all of these through one link: ${appUrl()}/p/${day}
-
-JobPipe finds new sales roles like these every morning, scores each one against your CV and tailors the CV for the ones worth applying to.
+Don't apply blind. Each link shows how well your CV fits the role first.
 
 ${TAGS}`;
   const section = `LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
@@ -216,7 +218,7 @@ ${post}
 ------------`;
   return { post, section };
 }
-const JOBS_PER_POST = 6;
+const JOBS_PER_POST = 5;
 
 // Buffer posts to the owner's LinkedIn (meet-vandana). Set BUFFER_API_KEY in Convex to turn auto posting on.
 const BUFFER_LINKEDIN_CHANNEL = "6afde15bece6dfde5f0e978d";
