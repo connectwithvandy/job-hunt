@@ -8,6 +8,7 @@ import { RoleLayout } from "../../sales-jobs/RoleLayout";
 // The owner's daily LinkedIn post links here instead of the company's site, so people who click see JobPipe, and every
 // /p visit counts as one from LinkedIn (25 Nov 2026). Two kinds of page: one job (a code of up to 7 letters/digits), or
 // since 26 Nov 2026 the whole day's post (8 digits, YYYYMMDD), which is the post's only link. Saved jobs don't change.
+// Apply goes through /apply/CODE, which asks people to sign up before it opens the job (owner, 26 Nov 2026).
 export const revalidate = 86400;
 
 type PostedJob = { code: string; company: string; title: string; where: string; url: string };
@@ -60,7 +61,7 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
         <RememberSource source="linkedin-post" />
         <p className="label text-accent">New sales roles · {dayName(code)}</p>
         <h1 className="display mt-3 text-4xl leading-tight md:text-5xl">{jobs.length} new sales jobs in India</h1>
-        <p className="mt-3 text-lg text-ink-2">Posted in the 24 hours before {dayName(code)}. Apply opens the original job posting.</p>
+        <p className="mt-3 text-lg text-ink-2">Posted in the 24 hours before {dayName(code)}. Sign up free to apply. It takes a minute.</p>
         <ul className="mt-8 space-y-4">
           {jobs.map((j) => (
             <li key={j.code} className="card flex flex-wrap items-center justify-between gap-4 p-5">
@@ -70,9 +71,9 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
                   {j.company} · {j.where}
                 </p>
               </div>
-              <a href={j.url} target="_blank" rel="nofollow noopener" className="btn btn-primary">
+              <Link href={`/apply/${j.code}`} prefetch={false} className="btn btn-primary">
                 Apply
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
@@ -94,9 +95,9 @@ export default async function PostedJobPage({ params }: { params: Promise<{ code
         {job.company} · {job.where}
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
-        <a href={job.url} target="_blank" rel="nofollow noopener" className="btn btn-primary">
-          Apply on {job.company}&apos;s site
-        </a>
+        <Link href={`/apply/${job.code}`} prefetch={false} className="btn btn-primary">
+          Apply
+        </Link>
         <Link href="/" className="btn btn-ghost">
           See how well your CV fits
         </Link>

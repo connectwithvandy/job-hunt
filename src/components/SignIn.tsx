@@ -73,7 +73,8 @@ const STAGES: [string, string][] = [
 
 
 
-export function SignIn() {
+/** `note` sits above the landing page to say why it's showing, e.g. on a job's apply link. */
+export function SignIn({ note }: { note?: string } = {}) {
   const { signIn } = useAuthActions();
   // The "you're in" email links to /?signin=1&email=… so they land on sign in, not "create account".
   // The server renders this page too and can't see the address bar, so read it after load.
@@ -181,6 +182,7 @@ export function SignIn() {
           </button>
         </nav>
       </header>
+      {note && <p className="card border-accent p-4 text-ink">{note}</p>}
 
       <div className="grid items-center gap-10 pb-16 pt-8 md:pt-14 lg:grid-cols-[1.15fr_1fr] lg:gap-14 lg:pb-24">
         <section>
