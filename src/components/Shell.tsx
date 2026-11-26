@@ -10,6 +10,7 @@ import { Onboarding } from "./Onboarding";
 import { Celebrations } from "./Celebrate";
 import { ChatButton, inProfile, ProfileMenu, SubTabs, TopBar } from "./Sidebar";
 import { SurveyPopup } from "./SurveyPopup";
+import { ApplySetup, ApplySignUp } from "./ApplySetup";
 import { SignIn } from "./SignIn";
 import { Spinner } from "./ui";
 import { Waitlist } from "./Waitlist";
@@ -67,8 +68,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  // A job's apply link from the LinkedIn post (/apply/CODE): sign up first, then they go on to the job (26 Nov 2026).
-  if (!isAuthenticated || !access) return <SignIn note={path.startsWith("/apply/") ? "Sign up free to apply to this job. Once you're in, it opens in JobPipe with how well your CV fits." : undefined} />;
+  // A job's Apply link (/apply/CODE): Google or email, then one setup screen, then the job with its fit (26 Nov 2026).
+  const applyCode = path.startsWith("/apply/") ? decodeURIComponent(path.slice("/apply/".length)).split("/")[0] : "";
+  if (applyCode && !isAuthenticated) return <ApplySignUp code={applyCode} />;
+  if (applyCode && (!access || !access.approved || !me?.onboarded)) return <ApplySetup code={applyCode} me={me} />;
+  if (!isAuthenticated || !access) return <SignIn />;
   if (!access.approved) return <Waitlist email={access.email} onWaitlist={access.onWaitlist} answered={access.answered} rejected={access.rejected} />;
   if (!me) return <SignIn />;
   if (!me.onboarded) return <Onboarding me={me} />;

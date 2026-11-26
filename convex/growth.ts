@@ -225,8 +225,8 @@ Fresh roles every morning, so you can apply before the crowd.
 
 ${TAGS}`;
   // Yesterday's post, counted: visits to its job pages, Apply clicks and sign-ups from it.
-  const y: { jobs: number; visits: number; applyClicks: number; signUps: number } | null = await ctx.runQuery(internal.postedJobs.results, { day: dayCode(now - DAY), since: now - DAY });
-  const yesterday = y ? `Yesterday's post: ${y.visits} job page visits, ${y.applyClicks} Apply clicks, ${y.signUps} sign-ups from it.\n` : "";
+  const y: { jobs: number; visits: number; applyClicks: number; reachedJob: number; signUps: number } | null = await ctx.runQuery(internal.postedJobs.results, { day: dayCode(now - DAY), since: now - DAY });
+  const yesterday = y ? `Yesterday's post: ${y.visits} job page visits, ${y.applyClicks} Apply clicks, ${y.reachedJob} got through setup to the job, ${y.signUps} sign-ups from it.\n` : "";
   // The same jobs for WhatsApp sales groups, posted by hand: WhatsApp's *bold*, no hashtags, and links tagged
   // utm_source=whatsapp so sign-ups from the groups show apart from LinkedIn (26 Nov 2026).
   const whatsapp = `*New sales jobs in India, posted in the last 24 hours* 👇

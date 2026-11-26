@@ -550,15 +550,16 @@ function placeHint(cities: string[], wide: string, modes: WorkMode[]) {
  * then any of In office, Hybrid and Remote. The place is saved as one line, "Lucknow, Bengaluru" or "India",
  * which the search reads (convex/lib/sources.ts readPlace); work types are saved beside it.
  */
-export function LocationPicker({ value, modes, onChange }: { value: string; modes: WorkMode[]; onChange: (place: string, modes: WorkMode[]) => void }) {
+/** `noDefault`: nothing shows as picked until they choose (the Apply setup assumes no country, 26 Nov 2026). */
+export function LocationPicker({ value, modes, onChange, noDefault }: { value: string; modes: WorkMode[]; onChange: (place: string, modes: WorkMode[]) => void; noDefault?: boolean }) {
   // "Remote" used to be a place of its own: it shows as anywhere in the world, remote only.
   const place = /^remote$/i.test(value.trim()) ? "Anywhere" : value;
   const cities = citiesOf(place);
-  const wide = cities.length ? "" : (WIDE(place)?.value ?? "India");
+  const wide = cities.length ? "" : (WIDE(place)?.value ?? (noDefault ? "" : "India"));
   const [typed, setTyped] = useState("");
   const [other, setOther] = useState(false);
   const has = (c: string) => cities.some((x) => x.toLowerCase() === c.toLowerCase());
-  const setCities = (next: string[]) => onChange(next.length ? next.join(", ") : "India", modes);
+  const setCities = (next: string[]) => onChange(next.length ? next.join(", ") : noDefault ? "" : "India", modes);
   const toggle = (c: string) => setCities(has(c) ? cities.filter((x) => x.toLowerCase() !== c.toLowerCase()) : [...cities, c]);
   const add = () => {
     const c = typed.trim().replace(/,+$/, "");
@@ -623,7 +624,7 @@ export function LocationPicker({ value, modes, onChange }: { value: string; mode
           </button>
         ))}
       </div>
-      <p className="mt-3 text-xs text-ink-3">{placeHint(cities, wide, modes)}</p>
+      <p className="mt-3 text-xs text-ink-3">{!cities.length && !wide ? "Pick a city, a country or anywhere in the world." : placeHint(cities, wide, modes)}</p>
     </div>
   );
 }

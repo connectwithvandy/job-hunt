@@ -1,6 +1,6 @@
 "use client";
 
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
@@ -12,14 +12,22 @@ export default function ApplyPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
   const add = useAction(api.agent.addPostedJob);
+  const score = useAction(api.agent.scoreJobs);
+  const count = useMutation(api.postedJobs.count);
   const [failed, setFailed] = useState("");
   const started = useRef(false);
   useEffect(() => {
     if (started.current) return;
     started.current = true;
     add({ code })
-      .then((id) => (id ? router.replace(`/jobs/${id}`) : setFailed("This job link has expired. Your new matches are on the Jobs tab.")))
+      .then((id) => {
+        if (!id) return setFailed("This job link has expired. Your new matches are on the Jobs tab.");
+        void count({ code, kind: "reached" }).catch(() => {});
+        // The fit score is what they came for: start it now; the job page fills it in when it's ready.
+        void score({ jobIds: [id] }).catch(() => {});
+        router.replace(`/jobs/${id}`);
+      })
       .catch(() => setFailed("We couldn't add this job just now. Try the link again in a minute."));
-  }, [add, code, router]);
+  }, [add, code, count, router, score]);
   return <p className="mx-auto max-w-xl py-16 text-ink-2">{failed || "Adding this job to your list…"}</p>;
 }

@@ -77,7 +77,7 @@ export const get = query({
 
 /** Counts a visit to a job's page (or a day's list) and Apply clicks, so we know which posts bring people (26 Nov 2026). */
 export const count = mutation({
-  args: { code: v.string(), kind: v.union(v.literal("visit"), v.literal("apply")) },
+  args: { code: v.string(), kind: v.union(v.literal("visit"), v.literal("apply"), v.literal("reached")) },
   returns: v.null(),
   handler: async (ctx, { code, kind }) => {
     if (/^\d{8}$/.test(code)) {
@@ -88,7 +88,9 @@ export const count = mutation({
     const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code.slice(0, 16))).first();
     if (!j) return null;
     if (kind === "visit") await ctx.db.patch(j._id, { visits: (j.visits ?? 0) + 1 });
-    else await ctx.db.patch(j._id, { applyClicks: (j.applyClicks ?? 0) + 1 });
+    else if (kind === "apply") await ctx.db.patch(j._id, { applyClicks: (j.applyClicks ?? 0) + 1 });
+    // Got through sign-up and setup to the job inside JobPipe: the step where people drop off shows here.
+    else await ctx.db.patch(j._id, { reachedJob: (j.reachedJob ?? 0) + 1 });
     return null;
   },
 });
@@ -97,22 +99,24 @@ export const count = mutation({
  * in the day after it. Null when there was no post that day. */
 export const results = internalQuery({
   args: { day: v.string(), since: v.number() },
-  returns: v.union(v.object({ jobs: v.number(), visits: v.number(), applyClicks: v.number(), signUps: v.number() }), v.null()),
+  returns: v.union(v.object({ jobs: v.number(), visits: v.number(), applyClicks: v.number(), reachedJob: v.number(), signUps: v.number() }), v.null()),
   handler: async (ctx, { day, since }) => {
     const list = await ctx.db.query("postLists").withIndex("by_day", (q) => q.eq("day", day)).first();
     if (!list) return null;
     let visits = list.visits ?? 0;
     let applyClicks = 0;
+    let reachedJob = 0;
     for (const code of list.codes) {
       const j = await ctx.db.query("postedJobs").withIndex("by_code", (q) => q.eq("code", code)).first();
       visits += j?.visits ?? 0;
       applyClicks += j?.applyClicks ?? 0;
+      reachedJob += j?.reachedJob ?? 0;
     }
     let signUps = 0;
     for await (const a of ctx.db.query("access").order("desc")) {
       if (a._creationTime < since) break;
       if (a.source === "linkedin-post") signUps++;
     }
-    return { jobs: list.codes.length, visits, applyClicks, signUps };
+    return { jobs: list.codes.length, visits, applyClicks, reachedJob, signUps };
   },
 });

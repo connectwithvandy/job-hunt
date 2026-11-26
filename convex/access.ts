@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, env, internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { hasAccess, isOwnerEmail } from "./lib/auth";
+import { PRESET_TRACKS } from "./lib/defaults";
 import { PLANS } from "./lib/plans";
 import { trialEnd, trialOver } from "./lib/trial";
 import { appUrl, emailOn, partnerReminderEmail, partnerWelcomeEmail, REPLY_TO, sendEmail, welcomeEmail } from "./lib/email";
@@ -214,6 +215,57 @@ export const describe = mutation({
     await ctx.db.patch("access", row._id, { name, linkedin: linkedin || undefined, role, ...(letIn ? { approved: true, decidedAt: Date.now() } : {}) });
     if (letIn) await queueWelcome(ctx, row._id);
     return letIn;
+  },
+});
+
+/**
+ * Joining from a job's Apply link (26 Nov 2026): the one-screen setup asks the role up front, so this joins and,
+ * for a sales role, lets them in at once (the same rule as the waitlist questions), before their CV is read.
+ * Safe to call more than once. Returns whether they're in.
+ */
+export const quickJoin = mutation({
+  args: { role: v.string(), ref: v.optional(v.string()), source: v.optional(v.string()) },
+  returns: v.boolean(),
+  handler: async (ctx, { role: rawRole, ref, source }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in again.");
+    const role = rawRole.trim().slice(0, 60);
+    if (!role) throw new ConvexError("Pick the role you're after.");
+    let row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!row) {
+      const user = await ctx.db.get("users", userId);
+      const code = ref?.trim().toUpperCase().slice(0, 12);
+      const inviter = code ? await ctx.db.query("access").withIndex("by_inviteCode", (q) => q.eq("inviteCode", code)).first() : null;
+      const accessId = await ctx.db.insert("access", {
+        userId,
+        email: user?.email ?? "",
+        approved: false,
+        ...(user?.name ? { name: user.name.slice(0, 100) } : {}),
+        ...(inviter && inviter.userId !== userId ? { invitedBy: inviter.userId } : {}),
+        ...(source ? { source: source.trim().toLowerCase().slice(0, 40) } : {}),
+      });
+      await applyPartnerGrant(ctx, accessId);
+      row = (await ctx.db.get("access", accessId))!;
+    }
+    // Every preset role on the setup screen is a sales role, so picking one lets them in like the waitlist does.
+    const sales = SALES_ROLES.has(role) || PRESET_TRACKS.some((t) => t.name === role);
+    const letIn = sales && !row.approved && !row.rejected;
+    await ctx.db.patch("access", row._id, { role, ...(letIn ? { approved: true, decidedAt: Date.now() } : {}) });
+    if (letIn) await queueWelcome(ctx, row._id);
+    return letIn || row.approved;
+  },
+});
+
+/** The name they confirmed on the one-screen setup, for the owner's lists and emails. */
+export const setName = mutation({
+  args: { name: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { name }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in again.");
+    const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (row && name.trim()) await ctx.db.patch("access", row._id, { name: name.trim().slice(0, 100) });
+    return null;
   },
 });
 
