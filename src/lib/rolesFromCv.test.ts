@@ -13,3 +13,9 @@ test("an AE CV points to Account Executive", () => {
 test("titles with no match give nothing", () => {
   expect(rolesFromCv(["Pastry Chef"], SALES_ROLES)).toEqual([]);
 });
+
+test("'Manager of Sales Development' is a leader, not an SDR", () => {
+  const got = rolesFromCv(["Manager of Sales Development"], SALES_ROLES);
+  expect(got.length).toBe(1);
+  expect(got[0]).not.toBe("sdr");
+});
