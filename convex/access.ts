@@ -660,7 +660,8 @@ export const partnerSeats = query({
 export const markInternal = internalMutation({
   args: { email: v.string(), internal: v.optional(v.boolean()) },
   handler: async (ctx, { email, internal: on }) => {
-    const row = await ctx.db.query("access").withIndex("by_email", (q) => q.eq("email", email.trim().toLowerCase())).first();
+    const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", email.trim().toLowerCase())).first();
+    const row = user ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", user._id)).unique() : null;
     if (!row) throw new ConvexError("No account with that email.");
     await ctx.db.patch("access", row._id, { internal: on ?? true });
     return row.email;
