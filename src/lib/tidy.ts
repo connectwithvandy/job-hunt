@@ -95,3 +95,21 @@ export const showCompany = (company: string) =>
         .replace(/\bTechnologie$/, "Technologies")
         .replace(/\bSolution$/, "Solutions")
         .replace(/^Us\s+(?=[A-Z])/, "");
+
+/**
+ * The employer a recruiter's posting is really for, when its text opens by naming another company ("Buildesk is a
+ * fast-growing PropTech platform…" under Cravingcode): shown as "Hiring for Buildesk" so the header and the text
+ * never disagree (27 Nov review). Null when the text doesn't clearly name a different company.
+ */
+export function hiringFor(description: string | undefined, company: string) {
+  if (!description) return null;
+  const start = description.trim().slice(0, 300);
+  const m = start.match(/^(?:About\s+)?([A-Z][A-Za-z0-9&.'-]+(?:\s+[A-Z][A-Za-z0-9&.'-]+){0,2})\s+(?:is|are|was)\s+(?:a|an|the|one|india's|a leading)\b/) ?? start.match(/^About\s+([A-Z][A-Za-z0-9&.'-]+(?:\s+[A-Z][A-Za-z0-9&.'-]+){0,2})\s*[:\n]/);
+  if (!m) return null;
+  const name = m[1].trim();
+  if (/^(we|our|the|this|it|company|role|job|position|team|client|about|you|they|he|she)$/i.test(name)) return null;
+  const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const [a, b] = [key(name), key(company)];
+  if (!a || !b || a.includes(b) || b.includes(a) || a.slice(0, 5) === b.slice(0, 5)) return null;
+  return name;
+}

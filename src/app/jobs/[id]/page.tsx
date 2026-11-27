@@ -12,7 +12,7 @@ import { RECHECK_AFTER, SKIP_BELOW, ghostSigns, skipReason } from "../../../../c
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../../../convex/lib/followups";
 import { CompanyMark, FitBadge, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { metaOf, StageChip } from "@/components/JobState";
-import { showTitle } from "@/lib/tidy";
+import { hiringFor, showCompany, showTitle } from "@/lib/tidy";
 import { CvMatch } from "@/components/CvMatch";
 import { downloadDocx } from "@/lib/docx";
 import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, TailorButton, GapAnswers } from "@/components/job-client";
@@ -381,6 +381,12 @@ export default function JobPage() {
         <CompanyMark job={job} size={48} />
         <div className="min-w-0">
           <h1 className="font-[family-name:var(--font-display-face)] text-[22px] leading-tight font-semibold tracking-[-0.02em] sm:text-[28px]">{showTitle(job.title)}</h1>
+          {hiringFor(job.description, job.company) && (
+            <p className="mt-1 text-[15px] font-semibold text-ink">
+              Hiring for {hiringFor(job.description, job.company)}
+              <span className="font-normal text-ink-3"> · posted by {showCompany(job.company)}</span>
+            </p>
+          )}
           <p className="row-meta mt-1 !text-[15px]">
             {payShown && <span className="tnum font-semibold text-ink">{payShown} · </span>}
             {metaOf(job)}
