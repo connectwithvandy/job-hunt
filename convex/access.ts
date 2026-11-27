@@ -144,6 +144,33 @@ export const removePartner = internalMutation({
   },
 });
 
+/**
+ * Move a partner grant to another email (e.g. the partner gave the wrong one and the person signed up with
+ * their own), optionally with new dates. Sends no email: the welcome isn't resent, and the 3-day reminder skips
+ * anyone with an account. Applies at once if the new email has an account. Run by the owner, e.g.
+ * npx convex run --prod access:movePartnerGrant '{"fromEmail":"old@x.com","toEmail":"new@x.com"}'
+ */
+export const movePartnerGrant = internalMutation({
+  args: { fromEmail: v.string(), toEmail: v.string(), from: v.optional(v.number()), until: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const fromEmail = args.fromEmail.trim().toLowerCase();
+    const toEmail = args.toEmail.trim().toLowerCase();
+    const grant = await ctx.db.query("partnerGrants").withIndex("by_email", (q) => q.eq("email", fromEmail)).first();
+    if (!grant) return "no partner grant for that email";
+    const taken = await ctx.db.query("partnerGrants").withIndex("by_email", (q) => q.eq("email", toEmail)).first();
+    if (taken) return "the new email already has a partner grant";
+    await ctx.db.patch("partnerGrants", grant._id, {
+      email: toEmail,
+      appliedAt: undefined,
+      ...(args.from !== undefined ? { from: args.from } : {}),
+      ...(args.until !== undefined ? { until: args.until } : {}),
+    });
+    const row = await accessByEmail(ctx, toEmail);
+    if (row) await applyPartnerGrant(ctx, row._id);
+    return row ? "moved and applied" : "moved (no account on the new email yet)";
+  },
+});
+
 async function accessByEmail(ctx: QueryCtx, email: string) {
   const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", email)).first();
   return user ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", user._id)).unique() : null;
