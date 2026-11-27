@@ -655,3 +655,14 @@ export const partnerSeats = query({
     return (await ctx.db.query("partnerGrants").take(500)).length;
   },
 });
+
+/** Marks one of the owner's own extra accounts as internal, so it stays out of the numbers. Run from the CLI. */
+export const markInternal = internalMutation({
+  args: { email: v.string(), internal: v.optional(v.boolean()) },
+  handler: async (ctx, { email, internal: on }) => {
+    const row = await ctx.db.query("access").withIndex("by_email", (q) => q.eq("email", email.trim().toLowerCase())).first();
+    if (!row) throw new ConvexError("No account with that email.");
+    await ctx.db.patch("access", row._id, { internal: on ?? true });
+    return row.email;
+  },
+});

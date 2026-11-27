@@ -362,7 +362,7 @@ function UsageLine({ now, u }: { now: number; u?: { lastSeenAt?: number; setUp: 
 /** The numbers at a glance: who's waiting, who's using it, who's gone quiet, who paid. Then the step-by-step funnel. */
 function Overview({ list: all, usage, ownerEmail, count }: { list: { waiting: Doc<"access">[]; approved: Doc<"access">[] }; usage: { usage: { lastSeenAt?: number }[]; steps: { step: string; people: number }[]; now: number } | null; ownerEmail?: string; count: () => Promise<void> }) {
   // Your own account and your test accounts aren't members, so they don't count (the funnel leaves them out too).
-  const member = (a: Doc<"access">) => !isInternalAccount(a.email, ownerEmail ? [ownerEmail] : []);
+  const member = (a: Doc<"access">) => !a.internal && !isInternalAccount(a.email, ownerEmail ? [ownerEmail] : []);
   const list = { waiting: all.waiting.filter(member), approved: all.approved.filter(member) };
   const day = 86_400_000;
   const active = usage ? usage.usage.filter((u) => u.lastSeenAt && usage.now - u.lastSeenAt < 7 * day).length : null;

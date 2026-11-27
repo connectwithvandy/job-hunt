@@ -129,6 +129,8 @@ export default defineSchema({
     feedbackAskedAt: v.optional(v.number()),
     /** Paid time given through a partner deal (not paid in the app), shown on the Billing page. */
     partner: v.optional(v.object({ name: v.string(), url: v.string(), from: v.number(), until: v.number() })),
+    /** The owner's own extra accounts (e.g. a second Gmail used for a test walk): left out of every number. Since 27 Nov 2026. */
+    internal: v.optional(v.boolean()),
     /** The secret in this person's one-click unsubscribe link, made the first time a daily email goes out. */
     unsubKey: v.optional(v.string()),
     /** The last time they hit a paid-only limit and saw "Get the Job Hunt Pass", what it was, and how often: the warmest people to write to. */

@@ -64,7 +64,7 @@ export const funnelData = internalQuery({
     const owners = (env.OWNER_EMAILS ?? "").split(",").map((x) => x.trim());
     for (const p of people) {
       // The owner and her test accounts aren't members: leave them out of every number.
-      if (isInternalAccount(p.email, owners)) continue;
+      if (p.internal || isInternalAccount(p.email, owners)) continue;
       counts["Let in"]++;
       const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", p.userId)).unique();
       if (profile?.onboarded) counts["Set up"]++;
