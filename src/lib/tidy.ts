@@ -58,10 +58,11 @@ export function tidyPlace(place?: string) {
   const kept = parts.filter((p) => !(hasIndianCity && /^india$/i.test(p)) && !(parts.length > 1 && STATES.some((s) => s.toLowerCase() === p.toLowerCase())));
   // With a known city, a mall or street name beside it is noise ("Vega City Mall-Ls-Blr, Bengaluru" → "Bengaluru").
   if (hasIndianCity) {
-    const city = kept.find(isCity)!;
-    // The city alone: neighbourhoods and store names ("Biba Indira Nagar", "Nagarbhavi") made one city read many
-    // ways (27 Nov review).
-    return city;
+    // Cities alone: neighbourhoods and store names ("Biba Indira Nagar", "Nagarbhavi") made one city read many
+    // ways (27 Nov review). A role open in two cities names both, Bengaluru first, so "Mumbai; Bengaluru" never reads
+    // as Mumbai only (28 Nov review: it looked like a filter leak under "Bengaluru or remote").
+    const cities = kept.filter(isCity).sort((a, b) => Number(b === "Bengaluru") - Number(a === "Bengaluru"));
+    return cities.length > 2 ? `${cities.slice(0, 2).join(", ")} +${cities.length - 2}` : cities.join(", ");
   }
   return kept.slice(0, 2).join(", ");
 }
@@ -105,3 +106,30 @@ export { hiringFor } from "../../convex/lib/company";
 /** The company a card shows: "Buildesk via Cravingcode" when a recruiter posted it for another company. */
 export const employerLine = (j: { company: string; hiringFor?: string }) =>
   j.hiringFor ? `${j.hiringFor} via ${showCompany(j.company)}` : showCompany(j.company);
+
+/**
+ * Some boards send a posting as one block with its line breaks lost ("…operations.Our team", "KEY RESPONSIBILITIES"
+ * run inline). Put breaks back so it reads as sections and lists (28 Nov review: "one 60-line block").
+ */
+export function reflow(text: string) {
+  if ((text.match(/\n/g) ?? []).length >= 3) return text;
+  let t = text
+    // "operations.Our" → a sentence break.
+    .replace(/([a-z)])\.([A-Z])/g, "$1. $2")
+    // Inline bullets.
+    .replace(/\s+[•▪●]\s*/g, "\n• ")
+    // Inline shouty headings ("KEY RESPONSIBILITIES", "WHAT YOU'LL DO:") on their own line.
+    .replace(/\s*\b((?:[A-Z][A-Z'&/-]+ ){1,4}[A-Z][A-Z'&/-]+:?)(?=\s|$)/g, (m, h: string) => (h.replace(/[^A-Z]/g, "").length >= 6 ? `\n${h.replace(/:$/, "")}\n` : m));
+  // Long runs of sentences: a paragraph every three.
+  t = t
+    .split("\n")
+    .map((line) => {
+      const sentences = line.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) ?? [line];
+      if (sentences.length <= 4) return line;
+      const out: string[] = [];
+      for (let i = 0; i < sentences.length; i += 3) out.push(sentences.slice(i, i + 3).join("").trim());
+      return out.join("\n");
+    })
+    .join("\n");
+  return t;
+}

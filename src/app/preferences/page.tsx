@@ -32,6 +32,8 @@ function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[];
   const [maxAge, setMaxAge] = useState(prefs.maxAgeDays);
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
+  // Lime only once something changed, the same as About you (28 Nov review: Save looked different page to page).
+  const dirty = minPay !== (prefs.minPayL ? String(prefs.minPayL) : "") || levels.join() !== prefs.levels.join() || words !== prefs.blockedWords.join(", ") || maxAge !== prefs.maxAgeDays;
   const toggle = (l: Seniority) => setLevels((now) => (now.includes(l) ? now.filter((x) => x !== l) : [...now, l]));
   return (
     <div className="max-w-2xl">
@@ -92,7 +94,7 @@ function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[];
         </div>
         <div className="flex items-center gap-3">
           <button
-            className="btn btn-primary btn-sm"
+            className={`btn btn-sm ${dirty ? "btn-primary" : "btn-secondary"}`}
             disabled={busy}
             onClick={async () => {
               setBusy(true);

@@ -9,6 +9,7 @@ import type { Id } from "../../../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
 import { EmptyPack } from "@/components/job-client";
 import { CvLayoutPick, ResumeDoc, type Resume } from "@/components/ResumeDoc";
+import { FitWidth } from "@/components/FitWidth";
 import { TailoredEditor } from "@/components/ResumeFields";
 import { type ActionState, attempt, DownloadMenu, Feedback } from "@/components/ui";
 import { CvChanges } from "@/components/CvChanges";
@@ -90,9 +91,9 @@ export default function TailoredResume() {
           />
         </section>
       )}
-      <div className="max-w-full overflow-x-auto">
+      <FitWidth>
         <ResumeDoc r={pack.resume} photoUrl={me.photoUrl} logos={logoMap((all ?? []).map((m) => m.resume))} plain={plain} />
-      </div>
+      </FitWidth>
       {sent ? (
         <p className="no-print w-full max-w-[210mm] text-sm text-ink-2">The CV you sent on {new Date(sent.at).toLocaleDateString()}. It stays as it was when you rewrite this job&apos;s CV.</p>
       ) : (

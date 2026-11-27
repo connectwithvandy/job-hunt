@@ -9,6 +9,7 @@ import { AnswersForm, AutofillLink, CompanyLinesForm, FactsForm, ResumeEditor, U
 import { MasterEditor } from "@/components/ResumeFields";
 import { Loading } from "@/components/Loading";
 import { CvLayoutPick, ResumeDoc } from "@/components/ResumeDoc";
+import { FitWidth } from "@/components/FitWidth";
 import { downloadDocx } from "@/lib/docx";
 import { attempt, DownloadMenu, type ActionState, Feedback } from "@/components/ui";
 
@@ -96,9 +97,9 @@ export default function Cvs() {
             )}
             <Feedback state={state} />
           </div>
-          <div className="overflow-x-auto pb-4">
+          <FitWidth>
             <ResumeDoc r={current.resume} photoUrl={me.photoUrl} plain={plain} />
-          </div>
+          </FitWidth>
           <div className="no-print mt-8 grid max-w-4xl gap-6">
             <UploadResume replace={current} />
             <CompanyLinesForm key={current._id + current.resume.experience.map((e) => e.about ?? "").join("|")} resumeId={current._id} resume={current.resume} />

@@ -199,6 +199,23 @@ body {
 .field::placeholder { color: var(--ink-3); }
 .field:focus, .field:focus-visible { background: var(--card); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
 select.field option { background: var(--card); }
+/* One dropdown look instead of the browser's grey box and arrow (28 Nov review): our own chevron everywhere, and the
+   small toolbar dropdowns ("Best fit", "One column") read as pills like the chips beside them. */
+select.field {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8d84' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  padding-right: 2.2rem;
+}
+select.field.\!w-auto, select.field.w-auto {
+  border-radius: 999px;
+  background-color: var(--card);
+  font-weight: 600;
+  font-size: 13px;
+  padding-left: 0.9rem;
+}
 @media (pointer: coarse) { .field { font-size: 16px; min-height: 44px; } }
 
 /* Phone tab bar: frosted white (dark: frosted card); solid when the phone asks for less transparency. */
@@ -379,6 +396,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visib
 .letter p { white-space: pre-line; margin-bottom: 4mm; }
 
 @media print {
+  .fit-width { zoom: 1 !important; }
   .letter { box-shadow: none; }
   @page { size: A4; margin: 0; }
   html, body { background: #fff !important; }

@@ -68,11 +68,14 @@ export function ProfileMenu() {
   // On a phone the tabs scroll sideways: bring the open one into view (27 Nov review: "Plan & billing" sat off-screen,
   // so nothing showed where you were). Scrolls only the row, never the page.
   const row = useRef<HTMLUListElement>(null);
+  const [atStart, setAtStart] = useState(true);
   useEffect(() => {
     const ul = row.current;
     const on = ul?.querySelector<HTMLElement>('[aria-current="page"]');
     if (!ul || !on || ul.scrollWidth <= ul.clientWidth) return;
-    ul.scrollLeft = Math.max(0, on.offsetLeft - ul.offsetLeft - 16);
+    // Part of the tab before it stays in view, so the row shows there is more on both sides (28 Nov review).
+    ul.scrollLeft = Math.max(0, on.offsetLeft - ul.offsetLeft - 56);
+    setAtStart(ul.scrollLeft < 4);
   }, [path]);
   return (
     <nav className="no-print mb-6 md:sticky md:top-20 md:mb-0 md:w-52 md:shrink-0 md:self-start">
@@ -83,7 +86,11 @@ export function ProfileMenu() {
           <InviteFriend />
         </div>
       )}
-      <ul ref={row} className="flex gap-1 overflow-x-auto border-b border-line text-sm max-md:[mask-image:linear-gradient(to_right,black_85%,transparent)] max-md:pr-8 md:flex-col md:border-b-0">
+      <ul
+        ref={row}
+        onScroll={(e) => setAtStart(e.currentTarget.scrollLeft < 4)}
+        className={`flex gap-1 overflow-x-auto border-b border-line text-sm max-md:pr-8 md:flex-col md:border-b-0 ${atStart ? "max-md:[mask-image:linear-gradient(to_right,black_85%,transparent)]" : "max-md:[mask-image:linear-gradient(to_right,transparent,black_12%,black_85%,transparent)]"}`}
+      >
         {PROFILE.pages.map((p) => {
           const on = isOn(path, p.href);
           return (

@@ -155,7 +155,14 @@ export default function Billing() {
                 <span>
                   {date(p.paidAt)} · {p.plan === "pass" ? "3 months" : p.plan === "week" ? "Week Pass" : "1 month"} · ₹{p.amount.toLocaleString("en-IN")}
                   {/* An amount that isn't today's price says why, so nobody reads it as an overcharge (27 Nov review). */}
-                  {!isTodaysPrice(p.plan, p.amount) && <span className="text-ink-3"> (price on {date(p.paidAt)})</span>}
+                  {!isTodaysPrice(p.plan, p.amount) && (
+                    // Says what the next payment costs too, so an older, higher price never reads as what you'll pay again (28 Nov review).
+                    <span className="text-ink-3">
+                      {" "}
+                      (the price on {date(p.paidAt)}
+                      {p.plan !== "week" && status.prices[p.plan as "month" | "pass"] ? `; it's ₹${status.prices[p.plan as "month" | "pass"].rupees.toLocaleString("en-IN")} now${status.founding ? ", your founding price" : ""}` : ""})
+                    </span>
+                  )}
                 </span>
                 <span className="text-ink-3">
                   Covers to {date(p.until)} ·{" "}
@@ -337,7 +344,14 @@ export default function Billing() {
                 <span>
                   {date(p.paidAt)} · {p.plan === "pass" ? "3 months" : p.plan === "week" ? "Week Pass" : "1 month"} · ₹{p.amount.toLocaleString("en-IN")}
                   {/* An amount that isn't today's price says why, so nobody reads it as an overcharge (27 Nov review). */}
-                  {!isTodaysPrice(p.plan, p.amount) && <span className="text-ink-3"> (price on {date(p.paidAt)})</span>}
+                  {!isTodaysPrice(p.plan, p.amount) && (
+                    // Says what the next payment costs too, so an older, higher price never reads as what you'll pay again (28 Nov review).
+                    <span className="text-ink-3">
+                      {" "}
+                      (the price on {date(p.paidAt)}
+                      {p.plan !== "week" && status.prices[p.plan as "month" | "pass"] ? `; it's ₹${status.prices[p.plan as "month" | "pass"].rupees.toLocaleString("en-IN")} now${status.founding ? ", your founding price" : ""}` : ""})
+                    </span>
+                  )}
                 </span>
                 <span className="text-ink-3">
                   Covers to {date(p.until)} ·{" "}

@@ -338,6 +338,9 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
   const [thinking, setThinking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
+  // Save turns lime once something changed, like every other Profile page (28 Nov review).
+  const [edited, setEdited] = useState(false);
+  const dirty = isNew || edited || !!draft.trim() || titles.join("|") !== track.titles.join("|");
   const addTitle = () => {
     const t = draft.trim();
     if (t && !titles.some((x) => x.toLowerCase() === t.toLowerCase())) setTitles([...titles, t]);
@@ -354,6 +357,7 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
   return (
     <form
       className="card relative space-y-4 overflow-hidden p-6"
+      onChange={() => setEdited(true)}
       onSubmit={async (e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
@@ -373,6 +377,7 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
             });
             setTitles(all);
             setDraft("");
+            setEdited(false);
             return "Saved.";
           }),
         );
@@ -505,7 +510,7 @@ export function TrackForm({ track, resumes, isNew = false }: { track: TrackInput
         </div>
       </details>
       <div className="flex items-center gap-3">
-        <button className="btn btn-primary btn-sm" disabled={busy}>
+        <button className={`btn btn-sm ${dirty ? "btn-primary" : "btn-secondary"}`} disabled={busy}>
           {busy ? "Saving…" : isNew ? "Add role" : "Save"}
         </button>
         {isNew && (

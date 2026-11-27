@@ -12,7 +12,7 @@ import { RECHECK_AFTER, SKIP_BELOW, ghostSigns, skipReason } from "../../../../c
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../../../convex/lib/followups";
 import { CompanyMark, FitBadge, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
 import { metaOf, StageChip } from "@/components/JobState";
-import { hiringFor, showCompany, showTitle } from "@/lib/tidy";
+import { hiringFor, reflow, showCompany, showTitle } from "@/lib/tidy";
 import { CvMatch } from "@/components/CvMatch";
 import { downloadDocx } from "@/lib/docx";
 import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, TailorButton, GapAnswers } from "@/components/job-client";
@@ -740,7 +740,8 @@ function describe(lines: string[]): Block[] {
   return out;
 }
 
-function Description({ text, url }: { text: string; url: string }) {
+function Description({ text: raw, url }: { text: string; url: string }) {
+  const text = reflow(raw);
   const cut = text.length >= DESCRIPTION_CAP - 10;
   const shown = cut ? text.slice(0, text.lastIndexOf("\n", DESCRIPTION_CAP) > 0 ? text.lastIndexOf("\n", DESCRIPTION_CAP) : text.lastIndexOf(". ") + 1) : text;
   const blocks = shown.split(/\n+/).map((l) => l.trim()).filter(Boolean);

@@ -184,9 +184,9 @@ function Tracker() {
           ref={(el) => {
             // The chosen stage's chip in view when the page opens (27 Nov review: "Sent" sat off-screen).
             const on = el?.querySelector<HTMLElement>('[aria-selected="true"]');
-            if (el && on && on.offsetLeft + on.offsetWidth > el.clientWidth) el.scrollLeft = on.offsetLeft - 16;
+            if (el && on && on.offsetLeft + on.offsetWidth > el.clientWidth) el.scrollLeft = on.offsetLeft - 64; // the chip before it stays partly in view (28 Nov review)
           }}
-          className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pr-10 pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]"
+          className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pr-10 pb-1 [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-24px),transparent)]"
           role="tablist"
           aria-label="Stages"
         >

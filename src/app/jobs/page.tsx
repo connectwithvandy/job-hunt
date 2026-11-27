@@ -11,7 +11,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { CompanyMark, FitBadge, bestScore, jobTrackKey } from "@/components/bits";
 import { strongCompany } from "../../../convex/lib/quickFit";
-import { JobRow, metaOf, postedAgo, StateButton } from "@/components/JobState";
+import { JobRow, metaOf, postedAgo, StateButton, workMode } from "@/components/JobState";
 import { employerLine, showCompany, showPlace, showTitle } from "@/lib/tidy";
 import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
@@ -162,6 +162,10 @@ function Jobs() {
   const kept = showWeak || show || searching || newOnly ? sorted : sorted.filter((j) => !isWeak(j));
   // What the last day's searches found leads the list, in its own group, best fit first (27 Nov review: freshness).
   const newGroup = sort === "fit" && !show && !newOnly;
+  // Today's "N new to you" counts every new job; when filters or looser matches hide some here, the heading says so.
+  const allNew = jobs.filter((j) => unique.has(j._id) && isNewJob(j, now) && !isOld(j)).length;
+  const newHeading = (shownNew: number) =>
+    allNew > shownNew ? `New to you since yesterday · ${allNew} found, ${allNew - shownNew} hidden by your filters or as looser matches` : "New to you since yesterday";
   const visible = newGroup ? [...kept.filter((j) => isNewJob(j, now)), ...kept.filter((j) => !isNewJob(j, now))] : kept;
   // In the fit order, a heading marks where AI scores give way to first guesses, and where low AI scores start.
   const section = (j: ListJob) => (newGroup && isNewJob(j, now) ? 3 : sort !== "fit" || j.favorite ? null : fitTier(fitFor(j, track)));
@@ -569,7 +573,8 @@ function Jobs() {
                     </div>
                     <div className="row-meta mt-3 flex justify-between gap-2">
                       <span className="truncate">{employerLine(j)}</span>
-                      <span className="max-w-[50%] truncate">{showPlace(j)}</span>
+                      {/* Same place and work setting as the phone row (28 Nov review: "Mumbai" here, "Mumbai · Remote" there). */}
+                      <span className="max-w-[55%] truncate">{[showPlace(j), workMode(j.workSetting)].filter(Boolean).join(" · ")}</span>
                     </div>
                     <Link href={`/jobs/${j._id}`} onClick={(e) => open(e, j._id)} scroll={false} className="row-title mt-0.5 line-clamp-2 hover:underline">
                       {showTitle(j.title)}
@@ -577,6 +582,7 @@ function Jobs() {
                     {listed && <div className="tnum mt-2 font-[family-name:var(--font-display-face)] text-lg font-semibold">{listed}</div>}
                     <div className="row-meta mt-1 line-clamp-2">
                       {tags(j)}
+                      {strongCompany(j.company) && <span className="mono mr-2">Top company</span>}
                       {j.postedAt ? `Posted ${postedAgo(j.postedAt)}` : ""}
                     </div>
                     <div className="mt-auto flex items-center gap-1 pt-4">
@@ -608,7 +614,7 @@ function Jobs() {
               <div className={view === "auto" ? "max-lg:hidden" : ""}>
                 {fresh.length > 0 ? (
                   <>
-                    <h2 className="mb-2 text-[13px] font-semibold text-ink-2">New to you since yesterday</h2>
+                    <h2 className="mb-2 text-[13px] font-semibold text-ink-2">{newHeading(visible.filter((j) => isNewJob(j, now)).length)}</h2>
                     <div className="mb-8">{grid(fresh)}</div>
                     {groupsOf(rest).map((g, gi) => (
                       <section key={gi} className="mb-8">
@@ -635,7 +641,7 @@ function Jobs() {
                 const groups: { heading: string | null; items: ListJob[] }[] = [];
                 rows.forEach((j, i) => {
                   const here = section(j);
-                  if (i === 0 || here !== section(rows[i - 1])) groups.push({ heading: here === null ? null : SECTION_NAMES[here], items: [] });
+                  if (i === 0 || here !== section(rows[i - 1])) groups.push({ heading: here === null ? null : here === 3 ? newHeading(visible.filter((j) => isNewJob(j, now)).length) : SECTION_NAMES[here], items: [] });
                   groups.at(-1)!.items.push(j);
                 });
                 return groups.map((g, gi) =>

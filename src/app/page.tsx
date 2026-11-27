@@ -442,7 +442,7 @@ export default function Today() {
         </Group>
       )}
       {replyItems.length > 0 && (
-        <Group label="Replies">
+        <Group label={replyItems.every((t) => t.key === "stories") ? "Interview prep" : replyItems.some((t) => t.key === "stories") ? "Replies and interview prep" : "Replies"}>
           <TodoList items={replyItems} />
         </Group>
       )}
