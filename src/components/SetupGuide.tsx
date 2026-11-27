@@ -124,7 +124,10 @@ export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: G
     return () => clearTimeout(t);
   }, [nextKey, hold]);
 
-  if (!next) return null;
+  // LinkedIn connections are optional (27 Nov, owner OK): once the five main steps are done, setup is done and Today
+  // stops asking. The upload stays on Profile → LinkedIn & Gmail for anyone who wants it.
+  const mainDone = steps.filter((s) => s.key !== "connections").every((s) => s.done);
+  if (!next || (mainDone && next.key === "connections")) return null;
   const closePopup = () => {
     remember(`guide-seen-${next.key}`);
     setPopup(false);

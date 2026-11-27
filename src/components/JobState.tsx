@@ -9,6 +9,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { useSetStatus } from "@/components/Celebrate";
 import { CompanyMark, dayStart, timeAgo } from "@/components/bits";
 import { showCompany, showPlace, showTitle } from "@/lib/tidy";
+import { STAGE_WORDS } from "@/lib/stages";
 
 /** What a job's button needs to know. Today passes full jobs, Jobs the list's lighter ones. */
 type StateJob = { _id: Id<"jobs">; status: string; url: string; company: string; title: string; hasPack?: boolean; pack?: unknown; location?: string; workSetting?: string; postedAt?: string; scores?: unknown[] };
@@ -72,7 +73,7 @@ export function metaOf(j: StateJob, pay?: string | null) {
   // Company and age first (the facts that matter most); place and work setting last, so a narrow screen cuts those.
   const parts: { text: string; phoneHide?: boolean; strong?: boolean }[] = [
     { text: showCompany(j.company) },
-    ...(j.postedAt ? [{ text: ago(j.postedAt) }] : []),
+    ...(j.postedAt ? [{ text: postedAgo(j.postedAt) }] : []),
     ...(showPlace(j) ? [{ text: showPlace(j) }] : []),
     ...(workMode(j.workSetting) ? [{ text: workMode(j.workSetting)! }] : []),
     // Pay last, in 600 (it's listed only when the posting gives it).
@@ -94,24 +95,20 @@ export function metaOf(j: StateJob, pay?: string | null) {
   );
 }
 
+/** A posting's age, with a plain warning once it's 3 weeks old: roles that old are often filled (27 Nov review). */
+export const postedAgo = (postedAt: string) => `${ago(postedAt)}${Date.now() - Date.parse(postedAt) > 21 * 86_400_000 ? ", may be filled" : ""}`;
+
 /** "22 days ago", "2 months ago": words, not "22d". */
 export const ago = (when: string | number) => timeAgo(when).replace(/(\d+)d ago/, (_, n) => `${n} ${n === "1" ? "day" : "days"} ago`).replace(/(\d+)mo ago/, (_, n) => `${n} ${n === "1" ? "month" : "months"} ago`);
 
 
-/** The stage a job's status reads as, in the same sales words as Today and Applications. */
-export const STAGE_OF: Record<string, string> = {
-  new: "Prospect",
-  applying: "Proposal",
-  applied: "Sent",
-  screening: "Discovery",
-  interview: "Meeting",
-  offer: "Closed won",
-  rejected: "Closed lost",
-  dismissed: "Not for me",
-};
+/** The stage a job's status reads as, in the same sales words as Today and Applications (src/lib/stages.ts). */
+export const STAGE_OF: Record<string, string> = STAGE_WORDS;
 
 /** "PROSPECT ▾": the job's stage as a chip that opens a menu to move it (a sheet on a phone). */
-export function StageChip({ jobId, status }: { jobId: Id<"jobs">; status: string }) {
+export function StageChip({ jobId, status, qualified }: { jobId: Id<"jobs">; status: string; qualified?: boolean }) {
+  // An open job with a real fit of 60+ reads "Qualified", as Today counts it (27 Nov review: 82 under "Prospect").
+  const word = status === "new" && qualified ? "Qualified" : (STAGE_OF[status] ?? status);
   const setStatus = useSetStatus();
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -125,11 +122,11 @@ export function StageChip({ jobId, status }: { jobId: Id<"jobs">; status: string
         ref={button}
         type="button"
         aria-expanded={open}
-        aria-label={`Stage: ${STAGE_OF[status] ?? status}. Change stage`}
+        aria-label={`Stage: ${word}. Change stage`}
         onClick={() => setOpen((o) => !o)}
         className="mono relative inline-flex min-h-8 items-center gap-1 rounded-full border border-line-strong bg-card px-3 !text-ink after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
       >
-        {STAGE_OF[status] ?? status} <span aria-hidden>▾</span>
+        {word} <span aria-hidden>▾</span>
       </button>
       {open && (
         <>
@@ -191,6 +188,13 @@ export function JobRow({
   save?: React.ReactNode;
 }) {
   const button = <StateButton j={j} hideOpen />;
+  const dismiss = onDismiss && (
+    <button type="button" className="btn-icon" aria-label={`Not for me: ${j.company}`} title="Not for me" onClick={onDismiss}>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+        <path d="M6 6l12 12M18 6 6 18" />
+      </svg>
+    </button>
+  );
   const hasButton = !(stateOf(j) === "open" && !j.scores?.length);
   return (
     <li className={`row row-link items-start sm:items-center ${selected ? "bg-soft" : ""}`} aria-current={selected || undefined}>
@@ -202,20 +206,23 @@ export function JobRow({
         </Link>
         <span className="row-meta line-clamp-2 sm:line-clamp-1">{meta}</span>
         {tagLine !== undefined && <span className="mt-1 block min-h-4 truncate leading-4">{tagLine}</span>}
-        {hasButton && <div className="above mt-2 sm:hidden">{button}</div>}
+        {/* Phone: the job's button, save and "not for me" in one row under the details, so the title gets the width
+            (27 Nov review: at 320px the icons took a third of the row). Each icon is 44px to tap. */}
+        {(hasButton || save || onDismiss) && (
+          <div className="above mt-2 flex items-center gap-1 sm:hidden">
+            {hasButton && button}
+            <span className="flex-1" />
+            {save}
+            {dismiss}
+          </div>
+        )}
       </div>
       {hasButton && <div className="above hidden shrink-0 sm:block">{button}</div>}
       {ring && <span className="flex w-10 shrink-0 justify-center max-sm:w-9">{ring}</span>}
-      {/* Save and "not for me": side by side with a mouse, stacked on a phone so the title keeps its room. */}
-      <span className="above flex shrink-0 flex-col items-center max-sm:-my-2 max-sm:-mr-2 sm:flex-row sm:gap-1">
+      {/* Save and "not for me" beside the ring with a mouse. */}
+      <span className="above hidden shrink-0 items-center gap-1 sm:flex">
         {save && <span className="reveal-on-hover inline-flex">{save}</span>}
-        {onDismiss && (
-          <button type="button" className="btn-icon reveal-on-hover" aria-label={`Not for me: ${j.company}`} title="Not for me" onClick={onDismiss}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <path d="M6 6l12 12M18 6 6 18" />
-            </svg>
-          </button>
-        )}
+        {dismiss && <span className="reveal-on-hover inline-flex">{dismiss}</span>}
       </span>
     </li>
   );

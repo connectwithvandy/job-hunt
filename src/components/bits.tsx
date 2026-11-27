@@ -66,21 +66,19 @@ export function FitBadge({ job, size = 36 }: { job: Pick<JobLike, "scores"> & { 
   if (value === undefined) return <span className="inline-block shrink-0" style={{ width: size, height: size }} aria-hidden />;
   const r = size / 2 - 1.5;
   const c = 2 * Math.PI * r;
-  const label = guess ? `Rough guess, ${value}` : `Fit ${value} of 100`;
+  // A guess is a word, never a number: "~63" beside "nothing scored 60+" read as the app disagreeing with itself
+  // (27 Nov review). Numbers are for real scores only.
+  const word = value >= 55 ? "Likely" : value >= 40 ? "Maybe" : "Low";
+  const label = guess ? `Not scored yet. Rough guess: ${word.toLowerCase()} fit` : `Fit ${value} of 100`;
   return (
     <span
       role="img"
       aria-label={label}
       className="relative inline-flex shrink-0 items-center justify-center"
       style={{ width: size, height: size }}
-      title={guess ? "Rough guess from the title, your CV's words and the place. Open the job for the real score." : `Fit ${value}, scored by the AI on the whole job`}
+      title={guess ? "Not scored yet: a rough guess from the title, your CV's words and the place. Score it for a real number." : `Fit ${value}, scored by the AI on the whole job`}
     >
-      {guess && (
-        // A rough guess gets a dashed ring, so it reads as a guess but the slot never looks empty.
-        <svg width={size} height={size} aria-hidden>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="3 3" />
-        </svg>
-      )}
+
       {!guess && (
         <svg width={size} height={size} className="-rotate-90" aria-hidden>
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth="3" />
@@ -97,10 +95,17 @@ export function FitBadge({ job, size = 36 }: { job: Pick<JobLike, "scores"> & { 
           />
         </svg>
       )}
-      <span className={`tnum absolute font-semibold ${guess ? "text-ink-3" : "text-ink"}`} style={{ fontSize: size >= 44 ? 14 : 12 }} aria-hidden>
-        {guess ? "~" : ""}
-        {drawIn ? <CountUp to={value} /> : value}
-      </span>
+      {guess ? (
+        // A guess is a readable word with "guess" under it, no ring: only real scores get the ring (27 Nov review).
+        <span className="flex flex-col items-center leading-none" aria-hidden>
+          <span className="text-[12px] font-semibold text-ink-2">{word}</span>
+          <span className="mt-0.5 text-[10px] text-ink-3">guess</span>
+        </span>
+      ) : (
+        <span className="tnum absolute font-semibold text-ink" style={{ fontSize: size >= 44 ? 14 : 12 }} aria-hidden>
+          {drawIn ? <CountUp to={value} /> : value}
+        </span>
+      )}
     </span>
   );
 }

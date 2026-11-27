@@ -2,6 +2,7 @@
 
 import { useAction, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
+import { showCompany, showTitle } from "@/lib/tidy";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useSetStatus } from "./Celebrate";
@@ -211,12 +212,15 @@ export function TailorButton({
   defaultResumeId,
   redo,
   anyway,
+  primary,
 }: {
   jobId: Id<"jobs">;
   resumes: { _id: Id<"resumes">; label: string }[];
   defaultResumeId: Id<"resumes"> | null;
   redo: boolean;
   anyway?: boolean;
+  /** The page's one lime button (the empty tailored-CV page). */
+  primary?: boolean;
 }) {
   const tailor = useAction(api.agent.tailor);
   const getQuestions = useAction(api.agent.tailorQuestions);
@@ -318,7 +322,7 @@ export function TailorButton({
         </label>
       )}
       <button
-        className="btn btn-secondary btn-sm"
+        className={`btn btn-sm ${primary ? "btn-primary" : "btn-secondary"}`}
         disabled={busy || asking || !resumeId}
         onClick={() =>
           run(async () => {
@@ -358,6 +362,32 @@ export function TailorButton({
       <LeftToday kind="cvsLeft" label="tailored CVs" />
       <Feedback state={busy ? null : state} />
       {busy && !asking && <WritingProgress letterOnly={letterRun} />}
+    </div>
+  );
+}
+
+/**
+ * The tailored CV or cover letter page before one is written: the button to write it right there, with what's left
+ * today, instead of a dead end that only said "Back to the job" (27 Nov review). The page fills in when it's done.
+ */
+export function EmptyPack({ jobId, kind, job }: { jobId: Id<"jobs">; kind: "cv" | "letter"; job?: { title: string; company: string } }) {
+  const me = useQuery(api.users.me);
+  return (
+    <div className="card mx-auto mt-6 max-w-xl p-6 sm:p-8">
+      {job && <p className="row-meta mb-1">{showTitle(job.title)} · {showCompany(job.company)}</p>}
+      <h1 className="h2">{kind === "cv" ? "No tailored CV for this job yet" : "No cover letter for this job yet"}</h1>
+      <p className="mt-1 text-[15px] text-ink-2">
+        {kind === "cv"
+          ? "JobPipe rewrites your CV for this job in about 2 minutes, with a cover letter. It never invents facts."
+          : "Write one with a tailored CV, or just the letter on its own. About 2 minutes."}
+      </p>
+      <div className="mt-5">
+        {me ? <TailorButton jobId={jobId} resumes={me.resumes} defaultResumeId={me.defaultResumeId} redo={false} primary /> : <Spinner />}
+      </div>
+      <p className="mt-3 text-[13px] text-ink-3">A CV and its cover letter count as one.</p>
+      <Link href={`/jobs/${jobId}`} className="btn-text -ml-1 mt-3 inline-flex min-h-11 items-center gap-1">
+        <span aria-hidden>←</span> Back to the job
+      </Link>
     </div>
   );
 }

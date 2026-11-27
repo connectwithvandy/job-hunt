@@ -66,7 +66,7 @@ function Chat() {
   return (
     <div className="mx-auto flex max-w-6xl gap-6">
       <aside className="hidden w-60 shrink-0 md:block">
-        <button className="btn btn-primary btn-sm mb-3 w-full" onClick={() => router.push("/chat")}>
+        <button className="btn btn-secondary btn-sm mb-3 w-full" onClick={() => router.push("/chat")}>
           + New chat
         </button>
         <ul className="space-y-1 text-sm">
@@ -173,7 +173,7 @@ function Chat() {
                   void submit(draft);
                 }
               }}
-              placeholder={busy ? "Writing a reply…" : "Ask anything. Enter sends, Shift+Enter adds a line."}
+              placeholder={busy ? "Writing a reply…" : "Ask anything."}
             />
             <button className="btn btn-primary btn-sm" disabled={busy || !draft.trim()}>
               Send

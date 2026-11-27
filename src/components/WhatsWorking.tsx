@@ -106,6 +106,8 @@ export function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; t
       </p>
       {/* What unlocks as results come in, in one list instead of three sentences with three numbers (27 Nov review). */}
       {(total < 5 || (countNoes(jobs, now) < 3 && !lessons)) && (
+        <>
+        <p className="mb-2 text-[13px] font-semibold text-ink-2">Unlocks as your applications get a result</p>
         <ul className="card mb-4 divide-y divide-line">
           {[
             { what: "Fit scores learn from your results", have: total, need: 3 },
@@ -121,6 +123,7 @@ export function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; t
             </li>
           ))}
         </ul>
+        </>
       )}
       <LessonsCard jobs={jobs} lessons={lessons} now={now} />
       {cards.length ? (

@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui";
 import { regionsOf } from "@/lib/regions";
 import { backOffice, titleMatches } from "../../../convex/lib/salesRoles";
 import { strongCompany } from "../../../convex/lib/quickFit";
-import { Logo } from "@/components/Sidebar";
+import { PublicHeader } from "@/components/PublicHeader";
 
 /** Titles searched for each review role, so the review can end with real open roles in India. */
 const ROLE_TITLES: Record<string, string[]> = {
@@ -32,12 +32,10 @@ export default function CvReview() {
   const [role, setRole] = useState("Account Executive");
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-12 lg:px-12">
-      <Link href="/" className="inline-flex">
-        <Logo />
-      </Link>
+    <div className="mx-auto max-w-5xl px-5 pb-12 lg:px-12">
+      <PublicHeader />
 
-      <div className="mt-10 grid gap-12 lg:grid-cols-[1.1fr_1fr]">
+      <div className="mt-6 grid gap-12 lg:grid-cols-[1.1fr_1fr]">
         <section>
           <p className="label text-accent">Free · no sign-up</p>
           <h1 className="display mt-3 text-4xl leading-[1.05] md:text-5xl">Would a sales hiring manager call you back?</h1>

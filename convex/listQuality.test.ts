@@ -47,24 +47,26 @@ test("the same role on two boards gets one key", () => {
   expect(sameRoleKey("Smartsheet", "Manager, Revenue Operations Analytics / Revops (Hybrid- Bangalore) (Bangalore East)")).toBe(
     sameRoleKey("Smartsheet", "Manager, Revenue Operations Analytics / Revops (Hybrid- Bangalore)"),
   );
+  expect(sameRoleKey("Jamf", "Enterprise Account Executive | New Logo | Mumbai")).toBe(sameRoleKey("Jamf", "Enterprise Account Executive | New Logo | Chennai/Hyderabad"));
+  expect(sameRoleKey("Jamf", "Enterprise Account Executive | New Logo | Bangalore")).not.toBe(sameRoleKey("Jamf", "Enterprise Account Executive | Existing Logo | Bangalore"));
   expect(sameRoleKey("Rippling", "Sales Manager, Sales Development (UK)")).not.toBe(sameRoleKey("Rippling", "Sales Manager, Sales Development (AUS)"));
 });
 
 test("pay that can't be a year's pay is hidden", () => {
   expect(payText("USD 45 – 90/year", {})).toBeNull();
   expect(payText("45000-55000 per year", {})).toBeNull();
-  expect(payText("₹60K/mo", {})).toBe("₹60K/mo");
-  expect(payText("900000 per year", {})).toBe("900000 per year");
+  expect(payText("₹60K/mo", {})).toBe("₹7.2 L/yr");
+  expect(payText("900000 per year", {})).toBe("₹9 L/yr");
   expect(payText("116,000 – 145,000/year", {})).toBe("116,000 – 145,000/year");
 });
 
 test("long rupee pay reads in lakhs", () => {
-  expect(payText("400000 per month", {})).toBe("₹4 L/month");
+  expect(payText("400000 per month", {})).toBeNull();
   // A board's own guess is not listed pay: we show nothing (owner, 19 Nov).
   expect(payText("₹1,400,000 – ₹2,400,000/year (est.)", {})).toBeNull();
   expect(payText("₹1,400,000 – ₹2,400,000/year", {})).toBe("₹14–24 L/yr");
   expect(payText("INR 650000 per year", {})).toBe("₹6.5 L/yr");
-  expect(payText("₹25 LPA", {})).toBe("₹25 LPA");
+  expect(payText("₹25 LPA", {})).toBe("₹25 L/yr");
 });
 
 test("open doors count people only at companies with a role that fits", () => {

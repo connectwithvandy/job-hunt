@@ -120,3 +120,12 @@ export function inRole(job: { title: string; trackKey?: string | null }, role: {
   if (job.trackKey === role.key) return true;
   return role.titles.some((t) => titleMatches(t, job.title));
 }
+
+/**
+ * Titles outside B2B sales that a role's words still catch: assistants, and shop-floor, hotel and food sales
+ * ("Executive Assistant – Sales", "Catering Sales Executive", "Jewellery Sales Executive"). They move to
+ * "looser matches" on Jobs and stay off Today; nothing is deleted (27 Nov review).
+ */
+export const offTarget = (title: string, company = "") =>
+  /\b(hospitals?|clinics?|healthcare services|educational|education consultants|school|jewel+e?rs?|apparel|fashion|boutique)\b/i.test(company) ||
+  /\b(assistant|food\s*(?:&|and)\s*beverage|f\s*&\s*b|catering|banquet|jewel+e?ry|jewellery|showroom|retail store|store sales|counter sales|decor|furniture|hotel|restaurant|real estate site|telecaller|tele-?calling|retail sales|retail|marketing executive|research executive|intelligence & research|hospital|pharma(?:ceutical)? sales|medical representative|admissions?|counsellor|counselor|metals?|steel|cement|chemicals)\b/i.test(title);

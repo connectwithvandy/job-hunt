@@ -2,21 +2,14 @@ import Link from "next/link";
 import { ROLE_PAGES } from "@/lib/rolePages";
 import { JobsByEmail } from "@/components/JobsByEmail";
 import { CITIES } from "../../../convex/lib/publicRole";
-import { Logo } from "@/components/Sidebar";
+import { PublicHeader } from "@/components/PublicHeader";
 
 /** The frame around the sales-jobs guides: logo, sign-up and free review buttons, links to the other guides. */
 export function RoleLayout({ children, current }: { children: React.ReactNode; current?: string }) {
   return (
-    <div className="mx-auto max-w-3xl px-5 py-10">
-      <header className="flex items-center justify-between">
-        <Link href="/" className="inline-flex">
-          <Logo />
-        </Link>
-        <Link href="/" className="rounded-full border border-line px-4 py-1.5 text-sm hover:border-accent">
-          Start your free trial
-        </Link>
-      </header>
-      <main className="mt-12">{children}</main>
+    <div className="mx-auto max-w-3xl px-5 pb-10">
+      <PublicHeader />
+      <main className="mt-8">{children}</main>
       <div className="mt-14">
         <JobsByEmail />
       </div>

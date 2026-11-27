@@ -29,8 +29,8 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
     a: "Every morning JobPipe searches for your roles and adds new ones to Jobs. You can also search any time, or paste a job link, under Jobs → + Find or add jobs.",
   },
   {
-    q: "What does the % on a job mean?",
-    a: "How well the job fits your CV. A number with ~ and a dashed ring is a first guess from the title and words. Open the job and press Check the fit for the real score, which reads the whole job.",
+    q: "What does the number in the ring on a job mean?",
+    a: "The fit score: how well the job fits your CV, out of 100. A number with ~ and a dashed ring is a rough guess from the title and words. Open the job and press Score fit for the real score, which reads the whole posting against your CV.",
   },
   {
     q: "Is the pay real?",

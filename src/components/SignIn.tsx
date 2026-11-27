@@ -1,6 +1,9 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { errorMessage } from "@/lib/errors";
 import { JobsByEmail } from "./JobsByEmail";
 import { CvTopJobs } from "./CvTopJobs";
 import Link from "next/link";
@@ -8,8 +11,8 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { LEGAL, PLANS } from "@/lib/legal";
 import { FAQ, jsonLdGraph, landingJsonLd } from "@/lib/marketing";
 import { CountUp, Reveal, Rotate } from "./Motion";
-import { ThemeToggle } from "./ThemeToggle";
 import { Spinner } from "./ui";
+import { PublicHeader } from "@/components/PublicHeader";
 import { Logo } from "@/components/Sidebar";
 
 /** The home page footer: what JobPipe does, how it compares, the guides, and the free research. */
@@ -77,6 +80,7 @@ const STAGES: [string, string][] = [
 /** `note` sits above the landing page to say why it's showing, e.g. on a job's apply link. */
 export function SignIn({ note }: { note?: string } = {}) {
   const { signIn } = useAuthActions();
+  const googleOn = useQuery(api.access.googleOn);
   // The "you're in" email links to /?signin=1&email=… so they land on sign in, not "create account".
   // The server renders this page too and can't see the address bar, so read it after load.
   const search = useSyncExternalStore(
@@ -120,14 +124,14 @@ export function SignIn({ note }: { note?: string } = {}) {
     signIn:
       'That email and password don\'t match. Try again, or use "Forgot password?" below.',
     reset:
-      "Couldn't send the code. Check the email, or write to vandana@jobpipe.in and we'll sort it.",
+      "Couldn't send the code. Check the email, or write to hello@jobpipe.in and we'll sort it.",
     "reset-verification":
       "That code didn't work or has expired. Check it or send a new one. New passwords need 8 or more characters.",
   }[flow];
   const head = {
     signUp: [
-      "Start your free trial",
-      "Pick a password. Sales and GTM people get in straight away, with 7 days free.",
+      "Start free",
+      "7 days of everything, then a free plan that stays free. Pick a password. Sales and GTM people get in straight away, with 7 days free.",
     ],
     signIn: ["Welcome back", "Sign in to pick up where you left off."],
     reset: [
@@ -144,14 +148,14 @@ export function SignIn({ note }: { note?: string } = {}) {
     "Happens to everyone. We'll email you a code, you pick a new password, and you're back in your search in a minute.";
   const pitch = {
     signUp:
-      "Built by a sales leader in the middle of a real job hunt. Upload your CV, pick your target roles. Every morning JobPipe finds the jobs, scores the fit and helps you find who you know there.",
+      "Upload your CV, pick your target roles. Every morning JobPipe finds the jobs, scores the fit and helps you find who you know there.",
     signIn:
       "Your search kept going without you: this morning's jobs, scored against your CV, plus follow-ups due and people to ask for a referral.",
     reset: locked,
     "reset-verification": locked,
   }[flow];
   const button = {
-    signUp: "Start your free trial",
+    signUp: "Start free",
     signIn: "Sign in",
     reset: "Send me a code",
     "reset-verification": "Set new password and sign in",
@@ -165,24 +169,7 @@ export function SignIn({ note }: { note?: string } = {}) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph(landingJsonLd())) }}
       />
-      <header className="flex items-center justify-between py-6">
-        <span className="inline-flex">
-          <Logo />
-        </span>
-        <nav className="flex items-center gap-6 text-sm text-ink-2">
-          <a href="#faq" className="hidden hover:text-ink md:inline">FAQ</a>
-          <Link href="/pricing" className="hidden hover:text-ink sm:inline">Pricing</Link>
-          <Link href="/cv-review" className="hidden hover:text-ink sm:inline">Free CV review</Link>
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => start("signIn")}
-            className="rounded-full border border-line px-4 py-1.5 text-ink hover:border-accent"
-          >
-            Sign in
-          </button>
-        </nav>
-      </header>
+      <PublicHeader onSignIn={() => start("signIn")} onStart={() => start("signUp")} />
       {note && <p className="card border-accent p-4 text-ink">{note}</p>}
 
       <div className="grid items-center gap-10 pb-16 pt-8 md:pt-14 lg:grid-cols-[1.15fr_1fr] lg:gap-14 lg:pb-24">
@@ -214,7 +201,8 @@ export function SignIn({ note }: { note?: string } = {}) {
             id="join"
             key={flow}
             style={{ animationDelay: "200ms" }}
-            className="rise card relative scroll-mt-24 p-7"
+            // Signing in (or resetting) on a phone: the form comes first, above the pitch (27 Nov review: it sat below the fold).
+            className={`rise card relative scroll-mt-24 p-7 ${flow === "signUp" ? "" : "max-lg:order-first"}`}
             onSubmit={(e) => {
               e.preventDefault();
               setBusy(true);
@@ -233,6 +221,34 @@ export function SignIn({ note }: { note?: string } = {}) {
           >
             <h2 className="display text-2xl">{head[0]}</h2>
             <p className="mt-1 mb-6 text-sm text-ink-2">{head[1]}</p>
+            {/* One tap for people who live in Google (27 Nov review: password only lost people at sign-in). Shown only
+                when the Google keys are set, so the button always works. */}
+            {googleOn && (flow === "signUp" || flow === "signIn") && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary w-full justify-center gap-2"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    setError("");
+                    void signIn("google", { redirectTo: "/" }).catch((err) => {
+                      setError(errorMessage(err));
+                      setBusy(false);
+                    });
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                    <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.8z" />
+                    <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z" />
+                    <path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8l4-3.1z" />
+                    <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z" />
+                  </svg>
+                  Continue with Google
+                </button>
+                <p className="my-4 text-center text-[13px] text-ink-3">or with email</p>
+              </>
+            )}
             {flow === "reset-verification" ? (
               <>
                 <input name="email" type="hidden" value={email} />
@@ -331,12 +347,12 @@ export function SignIn({ note }: { note?: string } = {}) {
                 ? "Back to sign in"
                 : flow === "signUp"
                   ? "Already have an account? Sign in"
-                  : "New here? Start your free trial"}
+                  : "New here? Start free"}
             </button>
             {flow === "signUp" && (
               <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
                 {PLANS.trialDays} days of everything once you&apos;re in, then a
-                free plan that stays free. Every AI tool from ₹{PLANS.foundingPass} for{" "}
+                free plan that stays free. Every AI tool from ₹{PLANS.founding} for 1 month, or ₹{PLANS.foundingPass} for{" "}
                 {PLANS.passMonths} months. No card needed to join. Your CV is
                 used only to run your search; we don&apos;t sell your data or use
                 it for ads.
@@ -455,10 +471,10 @@ export function SignIn({ note }: { note?: string } = {}) {
           <p className="mt-4 text-sm text-ink-2">
             Something else?{" "}
             <a
-              href="mailto:vandana@jobpipe.in"
+              href="mailto:hello@jobpipe.in"
               className="text-ink underline decoration-accent underline-offset-4"
             >
-              vandana@jobpipe.in
+              hello@jobpipe.in
             </a>
           </p>
         </div>

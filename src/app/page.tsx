@@ -1,12 +1,12 @@
 "use client";
 
 import { afterApplyNudge } from "@/lib/outreachPlan";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { isArchived } from "@/lib/archive";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../convex/_generated/api";
-import { companyKey, sameRoleKey } from "../../convex/lib/company";
+import { companyKey, junkCompany, sameRoleKey, storeRetailJob } from "../../convex/lib/company";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../convex/lib/followups";
 import { rankFit, SKIP_BELOW, TAILOR_FROM } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
@@ -15,6 +15,7 @@ import { tallyBy } from "../../convex/lib/outcomes";
 import { useCelebrateNewWins, useSetStatus, WIN_WORDS } from "@/components/Celebrate";
 import { CompanyMark, DAY_STARTS_AT, FitBadge, likelyScore, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
+import { ActionButton, useLeftToday } from "@/components/ui";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
 import { payText, useInrRates } from "@/lib/money";
@@ -22,6 +23,12 @@ import { showCompany, showTitle } from "@/lib/tidy";
 import { ago, JobRow, metaOf, stateOf, StateButton } from "@/components/JobState";
 import { answerRank, justInterviewed, waitsForAnswer } from "@/lib/replies";
 import { FavoriteStar, ReferralFollowUp } from "@/components/job-client";
+import { trackerStatus } from "@/lib/replies";
+import { SCORE_BATCH, STAGES } from "@/lib/stages";
+import { isNewJob } from "@/lib/fresh";
+import { regionsOf } from "@/lib/regions";
+import { offTarget } from "@/lib/jobFilters";
+import { openStages } from "@/lib/pipelineCounts";
 
 const DAY = 86_400_000;
 /** After this long, Today asks for a fresh connections file: people keep connecting. */
@@ -93,10 +100,18 @@ export default function Today() {
 
   // Found today isn't new: a role posted months ago is likely filled, and one in another city isn't for you.
   const place = readPlace(me.location);
-  const nearby = (j: Doc<"jobs">) => j.source === "pasted" || j.source === "link" || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title);
+  // A title naming another market ("- US", "(Gujarat)") isn't nearby, whatever the location field says: the same rule
+  // as the Jobs page's place filter (27 Nov review: a US-market role was Today's top pick for a Bengaluru member).
+  const homeIsBlr = /bengaluru|bangalore/i.test(me.location);
+  const nearby = (j: Doc<"jobs">) =>
+    j.source === "pasted" ||
+    j.source === "link" ||
+    j.location === "Not listed" ||
+    (openTo(place, j.location, j.workSetting, j.title) && (!homeIsBlr || regionsOf(j).some((r) => r === "blr" || r === "remote")));
   const recent = (j: Doc<"jobs">) => !j.postedAt || !(msSince(Date.parse(j.postedAt)) > 30 * DAY);
   // Archived postings (closed, or older than the limit in Job preferences) never show on Today: same rule as Jobs → Archived.
-  const live = (j: Doc<"jobs">) => !isArchived(j, now, prefs?.maxAgeDays);
+  // Broken company names ("due to several reasons.") are hidden on Jobs too, so both pages count the same jobs.
+  const live = (j: Doc<"jobs">) => !isArchived(j, now, prefs?.maxAgeDays) && !(j.status === "new" && (junkCompany(j.company) || storeRetailJob(j)));
   const strongAll = jobs
     // A closed posting or one that rules you out isn't worth the evening.
     .filter((j) => j.status === "new" && (bestScore(j)?.score ?? 0) >= 75 && live(j) && !j.brief?.blocker && nearby(j))
@@ -172,7 +187,7 @@ export default function Today() {
   // AI-scored jobs rank above first guesses, which run high.
   const fit = (j: Doc<"jobs">) => bestScore(j)?.score ?? j.quickFit ?? 0;
   const fresh = jobs
-    .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && live(j) && !j.brief?.blocker && nearby(j) && recent(j))
+    .filter((j) => j.status === "new" && now - j._creationTime < DAY && fit(j) >= SKIP_BELOW && live(j) && !j.brief?.blocker && nearby(j) && recent(j) && !offTarget(j.title, j.company))
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || rankFit(fit(b), b) - rankFit(fit(a), a));
   const freshIds = new Set(fresh.map((j) => j._id));
   const freshScored = fresh.filter((j) => j.scores?.length);
@@ -196,7 +211,7 @@ export default function Today() {
   // A quiet morning still fills the row: the best open jobs not applied to yet, real scores first (19 Nov: only 2 cards).
   const picked = new Set(firstPick.map((j) => j._id));
   const fillers = jobs
-    .filter((j) => j.status === "new" && !picked.has(j._id) && live(j) && !j.brief?.blocker && nearby(j) && fit(j) >= SKIP_BELOW)
+    .filter((j) => j.status === "new" && !picked.has(j._id) && live(j) && !j.brief?.blocker && nearby(j) && fit(j) >= SKIP_BELOW && !offTarget(j.title, j.company))
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || rankFit(fit(b), b) - rankFit(fit(a), a))
     .slice(0, 8);
   // Shown in the order the eye reads the rings: real scores highest first, then first guesses highest first
@@ -289,9 +304,6 @@ export default function Today() {
   // Pipeline numbers: the same rules the old summary line used, so nothing changes meaning.
   // One role listed on two boards counts once, as on the Jobs page, so both say the same number (21 Nov: 604 vs 600).
   const openJobs = [...new Map(jobs.filter((j) => (j.status === "new" || j.status === "applying") && live(j)).map((j) => [sameRoleKey(j.company, j.title), j])).values()];
-  const openToday = openJobs.filter((j) => j._creationTime >= dayBegan).length;
-  const interviewTotal = jobs.filter((j) => j.status === "interview" || j.status === "offer").length;
-  const offerTotal = jobs.filter((j) => j.status === "offer").length;
   // Two or more quiet applications read as one line, not a wall (19 Nov).
   const quietItems: Todo[] =
     quiet.length > 1
@@ -307,15 +319,54 @@ export default function Today() {
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || fit(b) - fit(a))[0];
 
   // The one job to do first: the best real fit (60+, the app-wide line) not applied to, else the best rough guess.
-  const pick = !replies.length && !interviewed.length ? (bestNew.find((j) => (bestScore(j)?.score ?? 0) >= SKIP_BELOW) ?? bestNew.find((j) => !bestScore(j)) ?? bestNew[0]) : undefined;
+  // Only a real score of 60+ earns "Do this first": a guess from the title alone put a US-market role first (27 Nov
+  // review). With none, the card offers to score the best guesses instead, from the day's allowance, on a tap.
+  // A fresh posting beats one over 3 weeks old ("may be filled") for this slot (27 Nov review).
+  const stale = (j: Doc<"jobs">) => !!j.postedAt && now - Date.parse(j.postedAt) > 21 * DAY;
+  const realGood = (j: Doc<"jobs">) => (bestScore(j)?.score ?? 0) >= SKIP_BELOW;
+  const pick = !replies.length && !interviewed.length ? (bestNew.find((j) => realGood(j) && !stale(j)) ?? bestNew.find(realGood)) : undefined;
+  // A higher score passed over for being old gets one line of why, so the order never looks random (27 Nov review).
+  const passedOver = pick ? bestNew.find((j) => realGood(j) && stale(j) && (bestScore(j)?.score ?? 0) > (bestScore(pick)?.score ?? 0)) : undefined;
+  const pickNote = passedOver ? `Picked over ${showCompany(passedOver.company)} (${bestScore(passedOver)!.score}): that posting is over 3 weeks old and may be filled.` : undefined;
+  const toScore = !pick && !replies.length && !interviewed.length ? bestNew.filter((j) => !bestScore(j)).slice(0, SCORE_BATCH) : [];
   const applyList = bestNew.filter((j) => j._id !== pick?._id && !(j.postedAt && now - Date.parse(j.postedAt) > 120 * DAY)).slice(0, 8);
   // Pipeline stages, in a sales team's words. Qualified = a real fit of 60+; Proposal = a CV ready for it.
   const realFit = (j: Doc<"jobs">) => bestScore(j)?.score ?? -1;
-  const qualified = openJobs.filter((j) => realFit(j) >= SKIP_BELOW).length;
-  const proposal = openJobs.filter((j) => j.hasPack || j.pack).length;
-  const pickStage = replies.length ? (replies[0].lastEmail?.stage === "offer" ? 5 : 4) : interviewed.length ? 4 : pick ? (pick.hasPack || pick.pack ? 2 : realFit(pick) >= SKIP_BELOW ? 1 : 0) : -1;
+  // Every stage counted once, the way the Applications board counts it, so both pages say the same number.
+  // Prospect and Qualified split the open jobs (new, not started): a real fit of 60+ is Qualified, the rest Prospect.
+  const newOpen = openJobs.filter((j) => j.status === "new");
+  const onBoard = (status: string) => jobs.filter((j) => trackerStatus(j) === status).length;
+  const stageCount: Record<string, number> = { ...openStages(jobs, now, prefs?.maxAgeDays) };
+  for (const st of STAGES) if (st.status !== "new") stageCount[st.key] = onBoard(st.status);
+  const stageAt = (key: string) => STAGES.findIndex((st) => st.key === key);
+  const pickStage = replies.length
+    ? stageAt(replies[0].lastEmail?.stage === "offer" ? "offer" : "interview")
+    : interviewed.length
+      ? stageAt("interview")
+      : pick
+        ? stageAt(pick.status === "applying" || pick.hasPack || pick.pack ? "applying" : realFit(pick) >= SKIP_BELOW ? "qualified" : "prospect")
+        : -1;
+  // The day in one line (27 Nov review: "what do I do next?" scored lowest). Same rules as the lists each part opens.
+  const newSinceYesterday = newOpen.filter((j) => isNewJob(j, now)).length;
+  const followUpsDue = hrAfterApply.length + followUps.length + quiet.length;
   const gmailOff = !me.inboxAt || msSince(me.inboxAt) > DAY;
   const replyItems = answer.filter((t) => t.key !== "gmail");
+
+  const strip = (
+    <>
+      <Pipeline
+          current={pickStage}
+          stages={STAGES.map((st) => ({
+            label: st.word,
+            hint: st.hint,
+            n: stageCount[st.key] ?? 0,
+            // Prospect and Qualified live on Jobs; the rest open their column on Applications.
+            href: st.key === "prospect" ? "/jobs" : st.key === "qualified" ? "/jobs?fit=ok" : `/tracker?stage=${st.key}`,
+          }))}
+        />
+        <Goal done={appliedToday} of={APPLIES_A_DAY} />
+    </>
+  );
 
   return (
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-10">
@@ -330,7 +381,8 @@ export default function Today() {
           {trialDay ? ` · Trial day ${trialDay} of 7` : ""}
         </span>
       </header>
-      <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} newToday={openToday} found={openJobs.length} strongNow={strongAll.length} />
+      <DaySummary newCount={newSinceYesterday} strong={strongAll.length} followUps={followUpsDue} replies={replies.length} />
+      <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={openJobs.length} />
 
       {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
       <SetupGuide
@@ -349,20 +401,20 @@ export default function Today() {
       />
 
       <CelebrateWins jobs={jobs} now={now} />
-      <Pipeline
-        current={pickStage}
-        stages={[
-          { label: "Prospect", n: openJobs.length, href: "/jobs" },
-          { label: "Qualified", n: qualified, href: "/jobs" },
-          { label: "Proposal", n: proposal, href: "/jobs" },
-          { label: "Sent", n: appliedTotal, href: "/tracker" },
-          { label: "Meeting", n: interviewTotal, href: "/tracker" },
-          { label: "Closed won", n: offerTotal, href: "/tracker" },
-        ]}
-      />
-      <Goal done={appliedToday} of={APPLIES_A_DAY} />
+      {/* On a phone the one thing to do comes before the strip, so it's on the first screen (27 Nov review). */}
+      <div className="max-sm:hidden">{strip}</div>
 
-      <DoFirst replies={replies} interviewed={interviewed} best={pick} firstCv={!jobs.some((j) => j.hasPack || j.pack)} />
+      <DoFirst replies={replies} interviewed={interviewed} best={pick} note={pickNote} firstCv={!jobs.some((j) => j.hasPack || j.pack)} />
+      {toScore.length > 0 && <ScoreFirst jobs={toScore} owner={me.isOwner} />}
+      <div className="sm:hidden">{strip}</div>
+      {/* Due follow-ups come right after the first thing to do on a phone; on a computer they sit in the right column. */}
+      {followUpItems.length > 0 && (
+        <div className="mt-8 sm:hidden" data-follow-up>
+          <Group label="Follow up">
+            <TodoList items={followUpItems} />
+          </Group>
+        </div>
+      )}
 
       {!!interviews?.length && (
         <Group label="Interviews coming up">
@@ -384,7 +436,8 @@ export default function Today() {
         </Group>
       )}
       {(applyList.length > 0 || gettingReady.length > 0) && (
-        <Group label="Apply next" more={{ href: "/jobs", text: "All jobs" }}>
+        // With nothing scored 60+, these are guesses to score, not jobs to apply to (27 Nov review: "Apply next" under "score first").
+        <Group label={toScore.length ? "Best guesses: score before applying" : "Apply next"} more={{ href: "/jobs", text: "All jobs" }}>
           <ApplyRows ready={gettingReady} jobs={applyList} />
         </Group>
       )}
@@ -416,9 +469,11 @@ export default function Today() {
       {/* Right column on wide screens: follow-ups, Gmail and the reply notes. Below the main list on smaller ones. */}
       <aside className="min-w-0 xl:pt-1 xl:[&_.gmail-row]:flex-col xl:[&_.gmail-row]:items-start xl:[&_.row]:flex-wrap xl:[&_.row>.btn]:ml-11">
       {followUpItems.length > 0 && (
-        <Group label="Follow up">
-          <TodoList items={followUpItems} />
-        </Group>
+        <div className="max-sm:hidden" data-follow-up>
+          <Group label="Follow up">
+            <TodoList items={followUpItems} />
+          </Group>
+        </div>
       )}
       {gmailOff && (
         <section className="gmail-row card mb-8 flex flex-wrap items-center gap-3 px-5 py-4 max-[479px]:flex-col max-[479px]:items-start">
@@ -456,21 +511,28 @@ export default function Today() {
 }
 
 /**
- * The search as a sales pipeline: one card, six stages. The stage holding "Do this first" gets a lime bar under it,
- * the only lime on the strip. 6 across on a computer, 3 × 2 on a phone.
+ * The search as a sales pipeline: one card, the eight stages of the Applications board in its order, each with a
+ * plain hint. The stage holding "Do this first" gets a lime bar under it, the only lime on the strip.
+ * 8 across on a wide screen, 4 × 2 below that. Each stage opens its list: Jobs for the first two, else its column.
  */
-function Pipeline({ stages, current }: { stages: { label: string; n: number; href: string }[]; current: number }) {
+function Pipeline({ stages, current }: { stages: { label: string; hint: string; n: number; href: string }[]; current: number }) {
   return (
-    <nav aria-label="Your pipeline" className="card mt-6 max-sm:mt-3 grid grid-cols-3 overflow-hidden sm:grid-cols-6">
+    // On a phone one row that scrolls sideways (27 Nov review: two rows of tiles pushed the to-dos off the first screen).
+    <nav
+      aria-label="Your pipeline"
+      className="card mt-6 flex overflow-x-auto max-sm:mt-3 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] sm:grid sm:grid-cols-4 sm:overflow-hidden lg:grid-cols-8"
+    >
       {stages.map((st, i) => (
         <Link
           key={st.label}
           href={st.href}
           aria-current={i === current ? "step" : undefined}
-          className={`relative min-w-0 border-line px-4 py-3 max-[359px]:px-2 ${i % 3 !== 2 ? "border-r" : "sm:border-r"} ${i === 5 ? "sm:border-r-0" : ""} ${i >= 3 ? "border-t sm:border-t-0" : ""} [@media(hover:hover)]:hover:bg-soft`}
+          aria-label={`${st.label}, ${st.hint}: ${st.n}`}
+          className={`relative border-line px-3 py-3 max-sm:w-[100px] max-sm:shrink-0 max-sm:py-2.5 ${i < stages.length - 1 ? "max-sm:border-r" : "max-sm:mr-6"} sm:min-w-0 ${i % 4 !== 3 ? "sm:border-r" : "lg:border-r"} ${i === stages.length - 1 ? "lg:border-r-0" : ""} ${i >= 4 ? "sm:border-t lg:border-t-0" : ""} [@media(hover:hover)]:hover:bg-soft`}
         >
-          <div className={`mono truncate ${i === current ? "!font-semibold !text-ink" : ""}`}>{st.label}</div>
-          <div className={`tnum mt-1 font-[family-name:var(--font-display-face)] text-2xl font-semibold ${st.n ? "text-ink" : "text-ink-3"}`}>{st.n}</div>
+          <div className={`mono truncate leading-tight ${i === current ? "!font-semibold !text-ink" : ""}`}>{st.label}</div>
+          <div className={`tnum mt-1 font-[family-name:var(--font-display-face)] text-2xl font-semibold max-sm:text-xl ${st.n ? "text-ink" : "text-ink-3"}`}>{st.n}</div>
+          <div className="mt-0.5 text-[12px] leading-tight text-ink-3">{st.hint}</div>
           {i === current && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-accent" aria-hidden />}
         </Link>
       ))}
@@ -482,7 +544,7 @@ function Pipeline({ stages, current }: { stages: { label: string; n: number; hre
 function Goal({ done, of }: { done: number; of: number }) {
   return (
     <div className="mt-2 mb-8 flex items-center justify-end gap-3 text-[13px] text-ink-2 max-sm:mb-4">
-      <span className="tnum">{done >= of ? "Today's goal done" : `${done} of ${of} applied today`}</span>
+      <span className="tnum">{done >= of ? `Today's goal of ${of} done` : `${done} of ${of} applied today · daily goal`}</span>
       <span className={`h-1 w-20 overflow-hidden rounded-[2px] bg-line-strong`} role="progressbar" aria-valuemin={0} aria-valuemax={of} aria-valuenow={Math.min(done, of)} aria-label="Applied today">
         <span className="block h-full rounded-full bg-ink" style={{ width: `${Math.min(100, (done / of) * 100)}%` }} />
       </span>
@@ -494,7 +556,7 @@ function Goal({ done, of }: { done: number; of: number }) {
  * The one thing to do first: a company waiting on your answer, then an interview that just happened,
  * then your best job to apply to. Only one, so it can't be missed (19 Nov: an invite sat below the fold).
  */
-function DoFirst({ replies, interviewed, best, firstCv }: { replies: Doc<"jobs">[]; interviewed: Doc<"jobs">[]; best?: Doc<"jobs">; firstCv: boolean }) {
+function DoFirst({ replies, interviewed, best, firstCv, note }: { replies: Doc<"jobs">[]; interviewed: Doc<"jobs">[]; best?: Doc<"jobs">; firstCv: boolean; note?: string }) {
   const setStatus = useSetStatus();
   const setQuietly = useMutation(api.jobs.setStatus);
   const [busy, setBusy] = useState(false);
@@ -600,6 +662,7 @@ function DoFirst({ replies, interviewed, best, firstCv }: { replies: Doc<"jobs">
       ) : (
         <p className="mt-3 text-[13px] text-ink-3 max-sm:mt-2">Rough guess from the title. Score it on the job page for a real read.</p>
       )}
+      {note && <p className="mt-2 text-[13px] text-ink-3">{note}</p>}
       <div className="mt-5 flex flex-col items-stretch gap-1 max-sm:mt-3 sm:flex-row sm:items-center sm:gap-3">
         <StateButton j={best} primary full />
         {stateOf(best) === "started" && (
@@ -622,10 +685,46 @@ function DoFirst({ replies, interviewed, best, firstCv }: { replies: Doc<"jobs">
   );
 }
 
-/** One group: a real heading, an optional quiet link, then its rows in one card. */
-function Group({ label, more, children }: { label: string; more?: { text: string; href?: string }; children: React.ReactNode }) {
+/**
+ * No real fit of 60+ yet: instead of guessing a first job, one tap scores the five likeliest from the day's allowance.
+ * Nothing is scored without the tap (no AI spend the member didn't ask for).
+ */
+function ScoreFirst({ jobs, owner }: { jobs: Doc<"jobs">[]; owner: boolean }) {
+  const scoreJobs = useAction(api.agent.scoreJobs);
+  const left = useLeftToday("scoresLeft");
+  const n = owner ? jobs.length : Math.min(jobs.length, left ?? jobs.length);
   return (
-    <section className="mb-10">
+    <section className="card mb-10 p-5 sm:p-6">
+      <h2 className="mb-2 text-[13px] font-semibold text-ink-2">Do this first</h2>
+      <h3 className="text-lg leading-snug font-semibold">Score your best {jobs.length} matches</h3>
+      <p className="mt-1 max-w-[68ch] text-[15px] text-ink-2">
+        Nothing is scored 60+ yet, so there&apos;s no clear first job. Scoring reads each posting against your CV and picks the one to apply to.
+      </p>
+      <p className="row-meta mt-2">{jobs.slice(0, 3).map((j) => showCompany(j.company)).join(", ")}{jobs.length > 3 ? ` and ${jobs.length - 3} more` : ""}</p>
+      <div className="mt-5 max-sm:[&_.btn]:w-full">
+        {n > 0 ? (
+          <ActionButton
+            run={async () => {
+              const { scored, failed } = await scoreJobs({ jobIds: jobs.slice(0, n).map((j) => j._id) });
+              return failed ? `Scored ${scored}, ${failed} failed. Try again in a minute.` : `Scored ${scored}. The best one moves up here.`;
+            }}
+            pending={`Scoring ${n}… about a minute`}
+          >
+            Score my top {n}
+            {!owner && left !== undefined && <span className="font-normal opacity-70"> · uses {n} of {left}</span>}
+          </ActionButton>
+        ) : (
+          <p className="text-[15px] text-ink-2">No scores left today. Tomorrow&apos;s morning search scores more.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** One group: a real heading, an optional quiet link, then its rows in one card. */
+function Group({ label, more, id, children }: { label: string; more?: { text: string; href?: string }; id?: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="mb-10 scroll-mt-24">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="h2">{label}</h2>
         {more &&
@@ -654,6 +753,7 @@ function ApplyRows({ ready, jobs }: { ready: Doc<"jobs">[]; jobs: Doc<"jobs">[] 
   const started = ready.slice(0, STARTED_SHOWN);
   const moreStarted = ready.slice(STARTED_SHOWN);
   const fresh = jobs.filter((j) => !skipped.has(j._id));
+  const [now] = useState(() => Date.now());
   if (!started.length && !moreStarted.length && !fresh.length) return null;
   const room = Math.max(1, SHOWN - started.length - (moreStarted.length ? 1 : 0));
   const shownFresh = all ? fresh : fresh.slice(0, room);
@@ -665,8 +765,9 @@ function ApplyRows({ ready, jobs }: { ready: Doc<"jobs">[]; jobs: Doc<"jobs">[] 
       key={j._id}
       j={j}
       href={`/jobs/${j._id}`}
-      meta={j.status === "applying" ? `${showCompany(j.company)} · Started, not sent yet` : metaOf(j, payText(j.salary, rates))}
+      meta={j.status === "applying" ? `${showCompany(j.company)} · Proposal: CV ready, not sent yet` : metaOf(j, payText(j.salary, rates))}
       ring={quietRings && !bestScore(j) ? null : <FitBadge job={j} />}
+      tagLine={isNewJob(j, now) ? <span className="mono !text-ink">New to you</span> : undefined}
       save={<FavoriteStar jobId={j._id} favorite={!!j.favorite} className="shrink-0" />}
       onDismiss={
         j.status === "applying"
@@ -817,16 +918,78 @@ function greeting() {
   return h < DAY_STARTS_AT ? "Good evening" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-const newLine = (n: number, when: string) => `${when}: ${n} new ${n === 1 ? "job" : "jobs"}.`;
+/**
+ * The day in one line: what's new, what fits, what's due, who wrote. Each part opens its list; a part with nothing in
+ * it stays out, except "new", which says so when there's none.
+ */
+function DaySummary({ newCount, strong, followUps, replies }: { newCount: number; strong: number; followUps: number; replies: number }) {
+  const link = "font-semibold text-ink underline decoration-line-strong underline-offset-4 [@media(hover:hover)]:hover:decoration-ink";
+  const parts: React.ReactNode[] = [
+    newCount ? (
+      <Link key="new" href="/jobs?new=1&region=all" className={link}>
+        {newCount} new to you since yesterday
+      </Link>
+    ) : (
+      <span key="new">Nothing new since yesterday</span>
+    ),
+    ...(strong
+      ? [
+          <Link key="strong" href="/jobs?fit=strong" className={link}>
+            {strong} strong {strong === 1 ? "fit" : "fits"}
+          </Link>,
+        ]
+      : []),
+    ...(followUps
+      ? [
+          <a
+            key="follow"
+            href="#follow-up"
+            className={link}
+            onClick={(e) => {
+              // Two copies (phone and computer place it differently): scroll to the one on screen.
+              const shown = [...document.querySelectorAll<HTMLElement>("[data-follow-up]")].find((el) => el.offsetParent);
+              if (shown) {
+                e.preventDefault();
+                shown.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            }}
+          >
+            {followUps} {followUps === 1 ? "follow-up" : "follow-ups"} due
+          </a>,
+        ]
+      : []),
+    ...(replies
+      ? [
+          <Link key="replies" href="/inbox" className={link}>
+            {replies} {replies === 1 ? "reply" : "replies"} waiting
+          </Link>,
+        ]
+      : []),
+  ];
+  return (
+    <p className="tnum mb-1 text-[15px] leading-relaxed text-ink-2">
+      {parts.map((p, i) => (
+        <span key={i}>
+          {/* Each part stays whole; the line breaks only between parts. */}
+          <span className="whitespace-nowrap">
+            {p}
+            {i < parts.length - 1 && <span className="text-ink-3">{"\u00a0·"}</span>}
+          </span>
+          {i < parts.length - 1 && " "}
+        </span>
+      ))}
+    </p>
+  );
+}
 
-/** The morning search: off says so with a Turn on button; on is one quiet line with what the last search found. */
-function Autopilot({ on, last, now, newToday, found, strongNow }: { now: number; on: boolean; newToday: number; found: number; strongNow: number; last: { at: number; added: number } | null }) {
+/** The morning search: off says so with a Turn on button; on is one quiet line saying when it runs next. */
+function Autopilot({ on, last, now, found }: { now: number; on: boolean; found: number; last: { at: number; added: number } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
   const [busy, setBusy] = useState(false);
   if (!on) {
     return (
       <div className="mb-6 max-sm:mb-3">
-      <p className="flex flex-wrap items-center gap-x-2 text-[15px] text-ink-2">
+      <p className="flex flex-wrap items-center gap-x-2 text-[13px] text-ink-3">
         Morning search is off.
         <button
           type="button"
@@ -845,19 +1008,13 @@ function Autopilot({ on, last, now, newToday, found, strongNow }: { now: number;
     );
   }
   const ranToday = !!last && dayStart(now) <= last.at;
+  const next = `Next search ${beforeEightInIndia() ? "today" : "tomorrow"} at 8:00.`;
   return (
-    <p className="tnum mb-6 flex flex-wrap items-center gap-x-3 text-[13px] text-ink-3 max-sm:mb-3">
-      <span>
-        {last
-          ? // Strong fits counted across every open job, not just this morning's (19 Nov).
-            `${newLine(ranToday ? newToday : last.added, ranToday ? "Today" : `Last search ${timeAgo(new Date(last.at).toISOString())}`)} ${strongNow ? `${strongNow} strong ${strongNow === 1 ? "fit" : "fits"} (75+) open to apply to.` : "No strong fits (75+) open right now."} Next search ${beforeEightInIndia() ? "today" : "tomorrow"} at 8:00.`
-          : `${found ? `Your first search found ${found} ${found === 1 ? "job" : "jobs"}. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8:00.`}
-      </span>
-      {last && strongNow > 0 && (
-        <Link href="/jobs?fit=strong" className="btn-text">
-          See strong fits
-        </Link>
-      )}
+    <p className="tnum mb-6 text-[13px] text-ink-3 max-sm:mb-3">
+      {last
+        ? // No count here: the summary line above says what's new, so two different numbers never sit together.
+          `Morning search on${ranToday ? ", ran this morning" : `, last ran ${timeAgo(new Date(last.at).toISOString())}`}. ${next}`
+        : `${found ? `Your first search found ${found} ${found === 1 ? "job" : "jobs"}.` : "Your first search is set."} ${next}`}
     </p>
   );
 }

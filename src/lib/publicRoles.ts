@@ -1,4 +1,8 @@
 import { cachedQuery } from "./guideRoles";
+import { tidyPlace } from "./tidy";
+import { titleElsewhere } from "./regions";
+import { CITIES } from "../../convex/lib/publicRole";
+import { junkCompany, sameRoleKey, storeRetailJob } from "../../convex/lib/company";
 
 // Open sales roles in India and remote, one page each (convex/publicRoles.ts). Read through the 6-hour cache.
 export type PublicRole = {
@@ -18,12 +22,20 @@ export type PublicRole = {
 export type PublicRoleShort = { href: string; postedAt?: string; city: string; companySlug: string; company: string };
 
 export const allPublicRoles = () => cachedQuery<PublicRoleShort[]>("publicRoles:all", {}).catch(() => [] as PublicRoleShort[]);
-export const rolesInCity = (city: string) => cachedQuery<PublicRole[]>("publicRoles:inCity", { city }).catch(() => [] as PublicRole[]);
-export const rolesAtCompany = (companySlug: string) => cachedQuery<PublicRole[]>("publicRoles:atCompany", { companySlug }).catch(() => [] as PublicRole[]);
+/** One role posted twice (two boards, or once per city) shows once: the first, newest, copy (27 Nov review). */
+const onceEach = (roles: PublicRole[]) =>
+  [...new Map(roles.filter((r) => !junkCompany(r.company) && !storeRetailJob(r)).map((r) => [sameRoleKey(r.company, r.title), r] as const).reverse()).values()].reverse();
 
-/** "Bengaluru · hybrid" */
+export const rolesInCity = (city: string) =>
+  cachedQuery<PublicRole[]>("publicRoles:inCity", { city })
+    .then((roles) => onceEach(roles).filter((r) => city === "remote" || !titleElsewhere(r.title, CITIES.find((c) => c.slug === city)?.name ?? city)))
+    .catch(() => [] as PublicRole[]);
+export const rolesAtCompany = (companySlug: string) => cachedQuery<PublicRole[]>("publicRoles:atCompany", { companySlug }).then(onceEach).catch(() => [] as PublicRole[]);
+
+/** "Bengaluru · hybrid": the place written one way ("India - Bangalore" and "Bangalore, India" both read "Bengaluru"). */
 export const placeOf = (r: { location: string; workSetting?: string }) => {
-  const place = r.location.split(";")[0].trim();
+  const raw = r.location.split(";")[0].trim();
+  const place = tidyPlace(raw) || raw;
   return [place, r.workSetting && !place.toLowerCase().includes(r.workSetting.toLowerCase()) ? r.workSetting : null].filter(Boolean).join(" · ");
 };
 

@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { env, internalAction, internalMutation, internalQuery, query } from "./_generated/server";
-import { AGGREGATORS } from "./lib/company";
+import { AGGREGATORS, junkCompany, storeRetailJob } from "./lib/company";
 import { CITIES, cityOf, publicRoleCode, publicRoleHref, slugify } from "./lib/publicRole";
 import { isSalesTitle, postGroup } from "./growth";
 
@@ -67,7 +67,7 @@ export const apply = internalMutation({
 
 /** Whether a role belongs on a public page: a real sales role, from the employer, posted recently. */
 export function isPublicRole(r: { company: string; title: string; postedAt?: string }, now: number) {
-  if (!isSalesTitle(r.title) || AGGREGATORS.test(r.company) || /\bintern(ship)?\b/i.test(r.title)) return false;
+  if (!isSalesTitle(r.title) || AGGREGATORS.test(r.company) || junkCompany(r.company) || storeRetailJob(r) || /\bintern(ship)?\b/i.test(r.title)) return false;
   const posted = r.postedAt ? Date.parse(r.postedAt) : NaN;
   return Number.isNaN(posted) || now - posted < MAX_AGE_DAYS * DAY;
 }

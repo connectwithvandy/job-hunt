@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { Loading } from "@/components/Loading";
+import { EmptyPack } from "@/components/job-client";
 import { CvLayoutPick, ResumeDoc, type Resume } from "@/components/ResumeDoc";
 import { TailoredEditor } from "@/components/ResumeFields";
 import { type ActionState, attempt, DownloadMenu, Feedback } from "@/components/ui";
@@ -47,17 +48,16 @@ export default function TailoredResume() {
   if (!me || data === undefined) return <Loading />;
   if (!data || !pack) {
     return (
-      <div className="card mx-auto mt-12 max-w-xl p-8 text-ink-2">
-        No tailored CV for this job yet. <Link className="underline" href={`/jobs/${id}`}>Back to the job</Link>
-      </div>
+      <EmptyPack jobId={id as Id<"jobs">} kind="cv" job={data?.job} />
     );
   }
   const { job } = data;
   return (
     <div className="flex flex-col items-center gap-6">
       <div className="no-print flex w-full max-w-[210mm] flex-wrap items-center justify-between gap-3">
-        <Link href={`/jobs/${job._id}`} className="text-sm text-ink-3 hover:text-ink">
-          ← {job.title} at {job.company}
+        <Link href={`/jobs/${job._id}`} className="btn-text -ml-1 inline-flex min-h-11 max-w-full items-center gap-1">
+          <span aria-hidden>←</span>
+          <span className="truncate">Back to {job.company}</span>
         </Link>
         <div className="flex items-center gap-3">
           <CvLayoutPick plain={plain} onChange={setPlain} />

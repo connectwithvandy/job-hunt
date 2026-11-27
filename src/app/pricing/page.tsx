@@ -12,30 +12,30 @@ export const metadata: Metadata = {
 
 export default function Pricing() {
   return (
-    <LegalPage title="Pricing">
-      <p>
-        Every paid plan includes everything: job search across boards and
-        company careers pages, fit scores for every role you want, tailored CVs
-        and cover letters, referral and hiring-manager messages, interview prep
-        and the morning summary.
-      </p>
+    <LegalPage
+      wide
+      title="Pricing"
+      lead={`Start free and stay free. Pay once for a month or three when you want every AI tool. Nothing renews by itself, and everyone gets a ${PLANS.trialDays}-day free trial of every feature first.`}
+    >
       <PricingPlans />
-      <div className="card p-6 text-ink">
-        <div className="label">Teams, communities and bootcamps</div>
-        <div className="display mt-2 text-4xl">
-          ₹{PLANS.seat}
-          <span className="text-base text-ink-2"> / seat / month</span>
+      <div className="card flex flex-wrap items-end justify-between gap-4 p-6 text-ink">
+        <div className="min-w-0">
+          <h2 className="h2">Teams, communities and bootcamps</h2>
+          <p className="mt-1 max-w-[60ch] text-[15px] text-ink-2">
+            From {PLANS.minSeats} seats, for sales communities, bootcamps and companies supporting people after a layoff.
+          </p>
         </div>
-        <p className="mt-2 text-sm text-ink-2">
-          From {PLANS.minSeats} seats, for sales communities, bootcamps and
-          companies supporting people after a layoff. Write to vandana@jobpipe.in.
-        </p>
+        <div className="text-right">
+          <div className="display tnum text-3xl">
+            ₹{PLANS.seat}
+            <span className="text-[15px] text-ink-2"> / seat / month</span>
+          </div>
+          <a href="mailto:hello@jobpipe.in" className="btn-text inline-flex underline">
+            Write to hello@jobpipe.in
+          </a>
+        </div>
       </div>
-      <p>
-        Everyone starts with a {PLANS.trialDays}-day free trial of every
-        feature, then keeps the free plan. Paid plans don&apos;t renew by
-        themselves; GST is added where it applies.
-      </p>
+      <p className="text-[13px] text-ink-3">GST is added where it applies. Paid plans don&apos;t renew by themselves.</p>
     </LegalPage>
   );
 }

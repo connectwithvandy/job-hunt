@@ -41,7 +41,8 @@ export function inInr(salary: string | null | undefined, rates: Record<string, n
   if (!nums.length) return null;
   const lakhs = (n: number) => Math.round((n * perYear * rates[code]) / 100_000);
   const [lo, hi] = [lakhs(Math.min(...nums)), lakhs(Math.max(...nums))];
-  return lo === hi ? `≈ ₹${lo} L/yr` : `≈ ₹${lo}–${hi} L/yr`;
+  // Converted from the posting's own currency, said plainly, so it never reads as our estimate (27 Nov review).
+  return `${lo === hi ? `₹${lo}` : `₹${lo}–${hi}`} L/yr (from ${code})`;
 }
 
 /**
@@ -81,7 +82,9 @@ export function payText(salary: string | null | undefined, rates: Record<string,
   const converted = inInr(salary, rates);
   if (converted) return converted;
   const s = salary.toLowerCase();
-  const yearly = !/hour|hr\b|month|mo\b|week|day/.test(s) && !/lpa|lakhs?|\bl\b|cr\b|crore/.test(s);
+  // "30L" and "30 L" are lakhs too.
+  const inLakhs = /lpa|lakhs?|\bl\b|\d\s*l\b/.test(s);
+  const yearly = !/hour|hr\b|month|mo\b|week|day/.test(s) && !inLakhs && !/cr\b|crore/.test(s);
   const nums = [...salary.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)\s*([kK])?/g)].map((m) => Number(m[1]) * (m[2] ? 1000 : 1));
   const top = nums.length ? Math.max(...nums) : 0;
   const rupees = /₹|inr|rs\.?/i.test(salary);
@@ -91,12 +94,32 @@ export function payText(salary: string | null | undefined, rates: Record<string,
   // Long rupee figures read better in lakhs: "400000 per month" becomes "₹4 L/month". A bare monthly
   // figure that big can only be rupees; a bare yearly one could be dollars, so it stays as written.
   const monthly = /month|mo\b/.test(s);
-  if ((rupees || (!foreign && monthly)) && top >= 100_000 && !/lpa|lakhs?|\bl\b|cr\b|crore/.test(s)) {
+  // A bare yearly figure of 3 lakh or more is rupees: no dollar sales salary is written as "500000-600000 per year"
+  // (27 Nov review: raw figures read as scraped data).
+  const bareRupees = !foreign && !rupees && yearly && top >= 300_000;
+  if ((rupees || bareRupees || (!foreign && monthly)) && top >= 100_000 && !/lpa|lakhs?|\bl\b|cr\b|crore/.test(s)) {
     const big = nums.filter((n) => n >= 10_000);
     const l = (n: number) => +(n / 100_000).toFixed(n < 1_000_000 ? 1 : 0);
     const [lo, hi] = [l(Math.min(...big)), l(Math.max(...big))];
-    const unit = monthly ? "month" : /week|day|hour|hr\b/.test(s) ? null : "yr";
-    if (unit) return `₹${lo === hi ? lo : `${lo}–${hi}`} L/${unit}`;
+    // Monthly pay shows as a year's, like every other figure (27 Nov review: L/month next to L/yr).
+    const yearOf = (n: number) => +(n * 12).toFixed(n * 12 < 10 ? 1 : 0);
+    // Over ₹1.5 L "a month" can't be told apart from a year's pay the board mislabelled (27 Nov review: a shop sales
+    // job read ₹18–30 L/yr). Unknown pay isn't shown (owner, 19 Nov: only pay we know).
+    if (monthly && hi >= 1.5) return null;
+    if (monthly) return `₹${lo === hi ? yearOf(lo) : `${yearOf(lo)}–${yearOf(hi)}`} L/yr`;
+    if (!/week|day|hour|hr\b/.test(s)) return `₹${lo === hi ? lo : `${lo}–${hi}`} L/yr`;
+  }
+  // Lakhs written out: "5-8 LPA" or "5 to 8 lakhs" becomes "₹5–8 L/yr".
+  if (!foreign && inLakhs && top > 0 && top < 1000) {
+    const [a, b] = [Math.min(...nums), Math.max(...nums)].map((n) => (monthly ? +(n * 12).toFixed(n * 12 < 10 ? 1 : 0) : n));
+    return `${/up to|upto/.test(s) ? "Up to " : ""}₹${a === b ? a : `${a}–${b}`} L/yr`;
+  }
+  // Monthly rupee pay under a lakh, as a year's: "15000-20000 per month" becomes "₹1.8–2.4 L/yr".
+  if ((rupees || !foreign) && monthly && top >= 1000 && top < 100_000) {
+    const big = nums.filter((n) => n >= 1000);
+    const yr = (n: number) => +((n * 12) / 100_000).toFixed(1);
+    const [lo, hi] = [yr(Math.min(...big)), yr(Math.max(...big))];
+    return `₹${lo === hi ? lo : `${lo}–${hi}`} L/yr`;
   }
   return salary;
 }

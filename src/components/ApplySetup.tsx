@@ -214,7 +214,7 @@ export function ApplySetup({
       });
       if (!ok)
         throw new Error(
-          "We couldn't let you in with this role. Write to vandana@jobpipe.in and we'll sort it.",
+          "We couldn't let you in with this role. Write to hello@jobpipe.in and we'll sort it.",
         );
       await readCv({
         storageId: (await uploadFile(

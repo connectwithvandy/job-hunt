@@ -47,7 +47,7 @@ function Details({ me }: { me: { email: string; name: string; linkedin: string; 
         <div>
           <span className="label">Email</span>
           <p className="mt-1 text-[15px] break-all">{me.email}</p>
-          <span className="mt-1 block text-[13px] text-ink-3">You sign in with this. To change it, write to vandana@jobpipe.in.</span>
+          <span className="mt-1 block text-[13px] text-ink-3">You sign in with this. To change it, write to hello@jobpipe.in.</span>
         </div>
         <label className="block">
           <span className="label">LinkedIn profile link</span>
@@ -114,7 +114,7 @@ function CvRead({ cv }: { cv: Parameters<typeof readCv>[0] }) {
       <p className="mb-4 text-sm text-ink-2">Every fit score and tailored CV starts from this. If something here is wrong, fix it in your CV.</p>
       <div>
         <Item label="Now">{r.current ?? none}</Item>
-        <Item label="Experience">{r.years !== null ? `About ${r.years} ${r.years === 1 ? "year" : "years"}` : none}</Item>
+        <Item label="Experience">{r.statedYears ? `${r.statedYears}, as your CV says${r.years !== null && !r.statedYears.startsWith(String(r.years)) ? ` (your dates add up to about ${r.years})` : ""}` : r.years !== null ? `About ${r.years} ${r.years === 1 ? "year" : "years"}, from your dates` : none}</Item>
         <Item label="Last roles">
           {r.roles.length ? (
             <ul className="space-y-1">

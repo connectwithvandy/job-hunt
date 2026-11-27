@@ -236,7 +236,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visib
 .row-link .above { position: relative; z-index: 1; }
 /* With a mouse, a row's quiet buttons (save, not for me) show on hover or focus; a saved star always shows. */
 @media (hover: hover) {
-  .row-link .reveal-on-hover { opacity: 0; transition: opacity 0.15s; }
+  /* Always there, quieter until hovered: phone and computer show the same actions (27 Nov review). */
+  .row-link .reveal-on-hover { opacity: 0.55; transition: opacity 0.15s; }
   .row-link:hover .reveal-on-hover, .row-link:focus-within .reveal-on-hover, .row-link .reveal-on-hover:has([aria-pressed="true"]) { opacity: 1; }
 }
 

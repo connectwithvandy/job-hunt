@@ -9,20 +9,21 @@ import { Suspense, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { STATUS_LABELS } from "../../../convex/lib/defaults";
 import { CompanyMark, FitBadge, bestScore, jobTrackKey, likelyScore } from "@/components/bits";
 import { strongCompany } from "../../../convex/lib/quickFit";
-import { ago, JobRow, metaOf, StateButton } from "@/components/JobState";
+import { JobRow, metaOf, postedAgo, StateButton } from "@/components/JobState";
 import { showCompany, showPlace, showTitle } from "@/lib/tidy";
 import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
-import { applyFilters, FILTERS, fitFor, fitTier, inRole, picks, togglePick } from "@/lib/jobFilters";
+import { applyFilters, FILTERS, fitFor, fitTier, inRole, offTarget, picks, togglePick } from "@/lib/jobFilters";
 import { payPerYearInr, payText, useInrRates } from "@/lib/money";
 import { REGIONS, regionsOf } from "@/lib/regions";
-import { sameRoleKey } from "../../../convex/lib/company";
+import { junkCompany, sameRoleKey, storeRetailJob } from "../../../convex/lib/company";
 import { ScoreTipPopup } from "@/components/ScoreTipPopup";
 import { JobPanel } from "@/components/JobPanel";
+import { isNewJob } from "@/lib/fresh";
+import { SCORE_BATCH, STAGE_WORDS } from "@/lib/stages";
 
 type ListJob = FunctionReturnType<typeof api.jobs.list>[number];
 // First guesses this low are almost never worth opening; they fold away under the list.
@@ -85,11 +86,13 @@ function Jobs() {
   const [now] = useState(() => Date.now());
   const track = params.get("track");
   const show = params.get("show");
+  // Only what the last day's searches found (Today's "4 new since yesterday" opens this).
+  const newOnly = params.get("new") === "1";
   // With a home city set, the list opens on that city plus remote; "all" shows everywhere.
   const regionParam = params.get("region");
   const me = useQuery(api.users.me);
   const findHiringPosts = useAction(api.agent.findHiringPosts);
-  const jobs = useQuery(api.jobs.list);
+  const saved = useQuery(api.jobs.list);
   const prefs = useQuery(api.users.jobPrefs);
   const scoreJobs = useAction(api.agent.scoreJobs);
   const scoresLeft = useLeftToday("scoresLeft");
@@ -97,7 +100,10 @@ function Jobs() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [shown, setShown] = useState(PAGE);
   const [showWeak, setShowWeak] = useState(false);
-  if (!me || !jobs) return <Loading />;
+  if (!me || !saved) return <Loading />;
+  // Listings with a broken company name ("due to several reasons.", "LLP") look scraped: not shown until acted on.
+  // Shop-floor retail jobs (owner, 27 Nov) are never shown either.
+  const jobs = saved.filter((j) => j.status !== "new" || (!junkCompany(j.company) && !storeRetailJob(j)));
   const trackByKey = new Map(me.tracks.map((t) => [t.key, t]));
   const homeIsBlr = /bengaluru|bangalore/i.test(me.location);
   const sort = (params.get("sort") ?? "fit") as keyof typeof SORTS;
@@ -119,20 +125,25 @@ function Jobs() {
   const appliedCount = jobs.filter(isApplied).length;
   // One role listed on two boards ("HPE" and "Hewlett Packard Enterprise") shows once: the one furthest along, else the first saved.
   const seen = new Map<string, ListJob>();
-  const rank = (j: ListJob) => (j.status === "new" ? 0 : j.status === "dismissed" ? -1 : 1) * 10 + (j.scores?.length ? 1 : 0);
+  // One role posted per city counts once too: the copy in your picked places wins, so it isn't filtered away.
+  const rank = (j: ListJob) =>
+    (j.status === "new" ? 0 : j.status === "dismissed" ? -1 : 1) * 10 + (j.scores?.length ? 1 : 0) + (regionPicks.length && regionsOf(j).some((r) => regionPicks.includes(r)) ? 5 : 0);
   for (const j of [...jobs].reverse()) {
     const k = sameRoleKey(j.company, j.title);
     const had = seen.get(k);
     if (!had || rank(j) > rank(had)) seen.set(k, j);
   }
   const unique = new Set([...seen.values()].map((j) => j._id));
+  // Every open job, before filters: the same number as Today's Prospect + Qualified + Proposal.
+  const allOpen = jobs.filter((j) => unique.has(j._id) && j.status !== "dismissed" && !isOld(j) && !isApplied(j)).length;
   const inView = jobs
     .filter((j) => unique.has(j._id))
     .filter((j) =>
       show === "hidden" ? j.status === "dismissed" : show === "old" ? isOld(j) : show === "applied" ? isApplied(j) : j.status !== "dismissed" && !isOld(j) && !isApplied(j),
     )
     // A role shows only jobs whose title matches one of its job titles, ranked by that role's score.
-    .filter((j) => !track || (trackByKey.has(track) && inRole(j, trackByKey.get(track)!)));
+    .filter((j) => !track || (trackByKey.has(track) && inRole(j, trackByKey.get(track)!)))
+    .filter((j) => !newOnly || isNewJob(j, now));
   // Region counts follow the other filters, so each chip shows what clicking it would leave.
   const filtered = applyFilters(inView, params);
   const regionCounts = new Map<string, number>();
@@ -143,14 +154,18 @@ function Jobs() {
     // Favourites first, each group in the order picked.
     .sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite));
   // Weak first guesses (no AI score, guess under the line) fold away unless a filter asks for them.
-  const isWeak = (j: ListJob) => !j.favorite && fitFor(j, track) < 0 && (j.quickFit ?? 0) < WEAK_GUESS;
+  // Off-target titles (assistants, shop-floor and hotel sales) join the looser matches too, scored or not.
+  const isWeak = (j: ListJob) => !j.favorite && ((fitFor(j, track) < 0 && (j.quickFit ?? 0) < WEAK_GUESS) || offTarget(j.title, j.company));
   // Searching by name (like "Cursor" from its company card) means you want those roles, weak or not.
   const searching = q.trim().length > 0;
-  const weakCount = show || searching ? 0 : sorted.filter(isWeak).length;
-  const visible = showWeak || show || searching ? sorted : sorted.filter((j) => !isWeak(j));
+  const weakCount = show || searching || newOnly ? 0 : sorted.filter(isWeak).length;
+  const kept = showWeak || show || searching || newOnly ? sorted : sorted.filter((j) => !isWeak(j));
+  // What the last day's searches found leads the list, in its own group, best fit first (27 Nov review: freshness).
+  const newGroup = sort === "fit" && !show && !newOnly;
+  const visible = newGroup ? [...kept.filter((j) => isNewJob(j, now)), ...kept.filter((j) => !isNewJob(j, now))] : kept;
   // In the fit order, a heading marks where AI scores give way to first guesses, and where low AI scores start.
-  const section = (j: ListJob) => (sort !== "fit" || j.favorite ? null : fitTier(fitFor(j, track)));
-  const SECTION_NAMES = ["Scored, weaker fit", "Not scored yet", "Scored for you"];
+  const section = (j: ListJob) => (newGroup && isNewJob(j, now) ? 3 : sort !== "fit" || j.favorite ? null : fitTier(fitFor(j, track)));
+  const SECTION_NAMES = ["Scored, weaker fit", "Not scored yet", "Scored for you", "New to you since yesterday"];
   const [showWeaker, setShowWeaker] = [params.get("weaker") === "1", (on: boolean) => router.replace(hrefWith({ weaker: on ? "1" : null }), { scroll: false })];
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
   // Rough guesses all within 10 points say nothing about which to pick: their rings step aside (27 Nov review).
@@ -163,7 +178,8 @@ function Jobs() {
   const topRough = new Set(top3.length > 1 && Math.max(...top3) - Math.min(...top3) < 4 ? [] : roughRows.slice(0, 3).map((j) => j._id));
   const roughShows = (j: ListJob) => topRough.has(j._id) || Math.abs(likelyScore(j.quickFit ?? 0) - middle) >= 10;
   // Never ask for more scores than today's allowance has left; the owner has no limit.
-  const batch = unscored.slice(0, me.isOwner ? 12 : Math.min(12, scoresLeft ?? 12));
+  // The same batch as Today's "Score my top 5" (27 Nov review: 5 there, 12 here, and neither said what it used).
+  const batch = unscored.slice(0, me.isOwner ? SCORE_BATCH : Math.min(SCORE_BATCH, scoresLeft ?? SCORE_BATCH));
 
   // Keep the other filters when one changes.
   const hrefWith = (changes: Record<string, string | null>) => {
@@ -175,10 +191,10 @@ function Jobs() {
     const q = next.toString();
     return q ? `/jobs?${q}` : "/jobs";
   };
-  const filtersOn = params.has("q") || FILTERS.some((f) => params.has(f.key));
+  const filtersOn = params.has("q") || newOnly || FILTERS.some((f) => params.has(f.key));
   const clearFilters = () => {
     setQ("");
-    router.replace(hrefWith({ q: null, ...Object.fromEntries(FILTERS.map((f) => [f.key, null])) }), { scroll: false });
+    router.replace(hrefWith({ q: null, new: null, ...Object.fromEntries(FILTERS.map((f) => [f.key, null])) }), { scroll: false });
   };
 
 
@@ -200,6 +216,7 @@ function Jobs() {
   const trackName = track ? trackByKey.get(track)?.name : null;
   // What's narrowing the list, as chips you can remove one by one.
   const active: { label: string; href: string }[] = [
+    ...(newOnly ? [{ label: "New to you since yesterday", href: hrefWith({ new: null }) }] : []),
     ...(trackName ? [{ label: `Role: ${trackName}`, href: hrefWith({ track: null }) }] : []),
     ...(show ? [{ label: show === "hidden" ? "Not for me" : show === "applied" ? "Applied" : "Archived", href: hrefWith({ show: null }) }] : []),
     ...(homeIsBlr && regionParam === null ? [] : regionPicks.map((k) => ({ label: regionLabel(k), href: hrefWith({ region: regionAfter(k) }) }))),
@@ -232,7 +249,7 @@ function Jobs() {
     </Link>
   );
   const scoreTop = batch.length > 0 && (
-    <span title={`Reads each job against your CV and gives a real fit score in place of the rough "~" guess.${scoresLeft !== undefined && !me.isOwner ? ` ${scoresLeft} scores left today.` : ""}`}>
+    <span title={`Reads each job against your CV and gives a real fit score in place of the rough guess.${scoresLeft !== undefined && !me.isOwner ? ` ${scoresLeft} scores left today.` : ""}`}>
       <ActionButton
         run={async () => {
           const { scored, failed } = await scoreJobs({ jobIds: batch });
@@ -243,6 +260,7 @@ function Jobs() {
         size="sm"
       >
         Score top {batch.length}
+        {!me.isOwner && scoresLeft !== undefined && <span className="font-normal text-ink-3"> · uses {batch.length} of {scoresLeft}</span>}
       </ActionButton>
     </span>
   );
@@ -252,7 +270,7 @@ function Jobs() {
       <div>
         <h3 className="label mb-2">Role</h3>
         <div className="flex flex-wrap gap-2">
-          {sideChip(hrefWith({ track: null, show: null }), <span>All roles <span className="tnum opacity-70">{jobs.filter((j) => unique.has(j._id) && j.status !== "dismissed" && !isOld(j) && !isApplied(j)).length}</span></span>, !track && !show)}
+          {sideChip(hrefWith({ track: null, show: null }), <span>All roles <span className="tnum opacity-70">{allOpen}</span></span>, !track && !show)}
           {me.tracks.map((t) =>
             sideChip(
               hrefWith({ track: t.key, show: null }),
@@ -305,7 +323,7 @@ function Jobs() {
             <h3 className="label mb-2">Also see</h3>
             <div className="flex flex-wrap gap-2">
               {sideChip(hrefWith({ track: null, show: show === "hidden" ? null : "hidden" }), "Not for me", show === "hidden")}
-              {appliedCount > 0 && sideChip(hrefWith({ track: null, show: show === "applied" ? null : "applied" }), `Applied ${appliedCount}`, show === "applied")}
+              {appliedCount > 0 && sideChip(hrefWith({ track: null, show: show === "applied" ? null : "applied" }), `Sent or later ${appliedCount}`, show === "applied")}
               {oldCount > 0 && sideChip(hrefWith({ track: null, show: show === "old" ? null : "old" }), `Archived ${oldCount}`, show === "old")}
             </div>
           </div>
@@ -331,7 +349,7 @@ function Jobs() {
   /** Status tags (Looks closed, New, Top company) on their own short line, so the details line keeps its room. */
   const tagLine = (j: ListJob) => {
     const t = tags(j);
-    const any = j.liveCheck?.state === "closed" || j.brief?.blocker || j.status === "applying" || now - j._creationTime < 2 * 86_400_000 || strongCompany(j.company);
+    const any = j.liveCheck?.state === "closed" || j.brief?.blocker || j.status === "applying" || isNewJob(j, now) || strongCompany(j.company);
     // With one role, its name goes in the group heading once instead of on every row (27 Nov review).
     const role = me.tracks.length > 1 ? trackByKey.get((track ?? jobTrackKey(j, me.tracks)) ?? "")?.name : undefined;
     return any || role ? (
@@ -345,9 +363,9 @@ function Jobs() {
   const tags = (j: ListJob) => (
     <>
       {(j.liveCheck?.state === "closed" || j.brief?.blocker || j.status === "applying") && (
-        <span className={`mono mr-2 ${j.liveCheck?.state === "closed" || j.brief?.blocker ? "!text-bad" : ""}`}>{j.liveCheck?.state === "closed" ? "Looks closed" : j.brief?.blocker ? "Rules you out" : STATUS_LABELS[j.status]}</span>
+        <span className={`mono mr-2 ${j.liveCheck?.state === "closed" || j.brief?.blocker ? "!text-bad" : ""}`}>{j.liveCheck?.state === "closed" ? "Looks closed" : j.brief?.blocker ? "Rules you out" : `${STAGE_WORDS[j.status] ?? j.status}: CV ready`}</span>
       )}
-      {now - j._creationTime < 2 * 86_400_000 && j.status === "new" && !isOld(j) && <span className="mono mr-2 !text-ink">New</span>}
+      {isNewJob(j, now) && !isOld(j) && <span className="mono mr-2 !text-ink">New to you</span>}
     </>
   );
 
@@ -356,14 +374,36 @@ function Jobs() {
       {!me.isOwner && !show && <ScoreTipPopup unscored={unscored.length} />}
       <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-3">
         <h1 className="h1">Jobs</h1>
-        <span className="tnum text-[15px] text-ink-3">{visible.length} open</span>
+        {/* One count that matches Today; what filters hide is said, never silently dropped (27 Nov review: 88 vs 92). */}
+        <span className="tnum text-[15px] text-ink-3">
+          {show ? `${visible.length} shown` : `${allOpen} open`}
+          {!show && allOpen > visible.length && (
+            <>
+              {" · "}
+              {visible.length} shown, {allOpen - visible.length} hidden
+              {/* Say what hides them, so the chips and this line add up (27 Nov review). */}
+              {` (${[weakCount ? `${weakCount} looser ${weakCount === 1 ? "match" : "matches"}` : null, allOpen - visible.length - weakCount > 0 ? `${allOpen - visible.length - weakCount} by your filters` : null].filter(Boolean).join(", ")})`}{" "}
+              <button
+                type="button"
+                className="btn-text inline-flex !text-[15px] underline"
+                onClick={() => {
+                  setQ("");
+                  setShowWeak(true);
+                  router.replace(hrefWith({ q: null, new: null, track: null, region: "all", ...Object.fromEntries(FILTERS.map((f) => [f.key, null])) }), { scroll: false });
+                }}
+              >
+                Show all
+              </button>
+            </>
+          )}
+        </span>
         <span className="tnum text-[13px] [&>span]:!text-[13px] max-[359px]:order-last max-[359px]:basis-full">
           <LeftToday kind="scoresLeft" label="scores" />
         </span>
         <span className="flex-1" />
         <details className="relative">
-          <summary className="btn btn-secondary btn-sm cursor-pointer list-none max-sm:!w-11 max-sm:!px-0 [&::-webkit-details-marker]:hidden" aria-label="Find or add a job">
-            <span aria-hidden className="text-xl leading-none sm:hidden">+</span>
+          <summary className="btn btn-secondary btn-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden" aria-label="Find or add a job">
+            <span className="sm:hidden">+ Add job</span>
             <span className="hidden sm:inline">Find or add a job</span>
           </summary>
           <div className="card pop absolute right-0 z-30 mt-2 grid w-[min(calc(100vw-2rem),40rem)] gap-4 p-4">
@@ -398,7 +438,7 @@ function Jobs() {
             router.replace(hrefWith({ q: e.target.value.trim() || null }), { scroll: false });
           }}
         />
-        <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 max-lg:pr-10 max-lg:[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] lg:mx-0 lg:overflow-visible lg:px-0 lg:pb-0">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Sort"
             className="field !w-auto shrink-0 max-lg:!rounded-full max-lg:!border-line-strong max-lg:!bg-card max-lg:font-semibold"
@@ -524,9 +564,8 @@ function Jobs() {
               <p className="mt-1 text-[15px] text-ink-2">{inView.length ? "Remove a filter to see more." : "Find or add a job to start your list."}</p>
             </div>
           ) : null}
-          {visible.length > 0 && view !== "list" && (
-            <ul className={`${view === "auto" ? "max-lg:!hidden" : ""} grid gap-4 sm:grid-cols-2 ${selected ? "2xl:grid-cols-3" : showFilters ? "xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>
-              {visible.slice(0, shown).map((j) => {
+          {visible.length > 0 && view !== "list" && (() => {
+            const card = (j: ListJob) => {
                 const best = track ? j.scores?.find((s) => s.trackKey === track) : bestScore(j);
                 const listed = payText(j.salary, rates);
                 return (
@@ -545,9 +584,9 @@ function Jobs() {
                       {showTitle(j.title)}
                     </Link>
                     {listed && <div className="tnum mt-2 font-[family-name:var(--font-display-face)] text-lg font-semibold">{listed}</div>}
-                    <div className="row-meta mt-1 truncate">
+                    <div className="row-meta mt-1 line-clamp-2">
                       {tags(j)}
-                      {j.postedAt ? `Posted ${ago(j.postedAt)}` : ""}
+                      {j.postedAt ? `Posted ${postedAgo(j.postedAt)}` : ""}
                     </div>
                     <div className="mt-auto flex items-center gap-1 pt-4">
                       {notForMe(j)}
@@ -558,9 +597,26 @@ function Jobs() {
                     </div>
                   </li>
                 );
-              })}
-            </ul>
-          )}
+            };
+            const rows = visible.slice(0, shown);
+            const fresh = newGroup ? rows.filter((j) => isNewJob(j, now)) : [];
+            const rest = rows.slice(fresh.length);
+            const grid = (items: ListJob[]) => <ul className={`grid gap-4 sm:grid-cols-2 ${selected ? "2xl:grid-cols-3" : showFilters ? "xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>{items.map(card)}</ul>;
+            return (
+              <div className={view === "auto" ? "max-lg:hidden" : ""}>
+                {fresh.length > 0 ? (
+                  <>
+                    <h2 className="mb-2 text-[13px] font-semibold text-ink-2">New to you since yesterday</h2>
+                    <div className="mb-8">{grid(fresh)}</div>
+                    {rest.length > 0 && <h2 className="mb-2 text-[13px] font-semibold text-ink-2">Earlier</h2>}
+                    {rest.length > 0 && grid(rest)}
+                  </>
+                ) : (
+                  grid(rows)
+                )}
+              </div>
+            );
+          })()}
           {visible.length > 0 && view !== "grid" && (
             <div className={view === "auto" ? "lg:hidden" : ""}>
               {(() => {

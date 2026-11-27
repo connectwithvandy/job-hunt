@@ -77,15 +77,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (!me) return <SignIn />;
   if (!me.onboarded) return <Onboarding me={me} />;
 
-  // The CV print view, and the small window the autofill bookmark opens.
-  const bare = (path.startsWith("/jobs/") && path.endsWith("/resume")) || path === "/fill";
+  // The small window the autofill bookmark opens has no menus. The tailored CV keeps them on screen (it was a dead
+  // end with no way back, 27 Nov review); they carry no-print, so the printed CV stays clean.
+  const bare = path === "/fill";
+  const printView = path.startsWith("/jobs/") && path.endsWith("/resume");
   return (
     <div className="min-h-screen">
       {!bare && <TopBar isOwner={me.isOwner} />}
       {/* Room at the bottom on a phone so the tab bar never sits on the last line. */}
       <main className="mx-auto min-w-0 max-w-7xl px-4 pt-5 pb-[calc(80px+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-16 print:p-0">
-        {!bare && <TrialOverNotice />}
-        {!bare && <SubTabs />}
+        {!bare && !printView && <TrialOverNotice />}
+        {!bare && !printView && <SubTabs />}
         {!bare && inProfile(path) ? (
           <div className="md:flex md:gap-10">
             <ProfileMenu />
@@ -98,7 +100,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
       </main>
       {!bare && <BottomTabs />}
-      {!bare && <SurveyPopup />}
+      {!bare && !printView && <SurveyPopup />}
       <Celebrations />
     </div>
   );

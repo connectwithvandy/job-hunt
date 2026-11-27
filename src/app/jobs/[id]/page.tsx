@@ -17,7 +17,7 @@ import { CvMatch } from "@/components/CvMatch";
 import { downloadDocx } from "@/lib/docx";
 import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, TailorButton, GapAnswers } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
-import { ActionButton, CopyButton, DownloadMenu, SentCheck } from "@/components/ui";
+import { ActionButton, CopyButton, DownloadMenu, LeftToday, SentCheck } from "@/components/ui";
 import { inInr, payText, useInrRates } from "@/lib/money";
 import { afterApplyNudge, hrTrack, referralTrack, type Track } from "@/lib/outreachPlan";
 
@@ -386,15 +386,15 @@ export default function JobPage() {
             {metaOf(job)}
             {(job.sourceUrl || job.url) && (
               <>
-                {" "}
-                <a className="font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2 sm:hidden" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
-                  · Original posting ↗
+                {/* Its own line on a phone, so it never wraps with a stray "·" in front (27 Nov review). */}
+                <a className="mt-1 block w-fit font-semibold text-ink-2 underline underline-offset-2 sm:hidden" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
+                  Original posting ↗
                 </a>
               </>
             )}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:flex-nowrap">
-            <StageChip jobId={job._id} status={job.status} />
+            <StageChip jobId={job._id} status={job.status} qualified={(top?.score ?? 0) >= SKIP_BELOW} />
             {currentTrack && <span className="mono px-1">{currentTrack.name}</span>}
             {postingTag && (
               <button type="button" className={`mono inline-flex min-h-8 items-center rounded-full px-2 ${live?.state === "closed" ? "!text-bad" : ""}`} title={live ? `${live.note} Checked ${timeAgo(live.at)}. Check again.` : "Check again"} onClick={() => void checkPosting({ jobId: job._id }).catch(() => {})}>
@@ -430,7 +430,8 @@ export default function JobPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
-        <aside id="job-actions" className="lg:sticky lg:top-24 lg:order-last lg:self-start">
+        {/* Not scored yet on a phone: the fit card comes before Apply, so the score is read before applying (27 Nov review). */}
+        <aside id="job-actions" className={`lg:sticky lg:top-24 lg:order-last lg:self-start ${top ? "" : "max-lg:order-2"}`}>
           <ActionPanel
             job={job}
             peopleCount={people.length}
@@ -440,12 +441,12 @@ export default function JobPage() {
             noContacts={me.contactsCount === 0}
           />
         </aside>
-        <div className="min-w-0 space-y-6">
-          <section id="fit" className="card scroll-mt-24 p-5 sm:p-6" aria-label="Fit">
+        <div className={`min-w-0 space-y-6 ${top ? "" : "max-lg:contents max-lg:[&>*]:order-3"}`}>
+          <section id="fit" className={`card scroll-mt-24 p-5 sm:p-6 ${top ? "" : "max-lg:!order-1"}`} aria-label="Fit">
             <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
               <span className="flex w-11 shrink-0 flex-col items-center pt-0.5">
                 <FitBadge job={job} size={44} />
-                {!top && job.quickFit !== undefined && <span className="text-[11px] text-ink-3">rough</span>}
+                {!top && job.quickFit !== undefined && <span className="text-[11px] text-ink-3">guess</span>}
               </span>
               <div className="min-w-0 flex-1 basis-[calc(100%-60px)] sm:basis-0">
                 <h2 className="h2">{top ? (top.score >= 75 ? "Strong fit" : top.score >= SKIP_BELOW ? "Good fit" : "Weaker fit") : "Not scored yet"}</h2>
@@ -456,6 +457,9 @@ export default function JobPage() {
                 <ActionButton run={async () => void (await scoreJobs({ jobIds: [job._id] }))} pending="Scoring" variant={top ? "text" : "ghost"} size="sm">
                   {top ? "Score again" : "Score fit"}
                 </ActionButton>
+                <span className="mt-1 block text-[13px] [&>span]:!text-[13px]">
+                  <LeftToday kind="scoresLeft" label="scores" />
+                </span>
               </span>
             </div>
             {scores.length > 1 && (
@@ -641,25 +645,33 @@ function ActionPanel({
               Download CV
             </Link>
           ) : (
-            <button type="button" className="btn btn-secondary w-full" onClick={() => openStep("cv")}>
-              Tailor my CV
-            </button>
+            <>
+              <button type="button" className="btn btn-secondary w-full" onClick={() => openStep("cv")}>
+                Tailor my CV
+              </button>
+              {/* What it uses, right at the button (27 Nov review). */}
+              <p className="-mt-1 text-center text-[13px] [&>span]:!text-[13px]">
+                <LeftToday kind="cvsLeft" label="tailored CVs" />
+              </p>
+            </>
           )}
           <div className="flex justify-center">
             <ActionButton run={markApplied} variant="text">
-              I&apos;ve applied
+              Mark applied
             </ActionButton>
           </div>
           {/* Asked once on coming back from the company's form (ApplyButton notes the open). */}
           <SentCheck id={`apply:${job._id}`} onSent={markApplied} question="Did you apply?" yes="Yes, applied" />
           <details className="pt-1 text-[13px] text-ink-3">
             <summary className="min-h-11 cursor-pointer list-none py-3 [&::-webkit-details-marker]:hidden">
-              Apply downloads your CV; your autofill bookmark fills the form. <span className="font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2">How it works</span>
+              Apply opens the job&apos;s form and downloads your CV.{" "}
+              <span className="font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2">Fill forms faster (optional)</span>
             </summary>
             <p className="mt-2">
-              Apply opens the form and downloads your tailored CV. Then click your JobPipe autofill bookmark: it fills your details and answers and attaches the CV. Check everything and press Submit yourself.{" "}
+              Add the JobPipe form filler to your browser once: it&apos;s a button you keep in your bookmarks bar. On a job form, click it and it types
+              in your details and answers and attaches your CV. You check everything and press Submit yourself.{" "}
               <Link className="underline" href="/resume#autofill">
-                Set up the bookmark (1 minute)
+                Add the form filler (1 minute)
               </Link>
             </p>
           </details>
@@ -698,19 +710,50 @@ const DESCRIPTION_CAP = 8000;
  * The posting's text at a readable width. Short lines with no full stop ("About Us") read as small headings. A text
  * cut at the stored limit ends at its last whole paragraph, with a link to the full posting (27 Nov review: "Mai").
  */
+/**
+ * Lines of a posting as headings, lists and paragraphs. A short line on its own is a heading; short lines in a row,
+ * or lines starting with a bullet, are a list (27 Nov review: "Strong communication…" requirements showed as headings).
+ */
+type Block = { kind: "h" | "p"; text: string } | { kind: "ul"; items: string[] };
+function describe(lines: string[]): Block[] {
+  const bullet = (b: string) => /^[-•*·▪●]\s*/.test(b);
+  const short = (b?: string) => !!b && b.length < 60 && !/[.;,]$/.test(b) && !bullet(b);
+  const out: Block[] = [];
+  lines.forEach((b, i) => {
+    const prev = lines[i - 1];
+    const next = lines[i + 1];
+    // The first short line of a run that reads like a section name ("What you'll bring") stays a heading.
+    const sectionName = short(b) && !short(prev) && /^(what|about|your|the role|role|responsibilit|requirement|qualification|key|who|why|benefit|perks|nice to have|preferred|must have|skills|experience|we offer|you('ll| will)|job description|summary|overview|compensation)/i.test(b);
+    const listy = !sectionName && (bullet(b) || (short(b) && !/:$/.test(b) && ((short(prev) && !/:$/.test(prev!)) || (short(next) && !/:$/.test(next!)))));
+    if (listy) {
+      const item = b.replace(/^[-•*·▪●]\s*/, "");
+      const last = out.at(-1);
+      if (last?.kind === "ul") last.items.push(item);
+      else out.push({ kind: "ul", items: [item] });
+    } else out.push({ kind: short(b) || (/:$/.test(b) && b.length < 60) ? "h" : "p", text: b.replace(/:$/, "") });
+  });
+  return out;
+}
+
 function Description({ text, url }: { text: string; url: string }) {
   const cut = text.length >= DESCRIPTION_CAP - 10;
   const shown = cut ? text.slice(0, text.lastIndexOf("\n", DESCRIPTION_CAP) > 0 ? text.lastIndexOf("\n", DESCRIPTION_CAP) : text.lastIndexOf(". ") + 1) : text;
   const blocks = shown.split(/\n+/).map((l) => l.trim()).filter(Boolean);
   return (
     <div className="max-w-[68ch] space-y-3 text-[15px] leading-relaxed text-ink-2">
-      {blocks.map((b, i) =>
-        b.length < 60 && !/[.:;,]$/.test(b) && !/^[-•*]/.test(b) ? (
+      {describe(blocks).map((g, i) =>
+        g.kind === "h" ? (
           <h3 key={i} className="pt-2 text-[13px] font-semibold text-ink">
-            {b}
+            {g.text}
           </h3>
+        ) : g.kind === "ul" ? (
+          <ul key={i} className="list-disc space-y-1 pl-5 marker:text-ink-3">
+            {g.items.map((t, j) => (
+              <li key={j}>{t}</li>
+            ))}
+          </ul>
         ) : (
-          <p key={i}>{b}</p>
+          <p key={i}>{g.text}</p>
         ),
       )}
       {cut && url && (

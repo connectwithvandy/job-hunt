@@ -59,11 +59,21 @@ const ALIASES: Record<string, string> = { hpe: "hewlettpackardenterprise", gskca
  * A looser key than roleKey for spotting the same role listed twice: ignores the company's aside in
  * brackets ("Lyric (lyric.tech)") and places in brackets after the title ("… (Hybrid- Bangalore) (Bangalore East)").
  */
+// Indian places and work settings a title can end with: "Enterprise AE | New Logo | Mumbai" and "… | Bangalore" are one
+// role posted per city (27 Nov review: Jamf three times). Other countries stay apart: a UK role isn't an Australian one.
+const TITLE_PLACE = /^(bengaluru|bangalore|mumbai|delhi|new delhi|ncr|delhi ncr|gurgaon|gurugram|noida|pune|chennai|hyderabad|kolkata|ahmedabad|kochi|jaipur|chandigarh|lucknow|indore|surat|nagpur|bhopal|coimbatore|kanpur|patna|vadodara|visakhapatnam|vizag|thane|navi mumbai|ludhiana|india|pan india|remote|hybrid|on-?site|east|west|north|south)$/;
+
 export function sameRoleKey(company: string, title: string) {
   const c = companyKey(company.replace(/\(.*?\)/g, " "));
   const t = title
+    // A store or requisition code at the end ("Sales Executive Fmb 02", "Sales Executive 1344") is one role per store.
+    .replace(/(\s+[a-z]{0,4}\s?\d{1,5})+\s*$/i, "")
     .toLowerCase()
     .replace(/\((?:[^()]*\b(bengaluru|bangalore|india|remote|hybrid|on-?site|east|west|north|south)\b[^()]*)\)/g, " ")
+    // Drop trailing "| Mumbai", " - Chennai/Hyderabad", ", Bengaluru" parts made only of Indian places.
+    .split(/\s*[|–—]\s*|\s+-\s+|\s*,\s*/)
+    .filter((part, i) => i === 0 || !part.split(/\s*\/\s*|\s+or\s+|\s*&\s*/).every((w) => TITLE_PLACE.test(w.trim())))
+    .join(" ")
     .replace(/[^a-z0-9]/g, "");
   return `${ALIASES[c] ?? c}|${t}`;
 }
@@ -77,6 +87,42 @@ export function sameRoleKey(company: string, title: string) {
 // but not "consultancy services" (that would catch Tata Consultancy Services).
 export const AGGREGATORS =
   /\b(jobgether|bebee|talent\.com|jooble|careerjet|huntingcube|2coms|weekday ai|careerbloc|remotestar|corporate stalwarts|insight global|n human resources|headway tek|h3 technologies|hiring specialist|hr solutions?|human resources?|staffing|recruitment|recruiters?|placements?|manpower)\b/i;
+
+/**
+ * A company name that isn't one: a legal suffix alone ("LLP"), a placeholder ("Company not listed"), or a scrap of
+ * sentence the board put in the company field ("due to several reasons."). Such listings look scraped and can't be
+ * checked, so they're skipped when saved and hidden from lists (27 Nov 2026 review).
+ */
+export function junkCompany(name: string) {
+  const n = name.trim();
+  if (n.length < 2) return true;
+  if (/^(llp|pvt|pvt\.? ltd\.?|ltd\.?|inc\.?|limited|private limited|company|careers?|n\/?a|none|null|undefined|unknown|confidential)$/i.test(n)) return true;
+  if (/\b(not (listed|disclosed|mentioned|specified)|undisclosed|company name)\b/i.test(n)) return true;
+  // A job board's name in the company slot means the employer is unknown ("Company not listed" on cards).
+  if (/^(indeed(\.com|\.co\.in)?|naukri(\.com)?|foundit|monster|glassdoor|shine(\.com)?|timesjobs|linkedin jobs)$/i.test(n)) return true;
+  const words = n.split(/\s+/);
+  // Reads as a clause, or every word in lower case like a sentence: a company name doesn't ("boAt", "iMerit" are fine).
+  if (/\b(due to|several|reasons?|because|we are|you will)\b/i.test(n)) return true;
+  // A category, not an employer: "IT Training and Certification Courses".
+  if (/\b(courses|certification courses|training and certification)\b/i.test(n)) return true;
+  if (words.length >= 3 && words.every((w) => /^[a-z]/.test(w))) return true;
+  // Ends with a full stop that isn't a legal suffix ("Ltd.", "Inc." are fine).
+  if (/\.$/.test(n) && words.length >= 3 && !/\b(ltd|inc|co|corp|llc|plc|pvt|bros|ag|sa|bv)\.$/i.test(n)) return true;
+  return false;
+}
+
+/**
+ * A shop-floor retail job (owner, 27 Nov: "biba shouldnt be included"): sales staff in a store, mall or showroom,
+ * or at a fashion, apparel or jewellery retail brand. JobPipe is for B2B sales people, so these are never saved
+ * or shown.
+ */
+export function storeRetailJob(j: { company: string; title: string; location?: string }) {
+  if (/\b(biba|w for woman|fabindia|westside|pantaloons|lifestyle stores|max fashion|reliance trends|tanishq|caratlane|kalyan jewellers|malabar gold|bluestone|lenskart|decathlon|ikea|croma|reliance digital)\b/i.test(j.company)) return true;
+  if (/\b(apparel|fashion|boutique|jewel+e?rs?|retail stores?)\b/i.test(j.company)) return true;
+  if (/\b(mall|showroom|outlet|store)\b/i.test(j.location ?? "")) return true;
+  if (/\b(store|showroom|retail|floor|counter)\s+(sales|executive|associate|staff)\b|\bsales (associate|staff|girl|boy)\b|\bfashion consultant\b/i.test(j.title)) return true;
+  return false;
+}
 
 // Job boards whose own page is a fine place to apply when the company's isn't known: since 13 Nov their
 // listings are kept (most India SDR roles are only there). Reposting boards (AGGREGATORS) still aren't.

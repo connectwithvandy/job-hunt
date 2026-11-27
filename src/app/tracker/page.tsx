@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { PIPELINE } from "../../../convex/lib/defaults";
@@ -13,7 +14,8 @@ import { trackerStatus } from "@/lib/replies";
 import { cleanSubject } from "@/lib/calendarInvite";
 import { tidyTitle } from "@/lib/tidy";
 import { WhatsWorking } from "@/components/WhatsWorking";
-import { STAGE_WORDS } from "@/lib/stages";
+import { STAGE_HINT, STAGE_WORDS, STAGES } from "@/lib/stages";
+import { openStages } from "@/lib/pipelineCounts";
 import { daysSince } from "@/components/JobState";
 import { useEscape } from "@/components/Sidebar";
 
@@ -26,34 +28,57 @@ const EMPTY_HINT: Record<string, string> = {
   applying: "Tailor a CV to move a job here",
   applied: "Jobs you apply to land here",
   screening: "Recruiter calls land here",
-  interview: "Interviews",
-  offer: "Offers",
-  rejected: "Jobs you drop",
+  interview: "Interviews land here",
+  offer: "Offers land here",
+  rejected: "Jobs that closed or you dropped",
 };
 
 type Job = Doc<"jobs">;
 type Status = Job["status"];
 
-export default function Tracker() {
+export default function TrackerPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Tracker />
+    </Suspense>
+  );
+}
+
+function Tracker() {
+  // Today's pipeline strip links here with ?stage=applied: that stage opens on a phone, and its column is marked and
+  // scrolled to on a computer.
+  const asked = useSearchParams().get("stage");
+  const linked = asked && PIPELINE.some((p) => p.status === asked) ? asked : null;
   const me = useQuery(api.users.me);
   const jobs = useQuery(api.jobs.list);
+  const prefs = useQuery(api.users.jobPrefs);
   const setStatus = useSetStatus();
   const [over, setOver] = useState<string | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(linked);
   const [moving, setMoving] = useState<Job | null>(null);
   const archive = useMutation(api.jobs.setStatusMany);
   const [archiving, setArchiving] = useState(false);
   const [now] = useState(() => Date.now());
   useEscape(!!moving, () => setMoving(null));
+  // Once, when the board first draws: later live updates must not pull the page back.
+  const loaded = jobs !== undefined;
+  useEffect(() => {
+    if (loaded && linked && window.innerWidth >= 768) document.getElementById(`stage-${linked}`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [loaded, linked]);
   if (!me || !jobs) return <Loading />;
   const byStage = new Map(PIPELINE.map((p) => [p.status, jobs.filter((j) => trackerStatus(j) === p.status).sort((a, b) => b.updatedAt - a.updatedAt)]));
   const total = PIPELINE.reduce((n, p) => n + (byStage.get(p.status)?.length ?? 0), 0);
   const closed = byStage.get("rejected")?.length ?? 0;
   const live = total - closed;
+  // The pipeline's first two stages live on Jobs; the board shows them as slim columns so it matches Today's strip.
+  const early = openStages(jobs, now, prefs?.maxAgeDays);
+  const earlyStages = STAGES.filter((st) => st.status === "new").map((st) => ({ ...st, n: early[st.key as "prospect" | "qualified"], href: st.key === "qualified" ? "/jobs?fit=ok" : "/jobs" }));
   const gone = jobs.filter((j) => j.status === "applying" && j.liveCheck?.state === "closed");
   const gmailOff = !me.inboxAt || now - me.inboxAt > DAY;
-  // Phone: one stage at a time. Opens on the first stage with something in it.
-  const stage = picked ?? PIPELINE.find((p) => byStage.get(p.status)?.length)?.status ?? "applied";
+  // Phone: one stage at a time. Opens where something is due (an application with no reply for a week), else on the
+  // first stage with something in it (27 Nov review: the overdue Nudge hid behind another chip).
+  const due = (byStage.get("applied") ?? []).some((j) => !!j.appliedAt && now - j.appliedAt > NUDGE_AFTER && !j.lastEmail);
+  const stage = picked ?? (due ? "applied" : PIPELINE.find((p) => byStage.get(p.status)?.length)?.status ?? "applied");
   const move = (j: Job, to: string) => {
     if (to !== trackerStatus(j)) void setStatus({ jobId: j._id, status: to as Status });
   };
@@ -70,12 +95,14 @@ export default function Tracker() {
           e.dataTransfer.effectAllowed = "move";
         }}
         onDragEnd={() => setOver(null)}
-        className="card p-4 md:cursor-grab md:active:cursor-grabbing"
+        className="card p-3.5 md:cursor-grab md:active:cursor-grabbing"
       >
-        <Link href={`/jobs/${j._id}`} className="flex gap-3">
+        <Link href={`/jobs/${j._id}`} className="flex min-h-11 gap-3">
           <CompanyMark job={j} size={32} />
           <span className="min-w-0">
-            <span className="row-title line-clamp-3 !text-[14px]">{tidyTitle(j.title)}</span>
+            <span className="row-title line-clamp-4 !text-[14px] [overflow-wrap:anywhere] hyphens-auto" title={tidyTitle(j.title)}>
+              {tidyTitle(j.title)}
+            </span>
             <span className="row-meta block truncate">{j.company}</span>
           </span>
         </Link>
@@ -84,7 +111,7 @@ export default function Tracker() {
             Email {timeAgo(j.lastEmail.at)}: {cleanSubject(j.lastEmail.subject)}
           </p>
         )}
-        {quiet && <p className="mono mt-3">No reply · {daysSince(j.appliedAt!)} days</p>}
+        {quiet && <p className="mono mt-3 whitespace-nowrap">No reply · {daysSince(j.appliedAt!)}d</p>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 whitespace-nowrap">
           <button type="button" className="btn-text -ml-1 underline-offset-2 [@media(hover:none)]:underline" onClick={() => setMoving(j)}>
             Move to ▾
@@ -153,7 +180,24 @@ export default function Tracker() {
 
       {/* Phone: stage chips you can scroll sideways, then the chosen stage as a list. */}
       <div className="md:hidden">
-        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pr-10 pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]" role="tablist" aria-label="Stages">
+        <div
+          ref={(el) => {
+            // The chosen stage's chip in view when the page opens (27 Nov review: "Sent" sat off-screen).
+            const on = el?.querySelector<HTMLElement>('[aria-selected="true"]');
+            if (el && on && on.offsetLeft + on.offsetWidth > el.clientWidth) el.scrollLeft = on.offsetLeft - 16;
+          }}
+          className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pr-10 pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]"
+          role="tablist"
+          aria-label="Stages"
+        >
+          {earlyStages.map((st) => (
+            <Link
+              key={st.key} href={st.href} aria-label={`${st.word}, ${st.hint}: ${st.n}. Opens Jobs`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-dashed border-line-strong bg-transparent px-4 text-[13px] font-semibold text-ink-2">
+              {st.word}
+              <span className="tnum text-ink-3">{st.n}</span>
+              <span aria-hidden className="text-ink-3">↗</span>
+            </Link>
+          ))}
           {PIPELINE.map((p) => {
             const on = p.status === stage;
             const n = byStage.get(p.status)?.length ?? 0;
@@ -172,6 +216,9 @@ export default function Tracker() {
             );
           })}
         </div>
+        <p className="mb-3 text-[13px] text-ink-3">
+          <span className="font-semibold text-ink-2">{STAGE_WORDS[stage]}</span>: {STAGE_HINT[stage]}
+        </p>
         {byStage.get(stage)?.length ? (
           <ul className="space-y-3">{byStage.get(stage)!.map(card)}</ul>
         ) : (
@@ -180,14 +227,34 @@ export default function Tracker() {
       </div>
 
       {/* Computer: six columns that fit the page; drag a card or use Move to…. */}
-      <div className="hidden grid-cols-6 gap-3 md:grid">
+      <div className="hidden grid-cols-[88px_88px_repeat(6,minmax(0,1fr))] gap-3 md:grid">
+        {earlyStages.map((st) => (
+          <section key={st.key} className="min-w-0">
+            {/* Same header height as the stage columns, so every box starts on one line; the count sits in the box. */}
+            <h2 className="mb-3 px-1">
+              <span className="mono block truncate !text-ink-3">{st.word}</span>
+              <span className="block truncate text-[12px] font-normal text-ink-3">{st.key === "qualified" ? "60+" : "open"}</span>
+            </h2>
+            <Link
+              href={st.href}
+              className="flex min-h-40 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-line-strong px-2 text-center text-[13px] text-ink-3 [@media(hover:hover)]:hover:bg-soft [@media(hover:hover)]:hover:text-ink"
+            >
+              <span className="tnum font-[family-name:var(--font-display-face)] text-2xl font-semibold text-ink-2">{st.n}</span>
+              <span>In Jobs →</span>
+            </Link>
+          </section>
+        ))}
         {PIPELINE.map((col) => {
           const cards = byStage.get(col.status) ?? [];
           return (
-            <section key={col.status} className="min-w-0">
-              <h2 className="mb-3 flex items-baseline justify-between px-1">
-                <span className="mono !text-ink-2">{STAGE_WORDS[col.status]}</span>
-                <span className="tnum text-[13px] text-ink-3">{cards.length}</span>
+            <section key={col.status} id={`stage-${col.status}`} className="min-w-0 scroll-mt-24">
+              <h2 className="mb-3 px-1" aria-current={linked === col.status ? "step" : undefined}>
+                <span className="flex items-baseline gap-2">
+                  <span className={`mono ${linked === col.status ? "!font-semibold !text-ink" : "!text-ink-2"}`}>{STAGE_WORDS[col.status]}</span>
+                  <span className="tnum text-[13px] text-ink-3">{cards.length}</span>
+                </span>
+                <span className="block text-[12px] font-normal text-ink-3">{STAGE_HINT[col.status]}</span>
+                {linked === col.status && <span className="mt-1 block h-[3px] rounded-full bg-accent" aria-hidden />}
               </h2>
               <ul
                 aria-label={STAGE_WORDS[col.status]}

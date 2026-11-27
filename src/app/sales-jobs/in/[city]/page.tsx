@@ -67,7 +67,7 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
         <Link href="/" className="btn btn-primary">
-          Get these by email every morning, scored against your CV
+          Get these every morning
         </Link>
       </div>
       <nav className="mt-8 flex flex-wrap gap-2 text-sm">

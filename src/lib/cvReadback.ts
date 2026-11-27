@@ -12,6 +12,8 @@ type Cv = {
 export type CvReadback = {
   current: string | null;
   years: number | null;
+  /** "8+ years" when the CV's headline or summary states it: shown instead of the dates' count, so they never disagree. */
+  statedYears: string | null;
   roles: { title: string; company: string; when: string }[];
   regions: string[];
   skills: string[];
@@ -80,5 +82,7 @@ export function readCv(cv: Cv | null | undefined, now = new Date()): CvReadback 
     }
   }
 
-  return { current, years, roles, regions, skills, numbers };
+  const stated = `${cv.headline}\n${cv.summary}`.match(/\b(\d{1,2})\s*(\+)?\s*(?:years|yrs)\b/i);
+  const statedYears = stated ? `${stated[1]}${stated[2] ?? ""} years` : null;
+  return { current, years, statedYears, roles, regions, skills, numbers };
 }

@@ -65,6 +65,15 @@ export function ProfileMenu() {
   const path = usePathname();
   const me = useQuery(api.access.mine);
   const user = useQuery(api.users.me);
+  // On a phone the tabs scroll sideways: bring the open one into view (27 Nov review: "Plan & billing" sat off-screen,
+  // so nothing showed where you were). Scrolls only the row, never the page.
+  const row = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const ul = row.current;
+    const on = ul?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!ul || !on || ul.scrollWidth <= ul.clientWidth) return;
+    ul.scrollLeft = Math.max(0, on.offsetLeft - ul.offsetLeft - 16);
+  }, [path]);
   return (
     <nav className="no-print mb-6 md:sticky md:top-20 md:mb-0 md:w-52 md:shrink-0 md:self-start">
       {me && (
@@ -74,13 +83,14 @@ export function ProfileMenu() {
           <InviteFriend />
         </div>
       )}
-      <ul className="flex gap-1 overflow-x-auto border-b border-line text-sm max-md:[mask-image:linear-gradient(to_right,black_85%,transparent)] max-md:pr-8 md:flex-col md:border-b-0">
+      <ul ref={row} className="flex gap-1 overflow-x-auto border-b border-line text-sm max-md:[mask-image:linear-gradient(to_right,black_85%,transparent)] max-md:pr-8 md:flex-col md:border-b-0">
         {PROFILE.pages.map((p) => {
           const on = isOn(path, p.href);
           return (
             <li key={p.href}>
               <Link
                 href={p.href}
+                aria-current={on ? "page" : undefined}
                 className={`flex min-h-9 items-center whitespace-nowrap px-3 py-2 text-[14px] max-md:-mb-px max-md:border-b-2 md:rounded-lg [@media(pointer:coarse)]:min-h-11 ${on ? "font-semibold text-ink max-md:border-ink md:bg-soft" : "text-ink-2 max-md:border-transparent hover:text-ink md:hover:bg-soft"}`}
               >
                 {p.label}

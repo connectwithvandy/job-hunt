@@ -34,24 +34,34 @@ const plain = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "");
 const isCity = (p: string) => INDIAN_CITIES.some((c) => c.toLowerCase() === p.toLowerCase());
 
 /** "Bangalore, Karnataka, India" → "Bengaluru". At most two parts, no repeats, no state when the city is there. */
+const ACRONYM = /^(apac|emea|anz|mena|latam|amer|namer|uae|usa|uk|us|ncr|gcc|sea)$/i;
+
 export function tidyPlace(place?: string) {
   if (!place || /^not listed$/i.test(place.trim())) return "";
   const parts = plain(place)
     .replace(/\(([^)]+)\)/g, ",$1,")
-    .split(/,| - |\||;/)
+    .split(/,| - |\||;|\s\/\s|\//)
     .map((p) => p.trim())
     // Pin codes, country codes and work modes out: "BENGALURU, 560001, IN" → "Bengaluru".
     .filter((p) => p && !/^\d{3,}$/.test(p) && !NOT_A_PLACE.test(p))
-    .map((p) => (p.length > 3 && p === p.toUpperCase() ? p.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : p))
-    .map((p) => p.replace(/^Bangalore$/i, "Bengaluru").replace(/^Gurgaon$/i, "Gurugram"))
+    .map((p) => (p.length > 3 && p === p.toUpperCase() && !ACRONYM.test(p) ? p.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : p))
+    // One way to write a place (27 Nov review): "Bangalore North", "Bengaluru Urban" → "Bengaluru"; "Apac" → "APAC".
+    .map((p) =>
+      p
+        .replace(/^(bangalore|bengaluru)(\s+(north|south|east|west|urban|rural|city))?$/i, "Bengaluru")
+        .replace(/^Gurgaon$/i, "Gurugram")
+        .replace(/^(global|worldwide|anywhere)$/i, "Remote, worldwide")
+        .replace(ACRONYM, (m) => m.toUpperCase()),
+    )
     .filter((p, i, all) => all.findIndex((q) => q.toLowerCase() === p.toLowerCase()) === i);
   const hasIndianCity = parts.some(isCity);
   const kept = parts.filter((p) => !(hasIndianCity && /^india$/i.test(p)) && !(parts.length > 1 && STATES.some((s) => s.toLowerCase() === p.toLowerCase())));
   // With a known city, a mall or street name beside it is noise ("Vega City Mall-Ls-Blr, Bengaluru" → "Bengaluru").
   if (hasIndianCity) {
     const city = kept.find(isCity)!;
-    const area = kept.find((p) => p !== city && p.length <= 20 && /^[A-Za-z .]+$/.test(p) && !/mall|road|tower|park|plaza/i.test(p));
-    return area && kept.indexOf(area) < kept.indexOf(city) ? `${area}, ${city}` : city;
+    // The city alone: neighbourhoods and store names ("Biba Indira Nagar", "Nagarbhavi") made one city read many
+    // ways (27 Nov review).
+    return city;
   }
   return kept.slice(0, 2).join(", ");
 }
@@ -76,4 +86,12 @@ export function showPlace(job: { location?: string; title: string }) {
 
 /** Job boards that sometimes land in the company slot; the board's name never shows. */
 const BOARDS = /^(indeed(\.com|\.co\.in)?|naukri(\.com)?|foundit|monster|glassdoor|shine(\.com)?|timesjobs|linkedin jobs)$/i;
-export const showCompany = (company: string) => (BOARDS.test(company.trim()) ? "Company not listed" : company);
+export const showCompany = (company: string) =>
+  BOARDS.test(company.trim())
+    ? "Company not listed"
+    : company
+        .trim()
+        // Words a board cut short or prefixed: "Cravingcode Technologie" → "Technologies", "Us Scimplify" → "Scimplify".
+        .replace(/\bTechnologie$/, "Technologies")
+        .replace(/\bSolution$/, "Solutions")
+        .replace(/^Us\s+(?=[A-Z])/, "");
