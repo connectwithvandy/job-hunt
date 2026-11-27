@@ -13,6 +13,15 @@ test("hiringFor names the company a recruiter posted for, and nothing when the t
   expect(hiringFor("Acme Labs is a leading SaaS firm.", "Acme")).toBeNull();
   expect(hiringFor("We are a SaaS company hiring AEs.", "Acme")).toBeNull();
   expect(hiringFor(undefined, "Acme")).toBeNull();
+  // Real headings from the 28 Nov dry run.
+  expect(hiringFor("About Us is a place where…", "Perk")).toBeNull();
+  expect(hiringFor("About Us\n\nWe are building the future", "Wayground")).toBeNull();
+  expect(hiringFor("Company Description\n\nWe are a team", "Infasta")).toBeNull();
+  expect(hiringFor("The Role is a key part of", "PhonePe")).toBeNull();
+  expect(hiringFor("Hevo\n\nHevo is a data platform", "Hevo Data")).toBeNull();
+  expect(hiringFor("ABOUT MORPHO\n\nMorpho is a lab", "MorphoAI")).toBeNull();
+  expect(hiringFor("Matter Intelligence is a seed-stage startup backed by Pear.", "Pear VC")).toBe("Matter Intelligence");
+  expect(hiringFor("About Buildesk: a PropTech platform", "Cravingcode")).toBe("Buildesk");
 });
 
 test("a saved job keeps who it's really for, and the fill finds older ones", async () => {

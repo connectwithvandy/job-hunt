@@ -177,11 +177,18 @@ export function formLink(url?: string | null) {
  */
 export function hiringFor(description: string | undefined, company: string): string | null {
   if (!description) return null;
-  const start = description.trim().slice(0, 300);
-  const m = start.match(/^(?:About\s+)?([A-Z][A-Za-z0-9&.'-]+(?:\s+[A-Z][A-Za-z0-9&.'-]+){0,2})\s+(?:is|are|was)\s+(?:a|an|the|one|india's|a leading)\b/) ?? start.match(/^About\s+([A-Z][A-Za-z0-9&.'-]+(?:\s+[A-Z][A-Za-z0-9&.'-]+){0,2})\s*[:\n]/);
+  // Only the first line counts, and words must sit on it with plain spaces: "About Us\n\nWe…" or a heading
+  // like "Company Description" is never a company (28 Nov dry run found 600+ of those).
+  const start = description.trim().slice(0, 300).split(/\r?\n/)[0];
+  const word = "[A-Z][A-Za-z0-9&.'-]+";
+  const nameRe = `(${word}(?: ${word}){0,2})`;
+  const m = start.match(new RegExp(`^(?:About )?${nameRe} (?:is|are|was) (?:a|an|the|one|india's|a leading)\\b`)) ?? start.match(new RegExp(`^About ${nameRe} ?:`));
   if (!m) return null;
   const name = m[1].trim();
-  if (/^(we|our|the|this|it|company|role|job|position|team|client|about|you|they|he|she)$/i.test(name)) return null;
+  const NOT_NAMES = /^(we|us|our|the|this|it|company|description|role|job|position|team|client|about|overview|summary|you|they|he|she|who|what|why|opportunity|responsibilities|requirements)$/i;
+  if (name.split(" ").some((w) => NOT_NAMES.test(w))) return null;
+  // Shouty headings ("ABOUT MORPHO") aren't trusted.
+  if (name.length > 4 && name === name.toUpperCase() && !/\d|\./.test(name)) return null;
   const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
   const [a, b] = [key(name), key(company)];
   if (!a || !b || a.includes(b) || b.includes(a) || a.slice(0, 5) === b.slice(0, 5)) return null;

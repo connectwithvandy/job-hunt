@@ -954,10 +954,11 @@ export const fillHiringFor = internalMutation({
     for (const d of page.page) {
       if (!d.description) continue;
       const job = await ctx.db.get("jobs", d.jobId);
-      if (!job || job.hiringFor) continue;
-      const name = hiringFor(d.description, job.company);
-      if (!name) continue;
-      matches.push({ company: job.company, hiringFor: name, title: job.title });
+      if (!job) continue;
+      // Also re-checks names saved by an earlier, looser check, clearing ones that no longer match.
+      const name = hiringFor(d.description, job.company) ?? undefined;
+      if (name === job.hiringFor) continue;
+      matches.push({ company: job.company, hiringFor: name ?? `(clear "${job.hiringFor}")`, title: job.title });
       if (!dryRun) await ctx.db.patch("jobs", job._id, { hiringFor: name });
     }
     return { matches, cursor: page.continueCursor, isDone: page.isDone };
