@@ -184,8 +184,9 @@ export function hiringFor(description: string | undefined, company: string): str
   const nameRe = `(${word}(?: ${word}){0,2})`;
   const m = start.match(new RegExp(`^(?:About )?${nameRe} (?:is|are|was) (?:a|an|the|one|india's|a leading)\\b`)) ?? start.match(new RegExp(`^About ${nameRe} ?:`));
   if (!m) return null;
-  const name = m[1].trim();
-  const NOT_NAMES = /^(we|us|our|the|this|it|company|description|role|job|position|team|client|about|overview|summary|you|they|he|she|who|what|why|opportunity|responsibilities|requirements)$/i;
+  // "Buildesk Buildesk" (a logo's alt text before the name) → "Buildesk".
+  const name = m[1].trim().replace(/^(\S+)(?: \1)+$/, "$1");
+  const NOT_NAMES = /^(we|us|uswe|our|the|this|it|here|there|these|those|next|collect|construction|revit|company|description|role|job|position|team|client|about|overview|summary|you|they|he|she|who|what|why|opportunity|responsibilities|requirements)$/i;
   if (name.split(" ").some((w) => NOT_NAMES.test(w))) return null;
   // Shouty headings ("ABOUT MORPHO") aren't trusted.
   if (name.length > 4 && name === name.toUpperCase() && !/\d|\./.test(name)) return null;

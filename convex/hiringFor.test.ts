@@ -22,6 +22,9 @@ test("hiringFor names the company a recruiter posted for, and nothing when the t
   expect(hiringFor("ABOUT MORPHO\n\nMorpho is a lab", "MorphoAI")).toBeNull();
   expect(hiringFor("Matter Intelligence is a seed-stage startup backed by Pear.", "Pear VC")).toBe("Matter Intelligence");
   expect(hiringFor("About Buildesk: a PropTech platform", "Cravingcode")).toBe("Buildesk");
+  expect(hiringFor("Buildesk Buildesk is a PropTech platform", "Cravingcode")).toBe("Buildesk");
+  expect(hiringFor("Here is a great chance to sell", "Teerex")).toBeNull();
+  expect(hiringFor("There are a few things we need", "Proconnect")).toBeNull();
 });
 
 test("a saved job keeps who it's really for, and the fill finds older ones", async () => {
