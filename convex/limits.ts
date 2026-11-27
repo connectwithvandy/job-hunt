@@ -43,6 +43,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // One tailored CV for the whole free plan: a ten-year window, so it never comes back.
   freeTailor: { kind: "fixed window", rate: FREE.tailorsTotal, period: 3650 * DAY },
   freeAddJob: { kind: "fixed window", rate: FREE.addedJobsPerDay, period: DAY },
+  // Questions before the free CV (27 Nov, owner): a few tries in all, so opening them on a job and not writing isn't the end.
+  freeQuestions: { kind: "fixed window", rate: 3, period: 3650 * DAY },
   // The free CV review on /cv-review, for everyone together: caps what strangers can spend on AI in a day.
   freeReview: { kind: "fixed window", rate: 30, period: DAY },
   // Sign-ups to the jobs email without an account, for everyone together: stops a script filling the list with strangers.
@@ -221,6 +223,25 @@ export const onFreePlan = internalQuery({
     if (isOwnerEmail(user?.email)) return false;
     const row = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     return trialOver(row, Date.now());
+  },
+});
+
+/**
+ * A free-plan member whose one tailored CV is still unused may get the questions before it (27 Nov, owner: the free
+ * CV is their first taste, so it should carry their real numbers). Spends one of three tries and the app-wide AI
+ * budget; false once the free CV is used, the tries are gone, or today's AI is spent.
+ */
+export const freeQuestionsOk = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const { ok: cvLeft } = await rateLimiter.check(ctx, "freeTailor", { key: userId });
+    if (!cvLeft) return false;
+    const { ok: appOk } = await rateLimiter.check(ctx, "appAi", { count: AI_UNITS.notes ?? 2, config: aiLimit() });
+    if (!appOk) return false;
+    const { ok } = await rateLimiter.limit(ctx, "freeQuestions", { key: userId });
+    if (!ok) return false;
+    await rateLimiter.limit(ctx, "appAi", { count: AI_UNITS.notes ?? 2, config: aiLimit() });
+    return true;
   },
 });
 

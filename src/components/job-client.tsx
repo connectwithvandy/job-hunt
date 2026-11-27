@@ -211,14 +211,12 @@ export function TailorButton({
   defaultResumeId,
   redo,
   anyway,
-  favorite,
 }: {
   jobId: Id<"jobs">;
   resumes: { _id: Id<"resumes">; label: string }[];
   defaultResumeId: Id<"resumes"> | null;
   redo: boolean;
   anyway?: boolean;
-  favorite?: boolean;
 }) {
   const tailor = useAction(api.agent.tailor);
   const getQuestions = useAction(api.agent.tailorQuestions);
@@ -324,9 +322,9 @@ export function TailorButton({
         disabled={busy || asking || !resumeId}
         onClick={() =>
           run(async () => {
-            // A starred job's first CV starts with up to three questions on what the job needs and your CV doesn't
-            // show yet. Starred only, to keep AI cost down (owner, 23 Nov). None worth asking, or it fails: straight to writing.
-            if (favorite && !redo && questions === null && (await ask().catch(() => 0))) return;
+            // A job's first CV starts with up to three questions on what the job needs and your CV doesn't show yet.
+            // Every job since 27 Nov (was starred only; 2 of 138 had ever answered). None worth asking, or it fails: straight to writing.
+            if (!redo && questions === null && (await ask().catch(() => 0))) return;
             await write();
           })
         }

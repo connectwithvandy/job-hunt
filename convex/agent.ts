@@ -980,8 +980,9 @@ export const tailorQuestions = action({
   args: { jobId: v.id("jobs"), resumeId: v.optional(v.id("resumes")) },
   handler: async (ctx, { jobId, resumeId }): Promise<{ question: string; why: string }[]> => {
     const { userId, resume, resumes, resumeFor, tracks, facts } = await setup(ctx);
-    // The free plan's one tailored CV goes straight to writing: the questions are a paid extra.
-    if (await ctx.runQuery(internal.limits.onFreePlan, { userId })) return [];
+    // The free plan gets them before its one tailored CV only (27 Nov, owner); paid plans spend from "notes" below.
+    const free = await ctx.runQuery(internal.limits.onFreePlan, { userId });
+    if (free && !(await ctx.runMutation(internal.limits.freeQuestionsOk, { userId }))) return [];
     const job = await withDescription(ctx, (await ctx.runQuery(internal.jobs.forAction, { userId, jobId })) as Doc<"jobs">);
     // The same CV tailoring would use: the one picked, else the best-scoring track's, else the default.
     const best = [...(job.scores ?? [])].sort((a, b) => b.score - a.score)[0]?.trackKey;
@@ -989,10 +990,12 @@ export const tailorQuestions = action({
     const chosen = resumeId ? resumes.find((r) => r._id === resumeId)?.resume : undefined;
     if (resumeId && !chosen) throw new ConvexError("That CV is gone. Pick another.");
     const cv = requireResume(chosen ?? (track ? resumeFor[track.key] : resume));
-    try {
-      await spend(ctx, userId, "notes");
-    } catch {
-      return [];
+    if (!free) {
+      try {
+        await spend(ctx, userId, "notes");
+      } catch {
+        return [];
+      }
     }
     return await askTailorQuestions(job, cv, facts);
   },
