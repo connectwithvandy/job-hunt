@@ -327,7 +327,7 @@ export default function Today() {
   const pick = !replies.length && !interviewed.length ? (bestNew.find((j) => realGood(j) && !stale(j)) ?? bestNew.find(realGood)) : undefined;
   // A higher score passed over for being old gets one line of why, so the order never looks random (27 Nov review).
   const passedOver = pick ? bestNew.find((j) => realGood(j) && stale(j) && (bestScore(j)?.score ?? 0) > (bestScore(pick)?.score ?? 0)) : undefined;
-  const pickNote = passedOver ? `Picked over ${showCompany(passedOver.company)} (${bestScore(passedOver)!.score}): that posting is over 3 weeks old and may be filled.` : undefined;
+  const pickNote = passedOver ? `Picked over ${employerLine(passedOver)} (${bestScore(passedOver)!.score}): that posting is over 3 weeks old and may be filled.` : undefined;
   const toScore = !pick && !replies.length && !interviewed.length ? bestNew.filter((j) => !bestScore(j)).slice(0, SCORE_BATCH) : [];
   const applyList = bestNew.filter((j) => j._id !== pick?._id && !(j.postedAt && now - Date.parse(j.postedAt) > 120 * DAY)).slice(0, 8);
   // Pipeline stages, in a sales team's words. Qualified = a real fit of 60+; Proposal = a CV ready for it.
@@ -711,7 +711,7 @@ function ScoreFirst({ jobs, owner }: { jobs: Doc<"jobs">[]; owner: boolean }) {
             pending={`Scoring ${n}… about a minute`}
           >
             Score my top {n}
-            {!owner && left !== undefined && <span className="font-normal opacity-70"> · uses {n} of {left}</span>}
+            {!owner && left !== undefined && <span className="font-normal opacity-70"> · uses {n}, {left} left today</span>}
           </ActionButton>
         ) : (
           <p className="text-[15px] text-ink-2">No scores left today. Tomorrow&apos;s morning search scores more.</p>

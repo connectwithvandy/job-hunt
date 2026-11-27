@@ -255,7 +255,7 @@ function Jobs() {
         size="sm"
       >
         Score top {batch.length}
-        {!me.isOwner && scoresLeft !== undefined && <span className="font-normal text-ink-3"> · uses {batch.length} of {scoresLeft}</span>}
+        {!me.isOwner && scoresLeft !== undefined && <span className="font-normal text-ink-3"> · uses {batch.length}, {scoresLeft} left today</span>}
       </ActionButton>
     </span>
   );
@@ -571,11 +571,9 @@ function Jobs() {
                       <CompanyMark job={j} size={40} />
                       <FitBadge job={best ? { scores: [best] } : j} size={40} />
                     </div>
-                    <div className="row-meta mt-3 flex justify-between gap-2">
-                      <span className="truncate">{employerLine(j)}</span>
-                      {/* Same place and work setting as the phone row (28 Nov review: "Mumbai" here, "Mumbai · Remote" there). */}
-                      <span className="max-w-[55%] truncate">{[showPlace(j), workMode(j.workSetting)].filter(Boolean).join(" · ")}</span>
-                    </div>
+                    {/* Company, then place and work setting on their own line, whole (28 Nov review: "Bengaluru, Ahmedaba…"). */}
+                    <div className="row-meta mt-3 truncate">{employerLine(j)}</div>
+                    <div className="row-meta">{[showPlace(j), workMode(j.workSetting)].filter(Boolean).join(" · ")}</div>
                     <Link href={`/jobs/${j._id}`} onClick={(e) => open(e, j._id)} scroll={false} className="row-title mt-0.5 line-clamp-2 hover:underline">
                       {showTitle(j.title)}
                     </Link>

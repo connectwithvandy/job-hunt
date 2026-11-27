@@ -98,7 +98,7 @@ function Companies() {
             Up to 50 companies you&apos;d love to work for. They&apos;re checked for sales and GTM openings in India or remote, which land in your Jobs list, and re-checked every morning while your morning search is on.
           </p>
           <label className="block">
-            <span className="label">Your must-haves</span>
+            <span className="label">Companies to add</span>
             <input className="field mt-1" value={picks} onChange={(e) => setPicks(e.target.value)} placeholder="Company names, separated by commas" />
           </label>
           <div className="flex flex-wrap items-center gap-3">

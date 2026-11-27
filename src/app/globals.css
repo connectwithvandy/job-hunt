@@ -197,7 +197,7 @@ body {
   transition: box-shadow 0.15s, background-color 0.15s;
 }
 .field::placeholder { color: var(--ink-3); }
-.field:focus, .field:focus-visible { background: var(--card); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
+.field:focus, .field:focus-visible { background-color: var(--card); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
 select.field option { background: var(--card); }
 /* One dropdown look instead of the browser's grey box and arrow (28 Nov review): our own chevron everywhere, and the
    small toolbar dropdowns ("Best fit", "One column") read as pills like the chips beside them. */
