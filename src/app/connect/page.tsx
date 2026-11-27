@@ -105,7 +105,7 @@ export default function Connect() {
         </section>
       )}
 
-      <section className="card mb-8 p-6">
+      <section id="gmail" className="card mb-8 scroll-mt-24 p-6">
         <Status done={gmailOn} text={gmailOn ? "Connected" : "Not connected yet"} />
         <h2 className="display mb-1 text-2xl">Gmail</h2>
         <p className="mt-2 mb-4 text-sm text-ink-2">

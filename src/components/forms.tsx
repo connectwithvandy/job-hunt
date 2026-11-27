@@ -747,36 +747,69 @@ export function AnswersForm({
   }, []);
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<ActionState>(null);
-  const set = (i: number, k: "question" | "answer", val: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)));
+  const set = (i: number, k: "question" | "answer", val: string) => (setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r))), setDirty(true));
+  // Save turns lime only when there's something unsaved: one primary per screen otherwise.
+  const [dirty, setDirty] = useState(false);
   const [all, setAll] = useState(!firstFew);
   const showing = all ? rows.length : Math.max(firstFew ?? 0, rows.filter((r) => r.answer.trim()).length);
   return (
-    <div className="card p-6">
+    <div className={firstFew ? "" : "card p-6"}>
       {!firstFew && (
         <>
-          <h2 className="display mb-1 text-2xl">Application answers</h2>
+          <h2 className="h2 mb-1">Application answers</h2>
           <p className="mb-4 text-sm text-ink-2">The questions every form asks. Write them once; each job&apos;s Apply step and the chat use them.</p>
         </>
       )}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {rows.slice(0, showing).map((r, i) => (
-          <div key={i} className="grid gap-2 sm:grid-cols-[14rem_1fr_auto]">
-            <input className="field text-sm" value={r.question} onChange={(e) => set(i, "question", e.target.value)} placeholder="Question" />
-            <textarea className="field min-h-[42px] text-sm" rows={r.answer.length > 80 ? 3 : 1} value={r.answer} onChange={(e) => set(i, "answer", e.target.value)} placeholder="Your answer" />
-            <button type="button" aria-label="Remove" className="text-ink-3 hover:text-ink" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
-              ×
-            </button>
+          <div key={i}>
+            {/* The question reads as a label you can still edit; ✕ sits at the end of its line. */}
+            <div className="flex items-center gap-2">
+              <input
+                className="min-w-0 flex-1 rounded-md bg-transparent py-1 text-[13px] font-semibold [@media(pointer:coarse)]:min-h-11 text-ink-2 outline-none placeholder:text-ink-3 focus-visible:bg-soft"
+                value={r.question}
+                onChange={(e) => set(i, "question", e.target.value)}
+                placeholder="Question"
+                aria-label="Question"
+              />
+              <button type="button" aria-label={`Remove ${r.question || "this question"}`} className="btn-icon" onClick={() => (setRows(rows.filter((_, j) => j !== i)), setDirty(true))}>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </button>
+            </div>
+            <textarea
+              className="field mt-1 resize-none [field-sizing:content]"
+              rows={r.answer.length > 80 ? 3 : 1}
+              value={r.answer}
+              onChange={(e) => set(i, "answer", e.target.value)}
+              placeholder="Your answer"
+              aria-label={r.question ? `Answer: ${r.question}` : "Answer"}
+            />
           </div>
         ))}
       </div>
       {rows.length > showing && (
-        <button type="button" className="mt-3 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(true)}>
+        <button type="button" className="btn-text mt-2 -ml-1" onClick={() => setAll(true)}>
           Show {rows.length - showing} more questions
         </button>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => (setAll(true), setRows([...rows, { question: "", answer: "" }]))}>
-          + Add a question
+        <button
+          type="button"
+          className={`btn btn-sm ${dirty ? "btn-primary" : "btn-secondary"}`}
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setState(await attempt(async () => (await save({ answers: rows.filter((r) => r.question.trim() && r.answer.trim()) }), setDirty(false), "Saved.")));
+            setBusy(false);
+          }}
+        >
+          {busy ? "Saving…" : "Save answers"}
+        </button>
+        <span className="basis-full sm:hidden" aria-hidden />
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => (setAll(true), setRows([...rows, { question: "", answer: "" }]))}>
+          Add a question
         </button>
         <button
           type="button"
@@ -790,6 +823,7 @@ export function AnswersForm({
                 const drafts = await draft({ questions: empty });
                 const byQ = new Map(drafts.map((d) => [d.question, d.answer]));
                 setRows(rows.map((r) => (!r.answer.trim() && byQ.get(r.question) ? { ...r, answer: byQ.get(r.question)! } : r)));
+                setDirty(true);
                 return `Filled ${drafts.length} from your CV. Check them, then save.`;
               }),
             );
@@ -797,18 +831,6 @@ export function AnswersForm({
           }}
         >
           {drafting ? "Reading your CV…" : "Fill from my CV"}
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            setState(await attempt(async () => (await save({ answers: rows.filter((r) => r.question.trim() && r.answer.trim()) }), "Saved.")));
-            setBusy(false);
-          }}
-        >
-          {busy ? "Saving…" : "Save answers"}
         </button>
         <Feedback state={busy ? null : state} />
       </div>

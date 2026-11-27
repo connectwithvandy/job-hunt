@@ -16,6 +16,7 @@ import { errorMessage } from "@/lib/errors";
 import { uploadFile } from "@/lib/upload";
 import { LocationPicker } from "./forms";
 import { Spinner } from "./ui";
+import { Logo } from "@/components/Sidebar";
 
 type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
 const ALL: WorkMode[] = ["onsite", "hybrid", "remote"];
@@ -40,8 +41,8 @@ function Frame({
 }) {
   return (
     <div className="mx-auto max-w-xl px-5 py-10 md:py-14">
-      <p className="display text-sm uppercase tracking-wide">
-        JobPipe<span className="text-accent">.</span>
+      <p className="inline-flex">
+        <Logo />
       </p>
       <div className="mt-6">
         <JobHeader code={code} />

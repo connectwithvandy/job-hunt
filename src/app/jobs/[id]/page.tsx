@@ -8,12 +8,14 @@ import { useSetStatus } from "@/components/Celebrate";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { linkedInPeopleSearch, applyBoard } from "../../../../convex/lib/company";
-import { RECHECK_AFTER, ghostSigns, shortPlace, skipReason } from "../../../../convex/lib/posting";
+import { RECHECK_AFTER, SKIP_BELOW, ghostSigns, skipReason } from "../../../../convex/lib/posting";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../../../convex/lib/followups";
-import { CompanyMark, ScorePill, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
+import { CompanyMark, FitBadge, TrackTag, jobTrackKey, timeAgo } from "@/components/bits";
+import { metaOf, StageChip } from "@/components/JobState";
+import { showTitle } from "@/lib/tidy";
 import { CvMatch } from "@/components/CvMatch";
 import { downloadDocx } from "@/lib/docx";
-import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, StatusSelect, TailorButton, GapAnswers } from "@/components/job-client";
+import { ApplyButton, ApplyQuestions, CompanyResearch, CoverLetter, DirectNote, EmailDraft, FavoriteStar, CallScript, HiringContacts, InterviewPrep, JobEmails, needsAnswer, OutreachCard, PeoplePicker, TailorButton, GapAnswers } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, CopyButton, DownloadMenu, SentCheck } from "@/components/ui";
 import { inInr, payText, useInrRates } from "@/lib/money";
@@ -91,13 +93,13 @@ export default function JobPage() {
               {job.pack.email ? (
                 <EmailDraft key={job.pack.createdAt} jobId={job._id} subject={job.pack.emailSubject ?? ""} body={job.pack.email} />
               ) : (
-                <p className="text-sm text-ink-2">Press &quot;Write them again&quot; on the CV tab to get an email version too.</p>
+                <p className="text-sm text-ink-2">Press &quot;Write them again&quot; under CV to get an email version too.</p>
               )}
             </div>
             <p className="text-xs text-ink-3">&quot;Hi &lt;first name&gt;&quot; is filled in with the person&apos;s name when you message them from their card above.</p>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-ink-2">Write your CV on the CV tab to get a LinkedIn note and an email for them.</p>
+          <p className="mt-4 text-sm text-ink-2">Tailor your CV (under CV) to get a LinkedIn note and an email for them.</p>
         )}
     </section>
   );
@@ -162,105 +164,28 @@ export default function JobPage() {
   // An email waiting for your answer goes to the top, above the steps.
   const answerFirst = data.emails.some(needsAnswer);
   const account = gmail?.email || me.email;
-  return (
-    <div className="mx-auto max-w-5xl">
-      <Link href="/jobs" className="text-sm text-ink-3 hover:text-ink">
-        ← All jobs
-      </Link>
-
-      {cvError && (
-        <p className="card mt-4 border-warn p-4 text-sm" role="status">
-          The job is saved, but your CV wasn&apos;t written: {cvError} You can try again on the CV tab.
-        </p>
-      )}
-      <header className="mt-4 mb-8 flex flex-wrap items-start gap-4">
-        <CompanyMark job={job} size={52} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <h1 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">{job.title}</h1>
-            <FavoriteStar jobId={job._id} favorite={!!job.favorite} className="mt-1.5 text-2xl" />
-          </div>
-          <p className="mt-1 text-ink-2">
-            {job.company} · {shortPlace(job.location)}
-            {job.workSetting && job.workSetting !== "unknown" ? ` · ${job.workSetting}` : ""}
-            {payText(job.salary, rates) ? ` · ${inInr(job.salary, rates) ? job.salary : payText(job.salary, rates)}` : ""}
-            {payText(job.salary, rates) && inInr(job.salary, rates) ? ` (${inInr(job.salary, rates)})` : ""}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-            <TrackTag track={currentTrack} />
-            {job.postedAt && <span className="text-ink-3">Posted {timeAgo(job.postedAt)}</span>}
-            {(job.sourceUrl || job.url) && (
-              <a className="text-ink-2 underline" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
-                {applyBoard(job.sourceUrl || job.url) ? `Posting on ${applyBoard(job.sourceUrl || job.url)}` : "Original posting"}
-              </a>
-            )}
-          </div>
-        </div>
-        {/* Its own row on a phone: beside the title it squeezed it to one word a line and covered the star (23 Nov walk). */}
-        <div className="basis-full sm:basis-auto">
-          <StatusSelect jobId={job._id} status={job.status} />
-        </div>
-      </header>
-
-      <PostingCheck live={job.liveCheck} checking={stale} ghost={ghost} check={async () => void (await checkPosting({ jobId: job._id }))} />
-
-      {answerFirst && <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={me.resume?.name ?? ""} />}
-
-
-      <OutreachStrip job={job} peopleCount={people.length} now={now} applied={!(job.status === "new" || job.status === "applying")} markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} noContacts={me.contactsCount === 0} />
-
-      <JobTabs
-        initial={nextTab}
-        tabs={[
+  const top = scores[0];
+  const pay = payText(job.salary, rates);
+  const payShown = pay ? (inInr(job.salary, rates) ? `${job.salary} (${inInr(job.salary, rates)})` : pay) : null;
+  const postingTag = stale && !live ? "Checking…" : live?.state === "closed" ? "Looks closed" : live?.state === "open" ? null : "Not verified";
+  const sections: Section[] = [
           {
-            key: "fit",
-            label: "Fit",
-            done: scores.length > 0,
-            badge: scores.length ? `${scores[0].score}%` : undefined,
-            content: (
-              <>
-          <div className="mb-4 flex justify-end">
-            <ActionButton run={async () => void (await scoreJobs({ jobIds: [job._id] }))} pending="Scoring…" variant={scores.length ? "ghost" : "primary"} size="sm">
-              {scores.length ? "Score again" : "Score this job"}
-            </ActionButton>
-          </div>
-            {scores.length === 0 ? (
-              <p className="text-sm text-ink-2">Score it to see how it reads for each of your roles, and why.</p>
+            key: "job",
+            label: "Job description",
+            done: false,
+            aside: job.description ? undefined : <span className="text-[13px] text-ink-3">Not saved</span>,
+            content: job.description ? (
+              <Description text={job.description} url={job.sourceUrl || job.url} />
             ) : (
-              <ul className="space-y-4">
-                {scores.map((s) => (
-                  <li key={s.trackKey} className="flex gap-3">
-                    <ScorePill score={s.score} />
-                    <div className="min-w-0">
-                      <TrackTag track={trackByKey.get(s.trackKey)} />
-                      <p className="mt-1 text-sm">{s.reason}</p>
-                      {s.gaps.length > 0 && <p className="mt-1 text-xs text-ink-3">Gaps: {s.gaps.join("; ")}</p>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {job.brief && (
-              <div className="mt-6 grid gap-4 border-t border-line pt-5 text-sm">
-                <div>
-                  <div className="label mb-1">What they really want</div>
-                  <p>{job.brief.whatTheyWant}</p>
-                </div>
-                <div>
-                  <div className="label mb-1">Watch outs</div>
-                  <p>{job.brief.watchOuts}</p>
-                </div>
-                {job.brief.blocker && (
-                  <div>
-                    <div className="label mb-1 text-bad">Rules you out</div>
-                    <p>{job.brief.blocker}</p>
-                  </div>
-                )}
+              <div>
+                <p className="text-[15px] text-ink-2">This posting&apos;s text isn&apos;t saved in JobPipe.</p>
+                <a className="btn btn-secondary btn-sm mt-3" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
+                  Read the posting ↗
+                </a>
               </div>
-            )}
-              </>
             ),
           },
+
           {
             key: "cv",
             label: "CV",
@@ -285,7 +210,7 @@ export default function JobPage() {
               <div className="space-y-4">
                 {/* One row: open it, change it, take it away, check it. Download and What changed came after 19 Nov's CV pass. */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/jobs/${job._id}/resume`} className="btn btn-primary btn-sm">
+                  <Link href={`/jobs/${job._id}/resume`} className="btn btn-secondary btn-sm">
                     {job.pack.letterOnly ? "Open your CV" : "Open tailored CV"}
                   </Link>
                   {!job.pack.letterOnly && (
@@ -384,7 +309,7 @@ export default function JobPage() {
           },
           {
             key: "people",
-            label: "Referral, HR & calls",
+            label: "Outreach & calls",
             done: reachedOut,
             badge: people.length ? `${people.length} known` : undefined,
             // The call script sits with the people it's for: once you've found HR's or the hiring manager's number (19 Nov).
@@ -393,27 +318,6 @@ export default function JobPage() {
                 {referralFirst ? [referralStep, hiringStep] : [hiringStep, referralStep]}
                 <CallScript jobId={job._id} script={job.callScript} />
               </div>
-            ),
-          },
-          {
-            key: "apply",
-            label: "Apply",
-            done: !(job.status === "new" || job.status === "applying"),
-            content: (
-              <>
-            <div className="flex flex-wrap items-start gap-3">
-              <ApplyButton job={job} />
-              {job.status === "new" || job.status === "applying" ? (
-                <ActionButton run={async () => void (await setStatus({ jobId: job._id, status: "applied" }))} variant="ghost">I&apos;ve applied</ActionButton>
-              ) : (
-                <span className="text-sm text-ink-2">Applied{job.appliedAt ? ` ${timeAgo(job.appliedAt)}` : ""}. Move it along with the status menu at the top.</span>
-              )}
-            </div>
-            <p className="mt-3 mb-6 text-xs text-ink-3">
-              Apply opens the form and downloads your tailored CV. Then click your JobPipe autofill bookmark: it fills your details and answers and attaches the CV. Check everything and press Submit yourself. No bookmark yet?{" "}
-              <Link className="underline" href="/resume#autofill">Set it up once (1 minute)</Link>.
-            </p>
-              </>
             ),
           },
           {
@@ -461,68 +365,207 @@ export default function JobPage() {
           ...(data.emails.length > 0 && !answerFirst
             ? [{ key: "emails", label: "Emails", done: false, badge: String(data.emails.length), content: <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={me.resume?.name ?? ""} /> }]
             : []),
-          ...(job.description
-            ? [{ key: "job", label: "Job description", done: false, content: <div className="whitespace-pre-line text-sm leading-relaxed text-ink-2">{job.description}</div> }]
-            : []),
-        ]}
-      />
+  ];
+  return (
+    <div>
+      <Link href="/jobs" className="btn-text -ml-1">
+        ← All jobs
+      </Link>
+
+      {cvError && (
+        <p className="card mt-4 p-4 text-[15px] text-warn" role="status">
+          The job is saved, but your CV wasn&apos;t written: {cvError} You can try again under CV below.
+        </p>
+      )}
+      <header className="mt-3 mb-6 grid grid-cols-[48px_minmax(0,1fr)_auto] items-start gap-x-4">
+        <CompanyMark job={job} size={48} />
+        <div className="min-w-0">
+          <h1 className="font-[family-name:var(--font-display-face)] text-[22px] leading-tight font-semibold tracking-[-0.02em] sm:text-[28px]">{showTitle(job.title)}</h1>
+          <p className="row-meta mt-1 !text-[15px]">
+            {payShown && <span className="tnum font-semibold text-ink">{payShown} · </span>}
+            {metaOf(job)}
+            {(job.sourceUrl || job.url) && (
+              <>
+                {" "}
+                <a className="font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2 sm:hidden" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
+                  · Original posting ↗
+                </a>
+              </>
+            )}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:flex-nowrap">
+            <StageChip jobId={job._id} status={job.status} />
+            {currentTrack && <span className="mono px-1">{currentTrack.name}</span>}
+            {postingTag && (
+              <button type="button" className={`mono inline-flex min-h-8 items-center rounded-full px-2 ${live?.state === "closed" ? "!text-bad" : ""}`} title={live ? `${live.note} Checked ${timeAgo(live.at)}. Check again.` : "Check again"} onClick={() => void checkPosting({ jobId: job._id }).catch(() => {})}>
+                {postingTag}
+              </button>
+            )}
+            {(job.sourceUrl || job.url) && (
+              <a className="btn-text max-sm:!hidden" href={job.sourceUrl || job.url} target="_blank" rel="noreferrer">
+                {applyBoard(job.sourceUrl || job.url) ? `Posting on ${applyBoard(job.sourceUrl || job.url)} ↗` : "Original posting ↗"}
+              </a>
+            )}
+          </div>
+        </div>
+        <FavoriteStar jobId={job._id} favorite={!!job.favorite} />
+      </header>
+
+      {ghost.level !== "none" && (
+        <div className="card mb-6 p-5 text-[15px]">
+          <div className={`font-semibold ${ghost.level === "likely" ? "text-warn" : ""}`}>{ghost.level === "likely" ? "This may not be a real opening" : "One thing to know"}</div>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-ink-2">
+            {ghost.signs.map((g) => (
+              <li key={g}>{g}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[13px] text-ink-3">Signs, not proof. A referral or a note to the hiring manager is the quickest way to find out if they&apos;re really hiring.</p>
+        </div>
+      )}
+
+      {answerFirst && (
+        <div className="mb-6">
+          <JobEmails emails={data.emails} company={job.company} account={account} meetingEndAt={job.meetingEndAt} job={job} myName={me.resume?.name ?? ""} />
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
+        <aside id="job-actions" className="lg:sticky lg:top-24 lg:order-last lg:self-start">
+          <ActionPanel
+            job={job}
+            peopleCount={people.length}
+            now={now}
+            applied={!(job.status === "new" || job.status === "applying")}
+            markApplied={async () => void (await setStatus({ jobId: job._id, status: "applied" }))}
+            noContacts={me.contactsCount === 0}
+          />
+        </aside>
+        <div className="min-w-0 space-y-6">
+          <section id="fit" className="card scroll-mt-24 p-5 sm:p-6" aria-label="Fit">
+            <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+              <span className="flex w-11 shrink-0 flex-col items-center pt-0.5">
+                <FitBadge job={job} size={44} />
+                {!top && job.quickFit !== undefined && <span className="text-[11px] text-ink-3">rough</span>}
+              </span>
+              <div className="min-w-0 flex-1 basis-[calc(100%-60px)] sm:basis-0">
+                <h2 className="h2">{top ? (top.score >= 75 ? "Strong fit" : top.score >= SKIP_BELOW ? "Good fit" : "Weaker fit") : "Not scored yet"}</h2>
+                <p className="mt-1 max-w-[68ch] text-[15px] text-ink-2">{top ? top.reason : "Score it to see how it reads against your CV, and why. Uses 1 of today's scores."}</p>
+                {top?.gaps.length ? <p className="mt-2 max-w-[68ch] text-[13px] text-ink-3">Gaps: {top.gaps.join("; ")}</p> : null}
+              </div>
+              <span className={top ? "" : "max-sm:pl-[60px]"}>
+                <ActionButton run={async () => void (await scoreJobs({ jobIds: [job._id] }))} pending="Scoring" variant={top ? "text" : "ghost"} size="sm">
+                  {top ? "Score again" : "Score fit"}
+                </ActionButton>
+              </span>
+            </div>
+            {scores.length > 1 && (
+              <ul className="mt-5 space-y-3 border-t border-line pt-5">
+                {scores.map((sc) => (
+                  <li key={sc.trackKey} className="flex gap-3">
+                    <span className="tnum w-8 shrink-0 text-[15px] font-semibold">{sc.score}</span>
+                    <div className="min-w-0">
+                      <TrackTag track={trackByKey.get(sc.trackKey)} />
+                      <p className="mt-1 max-w-[68ch] text-[15px] text-ink-2">{sc.reason}</p>
+                      {sc.gaps.length > 0 && <p className="mt-1 text-[13px] text-ink-3">Gaps: {sc.gaps.join("; ")}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {job.brief && (
+              <dl className="mt-5 grid gap-4 border-t border-line pt-5 text-[15px] sm:grid-cols-2">
+                <div>
+                  <dt className="label mb-1">What they really want</dt>
+                  <dd className="text-ink-2">{job.brief.whatTheyWant}</dd>
+                </div>
+                <div>
+                  <dt className="label mb-1">Watch outs</dt>
+                  <dd className="text-ink-2">{job.brief.watchOuts}</dd>
+                </div>
+                {job.brief.blocker && (
+                  <div className="sm:col-span-2">
+                    <dt className="mono mb-1 !text-bad">Rules you out</dt>
+                    <dd>{job.brief.blocker}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
+          </section>
+          {/* Phone: referral and HR come after the fit, in their own card (desktop keeps them in the action panel). */}
+          <div className="lg:hidden">
+            <ReachCard job={job} peopleCount={people.length} now={now} noContacts={me.contactsCount === 0} />
+          </div>
+          <JobSections sections={sections} initial={nextTab} openDescription={!top && !!job.description} hasDescription={!!job.description} />
+        </div>
+      </div>
+      {(job.status === "new" || job.status === "applying") && <PhoneApplyBar job={job} />}
     </div>
   );
 }
 
+type Section = { key: string; label: string; done: boolean; badge?: string; aside?: React.ReactNode; content: React.ReactNode };
+
 /**
- * The job as a menu down the left, like Dreamwork's application view (19 Nov), in the order you work through it:
- * fit, CV, cover letter, referral, apply, interview. Done steps get a tick and the next one a dot, so progress
- * shows without a separate Next step box. On a phone the menu is a row you can scroll.
+ * The rest of the job as sections in one card, each opening in place: CV, cover letter, questions, people,
+ * interview prep, emails, the description. The next step starts open. A link to #cv, #people or #prep opens it.
+ * (Replaced the tab menu, 27 Nov design round 1: tabs were cut off on a phone.)
  */
-function JobTabs({ tabs, initial }: { tabs: { key: string; label: string; done: boolean; badge?: string; content: React.ReactNode }[]; initial: string }) {
-  const [on, setOn] = useState(() => {
+function JobSections({ sections, initial, openDescription, hasDescription }: { sections: Section[]; initial: string; openDescription?: boolean; hasDescription?: boolean }) {
+  const [open, setOpen] = useState<Set<string>>(() => {
+    // The description starts open while the job isn't scored (it's the thing to read) and on wide screens; the rest
+    // start closed, since the action panel holds the next step. A #link opens its section.
+    const keys = new Set<string>();
+    try {
+      if (openDescription || (hasDescription && window.matchMedia("(min-width: 1280px)").matches)) keys.add("job");
+    } catch {}
+    void initial;
     try {
       const hash = window.location.hash.slice(1);
-      const fromHash = hash === "prep" ? "prepare" : hash;
-      if (tabs.some((t) => t.key === fromHash)) return fromHash;
+      keys.add(hash === "prep" ? "prepare" : hash);
     } catch {}
-    return initial;
+    return keys;
   });
-  // The outreach strip links to "#people" and "#apply": follow the address, then bring the steps into view.
   useEffect(() => {
     const go = () => {
       const hash = window.location.hash.slice(1);
       const key = hash === "prep" ? "prepare" : hash;
-      if (!tabs.some((t) => t.key === key)) return;
-      setOn(key);
-      document.getElementById("job-steps")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (key === "fit") return void requestAnimationFrame(() => document.getElementById("fit")?.scrollIntoView({ block: "start" }));
+      if (!sections.some((t) => t.key === key)) return;
+      setOpen((o) => new Set([...o, key]));
+      requestAnimationFrame(() => document.getElementById(`step-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
     };
     window.addEventListener("hashchange", go);
+    // Arriving with a #fit / #cv / #people link: bring it into view once the page is drawn.
+    if (window.location.hash) go();
     return () => window.removeEventListener("hashchange", go);
-  }, [tabs]);
-  const current = tabs.find((t) => t.key === on) ?? tabs[0];
+  }, [sections]);
   return (
-    <div id="job-steps" className="card scroll-mt-24 overflow-hidden md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
-      <nav className="flex gap-1 overflow-x-auto border-b border-line p-2 md:flex-col md:border-r md:border-b-0" role="tablist" aria-label="This job">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            role="tab"
-            aria-selected={t.key === current.key}
-            onClick={() => setOn(t.key)}
-            className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm whitespace-nowrap ${t.key === current.key ? "bg-soft font-medium text-ink" : "text-ink-2 hover:bg-soft hover:text-ink"}`}
-          >
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${t.key === "job" || t.key === "emails" ? "" : t.done ? "bg-accent text-on-accent" : t.key === initial ? "border-2 border-accent" : "border border-line"}`}
-              aria-label={t.done ? "Done" : t.key === initial ? "Next step" : undefined}
-            >
-              {t.done ? "✓" : ""}
-            </span>
-            <span className="flex-1">{t.label}</span>
-            {t.badge && <span className="text-[11px] text-ink-3">{t.badge}</span>}
-          </button>
-        ))}
-      </nav>
-      <div className="min-w-0 p-5 md:p-6" role="tabpanel">
-        {current.content}
-      </div>
+    <div className="card overflow-hidden">
+      {sections.map((t) => {
+        const on = open.has(t.key);
+        return (
+          <section key={t.key} id={`step-${t.key}`} className="scroll-mt-24 border-t border-line first:border-t-0">
+            <h2>
+              <button
+                type="button"
+                aria-expanded={on}
+                onClick={() => setOpen((o) => (o.has(t.key) ? new Set([...o].filter((k) => k !== t.key)) : new Set([...o, t.key])))}
+                className="flex min-h-14 w-full items-center gap-3 px-5 text-left [@media(hover:hover)]:hover:bg-soft"
+              >
+                <span className="row-title flex-1">{t.label}</span>
+                {t.done && <span className="mono">Done</span>}
+                {!t.done && t.key === initial && <span className="mono !text-ink">Next</span>}
+                {t.badge && <span className="tnum text-[13px] text-ink-3">{t.badge}</span>}
+                {t.aside}
+                <svg aria-hidden viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-ink-3 transition-transform duration-150 ${on ? "rotate-180" : ""}`}>
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+            </h2>
+            {on && <div className="min-w-0 px-5 pt-1 pb-6">{t.content}</div>}
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -555,14 +598,12 @@ function openStep(key: string) {
   else window.location.hash = key;
 }
 
-const TONE: Record<Track["tone"], string> = { todo: "text-ink", waiting: "text-ink-2", good: "text-good", off: "text-ink-3" };
 
 /**
- * Three ways into this job side by side: apply (always the main button), a referral from someone you know, and a
- * message to HR or the hiring manager, each with where it stands and the one next step. The referral and HR steps
- * run alongside applying, never before it (19 Nov, owner). Just after applying, it suggests the next way in.
+ * The action column: Apply ↗ (the one lime button), the CV, "I've applied", then a referral and a note to HR, each
+ * with where it stands and its next step. The asks run alongside applying, never before it (19 Nov, owner).
  */
-function OutreachStrip({
+function ActionPanel({
   job,
   peopleCount,
   now,
@@ -584,94 +625,145 @@ function OutreachStrip({
   const hr = hrTrack(job.hiringContacts ?? [], now);
   const nudge = afterApplyNudge(job, peopleCount > 0, now);
   const best = job.outreach.find((o) => o.status === "draft")?.name;
-  const tracks: { key: string; label: string; t: Track }[] = [
+  const rows: { key: string; label: string; t: Track }[] = [
     { key: "referral", label: "Referral", t: referral },
     { key: "hr", label: "HR or hiring manager", t: hr },
   ];
   return (
-    <section className="card mb-6 p-4" aria-label="Ways into this job">
+    <section className="card p-5" aria-label="Apply and reach out">
+      {applied ? (
+        <p className="text-[15px] font-semibold">Applied{job.appliedAt ? ` ${timeAgo(job.appliedAt)}` : ""}</p>
+      ) : (
+        <div className="space-y-2">
+          <ApplyButton job={job} full />
+          {job.pack ? (
+            <Link href={`/jobs/${job._id}/resume?print=1`} className="btn btn-secondary w-full">
+              Download CV
+            </Link>
+          ) : (
+            <button type="button" className="btn btn-secondary w-full" onClick={() => openStep("cv")}>
+              Tailor my CV
+            </button>
+          )}
+          <div className="flex justify-center">
+            <ActionButton run={markApplied} variant="text">
+              I&apos;ve applied
+            </ActionButton>
+          </div>
+          {/* Asked once on coming back from the company's form (ApplyButton notes the open). */}
+          <SentCheck id={`apply:${job._id}`} onSent={markApplied} question="Did you apply?" yes="Yes, applied" />
+          <details className="pt-1 text-[13px] text-ink-3">
+            <summary className="min-h-11 cursor-pointer list-none py-3 [&::-webkit-details-marker]:hidden">
+              Apply downloads your CV; your autofill bookmark fills the form. <span className="font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2">How it works</span>
+            </summary>
+            <p className="mt-2">
+              Apply opens the form and downloads your tailored CV. Then click your JobPipe autofill bookmark: it fills your details and answers and attaches the CV. Check everything and press Submit yourself.{" "}
+              <Link className="underline" href="/resume#autofill">
+                Set up the bookmark (1 minute)
+              </Link>
+            </p>
+          </details>
+        </div>
+      )}
       {nudge && (
-        <p className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-accent/15 px-3 py-2 text-sm">
-          <span>
-            Applied to {job.company}.{" "}
-            {nudge === "referral"
-              ? `Also ask ${best ? best.split(" ")[0] : `one of the ${peopleCount} people you know there`} for a referral: a referred application gets read first.`
-              : "Also message the hiring manager or HR: a short note puts a name to your application."}
-          </span>
-          <button type="button" onClick={() => openStep("people")} className="btn btn-primary btn-sm">
-            {nudge === "referral" ? "Ask for a referral" : "Message HR"}
-          </button>
+        <p className="mt-4 text-[15px] text-ink-2">
+          {nudge === "referral"
+            ? `Also ask ${best ? best.split(" ")[0] : `one of the ${peopleCount} people you know there`} for a referral: a referred application gets read first.`
+            : "Also message the hiring manager or HR: a short note puts a name to your application."}
         </p>
       )}
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="min-w-0">
-          <div className="label mb-1">Application</div>
-          {applied ? (
-            <p className="text-sm text-good">Applied{job.appliedAt ? ` ${timeAgo(job.appliedAt)}` : ""}</p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <ApplyButton job={job} />
-              <ActionButton run={markApplied} variant="ghost" size="sm">
-                I&apos;ve applied
-              </ActionButton>
-              {/* Asked once on coming back from the company's form (ApplyButton notes the open). */}
-              <SentCheck id={`apply:${job._id}`} onSent={markApplied} question="Did you apply?" yes="Yes, applied" />
-            </div>
-          )}
-        </div>
-        {/* Until you apply, Apply is the only main button here; the asks beside it stay quieter. */}
-        {tracks.map(({ key, label, t }) => (
-          <div key={key} className="min-w-0 md:border-l md:border-line md:pl-4">
-            <div className="label mb-1">{label}</div>
-            <p className={`text-sm ${TONE[t.tone]}`}>{t.line}</p>
+      <ul className="mt-5 border-t border-line max-lg:hidden">
+        {rows.map(({ key, label, t }) => (
+          <li key={key} className="flex items-center gap-3 border-b border-line py-3 last:border-b-0">
+            <button type="button" className="min-h-11 min-w-0 flex-1 text-left" onClick={() => openStep("people")}>
+              <span className="row-title block !text-[14px]">{label}</span>
+              <span className={`row-meta block ${t.tone === "good" ? "!text-good" : ""}`}>{t.line}</span>
+            </button>
             {t.action && (
-              <button type="button" onClick={() => openStep("people")} className={`btn btn-sm mt-2 ${applied && t.tone === "todo" && t.action !== "Find them" ? "btn-primary" : "btn-ghost"}`}>
+              <button type="button" onClick={() => openStep("people")} className="btn btn-secondary btn-sm shrink-0">
                 {t.action}
               </button>
             )}
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
 
-/** Whether the posting is still up, and any signs it isn't a real opening. */
-function PostingCheck({
-  live,
-  checking,
-  ghost,
-  check,
-}: {
-  live?: { at: number; state: "open" | "closed" | "unknown"; note: string };
-  checking: boolean;
-  ghost: ReturnType<typeof ghostSigns>;
-  check: () => Promise<void>;
-}) {
-  const tone = live?.state === "closed" ? "text-bad" : live?.state === "open" ? "text-good" : "text-ink-3";
-  const word = checking && !live ? "Checking the posting is still up…" : !live ? "Not checked yet." : { open: "Still open.", closed: "Looks closed.", unknown: "Couldn't check." }[live.state];
+/** Where boards cut long descriptions (convex/agent.ts, careersRefresh.ts). */
+const DESCRIPTION_CAP = 8000;
+
+/**
+ * The posting's text at a readable width. Short lines with no full stop ("About Us") read as small headings. A text
+ * cut at the stored limit ends at its last whole paragraph, with a link to the full posting (27 Nov review: "Mai").
+ */
+function Description({ text, url }: { text: string; url: string }) {
+  const cut = text.length >= DESCRIPTION_CAP - 10;
+  const shown = cut ? text.slice(0, text.lastIndexOf("\n", DESCRIPTION_CAP) > 0 ? text.lastIndexOf("\n", DESCRIPTION_CAP) : text.lastIndexOf(". ") + 1) : text;
+  const blocks = shown.split(/\n+/).map((l) => l.trim()).filter(Boolean);
   return (
-    <div className="mb-6 space-y-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <span className={`font-medium ${tone}`}>{word}</span>
-        {live && <span className="text-ink-2">{live.note}</span>}
-        {live && <span className="text-xs text-ink-3">Checked {timeAgo(live.at)}</span>}
-        <ActionButton run={check} pending="Checking…" variant="ghost" size="sm">
-          Check again
-        </ActionButton>
-      </div>
-      {ghost.level !== "none" && (
-        <div className={`card p-4 text-sm ${ghost.level === "likely" ? "border-warn" : ""}`}>
-          <div className={`font-medium ${ghost.level === "likely" ? "text-warn" : ""}`}>{ghost.level === "likely" ? "This may not be a real opening" : "One thing to know"}</div>
-          <ul className="mt-1 list-disc space-y-1 pl-5 text-ink-2">
-            {ghost.signs.map((g) => (
-              <li key={g}>{g}</li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs text-ink-3">Signs, not proof. A referral or a note to the hiring manager is the quickest way to find out if they&apos;re really hiring.</p>
-        </div>
+    <div className="max-w-[68ch] space-y-3 text-[15px] leading-relaxed text-ink-2">
+      {blocks.map((b, i) =>
+        b.length < 60 && !/[.:;,]$/.test(b) && !/^[-•*]/.test(b) ? (
+          <h3 key={i} className="pt-2 text-[13px] font-semibold text-ink">
+            {b}
+          </h3>
+        ) : (
+          <p key={i}>{b}</p>
+        ),
+      )}
+      {cut && url && (
+        <a className="btn-text -ml-1" href={url} target="_blank" rel="noreferrer">
+          Read the full posting ↗
+        </a>
       )}
     </div>
   );
 }
 
+/** Phone only: once the action card has scrolled away, Apply ↗ stays in reach just above the tab bar. */
+function PhoneApplyBar({ job }: { job: Parameters<typeof ApplyButton>[0]["job"] }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const el = document.getElementById("job-actions");
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setShow(!e.isIntersecting && e.boundingClientRect.top < 0), { threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  if (!show) return null;
+  return (
+    <div className="tabbar sheet fixed inset-x-0 z-30 border-t border-line px-4 py-2 lg:hidden" style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}>
+      <ApplyButton job={job} full />
+    </div>
+  );
+}
+
+/** Phone only: the referral and HR rows as their own card under the fit. */
+function ReachCard({ job, peopleCount, now, noContacts }: { job: Parameters<typeof ActionPanel>[0]["job"]; peopleCount: number; now: number; noContacts: boolean }) {
+  if (job.status === "rejected" || job.status === "dismissed") return null;
+  const tracked = referralTrack(job.outreach, peopleCount, job.company, now);
+  const referral: Track = noContacts && tracked.tone === "off" ? { tone: "todo", line: `Search LinkedIn for people you know at ${job.company}.`, action: "Search" } : tracked;
+  const hr = hrTrack(job.hiringContacts ?? [], now);
+  return (
+    <ul className="card px-5" aria-label="Referral and HR">
+      {[
+        { key: "referral", label: "Referral", t: referral },
+        { key: "hr", label: "HR or hiring manager", t: hr },
+      ].map(({ key, label, t }) => (
+        <li key={key} className="flex items-center gap-3 border-b border-line py-3 last:border-b-0">
+          <button type="button" className="min-h-11 min-w-0 flex-1 text-left" onClick={() => openStep("people")}>
+            <span className="row-title block !text-[14px]">{label}</span>
+            <span className={`row-meta block ${t.tone === "good" ? "!text-good" : ""}`}>{t.line}</span>
+          </button>
+          {t.action && (
+            <button type="button" onClick={() => openStep("people")} className="btn btn-secondary btn-sm shrink-0">
+              {t.action}
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}

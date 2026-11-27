@@ -10,6 +10,7 @@ import { FAQ, jsonLdGraph, landingJsonLd } from "@/lib/marketing";
 import { CountUp, Reveal, Rotate } from "./Motion";
 import { ThemeToggle } from "./ThemeToggle";
 import { Spinner } from "./ui";
+import { Logo } from "@/components/Sidebar";
 
 /** The home page footer: what JobPipe does, how it compares, the guides, and the free research. */
 const FOOTER: { title: string; links: { href: string; label: string }[] }[] = [
@@ -165,8 +166,8 @@ export function SignIn({ note }: { note?: string } = {}) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph(landingJsonLd())) }}
       />
       <header className="flex items-center justify-between py-6">
-        <span className="display text-lg uppercase tracking-wide">
-          JobPipe<span className="text-accent">.</span>
+        <span className="inline-flex">
+          <Logo />
         </span>
         <nav className="flex items-center gap-6 text-sm text-ink-2">
           <a href="#faq" className="hidden hover:text-ink md:inline">FAQ</a>
@@ -359,8 +360,8 @@ export function SignIn({ note }: { note?: string } = {}) {
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)] text-left md:grid-cols-[180px_minmax(0,1fr)]">
             <aside className="hidden border-r border-line p-5 text-sm md:block">
-              <p className="display text-sm uppercase tracking-wide">
-                JobPipe<span className="text-accent">.</span>
+              <p className="inline-flex">
+                <Logo />
               </p>
               <ul className="mt-6 space-y-1 text-ink-3">
                 <li className="rounded-lg bg-soft px-3 py-1.5 font-medium text-accent">Today</li>
@@ -533,7 +534,7 @@ export function SignIn({ note }: { note?: string } = {}) {
         </div>
         <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-6 text-xs text-ink-3">
           <span>
-            © 2026 JobPipe<span className="text-accent">.</span>
+            © 2026 JobPipe
           </span>
           <Link href="/about" className="hover:text-ink">About</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { companySite, faviconOf } from "../lib/logo";
 import { guessShown } from "../../convex/lib/guessScale";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -6,11 +7,11 @@ import { trackForTitle } from "../../convex/lib/salesRoles";
 type Track = Doc<"tracks">;
 type JobLike = Pick<Doc<"jobs">, "company" | "companyLogo" | "scores" | "trackKey" | "foundFor" | "title">;
 
-export function TrackTag({ track }: { track?: Track }) {
+export function TrackTag({ track, plain }: { track?: Track; plain?: boolean }) {
   if (!track) return null;
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-ink-2 whitespace-nowrap">
-      <span className="h-2 w-2 rounded-full" style={{ background: track.color }} />
+      <span className={`h-2 w-2 rounded-full ${plain ? "bg-ink-3" : ""}`} style={plain ? undefined : { background: track.color }} />
       {track.name}
     </span>
   );
@@ -52,35 +53,77 @@ export function QuickFitPill({ score }: { score?: number }) {
 }
 
 /**
- * One fit number on every job, as a ring with a % like Dreamwork (19 Nov), instead of a score pill on some
- * jobs and "~52 guess" on others. The AI score fills the ring solidly; a first guess (not scored yet) shows
- * with a dashed ring and "~", and says so on hover, so it never passes for a real score.
+ * One fit number on every job, as a ring. A real AI score draws an ink arc (green from 75), number only, never red.
+ * A first guess has no arc: just "~43" in grey, so it never passes for a real score (design round 1, 27 Nov).
  */
-export function FitBadge({ job, size = 40 }: { job: Pick<JobLike, "scores"> & { quickFit?: number }; size?: number }) {
+export function FitBadge({ job, size = 36 }: { job: Pick<JobLike, "scores"> & { quickFit?: number }; size?: number }) {
   const best = bestScore(job);
   const guess = !best;
   const value = best ? best.score : job.quickFit !== undefined ? likelyScore(job.quickFit) : undefined;
-  if (value === undefined) return <span className="text-xs text-ink-3">Not scored</span>;
-  const r = size / 2 - 3;
+  // The ring draws in and the number counts up only when a real score arrives while you watch; otherwise it's still.
+  const [realAtFirst] = useState(!guess);
+  const drawIn = !guess && !realAtFirst;
+  if (value === undefined) return <span className="inline-block shrink-0" style={{ width: size, height: size }} aria-hidden />;
+  const r = size / 2 - 1.5;
   const c = 2 * Math.PI * r;
-  const tone = guess ? "var(--ink-3)" : value >= 75 ? "#65a30d" : value >= 60 ? "var(--violet)" : "var(--ink-3)";
+  const label = guess ? `Rough guess, ${value}` : `Fit ${value} of 100`;
   return (
     <span
+      role="img"
+      aria-label={label}
       className="relative inline-flex shrink-0 items-center justify-center"
       style={{ width: size, height: size }}
-      title={guess ? "First guess from the title, your CV's words and the place. Open the job and check the fit for the real score." : `Fit ${value}%, scored by the AI on the whole job`}
+      title={guess ? "Rough guess from the title, your CV's words and the place. Open the job for the real score." : `Fit ${value}, scored by the AI on the whole job`}
     >
-      <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--soft)" strokeWidth="3" />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={tone} strokeWidth="3" strokeLinecap="round" strokeDasharray={guess ? "3 3" : `${(c * value) / 100} ${c}`} />
-      </svg>
-      <span className={`absolute text-[11px] font-semibold tabular-nums ${guess ? "text-ink-3" : ""}`}>
+      {guess && (
+        // A rough guess gets a dashed ring, so it reads as a guess but the slot never looks empty.
+        <svg width={size} height={size} aria-hidden>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line-strong)" strokeWidth="2" strokeDasharray="3 3" />
+        </svg>
+      )}
+      {!guess && (
+        <svg width={size} height={size} className="-rotate-90" aria-hidden>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth="3" />
+          <circle
+            className={drawIn ? "ring-arc" : undefined}
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke={value >= 75 ? "var(--good)" : "var(--ink)"}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={`${(c * value) / 100} ${c}`}
+          />
+        </svg>
+      )}
+      <span className={`tnum absolute font-semibold ${guess ? "text-ink-3" : "text-ink"}`} style={{ fontSize: size >= 44 ? 14 : 12 }} aria-hidden>
         {guess ? "~" : ""}
-        {value}
-        <span className="text-[8px]">%</span>
+        {drawIn ? <CountUp to={value} /> : value}
       </span>
     </span>
   );
+}
+
+/** 0 → n over 600ms, once. Straight to n when the person asks for less motion. */
+function CountUp({ to }: { to: number }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const id = requestAnimationFrame(() => setN(to));
+      return () => cancelAnimationFrame(id);
+    }
+    const start = performance.now();
+    let id = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / 600);
+      setN(Math.round(to * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [to]);
+  return <>{n}</>;
 }
 
 export function bestScore(job: Pick<JobLike, "scores">) {
@@ -104,11 +147,12 @@ export function CompanyMark({ job, size = 36 }: { job: Pick<JobLike, "company" |
   const logo = domain ? faviconOf(domain) : (job.companyLogo ?? (site ? faviconOf(site) : undefined));
   if (logo) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logo} alt="" width={size} height={size} className="shrink-0 rounded-lg border border-line bg-white object-contain" style={{ width: size, height: size }} />;
+    return <img src={logo} alt="" width={size} height={size} className="logo-tile shrink-0 rounded-lg border border-line bg-white object-contain p-[3px]" style={{ width: size, height: size }} />;
   }
   return (
     <span
-      className="display inline-flex shrink-0 items-center justify-center rounded-lg border border-line bg-soft text-ink-2"
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center rounded-lg bg-soft font-semibold text-ink-2"
       style={{ width: size, height: size, fontSize: size * 0.5 }}
     >
       {job.company.slice(0, 1).toUpperCase()}
@@ -140,7 +184,7 @@ export function PageHead({ title, sub, children }: { title: string; sub?: string
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="h1">{title}</h1>
         {sub && <p className="mt-1 max-w-xl text-sm text-ink-2">{sub}</p>}
       </div>
       {children && <div className="flex flex-wrap gap-2">{children}</div>}

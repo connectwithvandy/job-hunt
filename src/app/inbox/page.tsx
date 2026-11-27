@@ -81,63 +81,62 @@ function Inbox() {
       type="button"
       onClick={() => switchTo(t)}
       aria-pressed={tab === t}
-      className={`-mb-px flex items-center gap-2 border-b-2 px-1 pb-3 text-base whitespace-nowrap ${tab === t ? "border-ink font-semibold text-ink" : "border-transparent text-ink-2 hover:text-ink"}`}
+      className={`-mb-px flex min-h-11 items-center gap-2 border-b-2 px-1 pb-2 text-[15px] font-semibold whitespace-nowrap ${tab === t ? "border-ink text-ink" : "border-transparent text-ink-3 hover:text-ink"}`}
     >
       {label}
-      {count > 0 && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-ink">{count}</span>}
+      {count > 0 ? <span className="tnum rounded-full bg-ink px-2 py-0.5 text-[11px] font-semibold text-paper">{count}</span> : <span className="tnum font-normal text-ink-3">0</span>}
     </button>
   );
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Messages</h1>
+    <div className="max-w-[880px]">
+      <h1 className="h1 mb-4">Messages</h1>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-line">
         <div className="flex gap-6" role="group" aria-label="Which messages">
           {segment("companies", "From companies", companies.filter((c) => c.needs).length)}
           {segment("outreach", "Your outreach", people.filter((p) => p.needs).length)}
         </div>
         {tab === "outreach" && (
-          <button type="button" onClick={() => go({ show: finding ? null : "find", p: null, job: null })} className="btn btn-sm mb-2">
-            {finding ? "← Back to your outreach" : "+ Find people to ask"}
+          <button type="button" onClick={() => go({ show: finding ? null : "find", p: null, job: null })} className="btn btn-secondary btn-sm mb-2">
+            {finding ? "← Back to your outreach" : "Find people to ask"}
           </button>
         )}
       </div>
 
+      {tab === "outreach" && !finding && <p className="-mt-2 mb-4 text-[13px] text-ink-3">Referral asks and notes to hiring managers you send from a job show here, with when to follow up.</p>}
       {tab === "outreach" && finding ? (
         <FindPeople />
       ) : tab === "companies" && companies.length === 0 ? (
-        <Empty>
-          No emails from companies yet.{" "}
-          {!gmail?.email && (
-            <>
-              <Link href="/connect" className="underline">
-                Connect Gmail
-              </Link>{" "}
-              in Profile → LinkedIn &amp; Gmail so replies show up here.
-            </>
-          )}
-        </Empty>
+        <Empty
+          gmailRow={!gmail?.connected}
+          title="No emails from companies yet"
+          body={gmail?.connected ? "Recruiter replies and interview invites land here by themselves, checked every hour." : "Connect Gmail and recruiter replies and interview invites land here by themselves."}
+          action={!gmail?.connected ? <Link href="/connect#gmail" className="btn btn-secondary btn-sm">Connect Gmail</Link> : <Link href="/tracker" className="btn btn-secondary btn-sm">See your applications</Link>}
+        />
       ) : tab === "outreach" && people.length === 0 ? (
-        <Empty>
-          No referral asks or HR notes yet. Open a job and use Ask for a referral, or{" "}
-          <button type="button" className="underline" onClick={() => go({ show: "find" })}>
-            find people to ask
-          </button>
-          .
-        </Empty>
+        <Empty
+          title="No referral asks or HR notes yet"
+          note="This tab tracks the referral and HR notes you send from a job page, with when to follow up."
+          body="A referral gets your application read first. Pick someone you know at a company you want."
+          action={
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => go({ show: "find" })}>
+              Find people to ask
+            </button>
+          }
+        />
       ) : (
         <div className="card grid min-h-[60vh] overflow-hidden md:grid-cols-[21rem_minmax(0,1fr)]">
           <ul className={`max-h-[75vh] overflow-y-auto border-line md:border-r ${explicit ? "hidden md:block" : ""}`}>
             {tab === "companies"
               ? companies.map((c) => (
-                  <Row key={c.j._id} selected={c.j._id === picked} onClick={() => go({ job: c.j._id })} mark={<CompanyMark job={c.j} size={34} />} title={c.j.company} line={`${c.text} · ${c.j.title}`} at={c.at} needs={c.needs} />
+                  <Row key={c.j._id} selected={c.j._id === picked} onClick={() => go({ job: c.j._id })} mark={<CompanyMark job={c.j} size={32} />} title={c.j.company} line={`${c.text} · ${c.j.title}`} at={c.at} needs={c.needs} />
                 ))
               : people.map((p) => (
                     <Row
                       key={p.key}
                       selected={p.key === picked}
                       onClick={() => go({ p: p.key, job: null })}
-                      mark={<CompanyMark job={{ company: p.company }} size={34} />}
+                      mark={<CompanyMark job={{ company: p.company }} size={32} />}
                       title={p.kind === "find" ? `${p.name} · ${p.company}` : `${firstName(p.name)} · ${p.company}`}
                       line={p.line}
                       at={p.at}
@@ -163,23 +162,48 @@ function Inbox() {
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="card p-6 text-sm text-ink-2">{children}</div>;
+/** An empty list says what it's for and gives one way forward. */
+function Empty({ title, body, action, gmailRow, note }: { title: string; body: string; action: React.ReactNode; gmailRow?: boolean; note?: string }) {
+  // Not connected: the same Connect Gmail row as Today and Applications, button on the right.
+  const footnote = note ? <p className="mt-3 text-[13px] text-ink-3">{note}</p> : null;
+  if (gmailRow)
+    return (
+      <>
+      <section className="card flex max-w-[880px] flex-wrap items-center gap-3 px-5 py-4 max-[479px]:flex-col max-[479px]:items-start">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-semibold">{title}</h2>
+          <p className="text-[15px] text-ink-2">{body}</p>
+        </div>
+        {action}
+      </section>
+      {footnote}
+      </>
+    );
+  return (
+    <>
+      <div className="card max-w-[880px] p-6 sm:p-8">
+        <h2 className="h2">{title}</h2>
+        <p className="mt-1 max-w-[68ch] text-[15px] text-ink-2">{body}</p>
+        <div className="mt-4">{action}</div>
+      </div>
+      {footnote}
+    </>
+  );
 }
 
 /** One line in the list: logo, who, one plain line, when, and a dot when it needs you. No buttons here. */
 function Row({ selected, onClick, mark, title, line, at, needs }: { selected: boolean; onClick: () => void; mark: React.ReactNode; title: string; line: string; at: number; needs: boolean }) {
   return (
     <li className="border-t border-line first:border-t-0">
-      <button type="button" onClick={onClick} className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-soft ${selected ? "bg-soft" : ""}`}>
+      <button type="button" onClick={onClick} aria-current={selected || undefined} className={`flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left [@media(hover:hover)]:hover:bg-soft ${selected ? "bg-soft" : ""}`}>
         {mark}
         <span className="min-w-0 flex-1">
-          <span className={`block truncate text-sm ${needs ? "font-semibold" : "font-medium"}`}>{title}</span>
-          <span className="block truncate text-xs text-ink-2">{line}</span>
+          <span className={`block truncate text-[15px] ${needs ? "font-semibold text-ink" : "text-ink-2"}`}>{title}</span>
+          <span className="row-meta block truncate">{line}</span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1.5">
-          <span className="text-[11px] text-ink-3">{timeAgo(at)}</span>
-          <span className={`h-2 w-2 rounded-full ${needs ? "bg-violet" : "bg-transparent"}`} aria-label={needs ? "Needs you" : undefined} />
+          <span className="tnum text-[13px] text-ink-3">{timeAgo(at)}</span>
+          <span className={`h-2 w-2 rounded-full ${needs ? "bg-ink" : "bg-transparent"}`} aria-label={needs ? "Needs you" : undefined} />
         </span>
       </button>
     </li>
@@ -197,8 +221,8 @@ function PaneHead({ job, sub }: { job: { _id: Id<"jobs">; company: string; title
           {sub && <div className="text-xs text-ink-3">{sub}</div>}
         </div>
       </div>
-      <Link href={`/jobs/${job._id}`} className="text-sm text-ink-2 underline hover:text-ink">
-        Open the job →
+      <Link href={`/jobs/${job._id}`} className="btn-text">
+        Open the job
       </Link>
     </div>
   );

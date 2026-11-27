@@ -100,25 +100,40 @@ export function WhatsWorking({ jobs, tracks, lessons }: { jobs: Doc<"jobs">[]; t
   ].filter((c) => c.rows.length);
   return (
     <section id="working" className="mt-2 mb-12 scroll-mt-20">
-      <h2 className="mb-1 text-lg font-semibold">What&apos;s working</h2>
-      <p className="mb-4 text-sm text-ink-3">
-        From {total} application{total > 1 ? "s" : ""} with a result: a reply, a no, or silence after {SILENT_AFTER / 86_400_000} days.{" "}
-        {total >= 3 ? "Fit scores now lean toward what gets replies." : "After three results, fit scores start learning from them too."}
+      <h2 className="h2 mb-1">What&apos;s working</h2>
+      <p className="mb-4 max-w-[68ch] text-[15px] text-ink-3">
+        From {total} application{total === 1 ? "" : "s"} with a result: a reply, a no, or silence after {SILENT_AFTER / 86_400_000} days.
       </p>
+      {/* What unlocks as results come in, in one list instead of three sentences with three numbers (27 Nov review). */}
+      {(total < 5 || (countNoes(jobs, now) < 3 && !lessons)) && (
+        <ul className="card mb-4 divide-y divide-line">
+          {[
+            { what: "Fit scores learn from your results", have: total, need: 3 },
+            { what: "The gap that keeps costing you, from noes and silences", have: countNoes(jobs, now), need: 3 },
+            { what: "Patterns by how you applied, message and source", have: total, need: 5 },
+          ].map((m) => (
+            <li key={m.what} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
+              <span className="min-w-0 flex-1 basis-full text-[15px] text-ink-2 sm:basis-0">{m.what}</span>
+              <span className="tnum text-[13px] text-ink-3">{m.have >= m.need ? "On" : `${m.have} of ${m.need}`}</span>
+              <span className="h-1 w-16 overflow-hidden rounded-[2px] bg-line-strong" aria-hidden>
+                <span className="block h-full bg-ink" style={{ width: `${Math.min(100, (m.have / m.need) * 100)}%` }} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       <LessonsCard jobs={jobs} lessons={lessons} now={now} />
       {cards.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {cards.map((c) => (
             <div key={c.title} className="card p-5">
-              <h3 className="font-medium">{c.title}</h3>
+              <h3 className="text-[15px] font-semibold">{c.title}</h3>
               <ul className="divide-y divide-line">{c.rows}</ul>
               {c.note}
             </div>
           ))}
         </div>
-      ) : (
-        <p className="text-sm text-ink-3">Patterns show once 5+ applications have a result.</p>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -129,9 +144,8 @@ const KIND_WORDS = { cv: "Show it on your CV", skill: "Build it", targeting: "Ai
 function LessonsCard({ jobs, lessons, now }: { jobs: Doc<"jobs">[]; lessons: Lessons | null; now: number }) {
   const learn = useAction(api.agent.learnFromNoes);
   const noes = countNoes(jobs, now);
-  if (noes < 3 && !lessons) {
-    return <p className="card mb-4 p-5 text-sm text-ink-2">After three noes or silences, JobPipe reads them together and names the gap that keeps costing you. {noes} so far.</p>;
-  }
+  // Below three, the progress list above says how far along it is.
+  if (noes < 3 && !lessons) return null;
   const fresh = lessons && noes - lessons.basedOn < 3;
   return (
     <div className="card mb-4 border-accent p-5">

@@ -10,16 +10,18 @@ import { companyKey, sameRoleKey } from "../../convex/lib/company";
 import { nextFollowUp, REFERRAL_FOLLOW_UP_AFTER } from "../../convex/lib/followups";
 import { rankFit, SKIP_BELOW, TAILOR_FROM } from "../../convex/lib/posting";
 import { openTo, readPlace } from "../../convex/lib/sources";
-import { tallyBy } from "../../convex/lib/outcomes";
 import type { Doc } from "../../convex/_generated/dataModel";
+import { tallyBy } from "../../convex/lib/outcomes";
 import { useCelebrateNewWins, useSetStatus, WIN_WORDS } from "@/components/Celebrate";
 import { CompanyMark, DAY_STARTS_AT, FitBadge, likelyScore, bestScore, dayStart, jobTrackKey, timeAgo } from "@/components/bits";
 import { Loading } from "@/components/Loading";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
 import { payText, useInrRates } from "@/lib/money";
+import { showCompany, showTitle } from "@/lib/tidy";
+import { ago, JobRow, metaOf, stateOf, StateButton } from "@/components/JobState";
 import { answerRank, justInterviewed, waitsForAnswer } from "@/lib/replies";
-import { ReferralFollowUp } from "@/components/job-client";
+import { FavoriteStar, ReferralFollowUp } from "@/components/job-client";
 
 const DAY = 86_400_000;
 /** After this long, Today asks for a fresh connections file: people keep connecting. */
@@ -89,7 +91,6 @@ export default function Today() {
   // An active role whose titles find nothing: worth fixing before anything else in step 2.
   const emptyRoles = me.tracks.filter((t) => t.status === "active" && !jobs.some((j) => jobTrackKey(j, me.tracks) === t.key));
 
-  const unscored = jobs.filter((j) => j.status === "new" && !j.scores?.length);
   // Found today isn't new: a role posted months ago is likely filled, and one in another city isn't for you.
   const place = readPlace(me.location);
   const nearby = (j: Doc<"jobs">) => j.source === "pasted" || j.source === "link" || j.location === "Not listed" || openTo(place, j.location, j.workSetting, j.title);
@@ -119,7 +120,7 @@ export default function Today() {
 
   // One line about results; the full breakdown is on Applications. Under five results a rate means little.
   const resulted = tallyBy(jobs, () => "all", now).get("all");
-  const replyRate = resulted && resulted.total >= SURE ? resulted : null;
+  const replyRate = resulted && resulted.total >= 5 ? resulted : null;
   const interviewing = jobs.filter((j) => j.status === "interview");
 
   // What you've done since the day started (4 AM), so late nights still count and the day starts fresh each morning.
@@ -176,7 +177,6 @@ export default function Today() {
   const freshIds = new Set(fresh.map((j) => j._id));
   const freshScored = fresh.filter((j) => j.scores?.length);
   const freshGuessed = fresh.filter((j) => !j.scores?.length);
-  const freshUnscored = freshGuessed.length;
   // Older strong fits fill in when there's little new that the AI has scored.
   const older = strong.filter((j) => !freshIds.has(j._id)).slice(0, Math.max(0, APPLIES_A_DAY - freshScored.length));
   // A 70+ fit with no tailored CV yet: tailoring is the next step, and the one people skip (62 scored, 18 tailored, 14 Nov).
@@ -206,14 +206,6 @@ export default function Today() {
   void applyNew;
   // Started but not sent: these are still to do, not live applications (19 Nov walk).
   const gettingReady = jobs.filter((j) => j.status === "applying" && j.liveCheck?.state !== "closed");
-  // Fixes to the search itself sit in a short note under the list, not among the jobs to apply to (19 Nov).
-  const fixes: Todo[] = [
-    ...emptyRoles.map((t) => ({ key: `e${t._id}`, verb: "Fix", main: `${t.name} finds no jobs`, sub: "Its job titles may be too narrow. Add the titles companies actually use.", href: "/tracks" })),
-    // One line for scoring (19 Nov: new jobs and older ones were two lines saying the same thing).
-    // The Jobs page scores up to 12 at a time, so the note promises 12, not every unscored job (19 Nov: "513 jobs").
-    ...(unscored.length ? [{ key: "score", verb: "Score", main: `Get real fit scores for your ${Math.min(SCORE_BATCH, unscored.length)} best new ${Math.min(SCORE_BATCH, unscored.length) === 1 ? "job" : "jobs"}`, sub: freshUnscored ? `${freshUnscored} found in the last day. The ~% is a first guess; the real score reads the whole job.` : "The ~% is a first guess; the real score reads the whole job.", href: "/jobs?fit=unscored" }] : []),
-  ];
-
   // 3. Messages and applications with no answer yet.
   const chase: Todo[] = [
     // Many drafts read as a wall of the same line (19 Nov: 18 of 19 to-dos), so more than one becomes a single line.
@@ -231,7 +223,7 @@ export default function Today() {
       cta: "Write follow-up",
       panel: o ? <ReferralFollowUp jobId={j._id} o={o} /> : undefined,
     })),
-    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.company} · ${j.title}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}`, mark: j, cta: "Nudge" })),
+    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: showTitle(j.title), sub: `${showCompany(j.company)} · Applied ${ago(j.appliedAt!)} · no reply`, href: `/jobs/${j._id}#people`, mark: j, cta: "Nudge" })),
   ];
 
   // Just applied and nobody asked or messaged there yet: suggest the next way in, alongside the application (19 Nov, owner:
@@ -298,17 +290,13 @@ export default function Today() {
   // One role listed on two boards counts once, as on the Jobs page, so both say the same number (21 Nov: 604 vs 600).
   const openJobs = [...new Map(jobs.filter((j) => (j.status === "new" || j.status === "applying") && live(j)).map((j) => [sameRoleKey(j.company, j.title), j])).values()];
   const openToday = openJobs.filter((j) => j._creationTime >= dayBegan).length;
-  const repliedTotal = jobs.filter((j) => ["screening", "interview", "offer"].includes(j.status)).length;
   const interviewTotal = jobs.filter((j) => j.status === "interview" || j.status === "offer").length;
   const offerTotal = jobs.filter((j) => j.status === "offer").length;
-  // "Do this first" takes the best job only when nothing more urgent is waiting; then the list starts after it.
-  const firstIsJob = !replies.length && !interviewed.length && !!bestNew[0];
-  const applyJobs = bestNew.filter((j) => !(j.postedAt && now - Date.parse(j.postedAt) > 120 * DAY)).slice(firstIsJob ? 1 : 0, firstIsJob ? 9 : 8);
   // Two or more quiet applications read as one line, not a wall (19 Nov).
   const quietItems: Todo[] =
     quiet.length > 1
       ? [{ key: "quiet", verb: "Follow up", main: `${quiet.length} applications quiet for 10+ days`, sub: quiet.slice(0, 3).map((j) => j.company).join(", ") + (quiet.length > 3 ? ` and ${quiet.length - 3} more` : ""), href: "/tracker", many: quiet.length, cta: "Nudge them" }]
-      : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: `${j.company} · ${j.title}`, sub: `Applied ${timeAgo(j.appliedAt)}, no answer yet`, href: `/jobs/${j._id}`, mark: j, cta: "Nudge" }));
+      : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: showTitle(j.title), sub: `${showCompany(j.company)} · Applied ${ago(j.appliedAt!)} · no reply`, href: `/jobs/${j._id}#people`, mark: j, cta: "Nudge" }));
   const followUpItems = [...hrAfterApply, ...chase.filter((t) => t.verb === "Follow up" && !t.key.startsWith("q")), ...quietItems];
   const referralItems = [...askAfterApply, ...chase.filter((t) => t.verb === "Send"), ...reach];
 
@@ -318,20 +306,31 @@ export default function Today() {
     .filter((j) => j.status === "new" || j.status === "applying")
     .sort((a, b) => Number(!!b.scores?.length) - Number(!!a.scores?.length) || fit(b) - fit(a))[0];
 
+  // The one job to do first: the best real fit (60+, the app-wide line) not applied to, else the best rough guess.
+  const pick = !replies.length && !interviewed.length ? (bestNew.find((j) => (bestScore(j)?.score ?? 0) >= SKIP_BELOW) ?? bestNew.find((j) => !bestScore(j)) ?? bestNew[0]) : undefined;
+  const applyList = bestNew.filter((j) => j._id !== pick?._id && !(j.postedAt && now - Date.parse(j.postedAt) > 120 * DAY)).slice(0, 8);
+  // Pipeline stages, in a sales team's words. Qualified = a real fit of 60+; Proposal = a CV ready for it.
+  const realFit = (j: Doc<"jobs">) => bestScore(j)?.score ?? -1;
+  const qualified = openJobs.filter((j) => realFit(j) >= SKIP_BELOW).length;
+  const proposal = openJobs.filter((j) => j.hasPack || j.pack).length;
+  const pickStage = replies.length ? (replies[0].lastEmail?.stage === "offer" ? 5 : 4) : interviewed.length ? 4 : pick ? (pick.hasPack || pick.pack ? 2 : realFit(pick) >= SKIP_BELOW ? 1 : 0) : -1;
+  const gmailOff = !me.inboxAt || msSince(me.inboxAt) > DAY;
+  const replyItems = answer.filter((t) => t.key !== "gmail");
+
   return (
-    <div className="mx-auto max-w-6xl">
-      <header className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight">
+    <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-10">
+      <div className="min-w-0">
+      <header className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h1 className="h1">
           {greeting()}
           {firstName ? `, ${firstName}` : ""}
-          <span className="ml-3 text-sm font-normal text-ink-3">
-            {new Date(dayStart(now)).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-            {trialDay ? ` · Trial day ${trialDay} of 7` : ""}
-          </span>
         </h1>
-        {/* Open jobs, the same number as "Open jobs for you" below (23 Nov walk: "found 27" beside "18 open"). */}
-        <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} found={openJobs.length} strongNow={strongAll.length} newToday={openToday} />
+        <span className="text-[13px] text-ink-3">
+          {new Date(dayStart(now)).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+          {trialDay ? ` · Trial day ${trialDay} of 7` : ""}
+        </span>
       </header>
+      <Autopilot on={me.autopilot} last={me.lastAutopilot} now={now} newToday={openToday} found={openJobs.length} strongNow={strongAll.length} />
 
       {!me.placesAsked && <PlacesPopup location={me.location} workModes={me.workModes} />}
       <SetupGuide
@@ -350,137 +349,144 @@ export default function Today() {
       />
 
       <CelebrateWins jobs={jobs} now={now} />
-      {/* Where the search stands, in the stages a sales pipeline uses (19 Nov: own layout, not a copy of another site's). */}
       <Pipeline
+        current={pickStage}
         stages={[
-          { label: "Open jobs for you", n: openJobs.length, sub: openToday ? `+${openToday} today` : undefined, href: "/jobs" },
-          { label: "Applied", n: appliedTotal, sub: `${appliedToday} of ${APPLIES_A_DAY} today`, href: "/tracker" },
-          { label: "Replied", n: repliedTotal, href: "/tracker" },
-          { label: "Interview", n: interviewTotal, href: "/tracker" },
-          { label: "Offer", n: offerTotal, href: "/tracker" },
+          { label: "Prospect", n: openJobs.length, href: "/jobs" },
+          { label: "Qualified", n: qualified, href: "/jobs" },
+          { label: "Proposal", n: proposal, href: "/jobs" },
+          { label: "Sent", n: appliedTotal, href: "/tracker" },
+          { label: "Meeting", n: interviewTotal, href: "/tracker" },
+          { label: "Closed won", n: offerTotal, href: "/tracker" },
         ]}
       />
-      <DoFirst replies={replies} interviewed={interviewed} best={bestNew[0]} verbFor={verbFor} firstCv={!jobs.some((j) => j.hasPack || j.pack)} />
+      <Goal done={appliedToday} of={APPLIES_A_DAY} />
 
-      {/* Each group is its own card with a real heading: one long card with tiny grey labels read as footnotes on a phone (19 Nov). */}
-      <section className="rise mb-6 grid gap-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
-          <h2 className="text-lg font-semibold">Then, today</h2>
-          <span className="text-sm text-ink-3">
-            {appliedToday >= APPLIES_A_DAY
-              ? "Today's goal done"
-              : `${APPLIES_A_DAY - appliedToday} more ${APPLIES_A_DAY - appliedToday === 1 ? "application reaches" : "applications reach"} today's goal`}
-          </span>
-        </div>
-        {!!interviews?.length && (
-          <Group label="Interviews coming up">
-            <ul className="divide-y divide-line">
-              {interviews.map((i) => (
-                <li key={i._id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 text-sm">
-                  <Link href={`/jobs/${i.jobId}`} className="min-w-0">
-                    <span className="block font-medium">{i.job ? `${i.job.company}: ${i.job.title}` : i.title}</span>
-                    <span className="block text-xs text-ink-3">{new Date(i.start).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>
-                  </Link>
-                  {i.link.startsWith("https://") && (
-                    <a className="btn btn-sm" href={i.link} target="_blank" rel="noreferrer">
-                      Join ↗
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Group>
-        )}
-        {(applyJobs.length > 0 || gettingReady.length > 0) && (
-          <Group label="Apply" count={gettingReady.length + applyJobs.length} more={{ href: "/jobs", text: "All jobs →" }}>
-            <ApplyRows ready={gettingReady} jobs={applyJobs} verbFor={verbFor} />
-          </Group>
-        )}
-        {answer.length > 0 && (
-          <Group label="Replies" count={answer.length}>
-            <TodoList items={answer} plain group="Replies" />
-          </Group>
-        )}
-        {followUpItems.length > 0 && (
-          <Group label="Follow up" count={followUpItems.length}>
-            <TodoList items={followUpItems} plain group="Follow up" />
-          </Group>
-        )}
-        {(referralItems.length > 0 || companiesAskedToday > 0) && (
-          <Group label="Referrals" count={referralItems.length} more={{ text: `Asked today ${companiesAskedToday} of ${COMPANIES_A_DAY}` }}>
-            {referralItems.length > 0 ? <TodoList items={referralItems} plain group="Referrals" /> : <p className="px-3 py-3 text-sm text-ink-2">Today&apos;s asks are sent.</p>}
-          </Group>
-        )}
-        {worth.length > 0 && (
-          <Group label="Worth a look" more={{ href: "/companies?tab=startups", text: "All funded companies →" }}>
-            <TodoList items={worth} plain group="Worth a look" />
-          </Group>
-        )}
-        {fixes.length > 0 && (
-          <div className="card px-4 py-3 text-xs text-ink-3">
-            {fixes.map((f) => (
-              <p key={f.key}>
-                {f.key === "score" ? (
-                  <Link href={f.href} className="text-ink-2 underline hover:text-ink">
-                    {f.main}
-                  </Link>
-                ) : (
-                  <>
-                    {f.main}.{" "}
-                    <Link href={f.href} className="text-ink-2 underline hover:text-ink">
-                      Fix the role
-                    </Link>
-                  </>
+      <DoFirst replies={replies} interviewed={interviewed} best={pick} firstCv={!jobs.some((j) => j.hasPack || j.pack)} />
+
+      {!!interviews?.length && (
+        <Group label="Interviews coming up">
+          <ul>
+            {interviews.map((i) => (
+              <li key={i._id} className="row">
+                <Link href={`/jobs/${i.jobId}`} className="min-w-0 flex-1">
+                  <span className="row-title block truncate">{i.job ? `${i.job.company}: ${showTitle(i.job.title)}` : i.title}</span>
+                  <span className="row-meta block">{new Date(i.start).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>
+                </Link>
+                {i.link.startsWith("https://") && (
+                  <a className="btn btn-secondary btn-sm" href={i.link} target="_blank" rel="noreferrer">
+                    Join ↗
+                  </a>
                 )}
-              </p>
+              </li>
             ))}
-          </div>
-        )}
-        {!applyJobs.length && !gettingReady.length && !answer.length && !followUpItems.length && !referralItems.length && !interviews?.length && (
-          <p className="card px-4 py-4 text-sm text-ink-2">
-            {me.contactsCount ? "Nothing waiting on you. Open Jobs, or find people to ask in Messages." : "Nothing waiting on you. Open Jobs to pick your next application."}
-          </p>
-        )}
-      </section>
-
-      <p className="px-1 text-sm text-ink-3">
+          </ul>
+        </Group>
+      )}
+      {(applyList.length > 0 || gettingReady.length > 0) && (
+        <Group label="Apply next" more={{ href: "/jobs", text: "All jobs" }}>
+          <ApplyRows ready={gettingReady} jobs={applyList} />
+        </Group>
+      )}
+      {replyItems.length > 0 && (
+        <Group label="Replies">
+          <TodoList items={replyItems} />
+        </Group>
+      )}
+      {referralItems.length > 0 && (
+        <Group label="Referrals" more={{ text: `${companiesAskedToday} of ${COMPANIES_A_DAY} asked today` }}>
+          <TodoList items={referralItems} />
+        </Group>
+      )}
+      {worth.length > 0 && (
+        <Group label="Worth a look" more={{ href: "/companies?tab=startups", text: "All funded companies" }}>
+          <TodoList items={worth} />
+        </Group>
+      )}
+      {!pick && !replies.length && !interviewed.length && !applyList.length && !gettingReady.length && !replyItems.length && !followUpItems.length && !referralItems.length && !interviews?.length && (
+        <section className="card mb-8 p-6">
+          <h2 className="h2">Nothing waiting on you</h2>
+          <p className="mt-1 text-[15px] text-ink-2">New jobs arrive with the morning search. Meanwhile, find a job to add.</p>
+          <Link href="/jobs" className="btn btn-secondary btn-sm mt-4">
+            Find or add a job
+          </Link>
+        </section>
+      )}
+      </div>
+      {/* Right column on wide screens: follow-ups, Gmail and the reply notes. Below the main list on smaller ones. */}
+      <aside className="min-w-0 xl:pt-1 xl:[&_.gmail-row]:flex-col xl:[&_.gmail-row]:items-start xl:[&_.row]:flex-wrap xl:[&_.row>.btn]:ml-11">
+      {followUpItems.length > 0 && (
+        <Group label="Follow up">
+          <TodoList items={followUpItems} />
+        </Group>
+      )}
+      {gmailOff && (
+        <section className="gmail-row card mb-8 flex flex-wrap items-center gap-3 px-5 py-4 max-[479px]:flex-col max-[479px]:items-start">
+          <p className="min-w-0 flex-1 text-[15px] text-ink-2">{me.inboxAt ? "Gmail stopped checking. Recruiter replies won't show here." : "See recruiter replies here."}</p>
+          <Link href="/connect#gmail" className="btn btn-secondary btn-sm">
+            Connect Gmail
+          </Link>
+        </section>
+      )}
+      {emptyRoles.length > 0 && (
+        <p className="mb-8 text-[13px] text-ink-3">
+          {emptyRoles.map((t) => t.name).join(", ")} {emptyRoles.length === 1 ? "finds" : "find"} no jobs.{" "}
+          <Link href="/tracks" className="btn-text inline-flex underline">
+            Fix the role
+          </Link>
+        </p>
+      )}
+      <p className="mb-2 text-[13px] text-ink-3">
         Replies usually come 2 to 12 days after applying.{" "}
-        <Link href="/tracker" className="text-ink-2 underline hover:text-ink">
+        <Link href="/tracker" className="btn-text -ml-1 inline-flex underline">
           See all applications
         </Link>
       </p>
-
-      {/* What's working lives on Applications now; Today keeps one line about it (19 Nov: a fold at the very bottom). */}
       {replyRate && (
-        <p className="mt-2 px-1 text-sm text-ink-3">
+        <p className="mb-8 text-[13px] text-ink-3">
           {replyRate.responses} of {replyRate.total} applications with a result got a reply ({Math.round((replyRate.responses / replyRate.total) * 100)}%).{" "}
-          <Link href="/tracker#working" className="text-ink-2 underline hover:text-ink">
+          <Link href="/tracker#working" className="btn-text inline-flex underline">
             See what&apos;s working
           </Link>
         </p>
       )}
-
+      </aside>
     </div>
   );
 }
 
-/** The search as a sales pipeline: one card, five stages, the furthest one reached lightly marked. Three then two on a phone. */
-function Pipeline({ stages }: { stages: { label: string; n: number; sub?: string; href: string }[] }) {
-  const furthest = stages.map((st) => st.n > 0).lastIndexOf(true);
+/**
+ * The search as a sales pipeline: one card, six stages. The stage holding "Do this first" gets a lime bar under it,
+ * the only lime on the strip. 6 across on a computer, 3 × 2 on a phone.
+ */
+function Pipeline({ stages, current }: { stages: { label: string; n: number; href: string }[]; current: number }) {
   return (
-    <section className="rise card mb-6 grid grid-cols-3 overflow-hidden sm:grid-cols-5">
+    <nav aria-label="Your pipeline" className="card mt-6 max-sm:mt-3 grid grid-cols-3 overflow-hidden sm:grid-cols-6">
       {stages.map((st, i) => (
         <Link
           key={st.label}
           href={st.href}
-          className={`min-w-0 border-line px-4 py-3 hover:bg-soft ${i < stages.length - 1 ? "sm:border-r" : ""} ${i % 3 !== 2 ? "border-r" : ""} ${i >= 3 ? "border-t sm:border-t-0" : ""} ${i === furthest && i > 0 ? "bg-accent/15" : ""}`}
+          aria-current={i === current ? "step" : undefined}
+          className={`relative min-w-0 border-line px-4 py-3 max-[359px]:px-2 ${i % 3 !== 2 ? "border-r" : "sm:border-r"} ${i === 5 ? "sm:border-r-0" : ""} ${i >= 3 ? "border-t sm:border-t-0" : ""} [@media(hover:hover)]:hover:bg-soft`}
         >
-          <div className="text-2xl font-semibold tabular-nums">{st.n}</div>
-          <div className="truncate text-xs text-ink-2">{st.label}</div>
-          {st.sub && <div className="truncate text-xs text-ink-3">{st.sub}</div>}
+          <div className={`mono truncate ${i === current ? "!font-semibold !text-ink" : ""}`}>{st.label}</div>
+          <div className={`tnum mt-1 font-[family-name:var(--font-display-face)] text-2xl font-semibold ${st.n ? "text-ink" : "text-ink-3"}`}>{st.n}</div>
+          {i === current && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-accent" aria-hidden />}
         </Link>
       ))}
-    </section>
+    </nav>
+  );
+}
+
+/** Today's goal under the strip: "1 of 5 applied today" and a short ink bar. */
+function Goal({ done, of }: { done: number; of: number }) {
+  return (
+    <div className="mt-2 mb-8 flex items-center justify-end gap-3 text-[13px] text-ink-2 max-sm:mb-4">
+      <span className="tnum">{done >= of ? "Today's goal done" : `${done} of ${of} applied today`}</span>
+      <span className={`h-1 w-20 overflow-hidden rounded-[2px] bg-line-strong`} role="progressbar" aria-valuemin={0} aria-valuemax={of} aria-valuenow={Math.min(done, of)} aria-label="Applied today">
+        <span className="block h-full rounded-full bg-ink" style={{ width: `${Math.min(100, (done / of) * 100)}%` }} />
+      </span>
+    </div>
   );
 }
 
@@ -488,42 +494,43 @@ function Pipeline({ stages }: { stages: { label: string; n: number; sub?: string
  * The one thing to do first: a company waiting on your answer, then an interview that just happened,
  * then your best job to apply to. Only one, so it can't be missed (19 Nov: an invite sat below the fold).
  */
-function DoFirst({ replies, interviewed, best, verbFor, firstCv }: { replies: Doc<"jobs">[]; interviewed: Doc<"jobs">[]; best?: Doc<"jobs">; verbFor: (j: Doc<"jobs">) => string; firstCv: boolean }) {
+function DoFirst({ replies, interviewed, best, firstCv }: { replies: Doc<"jobs">[]; interviewed: Doc<"jobs">[]; best?: Doc<"jobs">; firstCv: boolean }) {
   const setStatus = useSetStatus();
   const setQuietly = useMutation(api.jobs.setStatus);
   const [busy, setBusy] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
   const run = (f: () => Promise<unknown>) => {
     setBusy(true);
     void f()
       .catch(() => {})
       .finally(() => setBusy(false));
   };
-  const box = "rise card mb-6 space-y-3 border-accent p-5 ring-1 ring-accent";
-  const eyebrow = <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">Do this first</div>;
+  const box = "card mb-10 p-5 sm:p-6";
+  const boxTight = "card mb-10 p-4 sm:p-6";
+  const eyebrow = <h2 className="mb-4 text-[13px] font-semibold text-ink-2 max-sm:mb-2">Do this first</h2>;
   const more = (n: number) =>
     n > 0 && (
-      <Link href="/inbox" className="block text-sm text-ink-2 underline hover:text-ink">
-        +{n} more in Messages
+      <Link href="/inbox" className="btn-text mt-2">
+        {n} more in Messages
       </Link>
     );
   if (replies.length) {
     const j = replies[0];
-    // The email says what it is; the job's own status can lag behind it.
     const s = j.lastEmail?.stage;
     const what = s === "interview" ? `${j.company} invited you to interview` : s === "offer" ? `${j.company} sent you an offer` : `${j.company}'s recruiter wrote to you`;
     return (
       <section className={box}>
         {eyebrow}
-        <div className="flex flex-wrap items-center gap-3">
-          <CompanyMark job={j} size={40} />
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold">{what}</h2>
-            <p className="text-sm text-ink-2">
-              {j.title} · {timeAgo(new Date(j.lastEmail!.at).toISOString())}
+        <div className="flex flex-wrap items-center gap-4">
+          <CompanyMark job={j} size={48} />
+          <div className="min-w-0 flex-1 basis-52">
+            <h3 className="text-lg font-semibold leading-snug">{what}</h3>
+            <p className="row-meta">
+              {showTitle(j.title)} · {timeAgo(new Date(j.lastEmail!.at).toISOString())}
             </p>
           </div>
-          <Link href={`/inbox?job=${j._id}`} className="btn btn-primary btn-sm">
-            Reply now
+          <Link href={`/inbox?job=${j._id}`} className="btn btn-primary w-full sm:w-auto">
+            Reply
           </Link>
         </div>
         {more(replies.length - 1)}
@@ -535,182 +542,169 @@ function DoFirst({ replies, interviewed, best, verbFor, firstCv }: { replies: Do
     return (
       <section className={box}>
         {eyebrow}
-        <div className="flex flex-wrap items-center gap-3">
-          <CompanyMark job={j} size={40} />
+        <div className="flex flex-wrap items-center gap-4">
+          <CompanyMark job={j} size={48} />
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold">How did the {j.company} interview go?</h2>
-            <p className="text-sm text-ink-2">{j.title}. Pick one so your tracker stays right.</p>
+            <h3 className="text-lg font-semibold leading-snug">How did the {j.company} interview go?</h3>
+            <p className="row-meta">{showTitle(j.title)}. Pick one so your tracker stays right.</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => run(() => setStatus({ jobId: j._id, status: "interview" }))}>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button className="btn btn-primary" disabled={busy} onClick={() => run(() => setStatus({ jobId: j._id, status: "interview" }))}>
             Next round
           </button>
-          <button className="btn btn-sm" disabled={busy} onClick={() => run(() => setStatus({ jobId: j._id, status: "offer" }))}>
+          <button className="btn btn-secondary" disabled={busy} onClick={() => run(() => setStatus({ jobId: j._id, status: "offer" }))}>
             Got an offer
           </button>
-          <button className="btn btn-sm" disabled={busy} onClick={() => run(() => setStatus({ jobId: j._id, status: "rejected" }))}>
+          <button className="btn btn-secondary" disabled={busy} onClick={() => run(() => setStatus({ jobId: j._id, status: "rejected" }))}>
             Didn&apos;t go ahead
           </button>
-          {/* No confetti for "still waiting": nothing moved. */}
-          <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => setQuietly({ jobId: j._id, status: j.status }))}>
+          <button className="btn-text" disabled={busy} onClick={() => run(() => setQuietly({ jobId: j._id, status: j.status }))}>
             Still waiting
           </button>
         </div>
-        <p className="rounded-xl bg-soft px-4 py-3 text-sm text-ink-2">
-          A short thank-you to the interviewer within a day helps.{" "}
-          <Link href={`/inbox?show=all&job=${j._id}`} className="font-medium text-ink underline">
+        <p className="mt-4 text-[15px] text-ink-2">
+          A short thank-you within a day helps.{" "}
+          <Link href={`/inbox?show=all&job=${j._id}`} className="font-semibold text-ink underline underline-offset-2">
             Write the thank-you note
           </Link>
         </p>
-        {interviewed.length > 1 && (
-          <Link href="/inbox" className="block text-sm text-ink-2 underline hover:text-ink">
-            +{interviewed.length - 1} more in Messages
-          </Link>
-        )}
+        {more(interviewed.length - 1)}
       </section>
     );
   }
-  if (!best) return null;
-  const verb = verbFor(best);
-  // Never tailored a CV: most members who set up stopped before this step (21 Nov: 24 of 92 tailored, none hit the
-  // paid wall), so the card says plainly what to do and that it's free, on their best-scored job whatever its score.
-  if (firstCv && verb !== "Check") {
-    return (
-      <section className={box}>
-        {eyebrow}
-        <div className="flex flex-wrap items-center gap-3">
-          <FitBadge job={best} size={44} />
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold">Get your first tailored CV</h2>
-            <p className="text-sm text-ink-2">
-              For {best.title} at {best.company}, your best match. Takes about 2 minutes, and your first one is free.
-            </p>
-          </div>
-          <Link href={`/jobs/${best._id}`} className="btn btn-primary btn-sm">
-            Write my CV
-          </Link>
-        </div>
-      </section>
-    );
-  }
+  if (!best || skipped.includes(best._id)) return null;
+  const score = bestScore(best);
+  // A real score gets its one-line reason; a first CV is free, which is worth saying once (21 Nov: few tailored).
+  const reason = score ? (firstCv && stateOf(best) === "open" ? "Your best match. Your first tailored CV is free." : score.reason.split(/(?<=\.)\s/)[0]) : null;
   return (
-    <section className={box}>
+    <section className={boxTight}>
       {eyebrow}
-      <div className="flex flex-wrap items-center gap-3">
-        <FitBadge job={best} size={44} />
-        <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-semibold">
-            Apply to {best.title} at {best.company}
-          </h2>
-          <p className="text-sm text-ink-2">{[best.location, best.postedAt ? `Posted ${timeAgo(best.postedAt)}` : null].filter(Boolean).join(" · ")}</p>
-        </div>
-        <Link href={`/jobs/${best._id}`} className="btn btn-primary btn-sm">
-          {verb === "Check" ? "Check the fit" : best.hasPack || best.pack ? "Apply" : "Write my CV"}
+      <div className="grid grid-cols-[40px_1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[48px_1fr_auto] sm:gap-y-3">
+        <span className="sm:hidden">
+          <CompanyMark job={best} size={40} />
+        </span>
+        <span className="max-sm:hidden">
+          <CompanyMark job={best} size={48} />
+        </span>
+        <Link href={`/jobs/${best._id}`} className="col-span-3 row-start-2 block min-h-11 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+          <h3 className="text-lg leading-snug font-semibold">{showTitle(best.title)}</h3>
+          <p className="row-meta">{metaOf(best)}</p>
         </Link>
+        <span className="col-start-3 row-start-1 justify-self-end">
+          <FitBadge job={best} size={44} />
+        </span>
+      </div>
+      {reason ? (
+        <p className="mt-3 max-w-[68ch] text-[15px] text-ink-2 max-sm:mt-2">{reason}</p>
+      ) : (
+        <p className="mt-3 text-[13px] text-ink-3 max-sm:mt-2">Rough guess from the title. Score it on the job page for a real read.</p>
+      )}
+      <div className="mt-5 flex flex-col items-stretch gap-1 max-sm:mt-3 sm:flex-row sm:items-center sm:gap-3">
+        <StateButton j={best} primary full />
+        {stateOf(best) === "started" && (
+          <a href={best.url} target="_blank" rel="noreferrer" className="btn-text justify-center">
+            Open posting ↗
+          </a>
+        )}
+        <button
+          type="button"
+          className="btn-text justify-center"
+          onClick={() => {
+            setSkipped([...skipped, best._id]);
+            void setQuietly({ jobId: best._id, status: "dismissed" }).catch(() => {});
+          }}
+        >
+          Skip
+        </button>
       </div>
     </section>
   );
 }
 
-/** One group of "Then, today" as its own card: a real heading with its count, an optional link, then its rows. */
-function Group({ label, count, more, children }: { label: string; count?: number; more?: { text: string; href?: string }; children: React.ReactNode }) {
+/** One group: a real heading, an optional quiet link, then its rows in one card. */
+function Group({ label, more, children }: { label: string; more?: { text: string; href?: string }; children: React.ReactNode }) {
   return (
-    <div className="card p-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-3 pb-2 pt-2">
-        <h3 className="text-base font-semibold text-ink">
-          {label}
-          {!!count && <span className="ml-2 text-sm font-normal text-ink-3">{count}</span>}
-        </h3>
+    <section className="mb-10">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="h2">{label}</h2>
         {more &&
           (more.href ? (
-            <Link href={more.href} className="text-sm text-ink-2 hover:text-ink">
+            <Link href={more.href} className="btn-text">
               {more.text}
             </Link>
           ) : (
-            <span className="text-sm text-ink-3">{more.text}</span>
+            <span className="text-[13px] text-ink-3">{more.text}</span>
           ))}
       </div>
-      {children}
-    </div>
+      <div className="card overflow-hidden">{children}</div>
+    </section>
   );
 }
 
-/** Started-but-not-sent first (closest to done), then the best new jobs: logo or fit ring, "Company · title", one line
- *  of detail, one button. Five rows, the rest one tap away. Pay only when the posting lists it. */
+/** Started-but-not-sent first (closest to done), then the best new jobs: logo, title and one line of detail, the
+ *  fit ring, the state's button, and ✕ for "not for me". Five rows, the rest one tap away. */
 const STARTED_SHOWN = 2;
 
-function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"jobs">[]; verbFor: (j: Doc<"jobs">) => string }) {
+function ApplyRows({ ready, jobs }: { ready: Doc<"jobs">[]; jobs: Doc<"jobs">[] }) {
   const setStatus = useMutation(api.jobs.setStatus);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [all, setAll] = useState(false);
   const rates = useInrRates();
-  // Two started applications, then the rest as one line, so new jobs aren't pushed out of sight (19 Nov: four rows).
   const started = ready.slice(0, STARTED_SHOWN);
   const moreStarted = ready.slice(STARTED_SHOWN);
   const fresh = jobs.filter((j) => !skipped.has(j._id));
   if (!started.length && !moreStarted.length && !fresh.length) return null;
-  // The started rows and the "more started" line always show; new jobs fill the list up to five rows.
   const room = Math.max(1, SHOWN - started.length - (moreStarted.length ? 1 : 0));
   const shownFresh = all ? fresh : fresh.slice(0, room);
-  const row = (j: Doc<"jobs">, isStarted: boolean) => {
-    const verb = verbFor(j);
-    const pay = payText(j.salary, rates);
-    return (
-      <li key={j._id} className="flex flex-wrap items-center gap-3 px-3 py-3">
-        {isStarted ? <CompanyMark job={j} size={36} /> : <FitBadge job={j} size={36} />}
-        <Link href={`/jobs/${j._id}`} className="min-w-0 flex-1 basis-48">
-          <span className="block text-sm font-medium md:truncate">
-            {j.company} · {j.title}
-          </span>
-          <span className="block text-xs text-ink-2 md:truncate">
-            {isStarted ? "Started, not sent yet" : [pay, j.location, j.postedAt ? `Posted ${timeAgo(j.postedAt)}` : null].filter(Boolean).join(" · ")}
-          </span>
-        </Link>
-        {!isStarted && (
-          <button
-            type="button"
-            className="px-2 text-sm text-ink-3 hover:text-ink"
-            onClick={() => {
+  // Rough guesses all within a few points say nothing about which to pick, so the rings step aside.
+  const shownRough = [...started, ...shownFresh].filter((j) => !bestScore(j)).map((j) => likelyScore(j.quickFit ?? 0));
+  const quietRings = shownRough.length === started.length + shownFresh.length && shownRough.length > 1 && Math.max(...shownRough) - Math.min(...shownRough) < 10;
+  const row = (j: Doc<"jobs">) => (
+    <JobRow
+      key={j._id}
+      j={j}
+      href={`/jobs/${j._id}`}
+      meta={j.status === "applying" ? `${showCompany(j.company)} · Started, not sent yet` : metaOf(j, payText(j.salary, rates))}
+      ring={quietRings && !bestScore(j) ? null : <FitBadge job={j} />}
+      save={<FavoriteStar jobId={j._id} favorite={!!j.favorite} className="shrink-0" />}
+      onDismiss={
+        j.status === "applying"
+          ? undefined
+          : () => {
               setSkipped(new Set([...skipped, j._id]));
               void setStatus({ jobId: j._id, status: "dismissed" }).catch(() => {});
-            }}
-          >
-            Skip
-          </button>
-        )}
-        <Link href={`/jobs/${j._id}`} className="btn btn-primary btn-sm shrink-0">
-          {/* One rule per state: started and not sent, no real score yet, no CV for this job yet, CV ready. */}
-          {isStarted ? "Finish" : verb === "Check" ? "Check the fit" : j.hasPack || j.pack ? "Apply" : "Write my CV"}
-        </Link>
-      </li>
-    );
-  };
+            }
+      }
+    />
+  );
   return (
     <>
-      <ul className="divide-y divide-line">
-        {started.map((j) => row(j, true))}
+      <ul>
+        {started.map(row)}
         {moreStarted.length > 0 && (
-          <li className="flex flex-wrap items-center gap-3 px-3 py-3">
+          <li className="row">
             <ManyMark n={moreStarted.length} />
-            <Link href="/tracker" className="min-w-0 flex-1 basis-48">
-              <span className="block text-sm font-medium md:truncate">
+            <Link href="/tracker" className="min-w-0 flex-1">
+              <span className="row-title block truncate">
                 {moreStarted.length} more started, not sent: {moreStarted.slice(0, 2).map((j) => j.company).join(", ")}
                 {moreStarted.length > 2 ? " and more" : ""}
               </span>
-              <span className="block text-xs text-ink-2 md:truncate">Finish them from Applications</span>
+              <span className="row-meta block">Finish them from Applications</span>
             </Link>
-            <Link href="/tracker" className="btn btn-sm shrink-0">
+            <Link href="/tracker" className="btn btn-secondary btn-sm shrink-0">
               See them
             </Link>
           </li>
         )}
-        {shownFresh.map((j) => row(j, false))}
+        {shownFresh.map(row)}
       </ul>
       {fresh.length > room && (
-        <button type="button" className="px-3 py-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
-          {all ? "Show fewer" : `Show ${fresh.length - room} more`}
-        </button>
+        <div className="border-t border-line px-3 py-1">
+          <button type="button" className="btn-text" onClick={() => setAll(!all)}>
+            {all ? "Show fewer" : `Show ${fresh.length - room} more`}
+          </button>
+        </div>
       )}
     </>
   );
@@ -721,7 +715,7 @@ function ApplyRows({ ready, jobs, verbFor }: { ready: Doc<"jobs">[]; jobs: Doc<"
  *  borrows one company's logo for the whole group (19 Nov: "4 referral notes" showed Trail's T). */
 function ManyMark({ n }: { n: number }) {
   return (
-    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-soft text-sm font-semibold text-ink-2" aria-hidden>
+    <span className="tnum inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-soft text-[13px] font-semibold text-ink-2" aria-hidden>
       {n}
     </span>
   );
@@ -760,78 +754,61 @@ function CelebrateWins({ jobs, now }: { jobs: Doc<"jobs">[]; now: number }) {
   return null;
 }
 
-/** Each kind of task in its own colour: lime to apply, cyan for replies, violet to follow up, pink to prepare. */
-const VERB_TONE: Record<string, string> = {
-  Apply: "text-accent",
-  Reply: "text-cyan",
-  "Follow up": "text-violet",
-  Send: "text-violet",
-  Score: "text-pink",
-  Prepare: "text-pink",
-  Fix: "text-pink",
-  Connect: "text-ink-3",
-};
-
-function TodoRow({ t, arrow, group }: { t: Todo; arrow: string; group?: string }) {
+function TodoRow({ t, arrow }: { t: Todo; arrow: string }) {
   return (
     <>
-      {t.many ? <ManyMark n={t.many} /> : t.mark && <CompanyMark job={t.mark} size={36} />}
+      {t.many ? <ManyMark n={t.many} /> : t.mark && <CompanyMark job={t.mark} size={32} />}
       <span className="min-w-0 flex-1 basis-48">
-        {/* Inside a group the header says what kind of task it is, so rows carry no coloured label of their own (19 Nov). */}
-        {!group && <span className={`block text-[11px] font-semibold uppercase tracking-wide ${VERB_TONE[t.verb] ?? "text-accent"}`}>{t.verb}</span>}
-        <span className="block text-sm font-medium md:truncate">{t.main}</span>
-        {/* Whole on a phone: one cut-off line showed a third of "Recruiter replies…" at 390px (13 Nov). */}
-        <span className="block text-xs text-ink-2 md:truncate">{t.sub}</span>
+        <span className="row-title line-clamp-2">{t.main}</span>
+        <span className="row-meta line-clamp-2">{t.sub}</span>
       </span>
-      {t.cta ? <span className={`btn btn-sm shrink-0 ${t.primary ? "btn-primary" : ""}`}>{t.panel && arrow === "▴" ? "Close" : t.cta}</span> : <span className="nudge text-ink-3">{arrow}</span>}
+      {t.cta ? <span className="btn btn-secondary btn-sm shrink-0">{t.panel && arrow === "▴" ? "Close" : t.cta}</span> : <span className="text-ink-3">{arrow}</span>}
     </>
   );
 }
 
 const SHOWN = 5;
-/** How many jobs one "Get real fit scores" press scores on the Jobs page. */
-const SCORE_BATCH = 12;
-/** A percentage means something from this many results; below it, "1 of 3" says it honestly. */
-const SURE = 5;
 
 /** The first five things to do, the rest one tap away: more read as a wall (13 Nov). */
-function TodoList({ items, plain, group }: { items: Todo[]; plain?: boolean; group?: string }) {
+function TodoList({ items }: { items: Todo[] }) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const shown = all ? items : items.slice(0, SHOWN);
   return (
-    <div className={plain ? "" : "card p-2"}>
-      <ul className="divide-y divide-line">
+    <>
+      <ul>
         {shown.map((t) => (
-          <li key={t.key}>
+          <li key={t.key} className="border-t border-line first:border-t-0">
             {t.panel ? (
               <>
-                <button type="button" onClick={() => setOpen(open === t.key ? null : t.key)} className="group flex w-full flex-wrap items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-soft" aria-expanded={open === t.key}>
-                  <TodoRow t={t} group={group} arrow={open === t.key ? "▴" : "▾"} />
+                <button type="button" onClick={() => setOpen(open === t.key ? null : t.key)} className="row w-full border-t-0 text-left [@media(hover:hover)]:hover:bg-soft" aria-expanded={open === t.key}>
+                  <TodoRow t={t} arrow={open === t.key ? "▴" : "▾"} />
                 </button>
                 {open === t.key && (
-                  <div className="px-3 pb-3">
+                  <div className="px-4 pb-4">
                     {t.panel}
-                    <Link href={t.href} className="mt-2 inline-block text-xs text-ink-3 underline hover:text-ink">
+                    <Link href={t.href} className="btn-text mt-2">
                       Open the job
                     </Link>
                   </div>
                 )}
               </>
             ) : (
-              <Link href={t.href} className="group flex flex-wrap items-center gap-3 rounded-lg px-3 py-3 hover:bg-soft">
-                <TodoRow t={t} group={group} arrow="→" />
+              <Link href={t.href} className="row border-t-0 [@media(hover:hover)]:hover:bg-soft">
+                <TodoRow t={t} arrow="" />
               </Link>
             )}
           </li>
         ))}
       </ul>
       {items.length > SHOWN && (
-        <button type="button" className="px-3 py-2 text-sm text-ink-3 underline hover:text-ink" onClick={() => setAll(!all)}>
-          {all ? "Show fewer" : `Show ${items.length - SHOWN} more`}
-        </button>
+        <div className="border-t border-line px-3 py-1">
+          <button type="button" className="btn-text" onClick={() => setAll(!all)}>
+            {all ? "Show fewer" : `Show ${items.length - SHOWN} more`}
+          </button>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -840,36 +817,44 @@ function greeting() {
   return h < DAY_STARTS_AT ? "Good evening" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-// Today counts every open job added today (morning search, weekly finder, email, by hand), the same number as the
-// "+N today" under Open jobs, so the two never disagree (22 Nov: "This morning: 2 new jobs" beside "+4 today").
 const newLine = (n: number, when: string) => `${when}: ${n} new ${n === 1 ? "job" : "jobs"}.`;
 
-/** The morning search-and-score switch, and what the last run found. */
-function Autopilot({ on, last, now, found, strongNow, newToday }: { now: number; on: boolean; found: number; strongNow: number; newToday: number; last: { at: number; added: number; scored: number; strong: number; funded?: number; failed?: string[] } | null }) {
+/** The morning search: off says so with a Turn on button; on is one quiet line with what the last search found. */
+function Autopilot({ on, last, now, newToday, found, strongNow }: { now: number; on: boolean; newToday: number; found: number; strongNow: number; last: { at: number; added: number } | null }) {
   const setAutopilot = useMutation(api.users.setAutopilot);
-  // Off: a clear card, since nothing arrives without it.
+  const [busy, setBusy] = useState(false);
   if (!on) {
     return (
-      <div className="card mt-4 flex flex-wrap items-center gap-3 p-4 text-sm">
-        <p className="flex-1 text-ink-2">Morning search is off. Turn it on and every morning at 8 we search all your roles and score what&apos;s new.</p>
-        <button className="btn btn-primary btn-sm" onClick={() => void setAutopilot({ on: true })}>
-          Turn on
+      <div className="mb-6 max-sm:mb-3">
+      <p className="flex flex-wrap items-center gap-x-2 text-[15px] text-ink-2">
+        Morning search is off.
+        <button
+          type="button"
+          className="btn-text !text-ink underline underline-offset-2"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void setAutopilot({ on: true }).finally(() => setBusy(false));
+          }}
+        >
+          {busy ? "Turning on…" : "Turn on"}
         </button>
+      </p>
+      <p className="text-[13px] text-ink-3">Searches your roles at 8 every morning.</p>
       </div>
     );
   }
-  // On: one line under the greeting, what this morning brought, before the to-dos (13 Nov: it sat at the bottom).
+  const ranToday = !!last && dayStart(now) <= last.at;
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
+    <p className="tnum mb-6 flex flex-wrap items-center gap-x-3 text-[13px] text-ink-3 max-sm:mb-3">
       <span>
         {last
-          ? // Strong fits counted across every open job, not just this morning's (19 Nov: "0 strong fits" beside an 84% card).
-            `${newLine(dayStart(now) <= last.at ? newToday : last.added, dayStart(now) <= last.at ? "Today" : `Last search ${timeAgo(new Date(last.at).toISOString())}`)} ${strongNow ? `${strongNow} strong ${strongNow === 1 ? "fit" : "fits"} (75+) open to apply to.` : "No strong fits (75+) open right now."}`
-          : // Signing up runs a first search, so a new person already has jobs (14 Nov: this said "runs tomorrow" beside 75 found).
-            `${found ? `Your first search found ${found} ${found === 1 ? "job" : "jobs"}; the likeliest are below. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8 in the morning.`}
+          ? // Strong fits counted across every open job, not just this morning's (19 Nov).
+            `${newLine(ranToday ? newToday : last.added, ranToday ? "Today" : `Last search ${timeAgo(new Date(last.at).toISOString())}`)} ${strongNow ? `${strongNow} strong ${strongNow === 1 ? "fit" : "fits"} (75+) open to apply to.` : "No strong fits (75+) open right now."} Next search ${beforeEightInIndia() ? "today" : "tomorrow"} at 8:00.`
+          : `${found ? `Your first search found ${found} ${found === 1 ? "job" : "jobs"}. The next search runs` : "Your first search runs"} ${beforeEightInIndia() ? "today" : "tomorrow"} at 8:00.`}
       </span>
       {last && strongNow > 0 && (
-        <Link href="/jobs?fit=strong" className="text-accent underline">
+        <Link href="/jobs?fit=strong" className="btn-text">
           See strong fits
         </Link>
       )}

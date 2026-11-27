@@ -75,7 +75,8 @@ export function readCv(cv: Cv | null | undefined, now = new Date()): CvReadback 
   for (const e of exp.slice(0, 3)) {
     for (const b of e.bullets) {
       if (numbers.length >= 5) break;
-      if (NUMBER.test(b)) numbers.push(clip(b.trim()));
+      // Whole lines: a member has to be able to read their own numbers (27 Nov review).
+      if (NUMBER.test(b)) numbers.push(b.trim());
     }
   }
 

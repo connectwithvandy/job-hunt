@@ -12,6 +12,7 @@ import { LocationPicker } from "./forms";
 import type { WorkMode } from "../../convex/lib/defaults";
 import { Spinner } from "./ui";
 import { rolesFromCv } from "@/lib/rolesFromCv";
+import { Logo } from "@/components/Sidebar";
 
 type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
 const MAX_ROLES = 8;
@@ -40,8 +41,8 @@ export function Onboarding({ me }: { me: Me }) {
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-12 md:py-20">
-      <p className="display text-sm uppercase tracking-wide">
-        JobPipe<span className="text-accent">.</span>
+      <p className="inline-flex">
+        <Logo />
       </p>
       <ol className="mt-8 flex gap-2" aria-label="Progress">
         {[1, 2, 3, 4].map((n) => (

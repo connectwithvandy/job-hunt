@@ -149,7 +149,7 @@ function Chat() {
         </div>
 
         <form
-          className="sticky bottom-0 mt-4 bg-paper pb-2 pt-2"
+          className="sticky bottom-0 mt-4 bg-paper pb-2 pt-2 max-md:bottom-[calc(56px+env(safe-area-inset-bottom))]"
           onSubmit={(e) => {
             e.preventDefault();
             void submit(draft);

@@ -1,17 +1,16 @@
 import Link from "next/link";
-import { LEGAL } from "@/lib/legal";
 import { ROLE_PAGES } from "@/lib/rolePages";
 import { JobsByEmail } from "@/components/JobsByEmail";
 import { CITIES } from "../../../convex/lib/publicRole";
+import { Logo } from "@/components/Sidebar";
 
 /** The frame around the sales-jobs guides: logo, sign-up and free review buttons, links to the other guides. */
 export function RoleLayout({ children, current }: { children: React.ReactNode; current?: string }) {
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
       <header className="flex items-center justify-between">
-        <Link href="/" className="display text-lg uppercase tracking-wide">
-          {LEGAL.product}
-          <span className="text-accent">.</span>
+        <Link href="/" className="inline-flex">
+          <Logo />
         </Link>
         <Link href="/" className="rounded-full border border-line px-4 py-1.5 text-sm hover:border-accent">
           Start your free trial

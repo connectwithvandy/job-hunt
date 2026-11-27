@@ -98,6 +98,7 @@ function StepHelp({ step, jobs, bestJob, foundNote }: { step: GuideStep; jobs: n
 export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: GuideProgress; bestJob?: string; foundNote: string; hold?: boolean }) {
   const [requested, setRequested] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [popup, setPopup] = useState(false);
   const heldThisVisit = useRef(false);
   const [picked, setPicked] = useState<GuideStep["key"]>();
@@ -131,9 +132,34 @@ export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: G
   const open = picked ?? next.key;
   const doneCount = steps.filter((s) => s.done).length;
 
+  // One step left: a single line that links to it, not an 800px card above the jobs (design round 1, 27 Nov).
+  const almost = doneCount >= steps.length - 1 && !expanded;
+  const stepHref = next.key === "connections" ? "/connect" : bestJob ? `/jobs/${bestJob}` : "/jobs";
+
   return (
     <>
-      {!hidden && (
+      {!hidden && almost && (
+        <p id="setup-guide" className="mb-6 flex flex-wrap items-center justify-between gap-x-3 text-[13px] text-ink-2 max-sm:mb-3">
+          <span className="tnum min-w-0 leading-snug">
+            {doneCount} of {steps.length} set up<span className="max-[479px]:hidden"> · </span>
+            <Link href={stepHref} className="font-semibold text-ink underline underline-offset-2 max-[479px]:hidden">
+              {next.title}
+            </Link>
+          </span>
+          <span className="flex shrink-0 items-center gap-x-4 max-[479px]:-my-2">
+            <button type="button" className="btn-text" onClick={() => setExpanded(true)}>
+              All steps
+            </button>
+            <button type="button" className="btn-text" onClick={() => (remember("guide-hidden"), setHidden(true))}>
+              Hide
+            </button>
+          </span>
+          <Link href={stepHref} className="basis-full font-semibold text-ink underline underline-offset-2 min-[480px]:hidden">
+            {next.title}
+          </Link>
+        </p>
+      )}
+      {!hidden && !almost && (
         <section id="setup-guide" className="card mb-8 scroll-mt-6 p-6">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-lg font-semibold">Get JobPipe working for you</h2>
@@ -145,7 +171,7 @@ export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: G
             {doneCount} of {steps.length} done
           </p>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-soft">
-            <div className="h-full bg-accent transition-all" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
+            <div className="h-full bg-ink transition-[width]" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
           </div>
           {/* Only the open step is a box; done and later steps are one line each (27 Nov walk: six boxes filled the
               first screen after setup and no job showed). */}
@@ -155,7 +181,7 @@ export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: G
                 .filter((s) => s.done)
                 .map((s) => (
                   <span key={s.key}>
-                    <span className="text-accent">✓</span> {s.title}
+                    <span className="text-good">✓</span> {s.title}
                   </span>
                 ))}
             </p>

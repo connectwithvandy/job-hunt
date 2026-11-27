@@ -29,7 +29,7 @@ type OutreachStatus = Outreach["status"];
  * Gets everything ready in one click: opens the form, downloads the tailored CV and copies the
  * cover letter, so applying is the autofill bookmark, attach, paste, Submit.
  */
-export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Parameters<typeof downloadDocx>[0]; coverLetter: string } } }) {
+export function ApplyButton({ job, full }: { job: Doc<"jobs"> & { pack?: { resume: Parameters<typeof downloadDocx>[0]; coverLetter: string } }; full?: boolean }) {
   const setStatus = useMutation(api.jobs.setStatus);
   const [done, setDone] = useState("");
   const link = formLink(job.sourceUrl || job.url);
@@ -39,7 +39,7 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
   return (
     <div className="space-y-2">
       <button
-        className="btn btn-primary"
+        className={`btn btn-primary ${full ? "w-full [@media(pointer:coarse)]:min-h-12" : ""}`}
         onClick={async () => {
           // Open first, inside the click, or the browser blocks the new tab.
           window.open(link, "_blank", "noreferrer");
@@ -60,13 +60,13 @@ export function ApplyButton({ job }: { job: Doc<"jobs"> & { pack?: { resume: Par
           setDone(
             ready.length
               ? `${ready.join(", ")}. On the form: click your JobPipe autofill bookmark. It fills your answers and attaches the CV; check it all, then press Submit.`
-              : "The form is open in a new tab. Want a CV written for this job first? Press Write my CV on the CV tab below (about 2 minutes), then press Apply again and it downloads too.",
+              : "The form is open in a new tab. Want a CV written for this job first? Press Tailor my CV (about 2 minutes), then press Apply again and it downloads too.",
           );
         }}
       >
         {board ? `Apply on ${board} ↗` : "Apply ↗"}
       </button>
-      {done && <p className="text-sm text-ink-2">{done}</p>}
+      {done && <p className="text-[13px] text-ink-2" role="status">{done}</p>}
     </div>
   );
 }
@@ -145,10 +145,10 @@ export function FavoriteStar({ jobId, favorite, className = "" }: { jobId: Id<"j
     <button
       type="button"
       aria-pressed={favorite}
-      aria-label={favorite ? "Remove from favourites" : "Add to favourites"}
-      title={favorite ? "Favourite: click to remove" : "Add to favourites"}
+      aria-label={favorite ? "Saved. Remove from saved" : "Save"}
+      title={favorite ? "Saved: click to remove" : "Save"}
       disabled={busy}
-      className={`text-xl leading-none ${favorite ? "text-accent" : "text-ink-3 hover:text-ink"} ${className}`}
+      className={`btn-icon text-lg leading-none ${favorite ? "text-ink" : ""} ${className}`}
       onClick={async () => {
         setBusy(true);
         try {
@@ -279,7 +279,7 @@ export function TailorButton({
         ))}
         <div className="flex flex-wrap items-center gap-2">
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-secondary btn-sm"
             disabled={busy || !resumeId}
             onClick={() =>
               run(async () => {
@@ -318,7 +318,7 @@ export function TailorButton({
         </label>
       )}
       <button
-        className={`btn btn-sm ${anyway && !redo ? "btn-ghost" : redo && feedback.trim() ? "btn-primary" : redo ? "btn-ghost" : "btn-primary"}`}
+        className="btn btn-secondary btn-sm"
         disabled={busy || asking || !resumeId}
         onClick={() =>
           run(async () => {
@@ -340,7 +340,7 @@ export function TailorButton({
                 : "Write them again"
               : anyway
                 ? "Write it anyway"
-                : "Write my CV and cover letter"}
+                : "Tailor my CV"}
       </button>
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy || asking || !resumeId} onClick={() => run(() => write(true))}>
         {redo ? "Rewrite just the cover letter" : "Just the cover letter"}
@@ -397,7 +397,7 @@ export function AddJob() {
     >
       <div className="mb-3 flex items-center justify-between">
         <span className="label">Paste a job description or a LinkedIn hiring post</span>
-        <button type="button" className="text-xs text-ink-3 underline" onClick={() => setMode(mode === "link" ? "text" : "link")}>
+        <button type="button" className="btn-text shrink-0 underline" onClick={() => setMode(mode === "link" ? "text" : "link")}>
           {mode === "link" ? "Paste the description instead" : "Use a link instead"}
         </button>
       </div>
@@ -670,7 +670,7 @@ export function HiringContacts({ owner, contacts, note, emailSubject, email, onl
           <input name="email" type="email" className="field text-sm" placeholder="Email" defaultValue={editing.email} />
           <input name="phone" className="field text-sm" placeholder="Phone" defaultValue={editing.phone} />
           <div className="flex items-center gap-2">
-            <button className="btn btn-primary btn-sm">Save person</button>
+            <button className="btn btn-secondary btn-sm">Save person</button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>
               Cancel
             </button>
@@ -848,7 +848,7 @@ export function FollowUpBox({
         <span className="font-medium">
           Follow-up {next.n} <span className="text-xs font-normal text-ink-3">· {when}</span>
         </span>
-        <button className={`btn btn-sm ${draft ? "btn-ghost" : days <= 0 ? "btn-primary" : "btn-ghost"}`} disabled={busy} onClick={writeIt}>
+        <button className={`btn btn-sm btn-ghost`} disabled={busy} onClick={writeIt}>
           {busy && <Spinner />}
           {busy ? "Writing…" : draft ? "Write another" : `Write follow-up ${next.n}`}
         </button>
@@ -975,7 +975,7 @@ export function PeoplePicker({ jobId, people, best }: { jobId: Id<"jobs">; peopl
       )}
       <div className="mt-3 flex items-center gap-3">
         <button
-          className="btn btn-primary btn-sm"
+          className="btn btn-secondary btn-sm"
           disabled={busy || !ticked.length}
           onClick={() =>
             start(async () =>
@@ -1052,7 +1052,7 @@ export function OutreachCard({ jobId, o, cvName }: { jobId: Id<"jobs">; o: Outre
         {OUTREACH_FLOW.filter((s) => (o.status === "draft" ? s.status === "sent" : o.status === "sent" ? s.status !== "sent" : o.status === "replied" ? s.status === "referred" : false)).map((s) => (
           <button
             key={s.status}
-            className={`btn btn-sm ${o.status === s.status ? "btn-primary" : "btn-ghost"}`}
+            className={`btn btn-sm ${o.status === s.status ? "btn-secondary !border-ink !bg-ink !text-paper" : "btn-ghost"}`}
             onClick={async () => {
               await setOutreach({ jobId, contactId: o.contactId, status: s.status, message });
               setSaved(s.status === "sent" ? "Marked sent. Follow-up 1 is due in 2 days." : s.status === "referred" ? "Marked: referred you." : "Marked replied.");
@@ -1151,7 +1151,7 @@ export function InterviewPrep({ jobId, prep, answers }: { jobId: Id<"jobs">; pre
     <div className="card p-6">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Interview prep</h2>
-        <button className={`btn btn-sm ${prep ? "btn-ghost" : "btn-primary"}`} disabled={busy} onClick={go}>
+        <button className={`btn btn-sm btn-secondary`} disabled={busy} onClick={go}>
           {busy && <Spinner />}
           {busy ? "Preparing… about a minute" : prep ? "Redo" : "Prepare me"}
         </button>
@@ -1279,7 +1279,7 @@ export function CallScript({ jobId, script }: { jobId: Id<"jobs">; script?: Doc<
     <div className="card p-6">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Call script</h2>
-        <button className={`btn btn-sm ${script ? "btn-ghost" : "btn-primary"}`} disabled={busy} onClick={go}>
+        <button className={`btn btn-sm btn-secondary`} disabled={busy} onClick={go}>
           {busy && <Spinner />}
           {busy ? "Writing… about 20 seconds" : script ? "Redo" : "Write my call script"}
         </button>
@@ -1399,7 +1399,7 @@ function CommonGround({ owner, contact }: { owner: ContactOwner; contact: Hiring
             Also search the web for {first}&apos;s talks, posts and articles
           </label>
           <div className="flex items-center gap-2">
-            <button className="btn btn-primary btn-sm" disabled={busy || (!profile.trim() && !web && !contact.profileText)} onClick={go}>
+            <button className="btn btn-secondary btn-sm" disabled={busy || (!profile.trim() && !web && !contact.profileText)} onClick={go}>
               {busy && <Spinner />}
               {busy ? "Finding common ground…" : "Find common ground"}
             </button>
@@ -1850,7 +1850,7 @@ export function GapAnswers({ jobId, gaps }: { jobId: Id<"jobs">; gaps: string[] 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className="btn btn-primary btn-sm"
+          className="btn btn-secondary btn-sm"
           disabled={busy || !answered.length}
           onClick={() =>
             start(async () =>

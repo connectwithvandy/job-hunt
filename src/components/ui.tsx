@@ -32,7 +32,7 @@ export function ActionButton({
   run: () => Promise<string | void>;
   children: React.ReactNode;
   pending?: string;
-  variant?: "primary" | "ghost";
+  variant?: "primary" | "ghost" | "text";
   size?: "sm";
 }) {
   const [busy, start] = useTransition();
@@ -43,7 +43,7 @@ export function ActionButton({
         type="button"
         disabled={busy}
         onClick={() => start(async () => setState(await attempt(run)))}
-        className={`btn btn-${variant} ${size === "sm" ? "btn-sm" : ""}`}
+        className={variant === "text" ? "btn-text" : `btn btn-${variant} ${size === "sm" ? "btn-sm" : ""}`}
       >
         {busy && <Spinner />}
         {busy ? (pending ?? "Working…") : children}

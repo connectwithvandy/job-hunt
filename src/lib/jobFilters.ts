@@ -77,7 +77,8 @@ export const FILTERS: Filter[] = [
     label: "Fit",
     options: [
       { value: "strong", label: "Strong fit (75+)", test: (j, role) => fitFor(j, role) >= 75 },
-      { value: "ok", label: "Worth a look (50+)", test: (j, role) => fitFor(j, role) >= 50 },
+      { value: "ok", label: "Good fit (60+)", test: (j, role) => fitFor(j, role) >= 60 },
+      { value: "under", label: "Under 60", test: (j, role) => fitFor(j, role) >= 0 && fitFor(j, role) < 60 },
       { value: "unscored", label: "Not scored yet", test: (j, role) => fitFor(j, role) < 0 },
     ],
   },

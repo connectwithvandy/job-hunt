@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
+import { Logo } from "@/components/Sidebar";
 
 const ROLES = ["Account Executive", "SDR / BDR", "Sales leadership", "Customer Success", "GTM strategy / AI GTM", "Founder's Office", "Other"];
 
@@ -32,8 +33,8 @@ export function Waitlist({ email, onWaitlist, answered, rejected }: { email: str
 
   return (
     <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-5 py-12">
-      <p className="display text-sm uppercase tracking-wide">
-        JobPipe<span className="text-accent">.</span>
+      <p className="inline-flex">
+        <Logo />
       </p>
       <h1 className="display mt-6 text-4xl leading-[1.05] md:text-5xl">{rejected ? "Not this round." : answered || !onWaitlist ? "You\u2019re on the waitlist." : "Almost in."}</h1>
       {rejected ? (

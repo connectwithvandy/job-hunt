@@ -20,9 +20,9 @@ export default function Account() {
       <Details me={me} />
       <CvRead cv={user.resume} />
       <WhereYouWork location={user.location} workModes={user.workModes} />
-      <section className="mb-6">
-        <h2 className="mb-1 text-lg font-semibold">Answers for application forms</h2>
-        <p className="mb-3 text-sm text-ink-2">Notice period and pay come up on almost every form. Each job&apos;s Apply step and the chat use these.</p>
+      <section className="card mb-6 p-6">
+        <h2 className="h2 mb-1">Answers for application forms</h2>
+        <p className="mb-4 text-[15px] text-ink-2">Notice period and pay come up on almost every form. Each job&apos;s Apply step and the chat use these.</p>
         <AnswersForm answers={user.answers} location={user.location} firstFew={3} />
       </section>
       <PasswordForm />
@@ -38,17 +38,17 @@ function Details({ me }: { me: { email: string; name: string; linkedin: string; 
   const [state, setState] = useState<ActionState>(null);
   return (
     <section className="card mb-6 p-6">
-      <h2 className="mb-4 text-lg font-semibold">Your details</h2>
+      <h2 className="h2 mb-4">Your details</h2>
       <div className="space-y-4">
         <label className="block">
           <span className="label">Name</span>
           <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} disabled={!me.canEdit} />
         </label>
-        <label className="block">
+        <div>
           <span className="label">Email</span>
-          <input className="field mt-1" value={me.email} disabled />
-          <span className="mt-1 block text-xs text-ink-3">You sign in with this. To change it, write to vandana@jobpipe.in.</span>
-        </label>
+          <p className="mt-1 text-[15px] break-all">{me.email}</p>
+          <span className="mt-1 block text-[13px] text-ink-3">You sign in with this. To change it, write to vandana@jobpipe.in.</span>
+        </div>
         <label className="block">
           <span className="label">LinkedIn profile link</span>
           <input className="field mt-1" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="linkedin.com/in/your-name" disabled={!me.canEdit} />
@@ -57,7 +57,7 @@ function Details({ me }: { me: { email: string; name: string; linkedin: string; 
       {me.canEdit ? (
         <div className="mt-5 flex items-center gap-3">
           <button
-            className="btn btn-primary btn-sm"
+            className={`btn btn-sm ${name !== me.name || linkedin !== me.linkedin ? "btn-primary" : "btn-secondary"}`}
             disabled={busy}
             onClick={async () => {
               setBusy(true);
@@ -90,14 +90,14 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
 function CvRead({ cv }: { cv: Parameters<typeof readCv>[0] }) {
   const r = readCv(cv);
   const edit = (
-    <Link href="/resume" className="text-xs text-ink-3 underline hover:text-ink">
+    <Link href="/resume" className="btn-text">
       Looks wrong? Edit CV
     </Link>
   );
   if (!r) {
     return (
       <section className="card mb-6 p-6">
-        <h2 className="mb-1 text-lg font-semibold">How JobPipe reads your CV</h2>
+        <h2 className="h2 mb-1">How JobPipe reads your CV</h2>
         <p className="text-sm text-ink-2">
           No CV yet. <Link href="/resume" className="underline">Add your CV</Link> and this shows what JobPipe takes from it.
         </p>
@@ -107,9 +107,9 @@ function CvRead({ cv }: { cv: Parameters<typeof readCv>[0] }) {
   const none = <span className="text-ink-3">Not found in your CV.</span>;
   return (
     <section className="card mb-6 p-6">
-      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">How JobPipe reads your CV</h2>
-        {edit}
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <h2 className="h2">How JobPipe reads your CV</h2>
+        <span className="shrink-0 max-sm:hidden">{edit}</span>
       </div>
       <p className="mb-4 text-sm text-ink-2">Every fit score and tailored CV starts from this. If something here is wrong, fix it in your CV.</p>
       <div>
@@ -143,6 +143,7 @@ function CvRead({ cv }: { cv: Parameters<typeof readCv>[0] }) {
           )}
         </Item>
       </div>
+      <div className="mt-3 sm:hidden">{edit}</div>
     </section>
   );
 }
@@ -154,13 +155,13 @@ function WhereYouWork({ location, workModes }: { location: string; workModes: st
   return (
     <section className="card mb-6 flex flex-wrap items-center justify-between gap-3 p-6">
       <div className="min-w-0">
-        <h2 className="text-lg font-semibold">Where you&apos;d work</h2>
+        <h2 className="h2">Where you&apos;d work</h2>
         <p className="mt-1 text-sm text-ink-2">
           {location || "Not picked yet"}
           {workModes.length ? ` · ${workModes.map((m) => MODE_WORDS[m] ?? m).join(", ")}` : ""}
         </p>
       </div>
-      <Link href="/tracks" className="btn btn-sm">
+      <Link href="/tracks" className="btn btn-secondary btn-sm">
         Change in Roles
       </Link>
     </section>
@@ -175,7 +176,7 @@ function PasswordForm() {
   const [state, setState] = useState<ActionState>(null);
   return (
     <section className="card p-6">
-      <h2 className="mb-4 text-lg font-semibold">Password</h2>
+      <h2 className="h2 mb-4">Sign-in &amp; password</h2>
       <form
         className="space-y-4"
         onSubmit={async (e) => {
@@ -202,7 +203,7 @@ function PasswordForm() {
           <span className="mt-1 block text-xs text-ink-3">At least 8 characters.</span>
         </label>
         <div className="flex items-center gap-3">
-          <button className="btn btn-primary btn-sm" disabled={busy || !current || next.length < 8}>
+          <button className="btn btn-secondary btn-sm" disabled={busy || !current || next.length < 8} title={!current || next.length < 8 ? "Type your current password and a new one (8+ characters)" : undefined}>
             {busy ? "Changing…" : "Change password"}
           </button>
           <Feedback state={busy ? null : state} />

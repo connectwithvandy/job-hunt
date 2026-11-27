@@ -1,6 +1,6 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Shell } from "@/components/Shell";
 import { DESCRIPTION as description, TITLE } from "@/lib/marketing";
 import { THEME_SCRIPT } from "@/components/ThemeToggle";
@@ -8,7 +8,9 @@ import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
-const display = Space_Grotesk({ variable: "--font-display-face", subsets: ["latin"], weight: ["500", "700"] });
+const display = Space_Grotesk({ variable: "--font-display-face", subsets: ["latin"], weight: ["500", "600", "700"] });
+// Stage names and status tags only (PROSPECT, NOT VERIFIED).
+const mono = JetBrains_Mono({ variable: "--font-mono-face", subsets: ["latin"], weight: ["500"] });
 
 // What Google shows in search results and what LinkedIn, WhatsApp and X show when the link is shared.
 export const metadata: Metadata = {
@@ -24,7 +26,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // The theme script below may set data-theme before React loads, so the two can differ on purpose.
-    <html lang="en" data-theme="light" className={`${inter.variable} ${display.variable} antialiased`} suppressHydrationWarning>
+    <html lang="en" data-theme="light" className={`${inter.variable} ${display.variable} ${mono.variable} antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

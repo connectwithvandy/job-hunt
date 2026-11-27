@@ -8,7 +8,7 @@ import { useSyncExternalStore } from "react";
 import { api } from "../../convex/_generated/api";
 import { Onboarding } from "./Onboarding";
 import { Celebrations } from "./Celebrate";
-import { ChatButton, inProfile, ProfileMenu, SubTabs, TopBar } from "./Sidebar";
+import { BottomTabs, inProfile, ProfileMenu, SubTabs, TopBar } from "./Sidebar";
 import { SurveyPopup } from "./SurveyPopup";
 import { ApplySetup, ApplySignUp } from "./ApplySetup";
 import { SignIn } from "./SignIn";
@@ -82,8 +82,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       {!bare && <TopBar isOwner={me.isOwner} />}
-      {/* Room at the bottom so the floating Ask JobPipe button never sits on the last line. */}
-      <main className="mx-auto min-w-0 max-w-7xl px-4 pt-6 pb-24 md:px-8 md:pt-8 md:pb-24 print:p-0">
+      {/* Room at the bottom on a phone so the tab bar never sits on the last line. */}
+      <main className="mx-auto min-w-0 max-w-7xl px-4 pt-5 pb-[calc(80px+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-16 print:p-0">
         {!bare && <TrialOverNotice />}
         {!bare && <SubTabs />}
         {!bare && inProfile(path) ? (
@@ -97,7 +97,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           children
         )}
       </main>
-      {!bare && <ChatButton />}
+      {!bare && <BottomTabs />}
       {!bare && <SurveyPopup />}
       <Celebrations />
     </div>

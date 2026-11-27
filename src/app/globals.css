@@ -1,15 +1,20 @@
 @import "tailwindcss";
 
+/* Design round 1 (27 Nov 2026, independent reviewer's spec). Ink + lime: lime marks one thing per screen
+   (the main button, the current stage, the logo). Dark is the base here; light, the default look, is below. */
 :root {
   --paper: #0b0b0f;
-  --card: #131319;
+  --card: #17171d;
   --ink: #f4f4f5;
-  --ink-2: #a1a1aa;
-  --ink-3: #8b8b94;
-  --line: #23232c;
-  --soft: #1a1a22;
+  --ink-2: #b9bab3;
+  --ink-3: #8a8d84;
+  --line: #2a2a32;
+  --line-strong: #3a3a44;
+  --soft: #1f1f26;
   --accent: #c6ff3d;
   --on-accent: #0b0b0f;
+  --accent-text: #c6ff3d;
+  --mark: rgba(198, 255, 61, 0.18);
   /* Supporting colours beside the lime: each marks one kind of thing, so a glance tells them apart. */
   --violet: #a78bfa;
   --cyan: #5eead4;
@@ -17,35 +22,41 @@
   --good: #c6ff3d;
   --warn: #fb923c;
   --bad: #f87171;
+  --shadow-card: none;
+  --shadow-pop: 0 24px 48px -18px rgba(0, 0, 0, 0.6);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   color-scheme: dark;
 }
 
-/* Light mode, picked with the sun/moon switch. The lime stays for buttons and highlights; text in lime and the
-   supporting colours goes darker so it reads on white. */
+/* Light mode, the default. Lime is never text or a thin line on white (it reads at about 1.2:1); ink on lime is fine. */
 :root[data-theme="light"] {
-  /* Cool grey page, white cards, soft lines: calmer, like Dreamwork (19 Nov). */
-  --paper: #f6f7f9;
+  --paper: #f3f4f0;
   --card: #ffffff;
-  --ink: #111118;
-  --ink-2: #52525b;
-  --ink-3: #6b6b74;
-  --line: #e7e8ec;
-  --soft: #f0f1f4;
+  --ink: #0b0b0f;
+  --ink-2: #4a4d45;
+  --ink-3: #6b6e66;
+  --line: #e1e3dc;
+  --line-strong: #cfd1c8;
+  --soft: #ebece6;
   --on-accent: #0b0b0f;
+  --accent-text: #3f6b0a;
+  --mark: #c6ff3d;
   --good: #3f6b0a;
-  --warn: #c2410c;
-  --bad: #dc2626;
+  --warn: #b45309;
+  --bad: #c81e1e;
   --violet: #6d28d9;
   --cyan: #0f766e;
   --pink: #be185d;
+  --shadow-card: 0 2px 3px -1px rgba(0, 0, 0, 0.1), 0 1px 0 0 rgba(25, 28, 33, 0.02), 0 0 0 1px rgba(25, 28, 33, 0.08);
+  --shadow-pop: 0 1px 2px rgba(11, 11, 15, 0.06), 0 24px 48px -18px rgba(11, 11, 15, 0.22);
   color-scheme: light;
 }
 :root[data-theme="light"] .text-accent,
 :root[data-theme="light"] .hover\:text-accent:hover,
 :root[data-theme="light"] .group:hover .group-hover\:text-accent,
 :root[data-theme="light"] .group[open] .group-open\:text-accent,
-:root[data-theme="light"] .nudge { color: #3f6b0a; }
-:root[data-theme="light"] .border-accent { border-color: #8ccf1f; }
+:root[data-theme="light"] .nudge { color: var(--accent-text); }
+:root[data-theme="light"] .border-accent { border-color: var(--ink); }
 :root[data-theme="light"] .tilt { box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.22) !important; }
 
 @theme inline {
@@ -55,6 +66,8 @@
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent-text: var(--accent-text);
   --color-soft: var(--soft);
   --color-good: var(--good);
   --color-warn: var(--warn);
@@ -76,64 +89,166 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* App components live in the components layer so Tailwind's utilities (hidden, lg:hidden, px-0…) can override
+   them. Unlayered, .btn-text's display beat "hidden" and Select showed twice (27 Nov review 9). */
+@layer components {
+/* The wordmark: "Job" in ink, "Pipe" on a lime marker band (dark: lime text on a faint lime wash). */
+.logo { font-family: var(--font-display-face), system-ui, sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -0.02em; line-height: 1; color: var(--ink); white-space: nowrap; }
+.logo b { font-weight: 700; padding: 0 0.06em; border-radius: 2px; background: linear-gradient(transparent 50%, #c6ff3d 50%, #c6ff3d 94%, transparent 94%); }
+:root:not([data-theme="light"]) .logo b { color: #c6ff3d; background: rgba(198, 255, 61, 0.18); border-radius: 3px; padding: 0 0.08em; }
+@media (max-width: 767px) { .logo { font-size: 18px; } }
+
 .display {
   font-family: var(--font-display-face), system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: -0.025em;
 }
 
+/* A card: white with a hairline ring and soft drop in light, a 1px line and no shadow in dark. Never a card in a card. */
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
 }
-:root[data-theme="light"] .card { box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.03); }
+:root[data-theme="light"] .card { border-color: transparent; box-shadow: var(--shadow-card); }
+/* Menus, sheets and popovers float higher than cards. */
+.pop { box-shadow: var(--shadow-pop) !important; }
 
 ::selection { background: var(--accent); color: var(--on-accent); }
 
+/* Weights are 400 and 600 only; h1 and h2 in the display face. */
+.h1 { font-family: var(--font-display-face), system-ui, sans-serif; font-size: 28px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em; }
+.h2 { font-family: var(--font-display-face), system-ui, sans-serif; font-size: 18px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; }
+@media (max-width: 640px) { .h1 { font-size: 24px; } }
+/* Stage names and status tags only (PROSPECT, NOT VERIFIED, NO REPLY · 20D). */
+.mono { font-family: var(--font-mono-face), ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.tnum { font-variant-numeric: tabular-nums; }
+/* Body text 16px on a phone so it reads without zooming. */
+@media (max-width: 640px) { body { font-size: 16px; } }
+
+/* Buttons. One .btn-primary (lime) per screen; .btn-secondary for row and card actions; .btn-text for quiet ones.
+   .btn-ghost is the old name for .btn-secondary. */
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  min-height: 40px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background 0.15s, opacity 0.15s, transform 0.05s;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.1s var(--ease-out);
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
 @media (max-width: 640px) {
   /* A long label wraps on a phone instead of pushing the page sideways. */
   .btn { max-width: 100%; white-space: normal; }
 }
-.btn:active { transform: translateY(1px); }
-.btn:disabled { opacity: 0.55; cursor: progress; }
-.btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-.btn-primary:hover { box-shadow: 0 0 0 4px rgb(198 255 61 / 0.18), 0 6px 20px rgb(198 255 61 / 0.18); transform: translateY(-1px); }
-.btn-ghost { border: 1px solid var(--line); background: var(--card); color: var(--ink); }
-.btn-ghost:hover { background: var(--soft); }
-.btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:focus-visible, .btn-text:focus-visible, .btn-icon:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
+.btn:disabled { background: var(--soft); border-color: transparent; color: var(--ink-3); cursor: not-allowed; box-shadow: none; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+@media (hover: hover) { .btn-primary:not(:disabled):hover { background: #b8f02a; } }
+.btn-secondary, .btn-ghost { background: var(--card); border-color: var(--line-strong); color: var(--ink); }
+@media (hover: hover) { .btn-secondary:not(:disabled):hover, .btn-ghost:not(:disabled):hover { background: var(--soft); } }
+.btn-sm { min-height: 32px; padding: 0 14px; font-size: 13px; }
 /* Fingers need bigger targets than mice. */
-@media (pointer: coarse) { .btn-sm { min-height: 2.5rem; } }
+@media (pointer: coarse) { .btn, .btn-sm { min-height: 44px; } }
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+@media (hover: hover) { .btn-text:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; } }
+@media (pointer: coarse) { .btn-text { min-height: 44px; padding: 0 8px; margin-inline: -8px; } }
+.btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 999px;
+  color: var(--ink-2);
+  transition: background-color 0.15s, color 0.15s;
+}
+@media (hover: hover) { .btn-icon:hover { background: var(--soft); color: var(--ink); } }
+@media (pointer: coarse) { .btn-icon { width: 44px; height: 44px; } }
 
+/* Fields: soft fill, a hairline, an ink ring on focus. 16px on touch screens so iPhones don't zoom in. */
 .field {
   width: 100%;
+  min-height: 40px;
   border: 1px solid var(--line);
-  background: var(--card);
+  background: var(--soft);
+  color: var(--ink);
   border-radius: 10px;
-  padding: 0.6rem 0.8rem;
-  font-size: 0.9rem;
+  padding: 0.55rem 0.8rem;
+  font-size: 14px;
   outline: none;
+  transition: box-shadow 0.15s, background-color 0.15s;
 }
-.field:focus { border-color: var(--accent); }
+.field::placeholder { color: var(--ink-3); }
+.field:focus, .field:focus-visible { background: var(--card); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
 select.field option { background: var(--card); }
+@media (pointer: coarse) { .field { font-size: 16px; min-height: 44px; } }
 
+/* Phone tab bar: frosted white (dark: frosted card); solid when the phone asks for less transparency. */
+.tabbar { background: rgba(255, 255, 255, 0.92); -webkit-backdrop-filter: blur(20px) saturate(120%); backdrop-filter: blur(20px) saturate(120%); }
+:root:not([data-theme="light"]) .tabbar { background: rgba(23, 23, 29, 0.92); }
+@media (prefers-reduced-transparency: reduce) { .tabbar, :root:not([data-theme="light"]) .tabbar { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+
+/* Menus and sheets: slide up on a phone, fade in place on a computer. */
+@keyframes sheet-in { from { transform: translateY(100%); } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+.sheet { animation: sheet-in 240ms var(--ease-out); }
+@media (min-width: 768px) { .sheet { animation: pop-in 180ms var(--ease-out); transform-origin: top right; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: fade-in 150ms linear; } }
+@keyframes fade-in { from { opacity: 0; } }
+
+/* List rows inside a card: 64px, a hairline between, titles Inter 15/600, meta 13 ink-3. */
+.row { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row-title { font-size: 15px; line-height: 1.35; font-weight: 600; color: var(--ink); }
+.row-meta { font-size: 13px; line-height: 1.4; color: var(--ink-3); }
+@media (max-width: 640px) { .row { padding: 12px; } }
+
+/* A real score's ring draws in once. */
+@keyframes ring-draw { from { stroke-dasharray: 0 999; } }
+.ring-arc { animation: ring-draw 600ms var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) { .ring-arc { animation: none; } }
+
+/* One focus ring everywhere a keyboard can land: 2px ink with a paper gap. */
+a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); border-radius: 8px; }
+.btn:focus-visible { border-radius: 999px; }
+
+/* A row whose title link covers the whole row; its buttons sit above that link. */
+.row-link { position: relative; }
+.row-link .stretch::after { content: ""; position: absolute; inset: 0; }
+.row-link .above { position: relative; z-index: 1; }
+/* With a mouse, a row's quiet buttons (save, not for me) show on hover or focus; a saved star always shows. */
+@media (hover: hover) {
+  .row-link .reveal-on-hover { opacity: 0; transition: opacity 0.15s; }
+  .row-link:hover .reveal-on-hover, .row-link:focus-within .reveal-on-hover, .row-link .reveal-on-hover:has([aria-pressed="true"]) { opacity: 1; }
+}
+
+/* Company logos sit on white so they read; in dark that tile is dimmed a little so it doesn't glare. */
+:root:not([data-theme="light"]) .logo-tile { background: #e9e9ec; border-color: transparent; filter: brightness(0.92); }
+
+/* Form labels: sentence case, never shouty capitals. */
 .label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
+  font-size: 13px;
+  color: var(--ink-2);
   font-weight: 600;
+}
 }
 
 /* ---------- Resume: a faithful copy of the Canva layout, A4, ATS-readable text order ---------- */

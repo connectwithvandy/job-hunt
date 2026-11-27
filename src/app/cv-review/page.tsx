@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui";
 import { regionsOf } from "@/lib/regions";
 import { backOffice, titleMatches } from "../../../convex/lib/salesRoles";
 import { strongCompany } from "../../../convex/lib/quickFit";
+import { Logo } from "@/components/Sidebar";
 
 /** Titles searched for each review role, so the review can end with real open roles in India. */
 const ROLE_TITLES: Record<string, string[]> = {
@@ -32,8 +33,8 @@ export default function CvReview() {
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-12 lg:px-12">
-      <Link href="/" className="display text-sm uppercase tracking-wide">
-        JobPipe<span className="text-accent">.</span>
+      <Link href="/" className="inline-flex">
+        <Logo />
       </Link>
 
       <div className="mt-10 grid gap-12 lg:grid-cols-[1.1fr_1fr]">

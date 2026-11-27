@@ -38,7 +38,7 @@ export function SurveyPopup() {
 
   if (state === "thanks") {
     return (
-      <div className="card fixed right-4 bottom-4 z-40 w-[calc(100%-2rem)] max-w-sm p-5 print:hidden">
+      <div className="card pop fixed right-4 bottom-4 z-40 w-[calc(100%-2rem)] max-w-sm max-md:bottom-[calc(68px+env(safe-area-inset-bottom))] p-5 print:hidden">
         <p className="font-medium">Thank you. I read every answer.</p>
         <p className="mt-1 text-sm text-ink-3">Vandy</p>
         <button type="button" className="btn btn-ghost btn-sm mt-3" onClick={() => setState("idle")}>
@@ -67,7 +67,7 @@ export function SurveyPopup() {
   };
 
   return (
-    <div role="dialog" aria-label="Quick question" className="card fixed right-4 bottom-4 z-40 w-[calc(100%-2rem)] max-w-sm space-y-3 p-5 print:hidden">
+    <div role="dialog" aria-label="Quick question" className="card pop fixed right-4 bottom-4 z-40 w-[calc(100%-2rem)] max-w-sm max-md:bottom-[calc(68px+env(safe-area-inset-bottom))] space-y-3 p-5 print:hidden">
       <div className="flex items-start justify-between gap-3">
         <p className="font-medium">{q.title}</p>
         <button type="button" aria-label="Close" className="text-ink-3 hover:text-ink" disabled={state === "sending"} onClick={() => send(true)}>
