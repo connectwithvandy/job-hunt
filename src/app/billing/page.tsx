@@ -159,7 +159,7 @@ export default function Billing() {
                     // Says what the next payment costs too, so an older, higher price never reads as what you'll pay again (28 Nov review).
                     <span className="text-ink-3">
                       {" "}
-                      (the price on {date(p.paidAt)}
+                      (launch price, paid {date(p.paidAt)}
                       {p.plan !== "week" && status.prices[p.plan as "month" | "pass"] ? `; it's ₹${status.prices[p.plan as "month" | "pass"].rupees.toLocaleString("en-IN")} now${status.founding ? ", your founding price" : ""}` : ""})
                     </span>
                   )}
@@ -348,7 +348,7 @@ export default function Billing() {
                     // Says what the next payment costs too, so an older, higher price never reads as what you'll pay again (28 Nov review).
                     <span className="text-ink-3">
                       {" "}
-                      (the price on {date(p.paidAt)}
+                      (launch price, paid {date(p.paidAt)}
                       {p.plan !== "week" && status.prices[p.plan as "month" | "pass"] ? `; it's ₹${status.prices[p.plan as "month" | "pass"].rupees.toLocaleString("en-IN")} now${status.founding ? ", your founding price" : ""}` : ""})
                     </span>
                   )}
