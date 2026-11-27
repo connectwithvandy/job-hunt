@@ -205,7 +205,7 @@ export function JobRow({
         <Link href={href} onClick={onOpen} scroll={false} className="stretch row-title line-clamp-2 rounded-sm sm:line-clamp-1">
           {showTitle(j.title)}
         </Link>
-        <span className="row-meta line-clamp-2 sm:line-clamp-1">{meta}</span>
+        <span className="row-meta block sm:line-clamp-1">{meta}</span>
         {tagLine !== undefined && <span className="mt-1 block min-h-4 truncate leading-4">{tagLine}</span>}
         {/* Phone: the job's button, save and "not for me" in one row under the details, so the title gets the width
             (27 Nov review: at 320px the icons took a third of the row). Each icon is 44px to tap. */}

@@ -1,3 +1,4 @@
+import { showCompany } from "@/lib/tidy";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -22,9 +23,11 @@ async function lookUp(code: string, recheck: boolean) {
   const id = code.slice(code.lastIndexOf("-") + 1);
   // Every open sales role in India and remote has a row since 25 Nov 2026 (convex/publicRoles.ts): one small read.
   const listed = await cachedQuery<PublicRole>("publicRoles:byCode", { code: id }, recheck).catch(() => null);
-  if (listed) return { job: listed.role, description: listed.description ? cleanDescription(listed.description) : null };
+  if (listed) return { job: { ...listed.role, company: showCompany(listed.role.company) }, description: listed.description ? cleanDescription(listed.description) : null };
   // Every open role a guide could show, not just its newest 25 (see openRoles).
-  const job = (await allGuideRoles(Infinity, recheck)).find((j) => roleCode(j.externalId) === id);
+  const found = (await allGuideRoles(Infinity, recheck)).find((j) => roleCode(j.externalId) === id);
+  // The company name cleaned the same way as everywhere else.
+  const job = found && { ...found, company: showCompany(found.company) };
   if (!job) return null;
   // Only the code at the end counts, so a link with an old title still finds the role; the canonical tag names one address.
   const text = await cachedQuery<{ description: string | null } | null>("careers:forJobPage", { externalId: job.externalId }, recheck).catch(() => null);

@@ -81,7 +81,11 @@ export function showTitle(title: string) {
 
 /** The place to show: the place field, else a city from the title. */
 export function showPlace(job: { location?: string; title: string }) {
-  return tidyPlace(job.location) || cityInTitle(job.title) || "";
+  const place = tidyPlace(job.location) || cityInTitle(job.title) || "";
+  // Every place reads like the others (27 Nov review): a region says it's a region, a country without a city says so.
+  if (/^(APAC|EMEA|ANZ|MENA|LATAM|AMER|NAMER|GCC|SEA)$/.test(place)) return `${place} region`;
+  if (/^India$/i.test(place)) return "India, city not listed";
+  return place;
 }
 
 /** Job boards that sometimes land in the company slot; the board's name never shows. */

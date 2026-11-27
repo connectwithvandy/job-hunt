@@ -38,7 +38,7 @@ export default function Stories() {
           >
             {stories.length ? "Find more in my CV" : "Write my proof of work from my CV"}
           </ActionButton>
-          <span className="text-[13px] text-ink-3">Uses 1 interview-prep run from today&apos;s allowance.</span>
+          <span className="order-last basis-full text-[13px] text-ink-3">Uses 1 interview-prep run from today&apos;s allowance.</span>
           </>
         )}
         <button type="button" className="btn btn-ghost" onClick={() => setAdding(true)}>

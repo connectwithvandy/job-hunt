@@ -1,3 +1,4 @@
+import { showCompany as cleanCompany } from "@/lib/tidy";
 import Link from "next/link";
 import { placeOf, type PublicRole } from "@/lib/publicRoles";
 
@@ -9,7 +10,7 @@ export function PublicRoleList({ roles, showCompany = true }: { roles: PublicRol
         <li key={j.code}>
           <Link href={j.href} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 hover:text-accent">
             <span className="font-medium">
-              {j.title} {showCompany && <span className="font-normal text-ink-2">at {j.company}</span>}
+              {j.title} {showCompany && <span className="font-normal text-ink-2">at {cleanCompany(j.company)}</span>}
             </span>
             <span className="text-sm text-ink-3">{placeOf(j)}</span>
           </Link>
