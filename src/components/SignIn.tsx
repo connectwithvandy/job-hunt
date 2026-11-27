@@ -12,6 +12,7 @@ import { LEGAL, PLANS } from "@/lib/legal";
 import { FAQ, jsonLdGraph, landingJsonLd } from "@/lib/marketing";
 import { CountUp, Reveal, Rotate } from "./Motion";
 import { Spinner } from "./ui";
+import { Journey } from "@/components/journey/Journey";
 import { PublicHeader } from "@/components/PublicHeader";
 import { Logo } from "@/components/Sidebar";
 
@@ -110,6 +111,8 @@ export function SignIn({ note }: { note?: string } = {}) {
   const email = typed ?? query.get("email") ?? "";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Visitors see the moving story first; someone arriving to sign in (?signin=1, an emailed link) gets the form first.
+  const journeyOn = !query.get("signin") && !query.get("email");
   const resetting = flow === "reset" || flow === "reset-verification";
   // Switch the form beside the headline and bring it into view.
   const start = (f: "signUp" | "signIn") => {
@@ -162,7 +165,9 @@ export function SignIn({ note }: { note?: string } = {}) {
   }[flow];
 
   return (
-    <div className="relative isolate overflow-hidden">
+    // overflow-x-clip, not overflow-hidden: the story below pins its stage with position: sticky, which a hidden
+    // overflow would break.
+    <div className="relative isolate overflow-x-clip">
     <div className="mx-auto max-w-6xl px-5 lg:px-12">
       {/* What the app is, how it works and the FAQ, for Google and AI answer tools. */}
       <script
@@ -171,6 +176,10 @@ export function SignIn({ note }: { note?: string } = {}) {
       />
       <PublicHeader onSignIn={() => start("signIn")} onStart={() => start("signUp")} />
       {note && <p className="card border-accent p-4 text-ink">{note}</p>}
+    </div>
+      {/* Visitors see the story first; someone arriving to sign in (?signin=1, an emailed link) gets the form first. */}
+      {journeyOn && <Journey onStart={() => start("signUp")} />}
+    <div className="mx-auto max-w-6xl px-5 lg:px-12">
 
       <div className="grid items-center gap-10 pb-16 pt-8 md:pt-14 lg:grid-cols-[1.15fr_1fr] lg:gap-14 lg:pb-24">
         <section>
@@ -178,13 +187,20 @@ export function SignIn({ note }: { note?: string } = {}) {
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           For SDRs, AEs and sales leaders, wherever you are
         </p>
-        <h1 style={{ animationDelay: "80ms" }} className="rise display mt-6 text-balance text-[38px] leading-[1.04] md:text-[52px]">
-          <span className="block">Your job search,</span>
-          <span className="block text-ink-2">
-            {/* On a phone, "run like your" stays on one line and "pipeline." drops below it. */}
-            <span className="whitespace-nowrap">run like your</span> <span className="text-accent">pipeline</span>.
-          </span>
-        </h1>
+        {journeyOn ? (
+          // The story above already says the headline; here the form's side says what starting takes.
+          <h2 style={{ animationDelay: "80ms" }} className="rise display mt-6 text-balance text-[34px] leading-[1.04] md:text-[44px]">
+            Start your pipeline in two minutes.
+          </h2>
+        ) : (
+          <h1 style={{ animationDelay: "80ms" }} className="rise display mt-6 text-balance text-[38px] leading-[1.04] md:text-[52px]">
+            <span className="block">Your job search,</span>
+            <span className="block text-ink-2">
+              {/* On a phone, "run like your" stays on one line and "pipeline." drops below it. */}
+              <span className="whitespace-nowrap">run like your</span> <span className="text-accent">pipeline</span>.
+            </span>
+          </h1>
+        )}
         <p style={{ animationDelay: "120ms" }} className="rise mt-5 text-lg text-ink-2">
           Searching for <Rotate words={["Account Executive", "SDR Manager", "Head of Sales", "GTM Lead", "Founder's Office", "BDR"]} />
         </p>
