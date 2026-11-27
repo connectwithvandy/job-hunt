@@ -8,11 +8,14 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { CompanyMark, FitBadge, timeAgo } from "@/components/bits";
+import { useSetStatus } from "@/components/Celebrate";
+import { noteOpened, SentCheck } from "@/components/ui";
 import { payText, useInrRates } from "@/lib/money";
 
 export function JobPanel({ jobId, onClose }: { jobId: Id<"jobs">; onClose: () => void }) {
   const data = useQuery(api.jobs.get, { jobId });
   const rates = useInrRates();
+  const setStatus = useSetStatus();
   const [copied, setCopied] = useState(false);
   const [more, setMore] = useState(false);
   if (data === undefined) return <div className="card h-96 animate-pulse" />;
@@ -22,6 +25,7 @@ export function JobPanel({ jobId, onClose }: { jobId: Id<"jobs">; onClose: () =>
   const pay = payText(job.salary, rates);
   const link = job.sourceUrl || job.url || "";
   const description = job.description ?? "";
+  const applied = !(job.status === "new" || job.status === "applying");
   const share = async () => {
     const text = `${job.title} at ${job.company}`;
     try {
@@ -67,13 +71,15 @@ export function JobPanel({ jobId, onClose }: { jobId: Id<"jobs">; onClose: () =>
               {copied ? "Link copied" : "Share"}
             </button>
             {link ? (
-              <a className="btn btn-ghost justify-center" href={link} target="_blank" rel="noopener noreferrer">
+              // Same "Did you apply?" as the full page's Apply button (27 Nov: people applied from here and were never asked).
+              <a className="btn btn-ghost justify-center" href={link} target="_blank" rel="noopener noreferrer" onClick={() => !applied && noteOpened(`apply:${job._id}`)}>
                 Original ↗
               </a>
             ) : (
               <span className="btn btn-ghost justify-center opacity-50">No link</span>
             )}
           </div>
+          {!applied && <SentCheck id={`apply:${job._id}`} onSent={() => setStatus({ jobId: job._id, status: "applied" })} question="Did you apply?" yes="Yes, applied" />}
         </div>
 
         <div className="rounded-xl border border-line p-5">
