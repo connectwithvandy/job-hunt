@@ -19,7 +19,7 @@ import { ActionButton, useLeftToday } from "@/components/ui";
 import { SetupGuide } from "@/components/SetupGuide";
 import { PlacesPopup } from "@/components/PlacesPopup";
 import { payText, useInrRates } from "@/lib/money";
-import { showCompany, showTitle } from "@/lib/tidy";
+import { employerLine, showCompany, showTitle } from "@/lib/tidy";
 import { ago, JobRow, metaOf, stateOf, StateButton } from "@/components/JobState";
 import { answerRank, justInterviewed, waitsForAnswer } from "@/lib/replies";
 import { FavoriteStar, ReferralFollowUp } from "@/components/job-client";
@@ -238,7 +238,7 @@ export default function Today() {
       cta: "Write follow-up",
       panel: o ? <ReferralFollowUp jobId={j._id} o={o} /> : undefined,
     })),
-    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: showTitle(j.title), sub: `${showCompany(j.company)} · Applied ${ago(j.appliedAt!)} · no reply`, href: `/jobs/${j._id}#people`, mark: j, cta: "Nudge" })),
+    ...quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: showTitle(j.title), sub: `${employerLine(j)} · Applied ${ago(j.appliedAt!)} · no reply`, href: `/jobs/${j._id}#people`, mark: j, cta: "Nudge" })),
   ];
 
   // Just applied and nobody asked or messaged there yet: suggest the next way in, alongside the application (19 Nov, owner:
@@ -308,7 +308,7 @@ export default function Today() {
   const quietItems: Todo[] =
     quiet.length > 1
       ? [{ key: "quiet", verb: "Follow up", main: `${quiet.length} applications quiet for 10+ days`, sub: quiet.slice(0, 3).map((j) => j.company).join(", ") + (quiet.length > 3 ? ` and ${quiet.length - 3} more` : ""), href: "/tracker", many: quiet.length, cta: "Nudge them" }]
-      : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: showTitle(j.title), sub: `${showCompany(j.company)} · Applied ${ago(j.appliedAt!)} · no reply`, href: `/jobs/${j._id}#people`, mark: j, cta: "Nudge" }));
+      : quiet.map((j) => ({ key: `q${j._id}`, verb: "Follow up", main: showTitle(j.title), sub: `${employerLine(j)} · Applied ${ago(j.appliedAt!)} · no reply`, href: `/jobs/${j._id}#people`, mark: j, cta: "Nudge" }));
   const followUpItems = [...hrAfterApply, ...chase.filter((t) => t.verb === "Follow up" && !t.key.startsWith("q")), ...quietItems];
   const referralItems = [...askAfterApply, ...chase.filter((t) => t.verb === "Send"), ...reach];
 
@@ -765,7 +765,7 @@ function ApplyRows({ ready, jobs }: { ready: Doc<"jobs">[]; jobs: Doc<"jobs">[] 
       key={j._id}
       j={j}
       href={`/jobs/${j._id}`}
-      meta={j.status === "applying" ? `${showCompany(j.company)} · Proposal: CV ready, not sent yet` : metaOf(j, payText(j.salary, rates))}
+      meta={j.status === "applying" ? `${employerLine(j)} · Proposal: CV ready, not sent yet` : metaOf(j, payText(j.salary, rates))}
       ring={quietRings && !bestScore(j) ? null : <FitBadge job={j} />}
       tagLine={isNewJob(j, now) ? <span className="mono !text-ink">New to you</span> : undefined}
       save={<FavoriteStar jobId={j._id} favorite={!!j.favorite} className="shrink-0" />}

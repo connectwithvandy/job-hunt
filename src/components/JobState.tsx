@@ -8,11 +8,11 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useSetStatus } from "@/components/Celebrate";
 import { CompanyMark, dayStart, timeAgo } from "@/components/bits";
-import { showCompany, showPlace, showTitle } from "@/lib/tidy";
+import { employerLine, showCompany, showPlace, showTitle } from "@/lib/tidy";
 import { STAGE_WORDS } from "@/lib/stages";
 
 /** What a job's button needs to know. Today passes full jobs, Jobs the list's lighter ones. */
-type StateJob = { _id: Id<"jobs">; status: string; url: string; company: string; title: string; hasPack?: boolean; pack?: unknown; location?: string; workSetting?: string; postedAt?: string; scores?: unknown[] };
+type StateJob = { _id: Id<"jobs">; status: string; url: string; company: string; hiringFor?: string; title: string; hasPack?: boolean; pack?: unknown; location?: string; workSetting?: string; postedAt?: string; scores?: unknown[] };
 
 /** Where a job stands, which decides its button: rough guess or scored without a CV → "Apply" (opens the job);
  *  CV ready → "Apply ↗" (opens the posting); started → "Mark applied". */
@@ -72,7 +72,7 @@ export function metaOf(j: StateJob, pay?: string | null, via?: boolean) {
   // One line, each part whole ("On-site" never splits); the work setting steps aside on a phone.
   // Company and age first (the facts that matter most); place and work setting last, so a narrow screen cuts those.
   const parts: { text: string; phoneHide?: boolean; strong?: boolean }[] = [
-    { text: `${via ? "via " : ""}${showCompany(j.company)}` },
+    { text: via ? `via ${showCompany(j.company)}` : employerLine(j) },
     ...(j.postedAt ? [{ text: postedAgo(j.postedAt) }] : []),
     ...(showPlace(j) ? [{ text: showPlace(j) }] : []),
     ...(workMode(j.workSetting) ? [{ text: workMode(j.workSetting)! }] : []),

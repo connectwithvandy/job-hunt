@@ -12,7 +12,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { CompanyMark, FitBadge, bestScore, jobTrackKey } from "@/components/bits";
 import { strongCompany } from "../../../convex/lib/quickFit";
 import { JobRow, metaOf, postedAgo, StateButton } from "@/components/JobState";
-import { showCompany, showPlace, showTitle } from "@/lib/tidy";
+import { employerLine, showCompany, showPlace, showTitle } from "@/lib/tidy";
 import { AddJob, FavoriteStar, FindJobs } from "@/components/job-client";
 import { Loading } from "@/components/Loading";
 import { ActionButton, LeftToday, useLeftToday } from "@/components/ui";
@@ -568,7 +568,7 @@ function Jobs() {
                       <FitBadge job={best ? { scores: [best] } : j} size={40} />
                     </div>
                     <div className="row-meta mt-3 flex justify-between gap-2">
-                      <span className="truncate">{showCompany(j.company)}</span>
+                      <span className="truncate">{employerLine(j)}</span>
                       <span className="max-w-[50%] truncate">{showPlace(j)}</span>
                     </div>
                     <Link href={`/jobs/${j._id}`} onClick={(e) => open(e, j._id)} scroll={false} className="row-title mt-0.5 line-clamp-2 hover:underline">

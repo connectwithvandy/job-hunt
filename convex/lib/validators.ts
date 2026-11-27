@@ -218,6 +218,8 @@ export const jobFields = {
   sourceUrl: v.optional(v.string()),
   title: v.string(),
   company: v.string(),
+  /** The employer a recruiter posted this for, when the text opens by naming another company (lib/company.ts hiringFor). */
+  hiringFor: v.optional(v.string()),
   companyLogo: v.optional(v.string()),
   location: v.string(),
   workSetting: v.optional(v.string()),

@@ -7,7 +7,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUserId } from "./lib/auth";
 import { withChats } from "./lib/chats";
-import { AGGREGATORS, cleanCompany, companyKey, referralRank, roleKey } from "./lib/company";
+import { AGGREGATORS, cleanCompany, companyKey, hiringFor, referralRank, roleKey } from "./lib/company";
 import { unverifiedNumbers } from "./lib/facts";
 import { fitTwoPages as fitLength } from "./lib/cvLength";
 import { noteBoard } from "./careers";
@@ -510,7 +510,8 @@ export const insertMany = internalMutation({
       // A role on the company's own careers board today is open, however long ago it went up.
       if (searched && job.source !== "careers" && !Number.isNaN(posted) && Date.now() - posted > STALE_AFTER) continue;
       const { description, pack, research, prep, ...light } = job;
-      lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack, quickFit: light.quickFit ?? fit(job) });
+      const forCompany = hiringFor(description, job.company);
+      lastId = await ctx.db.insert("jobs", { userId, ...light, roleKey: key, hasPack: !!pack, quickFit: light.quickFit ?? fit(job), ...(forCompany ? { hiringFor: forCompany } : {}) });
       if (job.source !== "careers") await noteBoard(ctx, job.company, [job.sourceUrl, job.url]);
       if (description || pack || research || prep) await ctx.db.insert("jobDetails", { jobId: lastId, userId, ...defined({ description, pack, research, prep }) });
       added++;
@@ -543,8 +544,10 @@ export const patchForAction = internalMutation({
     const change = Object.fromEntries(
       Object.entries({ ...fields, scores: scores && slimScores(scores), brief: brief && slimBrief(brief) }).filter(([, val]) => val !== undefined),
     );
+    const forCompany = description !== undefined && !job.hiringFor ? hiringFor(description, job.company) : null;
     await ctx.db.patch("jobs", jobId, {
       ...change,
+      ...(forCompany ? { hiringFor: forCompany } : {}),
       ...(pack && job.status === "new" ? { status: "applying" as const } : {}),
       updatedAt: Date.now(),
     });
@@ -936,5 +939,27 @@ export const refitPage = internalMutation({
       }
     }
     return { cursor: page.isDone ? null : page.continueCursor, changed };
+  },
+});
+
+/**
+ * One-time fill of hiringFor on jobs saved before 28 Nov 2026, read from their descriptions in jobDetails.
+ * Run with dryRun first to see every match; call again with the returned cursor until isDone.
+ */
+export const fillHiringFor = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()), dryRun: v.boolean() },
+  handler: async (ctx, { cursor, dryRun }) => {
+    const page = await ctx.db.query("jobDetails").paginate({ numItems: 100, cursor });
+    const matches: { company: string; hiringFor: string; title: string }[] = [];
+    for (const d of page.page) {
+      if (!d.description) continue;
+      const job = await ctx.db.get("jobs", d.jobId);
+      if (!job || job.hiringFor) continue;
+      const name = hiringFor(d.description, job.company);
+      if (!name) continue;
+      matches.push({ company: job.company, hiringFor: name, title: job.title });
+      if (!dryRun) await ctx.db.patch("jobs", job._id, { hiringFor: name });
+    }
+    return { matches, cursor: page.continueCursor, isDone: page.isDone };
   },
 });
