@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { components } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { DataModel } from "./_generated/dataModel";
-import { env, internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
+import { env, internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
 import { isOwnerEmail } from "./lib/auth";
 import { DAILY_LIMITS } from "./lib/defaults";
 import { FREE, PAYWALL_MARK, PLANS } from "./lib/plans";
@@ -265,6 +265,25 @@ async function myKey(ctx: QueryCtx) {
 export const { getRateLimit: scoresLeft, getServerTime } = rateLimiter.hookAPI<DataModel>("score", { key: myKey });
 export const { getRateLimit: cvsLeft } = rateLimiter.hookAPI<DataModel>("tailor", { key: myKey });
 export const { getRateLimit: notesLeft } = rateLimiter.hookAPI<DataModel>("notes", { key: myKey });
+
+/**
+ * True when the app-wide AI budget is spent for this person today (not the owner, not a new member), so the page
+ * says so instead of "45 scores left today" next to a button that will fail (27 Nov walk).
+ */
+export const aiPaused = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+    const user = await ctx.db.get("users", userId);
+    if (isOwnerEmail(user?.email)) return false;
+    const access = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    const letInAt = access?.approved ? (access.decidedAt ?? access.welcomedAt) : undefined;
+    if (letInAt && Date.now() - letInAt < NEW_MEMBER_DAYS * DAY) return false;
+    const { ok } = await rateLimiter.check(ctx, "appAi", { count: AI_UNITS.score ?? 1, config: aiLimit() });
+    return !ok;
+  },
+});
 
 /** Takes one of today's homepage CV matches for everyone together; false when they're used up. */
 export const takeCvTop = internalMutation({

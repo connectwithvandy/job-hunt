@@ -147,26 +147,49 @@ export function SetupGuide({ progress, bestJob, foundNote, hold }: { progress: G
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-soft">
             <div className="h-full bg-accent transition-all" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
           </div>
-          <ol className="mt-5 space-y-2">
-            {steps.map((s, i) => (
-              <li key={s.key} className={`rounded-xl border border-line p-4 ${s.done ? "opacity-60" : ""}`}>
-                <button type="button" className="flex w-full items-center gap-3 text-left font-medium" disabled={s.done} onClick={() => setPicked(s.key)}>
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${s.done ? "bg-accent text-on-accent" : "bg-soft text-ink"}`}>{s.done ? "✓" : i + 1}</span>
+          {/* Only the open step is a box; done and later steps are one line each (27 Nov walk: six boxes filled the
+              first screen after setup and no job showed). */}
+          {doneCount > 0 && (
+            <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-3">
+              {steps
+                .filter((s) => s.done)
+                .map((s) => (
+                  <span key={s.key}>
+                    <span className="text-accent">✓</span> {s.title}
+                  </span>
+                ))}
+            </p>
+          )}
+          {steps
+            .filter((s) => !s.done && open === s.key)
+            .map((s) => (
+              <div key={s.key} className="mt-4 rounded-xl border border-line p-4">
+                <div className="flex items-center gap-3 font-medium">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-soft text-xs text-ink">{steps.indexOf(s) + 1}</span>
                   {s.title}
-                </button>
-                {!s.done && open === s.key && (
-                  <div className="pl-9">
-                    <p className="mt-1 text-sm text-ink-2">{s.why}</p>
-                    {s.key === "connections" ? (
-                      <ConnectionsHelp requested={requested} onRequested={() => (remember("guide-connections-requested"), setRequested(true))} />
-                    ) : (
-                      <StepHelp step={s} jobs={progress.jobs} bestJob={bestJob} foundNote={foundNote} />
-                    )}
-                  </div>
-                )}
-              </li>
+                </div>
+                <div className="pl-9">
+                  <p className="mt-1 text-sm text-ink-2">{s.why}</p>
+                  {s.key === "connections" ? (
+                    <ConnectionsHelp requested={requested} onRequested={() => (remember("guide-connections-requested"), setRequested(true))} />
+                  ) : (
+                    <StepHelp step={s} jobs={progress.jobs} bestJob={bestJob} foundNote={foundNote} />
+                  )}
+                </div>
+              </div>
             ))}
-          </ol>
+          {steps.some((s) => !s.done && s.key !== open) && (
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-3">
+              Then:
+              {steps
+                .filter((s) => !s.done && s.key !== open)
+                .map((s) => (
+                  <button key={s.key} type="button" className="rounded-full border border-line px-3 py-1 hover:text-ink" onClick={() => setPicked(s.key)}>
+                    {steps.indexOf(s) + 1}. {s.title}
+                  </button>
+                ))}
+            </p>
+          )}
         </section>
       )}
       {hidden && (

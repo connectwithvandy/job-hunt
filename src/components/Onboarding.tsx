@@ -2,7 +2,7 @@
 
 import { useAction, useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { CUSTOM_COLORS, PRESET_TRACKS } from "../../convex/lib/defaults";
@@ -11,6 +11,7 @@ import { uploadFile } from "@/lib/upload";
 import { LocationPicker } from "./forms";
 import type { WorkMode } from "../../convex/lib/defaults";
 import { Spinner } from "./ui";
+import { rolesFromCv } from "@/lib/rolesFromCv";
 
 type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
 const MAX_ROLES = 8;
@@ -48,7 +49,7 @@ export function Onboarding({ me }: { me: Me }) {
         ))}
       </ol>
       {step === 1 && <StepCv me={me} onDone={() => setStep(2)} />}
-      {step === 2 && <StepRoles chosen={chosen} setChosen={setChosen} onBack={() => setStep(1)} onDone={() => setStep(3)} />}
+      {step === 2 && <StepRoles me={me} chosen={chosen} setChosen={setChosen} onBack={() => setStep(1)} onDone={() => setStep(3)} />}
       {step === 3 && <StepWhere location={location} modes={modes} onChange={(p, m) => (setLocation(p), setModes(m))} onBack={() => setStep(2)} onDone={() => setStep(4)} />}
       {step === 4 && <StepAnswers me={me} location={location} modes={modes} chosen={chosen} rows={answers} setRows={setAnswers} onBack={() => setStep(3)} />}
     </div>
@@ -61,6 +62,14 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
   const readCv = useAction(api.agent.readCv);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  // What it's doing while the CV is read (27 Nov walk: 35 seconds of a lone spinner).
+  const [reading, setReading] = useState(0);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!reading || !busy) return;
+    const t = setInterval(() => setTick((n) => n + 1), 6000);
+    return () => clearInterval(t);
+  }, [reading, busy]);
 
   return (
     <form
@@ -87,6 +96,7 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
             });
           if (cvs.length) {
             setBusy(cvs.length > 1 ? `Reading your ${cvs.length} CVs… a minute or two` : "Reading your CV… about a minute");
+            setReading(Date.now());
             // The first file becomes the main CV; the rest are added beside it.
             await read(cvs[0], me.defaultResumeId ?? undefined);
             const results = await Promise.allSettled(cvs.slice(1).map((cv) => read(cv)));
@@ -123,6 +133,16 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
         </label>
       </div>
       {error && <p className="mt-4 text-sm text-bad">{error}</p>}
+      {busy && reading > 0 && (
+        <ol className="mt-6 space-y-1.5 text-sm" aria-live="polite">
+          {READING_STEPS.map((line, i) => (
+            <li key={line} className={i < Math.min(tick, READING_STEPS.length - 1) ? "text-ink-3" : i === Math.min(tick, READING_STEPS.length - 1) ? "text-ink" : "text-ink-3 opacity-40"}>
+              {i < Math.min(tick, READING_STEPS.length - 1) ? "✓ " : "· "}
+              {line}
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="mt-8 flex items-center gap-4">
         <button className="btn btn-primary" disabled={!!busy}>
           {busy && <Spinner />}
@@ -138,11 +158,22 @@ function StepCv({ me, onDone }: { me: Me; onDone: () => void }) {
   );
 }
 
+const READING_STEPS = [
+  "Reading every page of your CV",
+  "Pulling out each role, company and date",
+  "Keeping every number exactly as you wrote it",
+  "Spotting the sales skills jobs ask for",
+  "Building your master CV",
+];
+
 function slug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "track";
 }
 
-function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; setChosen: (c: Choice[]) => void; onBack: () => void; onDone: () => void }) {
+function StepRoles({ me, chosen, setChosen, onBack, onDone }: { me: Me; chosen: Choice[]; setChosen: (c: Choice[]) => void; onBack: () => void; onDone: () => void }) {
+  const latest = me.resume?.experience?.[0]?.role ?? "";
+  const fits = rolesFromCv((me.resume?.experience ?? []).map((e) => e.role), PRESET_TRACKS);
+  const fromSignUp = PRESET_TRACKS.find((p) => p.key === WAITLIST_ROLE[me.waitlist.role]);
   const [name, setName] = useState("");
   const [titles, setTitles] = useState("");
   const custom = chosen.filter((c) => !PRESET_TRACKS.some((p) => p.key === c.key));
@@ -159,6 +190,13 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
       <p className="mt-3 text-ink-2">
         Pick every kind of role you&apos;d take. Each becomes a <span className="text-ink">role</span> with its own search and its own CV. You can change them anytime.
       </p>
+      {/* 27 Nov walk: the role picked at sign-up came back here unexplained, and nothing linked the roles to the CV. */}
+      {(fromSignUp || fits.length > 0) && (
+        <p className="mt-3 text-sm text-ink-2">
+          {fromSignUp && <>{fromSignUp.name} is ticked from your sign-up. </>}
+          {fits.length > 0 && latest && <>Your CV says &quot;{latest}&quot;, so the roles marked <span className="text-accent">Fits your CV</span> will score best.</>}
+        </p>
+      )}
       <div className="mt-8 grid gap-3 sm:grid-cols-2">
         {PRESET_TRACKS.map((t) => {
           const on = chosen.some((c) => c.key === t.key);
@@ -172,7 +210,10 @@ function StepRoles({ chosen, setChosen, onBack, onDone }: { chosen: Choice[]; se
             >
               <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.color }} />
               <div className="flex items-center justify-between gap-2">
-                <span className="display text-lg">{t.name}</span>
+                <span className="display text-lg">
+                  {t.name}
+                  {fits.includes(t.key) && <span className="ml-2 align-middle text-xs font-normal text-accent">Fits your CV</span>}
+                </span>
                 <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-xs ${on ? "border-accent bg-accent text-on-accent" : "border-line"}`}>{on ? "✓" : ""}</span>
               </div>
               <p className="mt-2 text-sm text-ink-2">{t.titles.slice(0, 3).join(", ")}</p>
@@ -294,7 +335,7 @@ function StepAnswers({
 
   return (
     <div className="mt-10">
-      <h1 className="display text-4xl md:text-5xl">Three quick questions.</h1>
+      <h1 className="display text-4xl md:text-5xl">What application forms ask.</h1>
       <p className="mt-3 text-ink-2">Almost every application form asks these. Answer once and JobPipe has them ready when you apply. Skip any; you can change them later.</p>
       <div className="card mt-8 space-y-4 p-5">
         {SETUP_QUESTIONS.map((q) => (

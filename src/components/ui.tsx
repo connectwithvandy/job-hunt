@@ -298,7 +298,9 @@ export function PrintButton() {
 export function LeftToday({ kind, label }: { kind: "scoresLeft" | "cvsLeft" | "notesLeft"; label: string }) {
   const me = useQuery(api.users.me);
   const left = useLeftToday(kind);
+  const paused = useQuery(api.limits.aiPaused);
   if (!me || me.isOwner || left === undefined) return null;
+  if (paused) return <span className="text-xs text-warn">JobPipe&apos;s AI is busy for today; back tomorrow morning</span>;
   return (
     <span className={`text-xs ${left === 0 ? "text-warn" : "text-ink-3"}`}>
       {left === 0 ? `No ${label} left today` : `${left} ${label} left today`}
