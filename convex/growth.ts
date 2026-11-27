@@ -219,9 +219,7 @@ async function jobsPostSection(ctx: ActionCtx): Promise<{ post: string; section:
 
 ${shown.map(jobLine).join("\n\n")}
 
-Don't apply blind. Check how well your CV fits each role before you apply.
-
-Fresh roles every morning, so you can apply before the crowd.
+What gets replies: a CV that speaks to the role, and a short personal note to the right person. Each link helps you do both.
 
 ${TAGS}`;
   // Yesterday's post, counted: visits to its job pages, Apply clicks and sign-ups from it.
@@ -233,7 +231,7 @@ ${TAGS}`;
 
 ${jobs.map((j) => [`*${j.title}* · ${j.company} (${j.where})`, j.line, `${appUrl()}/p/${j.code}?utm_source=whatsapp`].filter(Boolean).join("\n")).join("\n\n")}
 
-Check how well your CV fits each role before you apply.`;
+What gets replies: a CV that speaks to the role, and a short personal note to the right person. Each link helps you do both.`;
   const section = `${yesterday}LINKEDIN POST (copy everything between the lines; post before 10 am and reply to comments in the first hour)
 ------------
 ${post}
