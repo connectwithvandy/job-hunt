@@ -27,6 +27,9 @@ const passLine = `Get the ${PAYWALL_MARK} (${PLANS.passMonths} months, one payme
 
 export const FRESH_ALERTS_A_DAY = 40;
 
+/** How long a new member's AI isn't held back by the app-wide daily budget. */
+export const NEW_MEMBER_DAYS = 2;
+
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
   readCv: { kind: "fixed window", rate: DAILY_LIMITS.readCv, period: DAY },
   score: { kind: "fixed window", rate: DAILY_LIMITS.score, period: DAY },
@@ -119,7 +122,12 @@ export const consume = internalMutation({
     // 200 units were gone by 9:15am and a new member's CV upload failed at "First, your CV". About 1c a CV;
     // the per-person daily limit below still applies.
     const units = kind === "readCv" ? 0 : (AI_UNITS[kind] ?? 0) * (count ?? 1);
-    if (units) {
+    // Members in their first 2 days skip the app-wide budget (27 Nov, owner): it ran out by the afternoon, so
+    // afternoon sign-ups couldn't score or write a CV at all and left on day one. Their own daily limits below still apply.
+    const access = units && !background ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique() : null;
+    const letInAt = access?.approved ? (access.decidedAt ?? access.welcomedAt) : undefined;
+    const newMember = !!letInAt && Date.now() - letInAt < NEW_MEMBER_DAYS * DAY;
+    if (units && !newMember) {
       // Half the day's AI is kept for people using the app: on 23 Nov the morning run's Monday company lookups
       // and scores used much of it before anyone logged in, and members (and a new sign-up) hit the wall.
       if (background) {
