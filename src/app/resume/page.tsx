@@ -43,7 +43,7 @@ export default function Cvs() {
             onClick={() => setPicked(r._id)}
             className={`rounded-full border px-3 py-1 text-sm ${current?._id === r._id ? "border-ink bg-ink font-medium text-paper" : "border-line bg-card text-ink-2 hover:text-ink"}`}
           >
-            {r.label}
+            {cvName(r)}
             {r._id === me.defaultResumeId ? " · default" : ""}
           </button>
         ))}
@@ -123,4 +123,14 @@ export default function Cvs() {
       )}
     </div>
   );
+}
+
+/**
+ * A CV's name for people: an uploaded file's name ("sample-cv", "Kavya_Resume_2026.pdf") reads as the CV's headline
+ * role instead (28 Nov review). A name the member typed with Rename stays as written.
+ */
+function cvName(r: { label: string; resume?: { headline?: string } }) {
+  if (/\s/.test(r.label.trim()) && !/\.(pdf|docx?)$/i.test(r.label)) return r.label;
+  const role = r.resume?.headline?.split(/[,|·–-]/)[0]?.trim();
+  return role ? `${role} CV` : "Your CV";
 }

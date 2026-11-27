@@ -30,7 +30,26 @@ export function PublicHeader({ onSignIn, onStart }: { onSignIn?: () => void; onS
         <Link href="/cv-review" className={`${link} hidden lg:inline-flex`}>
           Free CV review
         </Link>
-        <span className="max-[359px]:hidden">
+        {/* On a phone the page links sit under one small menu, so FAQ and Pricing are reachable there too (28 Nov review). */}
+        <details className="relative md:hidden">
+          <summary aria-label="Menu" className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full hover:text-ink [&::-webkit-details-marker]:hidden">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </summary>
+          <div className="card absolute right-0 top-12 z-50 flex min-w-48 flex-col p-2 shadow-lg">
+            <Link href="/#faq" className={`${link} inline-flex`}>
+              FAQ
+            </Link>
+            <Link href="/pricing" className={`${link} inline-flex`}>
+              Pricing
+            </Link>
+            <Link href="/cv-review" className={`${link} inline-flex`}>
+              Free CV review
+            </Link>
+          </div>
+        </details>
+        <span className="max-sm:hidden">
           <ThemeToggle />
         </span>
         {isAuthenticated ? (

@@ -309,7 +309,7 @@ export function LeftToday({ kind, label }: { kind: "scoresLeft" | "cvsLeft" | "n
 }
 
 /** How many of one daily allowance are left, or undefined while loading. */
-export function useLeftToday(kind: "scoresLeft" | "cvsLeft" | "notesLeft") {
+export function useLeftToday(kind: "scoresLeft" | "cvsLeft" | "notesLeft" | "prepLeft") {
   const { check } = useRateLimit(api.limits[kind], { getServerTimeMutation: api.limits.getServerTime });
   const value = check?.()?.value;
   return value === undefined ? undefined : Math.max(0, Math.floor(value));

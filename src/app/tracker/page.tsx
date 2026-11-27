@@ -100,7 +100,7 @@ function Tracker() {
         <Link href={`/jobs/${j._id}`} className="flex min-h-11 gap-3">
           <CompanyMark job={j} size={32} />
           <span className="min-w-0">
-            <span className="row-title block !text-[14px] [overflow-wrap:anywhere] hyphens-auto" title={tidyTitle(j.title)}>
+            <span className="row-title line-clamp-3 !text-[14px] [overflow-wrap:anywhere] hyphens-auto" title={tidyTitle(j.title)}>
               {tidyTitle(j.title)}
             </span>
             <span className="row-meta block truncate">{j.company}</span>
@@ -226,24 +226,18 @@ function Tracker() {
         )}
       </div>
 
-      {/* Computer: six columns that fit the page; drag a card or use Move to…. */}
-      <div className="hidden grid-cols-[88px_88px_repeat(6,minmax(0,1fr))] gap-3 md:grid">
+      {/* Computer: Prospect and Qualified as one thin strip (they live in Jobs), so the six real stages get the width and
+          titles stop wrapping to six lines (28 Nov review). Drag a card or use Move to…. */}
+      <div className="mb-4 hidden flex-wrap items-center gap-2 md:flex">
         {earlyStages.map((st) => (
-          <section key={st.key} className="min-w-0">
-            {/* Same header height as the stage columns, so every box starts on one line; the count sits in the box. */}
-            <h2 className="mb-3 px-1">
-              <span className="mono block truncate !text-ink-3">{st.word}</span>
-              <span className="block truncate text-[12px] font-normal text-ink-3">{st.key === "qualified" ? "60+" : "open"}</span>
-            </h2>
-            <Link
-              href={st.href}
-              className="flex min-h-40 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-line-strong px-2 text-center text-[13px] text-ink-3 [@media(hover:hover)]:hover:bg-soft [@media(hover:hover)]:hover:text-ink"
-            >
-              <span className="tnum font-[family-name:var(--font-display-face)] text-2xl font-semibold text-ink-2">{st.n}</span>
-              <span>In Jobs →</span>
-            </Link>
-          </section>
+          <Link key={st.key} href={st.href} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-line bg-card px-3 text-[13px] text-ink-2 hover:text-ink">
+            <span className="mono !text-ink-3">{st.word}</span>
+            <span className="tnum font-semibold text-ink">{st.n}</span>
+            <span className="text-ink-3">{st.key === "qualified" ? "60+" : "open"} · in Jobs →</span>
+          </Link>
         ))}
+      </div>
+      <div className="hidden grid-cols-6 gap-3 md:grid">
         {PIPELINE.map((col) => {
           const cards = byStage.get(col.status) ?? [];
           return (

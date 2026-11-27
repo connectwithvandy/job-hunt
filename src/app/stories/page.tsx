@@ -7,13 +7,14 @@ import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { MAX_STORIES } from "../../../convex/lib/defaults";
 import { PageHead } from "@/components/bits";
 import { Loading } from "@/components/Loading";
-import { ActionButton, attempt, Feedback, Spinner, type ActionState } from "@/components/ui";
+import { ActionButton, attempt, Feedback, Spinner, useLeftToday, type ActionState } from "@/components/ui";
 
 type Story = Doc<"stories">;
 const BLANK = { title: "", situation: "", action: "", result: "", reflection: "", answers: [] as string[] };
 
 export default function Stories() {
   const stories = useQuery(api.stories.list);
+  const prepLeft = useLeftToday("prepLeft");
   const build = useAction(api.agent.buildStoryBank);
   const [adding, setAdding] = useState(false);
   if (!stories) return <Loading />;
@@ -38,7 +39,9 @@ export default function Stories() {
           >
             {stories.length ? "Find more in my CV" : "Write my proof of work from my CV"}
           </ActionButton>
-          <span className="order-last basis-full text-[13px] text-ink-3">Uses 1 interview-prep run from today&apos;s allowance.</span>
+          <span className="order-last basis-full text-[13px] text-ink-3">
+            Uses 1 interview-prep run{prepLeft !== undefined ? `, ${prepLeft} left today` : " from today's allowance"}.
+          </span>
           </>
         )}
         <button type="button" className="btn btn-ghost" onClick={() => setAdding(true)}>

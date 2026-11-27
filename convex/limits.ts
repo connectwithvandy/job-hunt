@@ -265,6 +265,7 @@ async function myKey(ctx: QueryCtx) {
 export const { getRateLimit: scoresLeft, getServerTime } = rateLimiter.hookAPI<DataModel>("score", { key: myKey });
 export const { getRateLimit: cvsLeft } = rateLimiter.hookAPI<DataModel>("tailor", { key: myKey });
 export const { getRateLimit: notesLeft } = rateLimiter.hookAPI<DataModel>("notes", { key: myKey });
+export const { getRateLimit: prepLeft } = rateLimiter.hookAPI<DataModel>("prep", { key: myKey });
 
 /**
  * True when the app-wide AI budget is spent for this person today (not the owner, not a new member), so the page
