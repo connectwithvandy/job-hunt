@@ -60,7 +60,7 @@ function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[];
                   key={l.value}
                   type="button"
                   onClick={() => toggle(l.value)}
-                  className={`rounded-full border px-3 py-1 text-sm ${on ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+                  className={`rounded-full border px-3 py-1 text-sm ${on ? "border-ink bg-ink font-medium text-paper" : "border-line bg-card text-ink-2 hover:text-ink"}`}
                 >
                   {l.label}
                 </button>
@@ -82,7 +82,7 @@ function Form({ prefs }: { prefs: { minPayL: number | null; levels: Seniority[];
                 key={d}
                 type="button"
                 onClick={() => setMaxAge(d)}
-                className={`rounded-full border px-3 py-1 text-sm ${maxAge === d ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+                className={`rounded-full border px-3 py-1 text-sm ${maxAge === d ? "border-ink bg-ink font-medium text-paper" : "border-line bg-card text-ink-2 hover:text-ink"}`}
               >
                 {archiveLabel(d)}
               </button>

@@ -46,7 +46,10 @@ function Details({ me }: { me: { email: string; name: string; linkedin: string; 
         </label>
         <div>
           <span className="label">Email</span>
-          <p className="mt-1 text-[15px] break-all">{me.email}</p>
+          <p className="mt-1 text-[15px] [overflow-wrap:anywhere]">
+            {me.email.split("@")[0]}
+            <wbr />@{me.email.split("@")[1]}
+          </p>
           <span className="mt-1 block text-[13px] text-ink-3">You sign in with this. To change it, write to hello@jobpipe.in.</span>
         </div>
         <label className="block">

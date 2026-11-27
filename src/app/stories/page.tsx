@@ -27,6 +27,7 @@ export default function Stories() {
         sub="The handful of examples from your career worth knowing by heart. Interview prep reuses these instead of writing new ones for every job, so each telling gets sharper."
       >
         {stories.length < MAX_STORIES && (
+          <>
           <ActionButton
             run={async () => {
               const { added } = await build();
@@ -37,6 +38,8 @@ export default function Stories() {
           >
             {stories.length ? "Find more in my CV" : "Write my proof of work from my CV"}
           </ActionButton>
+          <span className="text-[13px] text-ink-3">Uses 1 interview-prep run from today&apos;s allowance.</span>
+          </>
         )}
         <button type="button" className="btn btn-ghost" onClick={() => setAdding(true)}>
           Add one myself

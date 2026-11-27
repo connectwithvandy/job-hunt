@@ -50,7 +50,7 @@ export function tidyPlace(place?: string) {
       p
         .replace(/^(bangalore|bengaluru)(\s+(north|south|east|west|urban|rural|city))?$/i, "Bengaluru")
         .replace(/^Gurgaon$/i, "Gurugram")
-        .replace(/^(global|worldwide|anywhere)$/i, "Remote, worldwide")
+        .replace(/^(global|worldwide|anywhere)$/i, "Remote · worldwide")
         .replace(ACRONYM, (m) => m.toUpperCase()),
     )
     .filter((p, i, all) => all.findIndex((q) => q.toLowerCase() === p.toLowerCase()) === i);

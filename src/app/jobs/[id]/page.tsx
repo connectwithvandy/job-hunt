@@ -382,14 +382,11 @@ export default function JobPage() {
         <div className="min-w-0">
           <h1 className="font-[family-name:var(--font-display-face)] text-[22px] leading-tight font-semibold tracking-[-0.02em] sm:text-[28px]">{showTitle(job.title)}</h1>
           {hiringFor(job.description, job.company) && (
-            <p className="mt-1 text-[15px] font-semibold text-ink">
-              Hiring for {hiringFor(job.description, job.company)}
-              <span className="font-normal text-ink-3"> · posted by {showCompany(job.company)}</span>
-            </p>
+            <p className="mt-1 text-[15px] font-semibold text-ink">Hiring for {hiringFor(job.description, job.company)}</p>
           )}
           <p className="row-meta mt-1 !text-[15px]">
             {payShown && <span className="tnum font-semibold text-ink">{payShown} · </span>}
-            {metaOf(job)}
+            {metaOf(job, null, !!hiringFor(job.description, job.company))}
             {(job.sourceUrl || job.url) && (
               <>
                 {/* Its own line on a phone, so it never wraps with a stray "·" in front (27 Nov review). */}
@@ -631,7 +628,9 @@ function ActionPanel({
 }) {
   if (job.status === "rejected" || job.status === "dismissed") return null;
   const tracked = referralTrack(job.outreach, peopleCount, job.company, now);
-  const referral: Track = noContacts && tracked.tone === "off" ? { tone: "todo", line: `Search LinkedIn for people you know at ${job.company}.`, action: "Search" } : tracked;
+  // The company you'd be working for: the one a recruiter's posting is for, else the poster, spelled cleanly.
+  const employer = hiringFor(job.description, job.company) ?? showCompany(job.company);
+  const referral: Track = noContacts && tracked.tone === "off" ? { tone: "todo", line: `Search LinkedIn for people you know at ${employer}.`, action: "Search" } : tracked;
   const hr = hrTrack(job.hiringContacts ?? [], now);
   const nudge = afterApplyNudge(job, peopleCount > 0, now);
   const best = job.outreach.find((o) => o.status === "draft")?.name;
@@ -793,7 +792,7 @@ function PhoneApplyBar({ job }: { job: Parameters<typeof ApplyButton>[0]["job"] 
 function ReachCard({ job, peopleCount, now, noContacts }: { job: Parameters<typeof ActionPanel>[0]["job"]; peopleCount: number; now: number; noContacts: boolean }) {
   if (job.status === "rejected" || job.status === "dismissed") return null;
   const tracked = referralTrack(job.outreach, peopleCount, job.company, now);
-  const referral: Track = noContacts && tracked.tone === "off" ? { tone: "todo", line: `Search LinkedIn for people you know at ${job.company}.`, action: "Search" } : tracked;
+  const referral: Track = noContacts && tracked.tone === "off" ? { tone: "todo", line: `Search LinkedIn for people you know at ${hiringFor(job.description, job.company) ?? showCompany(job.company)}.`, action: "Search" } : tracked;
   const hr = hrTrack(job.hiringContacts ?? [], now);
   return (
     <ul className="card px-5" aria-label="Referral and HR">

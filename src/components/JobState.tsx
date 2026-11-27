@@ -68,11 +68,11 @@ export function StateButton({ j, primary, full, hideOpen }: { j: StateJob; prima
 /** "onsite" → "On-site", "remote" → "Remote". */
 export const workMode = (w?: string) => (!w ? null : /on.?site/i.test(w) ? "On-site" : w[0].toUpperCase() + w.slice(1).toLowerCase());
 
-export function metaOf(j: StateJob, pay?: string | null) {
+export function metaOf(j: StateJob, pay?: string | null, via?: boolean) {
   // One line, each part whole ("On-site" never splits); the work setting steps aside on a phone.
   // Company and age first (the facts that matter most); place and work setting last, so a narrow screen cuts those.
   const parts: { text: string; phoneHide?: boolean; strong?: boolean }[] = [
-    { text: showCompany(j.company) },
+    { text: `${via ? "via " : ""}${showCompany(j.company)}` },
     ...(j.postedAt ? [{ text: postedAgo(j.postedAt) }] : []),
     ...(showPlace(j) ? [{ text: showPlace(j) }] : []),
     ...(workMode(j.workSetting) ? [{ text: workMode(j.workSetting)! }] : []),
@@ -187,7 +187,8 @@ export function JobRow({
   onDismiss?: () => void;
   save?: React.ReactNode;
 }) {
-  const button = <StateButton j={j} hideOpen />;
+  // "Open" shows too, so a row reads the same on a phone and a computer (27 Nov review).
+  const button = <StateButton j={j} />;
   const dismiss = onDismiss && (
     <button type="button" className="btn-icon" aria-label={`Not for me: ${j.company}`} title="Not for me" onClick={onDismiss}>
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -195,7 +196,7 @@ export function JobRow({
       </svg>
     </button>
   );
-  const hasButton = !(stateOf(j) === "open" && !j.scores?.length);
+  const hasButton = true;
   return (
     <li className={`row row-link items-start sm:items-center ${selected ? "bg-soft" : ""}`} aria-current={selected || undefined}>
       {check && <span className="above flex h-8 shrink-0 items-center">{check}</span>}

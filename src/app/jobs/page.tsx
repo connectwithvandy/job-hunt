@@ -9,7 +9,7 @@ import { Suspense, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { CompanyMark, FitBadge, bestScore, jobTrackKey, likelyScore } from "@/components/bits";
+import { CompanyMark, FitBadge, bestScore, jobTrackKey } from "@/components/bits";
 import { strongCompany } from "../../../convex/lib/quickFit";
 import { JobRow, metaOf, postedAgo, StateButton } from "@/components/JobState";
 import { showCompany, showPlace, showTitle } from "@/lib/tidy";
@@ -168,15 +168,6 @@ function Jobs() {
   const SECTION_NAMES = ["Scored, weaker fit", "Not scored yet", "Scored for you", "New to you since yesterday"];
   const [showWeaker, setShowWeaker] = [params.get("weaker") === "1", (on: boolean) => router.replace(hrefWith({ weaker: on ? "1" : null }), { scroll: false })];
   const unscored = visible.filter((j) => !j.scores?.length).map((j) => j._id);
-  // Rough guesses all within 10 points say nothing about which to pick: their rings step aside (27 Nov review).
-  // A wall of "~43" says nothing: show a rough number only on the top 3 guesses, or where it stands 10+ from the middle.
-  const roughRows = visible.slice(0, shown).filter((j) => !j.scores?.length);
-  const roughVals = roughRows.map((j) => likelyScore(j.quickFit ?? 0)).sort((x, y) => x - y);
-  const middle = roughVals[Math.floor(roughVals.length / 2)] ?? 0;
-  // The top 3 rough guesses show only when they differ (4+ points apart); three "~43"s say nothing.
-  const top3 = roughRows.slice(0, 3).map((j) => likelyScore(j.quickFit ?? 0));
-  const topRough = new Set(top3.length > 1 && Math.max(...top3) - Math.min(...top3) < 4 ? [] : roughRows.slice(0, 3).map((j) => j._id));
-  const roughShows = (j: ListJob) => topRough.has(j._id) || Math.abs(likelyScore(j.quickFit ?? 0) - middle) >= 10;
   // Never ask for more scores than today's allowance has left; the owner has no limit.
   // The same batch as Today's "Score my top 5" (27 Nov review: 5 there, 12 here, and neither said what it used).
   const batch = unscored.slice(0, me.isOwner ? SCORE_BATCH : Math.min(SCORE_BATCH, scoresLeft ?? SCORE_BATCH));
@@ -355,8 +346,8 @@ function Jobs() {
     return any || role ? (
       <>
         {t}
-        {strongCompany(j.company) && <span className="mono mr-2">Top company</span>}
-        {role && <span className="mono">{role}</span>}
+        {strongCompany(j.company) && <span className="mono mr-2 before:mr-2 before:content-['·'] first:before:content-none">Top company</span>}
+        {role && <span className="mono before:mr-2 before:content-['·'] first:before:content-none">{role}</span>}
       </>
     ) : null;
   };
@@ -601,6 +592,17 @@ function Jobs() {
             const rows = visible.slice(0, shown);
             const fresh = newGroup ? rows.filter((j) => isNewJob(j, now)) : [];
             const rest = rows.slice(fresh.length);
+            // The rest under the same headings as the list view ("Scored for you", "Not scored yet"…), so a computer and a
+            // phone name the same groups the same way (27 Nov review).
+            const groupsOf = (items: ListJob[]) => {
+              const out: { heading: string | null; items: ListJob[] }[] = [];
+              items.forEach((j, i) => {
+                const here = section(j);
+                if (i === 0 || here !== section(items[i - 1])) out.push({ heading: here === null ? null : SECTION_NAMES[here], items: [] });
+                out.at(-1)!.items.push(j);
+              });
+              return out;
+            };
             const grid = (items: ListJob[]) => <ul className={`grid gap-4 sm:grid-cols-2 ${selected ? "2xl:grid-cols-3" : showFilters ? "xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>{items.map(card)}</ul>;
             return (
               <div className={view === "auto" ? "max-lg:hidden" : ""}>
@@ -608,11 +610,20 @@ function Jobs() {
                   <>
                     <h2 className="mb-2 text-[13px] font-semibold text-ink-2">New to you since yesterday</h2>
                     <div className="mb-8">{grid(fresh)}</div>
-                    {rest.length > 0 && <h2 className="mb-2 text-[13px] font-semibold text-ink-2">Earlier</h2>}
-                    {rest.length > 0 && grid(rest)}
+                    {groupsOf(rest).map((g, gi) => (
+                      <section key={gi} className="mb-8">
+                        {g.heading && <h2 className="mb-2 text-[13px] font-semibold text-ink-2">{g.heading}</h2>}
+                        {grid(g.items)}
+                      </section>
+                    ))}
                   </>
                 ) : (
-                  grid(rows)
+                  groupsOf(rows).map((g, gi) => (
+                    <section key={gi} className="mb-8">
+                      {g.heading && <h2 className="mb-2 text-[13px] font-semibold text-ink-2">{g.heading}</h2>}
+                      {grid(g.items)}
+                    </section>
+                  ))
                 )}
               </div>
             );
@@ -682,7 +693,8 @@ function Jobs() {
 
                                 </>
                               }
-                              ring={!best && !roughShows(j) ? null : <FitBadge job={best ? { scores: [best] } : j} />}
+                              // Every row shows its fit: a real score, or the guess word (27 Nov review: phone rows hid it).
+                              ring={<FitBadge job={best ? { scores: [best] } : j} />}
                               save={<FavoriteStar jobId={j._id} favorite={!!j.favorite} className="shrink-0" />}
                               onDismiss={() => void setStatusMany({ jobIds: [j._id], status: "dismissed" }).catch(() => {})}
                             />

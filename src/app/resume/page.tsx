@@ -40,7 +40,7 @@ export default function Cvs() {
           <button
             key={r._id}
             onClick={() => setPicked(r._id)}
-            className={`rounded-full border px-3 py-1 text-sm ${current?._id === r._id ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+            className={`rounded-full border px-3 py-1 text-sm ${current?._id === r._id ? "border-ink bg-ink font-medium text-paper" : "border-line bg-card text-ink-2 hover:text-ink"}`}
           >
             {r.label}
             {r._id === me.defaultResumeId ? " · default" : ""}

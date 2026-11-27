@@ -131,7 +131,7 @@ export function SignIn({ note }: { note?: string } = {}) {
   const head = {
     signUp: [
       "Start free",
-      "7 days of everything, then a free plan that stays free. Pick a password. Sales and GTM people get in straight away, with 7 days free.",
+      "Pick a password. Sales and GTM people get in straight away.",
     ],
     signIn: ["Welcome back", "Sign in to pick up where you left off."],
     reset: [

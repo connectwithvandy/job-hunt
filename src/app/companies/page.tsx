@@ -85,7 +85,7 @@ function Companies() {
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`rounded-full border px-4 py-1.5 text-sm ${tab === k ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+            className={`rounded-full border px-4 py-1.5 text-sm ${tab === k ? "border-ink bg-ink font-medium text-paper" : "border-line bg-card text-ink-2 hover:text-ink"}`}
           >
             {label}
           </button>
@@ -200,7 +200,7 @@ function Companies() {
           <button
             key={s.value}
             onClick={() => setShow(s.value)}
-            className={`rounded-full border px-3 py-1 text-sm ${show === s.value ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`}
+            className={`rounded-full border px-3 py-1 text-sm ${show === s.value ? "border-ink bg-ink font-medium text-paper" : "border-line bg-card text-ink-2 hover:text-ink"}`}
           >
             {s.label} · {count(s.value)}
           </button>
@@ -252,7 +252,7 @@ function Companies() {
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     {p.rolesCheckedAt !== undefined &&
                       (p.openRoles ? (
-                        <Link href={`/jobs?q=${encodeURIComponent(p.name)}`} className="rounded-full bg-accent px-2.5 py-0.5 font-medium text-on-accent">
+                        <Link href={`/jobs?q=${encodeURIComponent(p.name)}`} className="rounded-full bg-soft px-2.5 py-0.5 font-medium text-ink">
                           {p.openRoles} open {p.openRoles === 1 ? "role" : "roles"} in Bengaluru or remote →
                         </Link>
                       ) : (

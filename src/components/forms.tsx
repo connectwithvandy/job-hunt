@@ -573,7 +573,7 @@ export function LocationPicker({ value, modes, onChange, noDefault }: { value: s
     if (next.length) onChange(place, next);
   };
   const extra = cities.filter((c) => !CITY_CHOICES.some((x) => x.toLowerCase() === c.toLowerCase()));
-  const chip = (on: boolean) => `rounded-full border px-4 py-1.5 text-sm ${on ? "border-accent bg-accent font-medium text-on-accent" : "border-line bg-card text-ink-2 hover:text-ink"}`;
+  const chip = (on: boolean) => `rounded-full border px-4 py-1.5 text-sm ${on ? "border-ink bg-ink font-medium text-paper" : "border-line bg-card text-ink-2 hover:text-ink"}`;
   return (
     <div>
       <div className="label mb-2">Cities · pick all that apply</div>

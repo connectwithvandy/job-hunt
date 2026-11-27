@@ -100,7 +100,7 @@ function Tracker() {
         <Link href={`/jobs/${j._id}`} className="flex min-h-11 gap-3">
           <CompanyMark job={j} size={32} />
           <span className="min-w-0">
-            <span className="row-title line-clamp-4 !text-[14px] [overflow-wrap:anywhere] hyphens-auto" title={tidyTitle(j.title)}>
+            <span className="row-title block !text-[14px] [overflow-wrap:anywhere] hyphens-auto" title={tidyTitle(j.title)}>
               {tidyTitle(j.title)}
             </span>
             <span className="row-meta block truncate">{j.company}</span>

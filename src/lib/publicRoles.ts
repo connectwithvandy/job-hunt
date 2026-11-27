@@ -1,5 +1,6 @@
 import { cachedQuery } from "./guideRoles";
 import { tidyPlace } from "./tidy";
+import { offTarget } from "./jobFilters";
 import { titleElsewhere } from "./regions";
 import { CITIES } from "../../convex/lib/publicRole";
 import { junkCompany, sameRoleKey, storeRetailJob } from "../../convex/lib/company";
@@ -24,7 +25,7 @@ export type PublicRoleShort = { href: string; postedAt?: string; city: string; c
 export const allPublicRoles = () => cachedQuery<PublicRoleShort[]>("publicRoles:all", {}).catch(() => [] as PublicRoleShort[]);
 /** One role posted twice (two boards, or once per city) shows once: the first, newest, copy (27 Nov review). */
 const onceEach = (roles: PublicRole[]) =>
-  [...new Map(roles.filter((r) => !junkCompany(r.company) && !storeRetailJob(r)).map((r) => [sameRoleKey(r.company, r.title), r] as const).reverse()).values()].reverse();
+  [...new Map(roles.filter((r) => !junkCompany(r.company) && !storeRetailJob(r) && !offTarget(r.title, r.company)).map((r) => [sameRoleKey(r.company, r.title), r] as const).reverse()).values()].reverse();
 
 export const rolesInCity = (city: string) =>
   cachedQuery<PublicRole[]>("publicRoles:inCity", { city })
