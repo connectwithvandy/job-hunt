@@ -9,7 +9,7 @@ import { internal } from "./_generated/api";
 import { action, env } from "./_generated/server";
 import type { CareerBoard } from "./lib/careerBoards";
 import { pickedBoards } from "./lib/pickedBoards";
-import { careerJobV } from "./careers";
+import { boardV, careerJobV } from "./careers";
 
 function check(secret: string) {
   const want = env.CAREERS_RUNNER_SECRET;
@@ -63,9 +63,15 @@ export const finish = action({
     failed: v.array(v.string()),
     empty: v.array(v.string()),
     broken: v.array(v.string()),
+    /** Boards GitHub couldn't read because the site refused its runners (Workable): Convex reads these itself. */
+    handOff: v.optional(v.array(boardV)),
   },
-  handler: async (ctx, { secret, fresh, since, read, failed, empty, broken }) => {
+  handler: async (ctx, { secret, fresh, since, read, failed, empty, broken, handOff = [] }) => {
     check(secret);
+    if (handOff.length) {
+      const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
+      await ctx.scheduler.runAfter(0, internal.careersRefresh.syncChanged, { boards: handOff, titles, mark: true });
+    }
     for (let i = 0; i < read.length; i += 400) await ctx.runMutation(internal.careers.markRead, { names: read.slice(i, i + 400) });
     if (!fresh && (failed.length || empty.length)) {
       const parts = [failed.length ? `failed: ${failed.join("; ")}` : "", empty.length ? `listed no jobs: ${empty.join(", ")}` : ""].filter(Boolean);

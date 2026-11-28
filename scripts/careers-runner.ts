@@ -69,20 +69,21 @@ async function main() {
     if (jobs.length === 0 && board.ats !== "workday" && PICKED_NAMES.has(board.name)) empty.push(board.name);
   };
 
-  // A board that says "too many requests" is waited on and tried twice more.
+  // A board that says "too many requests" is waited on and tried twice more. Not Workable: see below.
   const patient = async (board: CareerBoard) => {
     for (let n = 1; ; n++) {
       try {
         return await one(board);
       } catch (e) {
-        if (n >= 3 || !/429/.test(String(e))) throw e;
+        if (n >= 3 || slow(board) || !/429/.test(String(e))) throw e;
         await new Promise((r) => setTimeout(r, 15_000 * n));
       }
     }
   };
-  // Workable refuses GitHub's runners when asked 8 at a time (28 Nov: 87 of 137 boards answered 429), so its
-  // boards are read one at a time, a second apart, after the rest.
+  // Workable refuses GitHub's runners (28 Nov: 80 of 137 boards answered 429 even one at a time with retries,
+  // which took an hour). So its boards come last, one at a time, tried once; the ones refused go to Convex to read.
   const slow = (b: CareerBoard) => b.ats === "workable";
+  const handOff: CareerBoard[] = [];
   const batches: CareerBoard[][] = [];
   const quick = boards.filter((b) => !slow(b));
   for (let i = 0; i < quick.length; i += AT_ONCE) batches.push(quick.slice(i, i + AT_ONCE));
@@ -90,7 +91,15 @@ async function main() {
 
   for (const batch of batches) {
     const settled = await Promise.allSettled(batch.map(patient));
-    if (batch.length === 1 && slow(batch[0])) await new Promise((r) => setTimeout(r, 1000));
+    if (batch.length === 1 && slow(batch[0])) {
+      await new Promise((r) => setTimeout(r, 1000));
+      const r = settled[0];
+      if (r.status === "rejected" && /429/.test(String(r.reason))) {
+        const { name, website, ats, slug, careersUrl } = batch[0];
+        handOff.push({ name, website, ats, slug, ...(careersUrl ? { careersUrl } : {}) });
+        continue;
+      }
+    }
     settled.forEach((r, k) => {
       if (r.status !== "rejected") return;
       const b = batch[k];
@@ -103,8 +112,8 @@ async function main() {
     });
   }
 
-  await call(() => client.action(api.careersRunner.finish, { secret: secret!, fresh, since, read, failed, empty, broken }));
-  console.log(`Careers boards${fresh ? " (daytime read)" : ""}: ${read.length} of ${boards.length} read, ${added} new roles, ${removed} closed, ${failed.length} hand-picked failed.`);
+  await call(() => client.action(api.careersRunner.finish, { secret: secret!, fresh, since, read, failed, empty, broken, handOff }));
+  console.log(`Careers boards${fresh ? " (daytime read)" : ""}: ${read.length} of ${boards.length} read, ${added} new roles, ${removed} closed, ${failed.length} hand-picked failed, ${handOff.length} handed to Convex.`);
 }
 
 main().catch((e) => {

@@ -9,7 +9,7 @@ import { FAST_ATS, readBoard, type CareerJob } from "./lib/careers";
 import { AGGREGATORS, applyBoard } from "./lib/company";
 import { isCompanyLink } from "./lib/directLink";
 import { findBoard } from "./lib/boardFinder";
-import { atsV } from "./careers";
+import { atsV, boardV } from "./careers";
 import { openTo, readPlace, titleMatches } from "./lib/sources";
 import { pickedBoards } from "./lib/pickedBoards";
 import { boardChanges } from "./lib/boardSync";
@@ -281,26 +281,31 @@ export const sweep = internalAction({
   },
 });
 
-const boardV = v.object({ name: v.string(), website: v.string(), ats: atsV, slug: v.string(), careersUrl: v.optional(v.string()) });
 
 /**
  * Reads in full the boards the half-hourly check (careersQuick.quickCheck) found changed. That check runs in the
  * cheaper default runtime; only this part, when something changed, runs here in Node (25 Nov 2026).
  */
 export const syncChanged = internalAction({
-  args: { boards: v.array(boardV), titles: v.array(v.string()) },
+  // mark: count the boards read for the daily sweep. Set for the Workable boards the GitHub read hands over when
+  // Workable refuses GitHub's runners (careersRunner.finish, 28 Nov 2026).
+  args: { boards: v.array(boardV), titles: v.array(v.string()), mark: v.optional(v.boolean()) },
   returns: v.object({ added: v.number(), failed: v.array(v.string()) }),
-  handler: async (ctx, { boards, titles }) => {
+  handler: async (ctx, { boards, titles, mark }) => {
     let added = 0;
     const failed: string[] = [];
+    const read: string[] = [];
     for (const board of boards) {
       try {
         added += (await syncBoard(ctx, board, titles)).added;
+        read.push(board.name);
       } catch (err) {
         console.warn("Careers board failed:", board.name, String(err));
         failed.push(`${board.ats}:${board.slug}`);
       }
     }
+    if (mark && read.length) await ctx.runMutation(internal.careers.markRead, { names: read });
+    if (mark) console.log(`Handed-over boards: ${read.length} of ${boards.length} read, ${added} new roles.`);
     return { added, failed };
   },
 });

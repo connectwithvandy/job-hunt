@@ -14,6 +14,9 @@ const MAX_DISCOVERED = 2500;
 
 export const atsV = v.union(v.literal("ashby"), v.literal("greenhouse"), v.literal("lever"), v.literal("workday"), v.literal("keka"), v.literal("zoho"), v.literal("freshteam"), v.literal("smartrecruiters"), v.literal("rippling"), v.literal("google"), v.literal("workable"), v.literal("recruitee"), v.literal("teamtailor"), v.literal("bamboohr"), v.literal("eightfold"), v.literal("recruiterbox"));
 
+/** One careers board, as the scheduled reads pass it around. */
+export const boardV = v.object({ name: v.string(), website: v.string(), ats: atsV, slug: v.string(), careersUrl: v.optional(v.string()) });
+
 async function saveBoard(ctx: MutationCtx, company: string, board: { ats: CareerBoard["ats"]; slug: string }) {
   // Roles are filed by company name, so one board per name.
   const key = companyKey(company);
