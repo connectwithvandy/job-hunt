@@ -305,7 +305,6 @@ export const syncChanged = internalAction({
       }
     }
     if (mark && read.length) await ctx.runMutation(internal.careers.markRead, { names: read });
-    if (mark) console.log(`Handed-over boards: ${read.length} of ${boards.length} read, ${added} new roles.`);
     return { added, failed };
   },
 });

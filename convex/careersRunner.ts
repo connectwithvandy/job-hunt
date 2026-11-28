@@ -70,7 +70,9 @@ export const finish = action({
     check(secret);
     if (handOff.length) {
       const titles: string[] = await ctx.runQuery(internal.careers.trackTitles, {});
-      await ctx.scheduler.runAfter(0, internal.careersRefresh.syncChanged, { boards: handOff, titles, mark: true });
+      // One board every 10 seconds: Workable refuses Convex too when asked back to back (28 Nov: 59 of 90 answered
+      // 429). Scheduled apart rather than waited on, since Node bills the waiting.
+      for (const [i, board] of handOff.entries()) await ctx.scheduler.runAfter(i * 10_000, internal.careersRefresh.syncChanged, { boards: [board], titles, mark: true });
     }
     for (let i = 0; i < read.length; i += 400) await ctx.runMutation(internal.careers.markRead, { names: read.slice(i, i + 400) });
     if (!fresh && (failed.length || empty.length)) {
