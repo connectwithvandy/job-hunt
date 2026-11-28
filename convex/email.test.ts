@@ -69,3 +69,34 @@ describe("sendEmail tries again only when it could help", () => {
     expect(f).toHaveBeenCalledTimes(3);
   });
 });
+
+describe("sendEmail uses Brevo first, then Resend", () => {
+  beforeEach(() => {
+    process.env.BREVO_API_KEY = "b";
+    process.env.RESEND_API_KEY = "r";
+    EMAIL_RETRY_WAITS.splice(0, 2, 1, 1);
+  });
+  afterEach(() => {
+    delete process.env.BREVO_API_KEY;
+    delete process.env.RESEND_API_KEY;
+    vi.unstubAllGlobals();
+  });
+  const msg = { to: "a@example.com", subject: "s", text: "t" };
+  const hosts = (statuses: number[]) => {
+    const f = vi.fn(async (url: string) => new Response("x", { status: statuses.shift() ?? 200 }));
+    vi.stubGlobal("fetch", f);
+    return () => f.mock.calls.map((c) => new URL(String(c[0])).host);
+  };
+
+  test("Brevo sends when it can", async () => {
+    const seen = hosts([200]);
+    await sendEmail(msg);
+    expect(seen()).toEqual(["api.brevo.com"]);
+  });
+
+  test("Brevo out of emails for the day: Resend sends it", async () => {
+    const seen = hosts([402, 200]);
+    await sendEmail(msg);
+    expect(seen()).toEqual(["api.brevo.com", "api.resend.com"]);
+  });
+});

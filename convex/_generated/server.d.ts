@@ -37,6 +37,7 @@ type Env = {
   readonly APIFY_OWNER_EXTRAS: string | undefined;
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
+  readonly BREVO_API_KEY: string | undefined;
   readonly BUFFER_API_KEY: string | undefined;
   readonly CAREERS_RUNNER_SECRET: string | undefined;
   readonly COMPOSIO_LINKEDIN_ACCOUNT: string | undefined;

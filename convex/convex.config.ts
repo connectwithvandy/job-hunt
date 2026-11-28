@@ -55,7 +55,9 @@ const app = defineApp({
     USD_INR: v.optional(v.string()),
     /** AI work the whole app may do in a day, in rough units (limits.ts AI_UNITS); defaults to 3000. */
     AI_DAILY_UNITS: v.optional(v.string()),
-    /** Sends the "you're in" and forgot-password emails through Resend (lib/email.ts). Off when missing. */
+    /** Sends every app email through Brevo first (lib/email.ts, free 300 a day). Resend is used when it's missing or fails. */
+    BREVO_API_KEY: v.optional(v.string()),
+    /** Sends the app's emails through Resend (lib/email.ts) when Brevo is missing or fails. Email is off when both are missing. */
     RESEND_API_KEY: v.optional(v.string()),
     /** Finds a hiring contact's work email (convex/emailFinder.ts). Off when missing. */
     HUNTER_API_KEY: v.optional(v.string()),

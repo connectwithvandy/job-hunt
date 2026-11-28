@@ -1,5 +1,7 @@
-// Sends email through Resend (resend.com, free up to 3,000 a month) from vandana@jobpipe.in.
-// Off when RESEND_API_KEY is missing: the waitlist page then falls back to opening your own email app.
+// Sends email from vandana@jobpipe.in through Brevo (free: 300 a day), and through Resend (free: 100 a day) when
+// Brevo is missing or refuses. Since 28 Nov 2026: Resend alone ran out at 9:30 on 26 Nov (88 new-roles emails),
+// and every email after that failed that day, password resets too.
+// Off when neither key is set: the waitlist page then falls back to opening your own email app.
 
 import { env } from "../_generated/server";
 import { FREE, PLANS } from "./plans";
@@ -8,34 +10,76 @@ export const FROM = "Vandy from JobPipe <vandana@jobpipe.in>";
 export const REPLY_TO = "vandana@jobpipe.in";
 const FOUNDER_LINKEDIN = "https://www.linkedin.com/in/meet-vandana/";
 
-export const emailOn = () => !!env.RESEND_API_KEY;
+export const emailOn = () => !!(env.BREVO_API_KEY || env.RESEND_API_KEY);
 
 export const appUrl = () => (env.APP_URL ?? "https://jobpipe.in").replace(/\/$/, "");
 
 /** Waits before each new try. A bad address fails at once; only busy or broken moments are tried again. */
 export const EMAIL_RETRY_WAITS = [1000, 3000];
 
-/** Sends one email, trying again if Resend is busy or can't be reached. Throws with Resend's reason when it fails. */
-export async function sendEmail(msg: { to: string; subject: string; text: string; html?: string; bcc?: string; headers?: Record<string, string>; replyTo?: string }) {
-  if (!env.RESEND_API_KEY) throw new Error("Email is off: RESEND_API_KEY isn't set.");
-  // The same key on every try, so a try that worked but lost its reply can't send the email twice.
-  const key = crypto.randomUUID();
+type Msg = { to: string; subject: string; text: string; html?: string; bcc?: string; headers?: Record<string, string>; replyTo?: string };
+
+/** Sends one email: Brevo first, then Resend if Brevo is missing or fails. Throws with the last service's reason. */
+export async function sendEmail(msg: Msg) {
+  const ways = [env.BREVO_API_KEY && (() => viaBrevo(msg, env.BREVO_API_KEY!)), env.RESEND_API_KEY && (() => viaResend(msg, env.RESEND_API_KEY!))].filter(Boolean) as (() => Promise<void>)[];
+  if (!ways.length) throw new Error("Email is off: neither BREVO_API_KEY nor RESEND_API_KEY is set.");
+  let failure: unknown;
+  for (const send of ways) {
+    try {
+      return await send();
+    } catch (err) {
+      failure = err;
+      if (ways.length > 1) console.warn("Email service failed, trying the next one:", String(err).slice(0, 200));
+    }
+  }
+  throw failure;
+}
+
+/** One service's tries: again only if it was busy or couldn't be reached. A bad address fails at once. */
+async function withRetries(name: string, post: () => Promise<Response>) {
   for (let attempt = 0; ; attempt++) {
     const last = attempt >= EMAIL_RETRY_WAITS.length;
     try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": key },
-        body: JSON.stringify({ from: FROM, reply_to: msg.replyTo ?? REPLY_TO, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html, ...(msg.bcc ? { bcc: [msg.bcc] } : {}), ...(msg.headers ? { headers: msg.headers } : {}) }),
-      });
+      const res = await post();
       if (res.ok) return;
-      const failure = new Error(`Resend said ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      const failure = new Error(`${name} said ${res.status}: ${(await res.text()).slice(0, 300)}`);
       if (last || (res.status !== 429 && res.status < 500)) throw Object.assign(failure, { final: true });
     } catch (err) {
       if (last || (err as { final?: boolean }).final) throw err;
     }
     await new Promise((done) => setTimeout(done, EMAIL_RETRY_WAITS[attempt]));
   }
+}
+
+function viaResend(msg: Msg, apiKey: string) {
+  // The same key on every try, so a try that worked but lost its reply can't send the email twice.
+  const key = crypto.randomUUID();
+  return withRetries("Resend", () =>
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": key },
+      body: JSON.stringify({ from: FROM, reply_to: msg.replyTo ?? REPLY_TO, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html, ...(msg.bcc ? { bcc: [msg.bcc] } : {}), ...(msg.headers ? { headers: msg.headers } : {}) }),
+    }),
+  );
+}
+
+function viaBrevo(msg: Msg, apiKey: string) {
+  return withRetries("Brevo", () =>
+    fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        sender: { name: "Vandy from JobPipe", email: "vandana@jobpipe.in" },
+        to: [{ email: msg.to }],
+        replyTo: { email: msg.replyTo ?? REPLY_TO },
+        subject: msg.subject,
+        textContent: msg.text,
+        ...(msg.html ? { htmlContent: msg.html } : {}),
+        ...(msg.bcc ? { bcc: [{ email: msg.bcc }] } : {}),
+        ...(msg.headers ? { headers: msg.headers } : {}),
+      }),
+    }),
+  );
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
