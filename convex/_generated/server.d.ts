@@ -38,6 +38,7 @@ type Env = {
   readonly APIFY_TOKEN: string | undefined;
   readonly APP_URL: string | undefined;
   readonly BUFFER_API_KEY: string | undefined;
+  readonly CAREERS_RUNNER_SECRET: string | undefined;
   readonly COMPOSIO_LINKEDIN_ACCOUNT: string | undefined;
   readonly COMPOSIO_PROJECT_ID: string | undefined;
   readonly COMPOSIO_USER_API_KEY: string | undefined;

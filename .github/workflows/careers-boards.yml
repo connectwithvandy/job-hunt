@@ -1,0 +1,44 @@
+# Reads every company careers board and sends the changes to JobPipe (scripts/careers-runner.ts).
+# Moved here from Convex on 28 Nov 2026 to cut the Convex bill: GitHub's runners are free for a public repo.
+# Needs two repository secrets: CONVEX_URL (the prod deployment URL) and CAREERS_RUNNER_SECRET (same value as the
+# Convex prod env var of that name).
+name: Careers boards
+
+on:
+  schedule:
+    # 6:37 IST: every board. Was 7:00 in Convex; earlier here because GitHub can start scheduled runs late, and the
+    # 8:00 morning search needs these roles.
+    - cron: "7 1 * * *"
+    # 13:05 and 18:05 IST: the slower boards only (the fast ones are checked every 30 minutes in Convex).
+    - cron: "35 7,12 * * *"
+  workflow_dispatch:
+    inputs:
+      fresh:
+        description: "Daytime read (slower boards only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: careers-boards
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Read the boards
+        env:
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+          CAREERS_RUNNER_SECRET: ${{ secrets.CAREERS_RUNNER_SECRET }}
+          FRESH: ${{ (github.event_name == 'schedule' && github.event.schedule == '35 7,12 * * *') || inputs.fresh == true }}
+        run: npx tsx scripts/careers-runner.ts $([ "$FRESH" = "true" ] && echo --fresh)

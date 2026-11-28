@@ -66,6 +66,9 @@ const app = defineApp({
     RAZORPAY_KEY_SECRET: v.optional(v.string()),
     /** Checks that calls to /razorpay/webhook really come from Razorpay. Set the same secret on Razorpay's Webhooks page. */
     RAZORPAY_WEBHOOK_SECRET: v.optional(v.string()),
+    /** Lets the GitHub careers-board read (scripts/careers-runner.ts) call careersRunner.ts. Same value as the GitHub
+     * secret of that name. The read refuses every call when missing. */
+    CAREERS_RUNNER_SECRET: v.optional(v.string()),
   },
 });
 app.use(rateLimiter);

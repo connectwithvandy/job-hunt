@@ -12,6 +12,7 @@ import { findBoard } from "./lib/boardFinder";
 import { atsV } from "./careers";
 import { openTo, readPlace, titleMatches } from "./lib/sources";
 import { pickedBoards } from "./lib/pickedBoards";
+import { boardChanges } from "./lib/boardSync";
 
 const INDIA = readPlace("India");
 
@@ -137,21 +138,8 @@ export const googlePool = internalAction({
 /** Reads one board and keeps the shared table in step: new roles in, closed roles out. */
 async function syncBoard(ctx: ActionCtx, board: CareerBoard, titles: string[]) {
   const saved: { externalId: string; url: string }[] = await ctx.runQuery(internal.careers.linksFor, { company: board.name });
-  const have = new Set(saved.map((s) => s.externalId));
-  const linkOf = new Map(saved.map((s) => [s.externalId, s.url]));
-  const read = await readBoard(board, titles, have);
-  // Workday roles already saved come back as ids only; they're still open.
-  const stillOpen = read.filter((j) => "known" in j).map((j) => j.externalId);
-  // Only roles in India or remote, with a title someone's tracks ask for; the rest drop out on the next run.
-  const jobs = (AGGREGATORS.test(board.name) ? [] : read)
-    .filter((j): j is CareerJob => !("known" in j))
-    .map((j) => ({ ...j, india: openTo(INDIA, j.location, j.workSetting, j.title) }))
-    .filter((j) => j.india || j.workSetting === "remote" || /remote|distributed/i.test(j.location))
-    .filter((j) => titles.some((t) => titleMatches(t, j.title)));
-  const live = new Set([...jobs.map((j) => j.externalId), ...stillOpen]);
-  // New roles, plus saved ones whose link the board moved (addJobs updates those links).
-  const fresh = jobs.filter((j) => !have.has(j.externalId) || linkOf.get(j.externalId) !== j.url);
-  const gone = [...have].filter((id) => !live.has(id));
+  const read = await readBoard(board, titles, new Set(saved.map((s) => s.externalId)));
+  const { fresh, gone } = boardChanges(board.name, read, saved, titles);
   for (let i = 0; i < fresh.length; i += 50) await ctx.runMutation(internal.careers.addJobs, { jobs: fresh.slice(i, i + 50) });
   for (let i = 0; i < gone.length; i += 200) await ctx.runMutation(internal.careers.removeJobs, { externalIds: gone.slice(i, i + 200) });
   return { added: fresh.length, removed: gone.length, total: read.length };

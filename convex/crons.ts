@@ -6,16 +6,15 @@ const crons = cronJobs();
 // Sundays 5:30 in India: look up more B2B and AI startups' careers boards (careersFinder.ts).
 crons.weekly("careers finder", { dayOfWeek: "sunday", hourUTC: 0, minuteUTC: 0 }, internal.careersFinder.find, {});
 
-// 7:00 in India (01:30 UTC): read every company careers board, an hour before the searches use them.
-crons.cron("careers boards", "30 1 * * *", internal.careersRefresh.refresh, {});
+// The careers boards (6:37 IST, every board) and the daytime reads (13:05 and 18:05 IST, slower boards) run on
+// GitHub Actions since 28 Nov 2026: .github/workflows/careers-boards.yml and scripts/careers-runner.ts. They were the
+// crons "careers boards" and "fresh jobs" here, running careersRefresh.refresh, most of the Convex bill. To run one
+// read in Convex instead: npx convex run --prod careersRefresh:refresh '{}'
 
 // Early applicants get read first, so new roles are checked all day and strong ones emailed straight away.
 // Every 30 minutes (15 until 25 Nov 2026: compute cost): boards with a light job list. A board that hasn't changed costs almost nothing (careersRefresh.quickCheck).
 crons.interval("quick job check", { minutes: 30 }, internal.careersQuick.quickCheck, {});
 
-// 13:00 and 18:00 IST: the boards too heavy for the 15-minute check (mostly Workday). Was hourly until 17 Nov:
-// that made careersRefresh.refresh ~63% of Convex compute and ~81% of egress (~$2.60/day all in).
-crons.cron("fresh jobs", "30 7,12 * * *", internal.careersRefresh.refresh, { fresh: true });
 
 // 7:35 in India: today's Google Jobs sales roles (Naukri, Indeed and company pages) into the shared list.
 crons.cron("google pool", "5 2 * * *", internal.careersRefresh.googlePool, {});

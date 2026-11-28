@@ -202,7 +202,7 @@ export const discoverFromJobs = internalMutation({
   },
 });
 
-const careerJobV = v.object({
+export const careerJobV = v.object({
   externalId: v.string(),
   company: v.string(),
   title: v.string(),
