@@ -90,6 +90,18 @@ const AI_UNITS: Partial<Record<keyof typeof LABELS, number>> = { readCv: 1, scor
  * The whole app's daily AI limit, so a bug or a busy day can't run up a big bill. A unit is roughly $0.01
  * (one job score); 800 is about $8 a day. Raise it with AI_DAILY_UNITS, no deploy needed.
  */
+/**
+ * Who the app-wide AI limit never blocks; their own daily limits still apply. Members in their first 2 days (27 Nov:
+ * afternoon sign-ups couldn't score or write a CV and left on day one), and paying and partner members (28 Nov:
+ * two of the seven people blocked on 26-27 Nov had paid).
+ */
+function skipsSharedLimit(access: { approved?: boolean; decidedAt?: number; welcomedAt?: number; paidUntil?: number; partner?: { until: number } } | null, now: number) {
+  if (!access) return false;
+  if ((access.paidUntil ?? 0) > now || (access.partner?.until ?? 0) > now) return true;
+  const letInAt = access.approved ? (access.decidedAt ?? access.welcomedAt) : undefined;
+  return !!letInAt && now - letInAt < NEW_MEMBER_DAYS * DAY;
+}
+
 export const aiLimit = () => ({ kind: "fixed window" as const, rate: Number(env.AI_DAILY_UNITS ?? 800), period: DAY });
 
 /**
@@ -122,12 +134,9 @@ export const consume = internalMutation({
     // 200 units were gone by 9:15am and a new member's CV upload failed at "First, your CV". About 1c a CV;
     // the per-person daily limit below still applies.
     const units = kind === "readCv" ? 0 : (AI_UNITS[kind] ?? 0) * (count ?? 1);
-    // Members in their first 2 days skip the app-wide budget (27 Nov, owner): it ran out by the afternoon, so
-    // afternoon sign-ups couldn't score or write a CV at all and left on day one. Their own daily limits below still apply.
+    // New, paying and partner members skip the app-wide budget (skipsSharedLimit). Their own daily limits below still apply.
     const access = units && !background ? await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique() : null;
-    const letInAt = access?.approved ? (access.decidedAt ?? access.welcomedAt) : undefined;
-    const newMember = !!letInAt && Date.now() - letInAt < NEW_MEMBER_DAYS * DAY;
-    if (units && !newMember) {
+    if (units && !skipsSharedLimit(access, Date.now())) {
       // Half the day's AI is kept for people using the app: on 23 Nov the morning run's Monday company lookups
       // and scores used much of it before anyone logged in, and members (and a new sign-up) hit the wall.
       if (background) {
@@ -279,8 +288,7 @@ export const aiPaused = query({
     const user = await ctx.db.get("users", userId);
     if (isOwnerEmail(user?.email)) return false;
     const access = await ctx.db.query("access").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
-    const letInAt = access?.approved ? (access.decidedAt ?? access.welcomedAt) : undefined;
-    if (letInAt && Date.now() - letInAt < NEW_MEMBER_DAYS * DAY) return false;
+    if (skipsSharedLimit(access, Date.now())) return false;
     const { ok } = await rateLimiter.check(ctx, "appAi", { count: AI_UNITS.score ?? 1, config: aiLimit() });
     return !ok;
   },

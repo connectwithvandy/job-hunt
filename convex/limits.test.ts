@@ -109,6 +109,22 @@ describe("D. The whole app's daily AI limit", () => {
     await t.mutation(internal.limits.consume, { userId: other, kind: "search" });
   });
 
+  test("paying and partner members aren't stopped by it (28 Nov: two blocked members had paid)", async () => {
+    const { t, tester } = await setup();
+    const later = Date.now() + 30 * 86_400_000;
+    const [payer, partner] = await t.run(async (ctx) => {
+      const payer = await ctx.db.insert("users", { email: "payer@example.com" });
+      await ctx.db.insert("access", { userId: payer, email: "payer@example.com", approved: true, paidUntil: later });
+      const partner = await ctx.db.insert("users", { email: "partner@example.com" });
+      await ctx.db.insert("access", { userId: partner, email: "partner@example.com", approved: true, partner: { name: "SaasPire", url: "https://saaspire.co", from: Date.now(), until: later } });
+      return [payer, partner];
+    });
+    await t.mutation(internal.limits.consume, { userId: tester, kind: "score", count: 20 });
+    await expect(t.mutation(internal.limits.consume, { userId: tester, kind: "score" })).rejects.toThrow("reached today's limit");
+    await t.mutation(internal.limits.consume, { userId: payer, kind: "score" });
+    await t.mutation(internal.limits.consume, { userId: partner, kind: "tailor" });
+  });
+
   test("background work stops at half the budget; members and CV reading carry on (23 Nov)", async () => {
     const { t, tester } = await setup();
     // 20 units a day: background may use 10.
