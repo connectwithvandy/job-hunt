@@ -15,6 +15,19 @@ import { isOwnerEmail } from "./lib/auth";
 
 const DAY = 86_400_000;
 const PER_EMAIL = 8;
+/** Away this long, the email turns weekly, with only the best few roles: a "come back" email rather than a list. */
+const QUIET_AFTER = 14 * DAY;
+const COMEBACK_ROLES = 3;
+
+/** Partner members (SaasPire) and paying members: always the daily email. */
+const covered = (r: { partner?: { until: number }; paidUntil?: number }, now: number) => (r.partner?.until ?? 0) > now || (r.paidUntil ?? 0) > now;
+
+/** A quiet member's own weekday for the weekly email, Monday to Friday, fixed by their id so it never changes. */
+export function quietDay(id: string) {
+  let n = 0;
+  for (const c of id) n = (n * 31 + c.charCodeAt(0)) % 9973;
+  return (n % 5) + 1;
+}
 /** Below this AI score the app says skip the job, so it stays out of the email. Roles not scored yet still go in. */
 const RELEVANT = 60;
 /** A role with no AI score yet goes in only if its free guess reaches this (13 Nov: roles abroad filled emails). */
@@ -32,6 +45,8 @@ const personV = v.object({
   searching: v.optional(v.string()),
   /** On the free plan: the email ends with one line about the Job Hunt Pass. */
   free: v.optional(v.boolean()),
+  /** Away 2+ weeks: the weekly "come back" email, with only their best few roles. */
+  comeback: v.optional(v.boolean()),
   /** Their best AI-scored job (70+) with no tailored CV yet: the email opens with it, since tailoring is the step people skip. */
   tailor: v.optional(jobV),
 });
@@ -51,18 +66,21 @@ export const candidates = internalQuery({
     const rows = await ctx.db.query("access").withIndex("by_approved", (q) => q.eq("approved", true)).take(1000);
     // Once a day at most.
     const due = rows.filter((r) => r.email && !r.alertsOff && !r.rejected && !(r.alertsAt && now - r.alertsAt < 20 * 3_600_000));
-    // Daily for people on JobPipe in the last 3 days; everyone else on Monday and Thursday (India time), with
-    // everything since their last email. Daily to all sent ~72 a day, mostly to quiet people, past the email
-    // plan's 100 a day (17 Nov). Opening the app again puts them back on daily.
+    // Daily for people on JobPipe in the last 3 days; Monday and Thursday (India time) for people seen in the last
+    // 2 weeks; once a week for everyone quieter, each on their own weekday, so the round-ups don't all land on one
+    // morning. 26 Nov (a Thursday): 88 round-ups at 9:30 used up the email plan's 100 a day, and every email after
+    // that failed, password resets too. Opening the app again puts them back on daily.
     const weekday = new Date(now + 19_800_000).getUTCDay();
     const roundUp = weekday === 1 || weekday === 4;
     const out = [];
     for (const r of due) {
       // Partner members (SaasPire) and paying members always get it daily.
-      const covered = (r.partner?.until ?? 0) > now || (r.paidUntil ?? 0) > now;
-      if (!roundUp && !covered) {
+      if (!covered(r, now)) {
         const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", r.userId)).unique();
-        if (!profile?.lastSeenAt || now - profile.lastSeenAt > 3 * DAY) continue;
+        const away = profile?.lastSeenAt ? now - profile.lastSeenAt : Infinity;
+        if (away > QUIET_AFTER) {
+          if (weekday !== quietDay(r._id) || (r.alertsAt && now - r.alertsAt < 6 * DAY)) continue;
+        } else if (away > 3 * DAY && !roundUp) continue;
       }
       out.push(r._id);
     }
@@ -77,8 +95,10 @@ export const dueFor = internalQuery({
   handler: async (ctx, { accessId, now }) => {
     const row = await ctx.db.get("access", accessId);
     if (!row) return null;
-    // Since their last email, up to 4 days back (Thursday to Monday for people on the twice-a-week round-up).
-    const since = Math.max(row.alertsAt ?? now - DAY, now - 4 * DAY);
+    // Since their last email, up to a week back (the weekly email for quiet members).
+    const since = Math.max(row.alertsAt ?? now - DAY, now - 7 * DAY);
+    const seen = (await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", row.userId)).unique())?.lastSeenAt;
+    const comeback = !covered(row, now) && (!seen || now - seen > QUIET_AFTER);
     const tracks = (await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", row.userId)).take(50)).filter((t) => t.status === "active");
     if (!tracks.length) return null;
     const fresh = [];
@@ -95,7 +115,7 @@ export const dueFor = internalQuery({
       .filter((x) => (x.fit === undefined ? x.guess >= GUESS_FLOOR || j0(x.j) : x.fit >= RELEVANT) && tracks.some((t) => t.key === x.key))
       // Same order as the Jobs page's Best fit: the number people see, real scores first; age only breaks ties.
       .sort(byShownFit)
-      .slice(0, PER_EMAIL);
+      .slice(0, comeback ? COMEBACK_ROLES : PER_EMAIL);
     if (!best.length) return null;
     // Scored 70+, untouched, still open, no tailored CV: 62 people had a scored job but only 18 tailored (14 Nov).
     const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc").take(200);
@@ -124,6 +144,7 @@ export const dueFor = internalQuery({
       groups: [...byTrack].map(([track, jobs]) => ({ track, jobs })),
       searching: `${place === "Anywhere" ? "Anywhere" : place}${modeText}`,
       free: !isOwnerEmail(user?.email) && trialOver(row, now),
+      ...(comeback ? { comeback: true } : {}),
       ...(top ? { tailor: { title: top.title, company: top.company, where: top.location || "Not listed", fit: aiFit(top), id: top._id } } : {}),
     };
   },

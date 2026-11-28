@@ -452,6 +452,8 @@ export function alertsEmail(p: {
   free?: boolean;
   unsubscribeUrl?: string;
   tailor?: { title: string; company: string; fit?: number; id: string };
+  /** Away 2+ weeks: a weekly email with their best few roles and one step to pick up where they left off. */
+  comeback?: boolean;
 }) {
   const word = p.name?.trim().split(/\s+/)[0];
   const first = word && word[0].toUpperCase() + word.slice(1).toLowerCase();
@@ -459,7 +461,9 @@ export function alertsEmail(p: {
   // Led by the role group with the most, like "SDR / BDR: 4 new, plus 2 more", so the subject says what's inside.
   const lead = [...p.groups].sort((a, b) => b.jobs.length - a.jobs.length)[0];
   const more = count - (lead?.jobs.length ?? 0);
-  const subject = lead
+  const subject = p.comeback
+    ? `${first ? `${first}, ` : ""}your ${count === 1 ? "best new role" : `${count} best new roles`} this week`
+    : lead
     ? `${first ? `${first}, ` : ""}${lead.track}: ${lead.jobs.length} new ${lead.jobs.length === 1 ? "role" : "roles"}${more ? ` + ${more} more` : ""}`
     : `${count} new roles for you`;
   const url = appUrl();
@@ -469,7 +473,7 @@ export function alertsEmail(p: {
   const stop = p.unsubscribeUrl ? `Don't want these? Unsubscribe in one click: ${p.unsubscribeUrl}` : `Don't want these? Reply "stop" and I'll turn them off.`;
   const text = `${first ? `Hi ${first},` : "Hi,"}
 
-${p.tailor ? `Your best fit so far: ${p.tailor.title} at ${p.tailor.company}${p.tailor.fit !== undefined ? ` (fit ${p.tailor.fit})` : ""}. Tailor your CV for it, about a minute: ${url}/jobs/${p.tailor.id}\n\n` : ""}New roles matching your titles since yesterday, best first:
+${p.comeback ? `JobPipe kept searching while you were away. ${count === 1 ? "Here's the best new role" : `Here are the ${count} best new roles`} from this week.\n\n` : ""}${p.tailor ? `Your best fit so far: ${p.tailor.title} at ${p.tailor.company}${p.tailor.fit !== undefined ? ` (fit ${p.tailor.fit})` : ""}. Tailor your CV for it, about a minute: ${url}/jobs/${p.tailor.id}\n\n` : ""}${p.comeback ? "This week's best:" : "New roles matching your titles since yesterday, best first:"}
 
 ${p.groups.map((g) => `${g.track} (${g.jobs.length} new)\n${g.jobs.map((j) => `- ${line(j)}\n  ${url}/jobs/${j.id}${j.applyUrl ? `\n  Apply: ${j.applyUrl}` : ""}`).join("\n")}`).join("\n\n")}
 
@@ -485,7 +489,8 @@ ${stop}
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
 <p>${esc(first ? `Hi ${first},` : "Hi,")}</p>
 ${p.tailor ? `<p style="background:#f4ffe0;border-radius:8px;padding:10px 14px">Your best fit so far: <b>${esc(p.tailor.title)}</b> at ${esc(p.tailor.company)}${p.tailor.fit !== undefined ? ` (fit ${p.tailor.fit})` : ""}. <a href="${esc(`${url}/jobs/${p.tailor.id}`)}" style="color:#1a1a1a;font-weight:600">Tailor your CV for it</a>, about a minute.</p>` : ""}
-<p>New roles matching your titles since yesterday, best first:</p>
+${p.comeback ? `<p>JobPipe kept searching while you were away. ${count === 1 ? "Here's the best new role" : `Here are the ${count} best new roles`} from this week.</p>` : ""}
+<p>${p.comeback ? "This week's best:" : "New roles matching your titles since yesterday, best first:"}</p>
 ${p.groups
   .map(
     (g) => `<p style="margin:20px 0 6px;font-weight:600">${esc(g.track)} <span style="color:#666;font-weight:400">(${g.jobs.length} new)</span></p>

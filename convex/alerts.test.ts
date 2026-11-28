@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import schema from "./schema";
 import { fingerprintOf, indiaFacet } from "./lib/careers";
 import { alertsEmail, freshEmail, weeklyEmail } from "./lib/email";
+import { quietDay } from "./alerts";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -189,4 +190,25 @@ test("Workday India filter uses the filter name the India value sits under", () 
   // Flat sites keep working.
   expect(indiaFacet([{ facetParameter: "locationCountry", values: [{ descriptor: "India", id: "x", count: 3 }] }])).toEqual({ param: "locationCountry", ids: ["x"] });
   expect(indiaFacet([{ facetParameter: "timeType", values: [{ descriptor: "Full time", id: "t", count: 3 }] }])).toBeNull();
+});
+
+test("members away 2+ weeks get one email a week, on their own weekday, with their 3 best roles", async () => {
+  const t = convexTest(schema, modules);
+  const MON = Date.UTC(2026, 10, 16, 4); // 9:30 India time
+  const { id } = await t.run(async (ctx) => {
+    const away = await ctx.db.insert("users", {});
+    const id = await ctx.db.insert("access", { userId: away, email: "away@example.com", approved: true });
+    await ctx.db.insert("profiles", { userId: away, location: "India", onboarded: true, contactsCount: 0, lastSeenAt: MON - 30 * 86_400_000 } as never);
+    return { id };
+  });
+  const day = quietDay(id);
+  const hits = [];
+  for (let d = 0; d < 7; d++) {
+    const now = MON + d * 86_400_000;
+    if ((await t.query(internal.alerts.candidates, { now })).length) hits.push(new Date(now + 19_800_000).getUTCDay());
+  }
+  expect(hits).toEqual([day]);
+  const mail = alertsEmail({ name: "asha", comeback: true, groups: [{ track: "SDR / BDR", jobs: [{ title: "SDR", company: "Acme", where: "Bengaluru", id: "j1" }] }] });
+  expect(mail.subject).toBe("Asha, your best new role this week");
+  expect(mail.text).toContain("kept searching while you were away");
 });
