@@ -69,9 +69,28 @@ async function main() {
     if (jobs.length === 0 && board.ats !== "workday" && PICKED_NAMES.has(board.name)) empty.push(board.name);
   };
 
-  for (let i = 0; i < boards.length; i += AT_ONCE) {
-    const batch = boards.slice(i, i + AT_ONCE);
-    const settled = await Promise.allSettled(batch.map(one));
+  // A board that says "too many requests" is waited on and tried twice more.
+  const patient = async (board: CareerBoard) => {
+    for (let n = 1; ; n++) {
+      try {
+        return await one(board);
+      } catch (e) {
+        if (n >= 3 || !/429/.test(String(e))) throw e;
+        await new Promise((r) => setTimeout(r, 15_000 * n));
+      }
+    }
+  };
+  // Workable refuses GitHub's runners when asked 8 at a time (28 Nov: 87 of 137 boards answered 429), so its
+  // boards are read one at a time, a second apart, after the rest.
+  const slow = (b: CareerBoard) => b.ats === "workable";
+  const batches: CareerBoard[][] = [];
+  const quick = boards.filter((b) => !slow(b));
+  for (let i = 0; i < quick.length; i += AT_ONCE) batches.push(quick.slice(i, i + AT_ONCE));
+  for (const b of boards.filter(slow)) batches.push([b]);
+
+  for (const batch of batches) {
+    const settled = await Promise.allSettled(batch.map(patient));
+    if (batch.length === 1 && slow(batch[0])) await new Promise((r) => setTimeout(r, 1000));
     settled.forEach((r, k) => {
       if (r.status !== "rejected") return;
       const b = batch[k];
