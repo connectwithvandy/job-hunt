@@ -18,6 +18,8 @@ const PER_EMAIL = 8;
 /** Away this long, the email turns weekly, with only the best few roles: a "come back" email rather than a list. */
 const QUIET_AFTER = 14 * DAY;
 const COMEBACK_ROLES = 3;
+/** Between emails sent from the owner's Google mailbox, so Google never sees a burst (owner's call, 28 Nov). */
+const GOOGLE_GAP = 10 * 60_000;
 
 /** Partner members (SaasPire) and paying members: always the daily email. */
 const covered = (r: { partner?: { until: number }; paidUntil?: number }, now: number) => (r.partner?.until ?? 0) > now || (r.paidUntil ?? 0) > now;
@@ -47,6 +49,8 @@ const personV = v.object({
   free: v.optional(v.boolean()),
   /** Away 2+ weeks: the weekly "come back" email, with only their best few roles. */
   comeback: v.optional(v.boolean()),
+  /** Paying or partner member: the email goes from the owner's Google mailbox (gmailSend.ts). */
+  paid: v.optional(v.boolean()),
   /** Their best AI-scored job (70+) with no tailored CV yet: the email opens with it, since tailoring is the step people skip. */
   tailor: v.optional(jobV),
 });
@@ -145,6 +149,7 @@ export const dueFor = internalQuery({
       searching: `${place === "Anywhere" ? "Anywhere" : place}${modeText}`,
       free: !isOwnerEmail(user?.email) && trialOver(row, now),
       ...(comeback ? { comeback: true } : {}),
+      ...(covered(row, now) ? { paid: true } : {}),
       ...(top ? { tailor: { title: top.title, company: top.company, where: top.location || "Not listed", fit: aiFit(top), id: top._id } } : {}),
     };
   },
@@ -271,11 +276,15 @@ export const send = internalAction({
     if (dryRun) return people.map((p) => `${p.email}: ${p.groups.map((g) => `${g.track} (${g.jobs.length})`).join(", ")}`).join("\n") || "Nobody due.";
     let sent = 0;
     let lastError = "";
+    // Paying and partner members' emails go from the owner's Google mailbox, 10 minutes apart (gmailSend.ts).
+    let fromGoogle = 0;
     for (const p of people) {
       try {
         const key: string = await ctx.runMutation(internal.subscribers.memberKey, { accessId: p.accessId });
         const { url, headers } = unsubscribeLink(key);
-        await sendEmail({ to: p.email, headers, ...alertsEmail({ ...p, unsubscribeUrl: url }) });
+        const mail = { to: p.email, headers, ...alertsEmail({ ...p, unsubscribeUrl: url }) };
+        if (p.paid) await ctx.scheduler.runAfter(fromGoogle++ * GOOGLE_GAP, internal.gmailSend.send, mail);
+        else await sendEmail(mail);
         await ctx.runMutation(internal.alerts.markSent, { accessId: p.accessId });
         sent++;
       } catch (err) {

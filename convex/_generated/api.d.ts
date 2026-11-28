@@ -34,6 +34,7 @@ import type * as emailFix from "../emailFix.js";
 import type * as errors from "../errors.js";
 import type * as feedback from "../feedback.js";
 import type * as fixTitles from "../fixTitles.js";
+import type * as gmailSend from "../gmailSend.js";
 import type * as google from "../google.js";
 import type * as growth from "../growth.js";
 import type * as growthNotes from "../growthNotes.js";
@@ -159,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   errors: typeof errors;
   feedback: typeof feedback;
   fixTitles: typeof fixTitles;
+  gmailSend: typeof gmailSend;
   google: typeof google;
   growth: typeof growth;
   growthNotes: typeof growthNotes;

@@ -59,6 +59,9 @@ const app = defineApp({
     BREVO_API_KEY: v.optional(v.string()),
     /** Sends the app's emails through Resend (lib/email.ts) when Brevo is missing or fails. Email is off when both are missing. */
     RESEND_API_KEY: v.optional(v.string()),
+    /** An app password for vandana@jobpipe.in (Google Account, Security, App passwords). Paying and partner members'
+     * daily emails go from that mailbox (gmailSend.ts); Resend sends them when it's missing or Google refuses. */
+    GMAIL_APP_PASSWORD: v.optional(v.string()),
     /** Finds a hiring contact's work email (convex/emailFinder.ts). Off when missing. */
     HUNTER_API_KEY: v.optional(v.string()),
     /** Emails the whole app may find with Hunter.io a month; defaults to 25 (the free plan has 50 credits). */
