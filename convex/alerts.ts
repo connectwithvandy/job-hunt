@@ -18,6 +18,8 @@ const PER_EMAIL = 8;
 /** Away this long, the email turns weekly, with only the best few roles: a "come back" email rather than a list. */
 const QUIET_AFTER = 14 * DAY;
 const COMEBACK_ROLES = 3;
+/** Jobs read per member when building the email (newest first). */
+const READ_AT_MOST = 400;
 /** Between emails sent from the owner's Google mailbox, so Google never sees a burst (owner's call, 28 Nov). */
 const GOOGLE_GAP = 10 * 60_000;
 
@@ -105,12 +107,10 @@ export const dueFor = internalQuery({
     const comeback = !covered(row, now) && (!seen || now - seen > QUIET_AFTER);
     const tracks = (await ctx.db.query("tracks").withIndex("by_userId_and_key", (q) => q.eq("userId", row.userId)).take(50)).filter((t) => t.status === "active");
     if (!tracks.length) return null;
-    const fresh = [];
-    // Newest first; stop at the first one older than the window.
-    for await (const j of ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc")) {
-      if (j._creationTime < since) break;
-      if (j.status === "new" && j.liveCheck?.state !== "closed") fresh.push(j);
-    }
+    // The newest few hundred only: some members get 500+ new roles a day, and reading them all ran past the
+    // 1-second limit, so those members got no email at all (26-27 Nov). The email shows 8 at most.
+    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc").take(READ_AT_MOST);
+    const fresh = recent.filter((j) => j._creationTime >= since && j.status === "new" && j.liveCheck?.state !== "closed");
     // Every new role whose title fits one of their groups, unless the AI scored it as one to skip.
     // Scored roles first, then by the free first guess. The guess only sorts: at most 55, it would look like a poor fit.
     const best = fresh
@@ -122,8 +122,8 @@ export const dueFor = internalQuery({
       .slice(0, comeback ? COMEBACK_ROLES : PER_EMAIL);
     if (!best.length) return null;
     // Scored 70+, untouched, still open, no tailored CV: 62 people had a scored job but only 18 tailored (14 Nov).
-    const recent = await ctx.db.query("jobs").withIndex("by_userId", (q) => q.eq("userId", row.userId)).order("desc").take(200);
     const top = recent
+      .slice(0, 200)
       .filter((j) => j.status === "new" && !j.hasPack && j.liveCheck?.state !== "closed" && (aiFit(j) ?? 0) >= TAILOR_FROM)
       .map((j) => ({ j, fit: aiFit(j), guess: 0 }))
       .sort(byShownFit)[0]?.j;
